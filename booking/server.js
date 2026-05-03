@@ -14800,7 +14800,11 @@ function installProcessHandlers() {
         "[booking] unhandledRejection",
         reason && (reason.stack || reason.message || reason),
       );
-    } catch (_e) {}
+    } finally {
+      // Wie uncaughtException: Default Node-Verhalten ist Crash. Wir erhalten
+      // das nach kurzem Log-Flush; Restart durch Docker/PM2.
+      setTimeout(() => process.exit(1), 100);
+    }
   });
   process.on("uncaughtException", (err) => {
     try {

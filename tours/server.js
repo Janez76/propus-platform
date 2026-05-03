@@ -207,7 +207,13 @@ function installProcessHandlers() {
   process.on('unhandledRejection', (reason) => {
     try {
       console.error('[tours] unhandledRejection', reason && (reason.stack || reason.message || reason));
-    } catch (_e) {}
+    } finally {
+      // Wie uncaughtException: nach einer Promise-Rejection ist der Zustand
+      // potenziell inkonsistent. Default-Verhalten von Node.js ist Crash;
+      // wir erhalten dieses Verhalten nach kurzem Log-Flush. Restart durch
+      // Docker/PM2.
+      setTimeout(() => process.exit(1), 100);
+    }
   });
   process.on('uncaughtException', (err) => {
     try {

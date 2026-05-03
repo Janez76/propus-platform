@@ -76,26 +76,12 @@ async function claimWebhookEvent({ provider, eventId, referenceId, status, paylo
 }
 
 /**
- * Marker fuer Fehler, bei denen der Idempotency-Claim sicher freigegeben werden
- * darf, weil noch keine schreibenden Side-Effects stattgefunden haben (z.B.
- * referenzierte Datensaetze fehlen → Race-Condition zwischen Checkout und
- * Persistenz). Fehler OHNE diesen Marker werden NICHT released, damit ein
- * Payrexx-Retry nicht-idempotente Schritte nicht doppelt ausfuehrt (etwa
- * Subscription-Verlaengerung mit bereits verschobener End-Date als Basis).
- */
-class RetryableWebhookError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'RetryableWebhookError';
-    this.retryable = true;
-  }
-}
-
-/**
  * Gibt einen Webhook-Claim wieder frei. Wird bei einem Top-Level-Fehler im
- * Side-Effect-Block aufgerufen, damit Payrexx-Retries die Verarbeitung erneut
- * starten koennen. Vollwertige two-state Idempotency (received vs processed)
- * waere sauberer, sprengt aber Sprint A — siehe Backlog-Note.
+ * Side-Effect-Block aufgerufen — aber NUR wenn noch keine schreibende
+ * Operation gelaufen ist (siehe `committed`-Flag im Handler).
+ * Vollwertige two-state Idempotency (received vs processed) ist Sprint-B-
+ * Material; bis dahin geben wir bei pre-write-Fehlern den Slot frei, damit
+ * transiente DB-/Netzwerk-Fehler durch Payrexx-Retry erholt werden koennen.
  */
 async function releaseWebhookEvent({ provider, eventId }) {
   try {
@@ -202,12 +188,13 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
     }
 
     // Compensating action: bei einem Top-Level-Fehler im Side-Effect-Block den
-    // Claim wieder freigeben, damit Payrexx-Retries die Verarbeitung erneut
-    // anstossen. Vollwertige two-state-Idempotency (received vs processed) ist
-    // Backlog (Sprint B). Side-Effect-Calls mit eigenem .catch() (Mail,
-    // Matterport setVisibility) werfen sowieso nicht — die zaehlen als best-
-    // effort und blockieren den Webhook nicht.
+    // Claim freigeben, **wenn noch keine schreibende DB-Operation gelaufen ist**.
+    // Sobald `committed = true` gesetzt wurde, bleibt der Claim auch im
+    // Fehlerfall belegt — ein Retry darf die nicht-idempotenten Updates dann
+    // NICHT erneut anstossen (sonst Subscription-Verlaengerung doppelt).
+    // Vollwertige two-state-Idempotency (received vs processed) ist Backlog.
     const claimedEventId = `${baseEventId}:paid`;
+    let committed = false;
     try {
       const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
       if (match) {
@@ -225,13 +212,13 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
         if (!invoice) {
           // Race-Condition zwischen Checkout und Persistenz oder verzoegerte
           // Invoice-Erstellung. Hier sind noch KEINE schreibenden Updates
-          // gelaufen → Retryable, Claim wird im outer catch released.
-          throw new RetryableWebhookError(`renewal_invoice nicht gefunden (referenceId=${referenceId})`);
+          // gelaufen → committed=false → outer catch released den Claim.
+          throw new Error(`renewal_invoice nicht gefunden (referenceId=${referenceId})`);
         }
         const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
         const tour = normalizeTourRow(tourResult.rows[0] || null);
         if (!tour) {
-          throw new RetryableWebhookError(`tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
+          throw new Error(`tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
         }
         const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
         let matterportState = tour?.matterport_state || null;
@@ -246,6 +233,13 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
           const base = existingEnd && new Date(existingEnd) > new Date() ? existingEnd : paidAtRaw;
           subscriptionWindow = getSubscriptionWindowFromStart(base);
         }
+
+        // Ab hier laufen externe / nicht-idempotente Side-Effects: Matterport-
+        // Reaktivierung, Subscription-Window-Berechnung-basierte UPDATES.
+        // Ein Retry duerfte die NICHT erneut anstossen, daher Claim ab hier
+        // gebunden lassen (committed=true) — auch wenn die UPDATEs danach
+        // failen.
+        committed = true;
 
         if (isReactivation && tour?.matterport_space_id) {
           const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
@@ -301,16 +295,18 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
         console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
       }
     } catch (err) {
-      // Slot NUR fuer markierte RetryableWebhookErrors freigeben (= Fehler
-      // VOR jeder schreibenden DB-Operation). Andere Fehler (z.B. UPDATE
-      // failed, logAction failed) duerfen NICHT released werden — sonst
-      // wuerde ein Payrexx-Retry nicht-idempotente Schritte (Subscription-
-      // Verlaengerung, etc.) doppelt ausfuehren. Solche Faelle bleiben
-      // gebunden und brauchen manuelle Intervention; vollwertige two-state
-      // Idempotency (received vs processed) ist Backlog Sprint B.
-      const releaseClaim = err && err.retryable === true;
+      // Release-Logik:
+      //   committed === false  -> noch keine schreibenden Side-Effects gelaufen
+      //                           (transient SELECT-Fehler, fehlende Datensaetze).
+      //                           Slot freigeben, damit Payrexx-Retry erneut
+      //                           verarbeiten kann.
+      //   committed === true   -> mind. eine schreibende Operation lief schon
+      //                           (Matterport-Unarchive, invoice/tour UPDATE).
+      //                           Slot bleibt gebunden, sonst doppelte Side-
+      //                           Effects bei Retry. Manuelle Intervention.
+      const releaseClaim = !committed;
       console.error(
-        `[payrexx-webhook] Fehler in Side-Effect-Block (${releaseClaim ? 'release+retry' : 'KEEP claim'}):`,
+        `[payrexx-webhook] Fehler in Side-Effect-Block (${releaseClaim ? 'release+retry' : 'KEEP claim, manuelle Intervention'}):`,
         err && err.message ? err.message : err,
       );
       if (releaseClaim) {
