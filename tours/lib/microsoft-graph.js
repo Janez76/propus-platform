@@ -319,18 +319,18 @@ async function sendMailDirect(options = {}) {
     return { success: false, error: 'Empfänger, Betreff oder Body fehlen' };
   }
   if (!isRecipientAllowed(to)) {
-    // Default: in production STRICT (block), sonst warn-only. Override via
-    // MAIL_RECIPIENT_STRICT=1 (force strict) bzw. =0 (force warn-only).
-    const explicit = String(process.env.MAIL_RECIPIENT_STRICT || '').trim();
-    const strict = explicit === '1' || (explicit !== '0' && process.env.NODE_ENV === 'production');
+    // Default-Modus: warn-only (Mail wird trotzdem verschickt). Codex- vs.
+    // CodeRabbit-Trade-off: ein Production-Auto-Strict wuerde mit der
+    // Default-Allowlist (nur 'propus.ch') legitime Customer-Mails (portal/
+    // admin-Notifications, Bestaetigungen) blockieren — Mail-Outage statt
+    // Sicherheitsgewinn. Daher Strict NUR bei expliziter Aktivierung via
+    // MAIL_RECIPIENT_STRICT=1, nachdem die Allowlist (MAIL_RECIPIENT_ALLOW_
+    // DOMAINS / -ADDRESSES) anhand der Log-Beobachtung vervollstaendigt wurde.
+    const strict = String(process.env.MAIL_RECIPIENT_STRICT || '').trim() === '1';
     if (strict) {
       console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', to);
       return { success: false, error: 'recipient_not_allowed' };
     }
-    // Warn-only-Pfad: Mail wird trotzdem verschickt, damit Dev/Staging-Setups
-    // bestehende Customer-Mails nicht abreissen. Vor jeder Production-Migration
-    // sollte die Allowlist um die in den Logs gesehenen Domains erweitert
-    // werden.
     console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', to);
   }
   const contentType = htmlBody ? 'HTML' : 'Text';
