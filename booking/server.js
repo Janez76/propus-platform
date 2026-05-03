@@ -622,7 +622,33 @@ async function initOrderCounter() {
   } catch(e){ console.error("[order-counter] init error", e?.message); }
   console.log("[order-counter] initialized at", orderCounter, "-> next will be", orderCounter + 1);
 }
-function nextOrderNumber(){
+/**
+ * Liefert die naechste Bestellnummer atomar aus der Postgres-Sequence
+ * `booking.orders_order_no_seq` (Migration 055). Faellt auf den in-memory
+ * Counter zurueck, falls die Sequence (noch) nicht existiert oder die DB
+ * temporaer nicht erreichbar ist — damit das System bei Migrations-Lag oder
+ * DB-Outage nicht komplett blockiert.
+ *
+ * Mehrere Allokatoren (Express duplicate, Express manuelle Bestellung,
+ * Next-App duplicate-actions.ts) muessen alle die Sequence nutzen, damit
+ * keine zwei Pfade dieselbe Nummer vergeben (Codex-Review #253).
+ */
+async function nextOrderNumber(){
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (pool) {
+      const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
+      const n = Number(r.rows && r.rows[0] && r.rows[0].n);
+      if (Number.isInteger(n) && n > 0) {
+        // In-memory-Counter mitziehen, damit der Fallback-Pfad nicht hinter der
+        // Sequence zurueckfaellt.
+        if (n > orderCounter) orderCounter = n;
+        return n;
+      }
+    }
+  } catch (e) {
+    console.warn("[order-counter] Sequence nicht verfuegbar, Fallback auf in-memory:", e?.message || e);
+  }
   orderCounter += 1;
   return orderCounter;
 }
@@ -4704,7 +4730,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
     }
 
     // Bestellnummer erst nach erfolgreicher Validierung vergeben
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
 
     const photographerPhone = PHOTOG_PHONES[photographerKey] || "-";
 
@@ -7824,7 +7850,7 @@ app.delete("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
 app.post("/api/admin/orders", requireAdmin, async (req, res) => {
   try {
     const data = normalizeTextDeep(req.body || {});
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
     const photographerKey = String(data.photographerKey || "").toLowerCase();
     const photographerCfg = PHOTOGRAPHERS_CONFIG.find(p => p.key === photographerKey);
     const photographerEmail =

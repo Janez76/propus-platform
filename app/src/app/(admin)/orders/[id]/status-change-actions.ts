@@ -26,13 +26,17 @@ export async function changeOrderStatus(
   }
   const editor = await requireOrderEditor();
 
+  // updated_at als ::text auslesen, damit die volle Postgres-Praezision
+  // (microseconds) erhalten bleibt — pg konvertiert TIMESTAMPTZ sonst in JS
+  // Date (millisecond-truncated), wodurch der Optimistic-Concurrency-Check
+  // false-negative liefern wuerde (Codex-Review #253).
   const row = await queryOne<{
     status: string;
     photographer_key: string | null;
     schedule: unknown;
-    updated_at: Date | string;
+    updated_at_token: string;
   }>(
-    `SELECT status, photographer_key, schedule, updated_at
+    `SELECT status, photographer_key, schedule, updated_at::text AS updated_at_token
      FROM booking.orders WHERE order_no = $1 LIMIT 1`,
     [orderNo],
   );
@@ -59,15 +63,15 @@ export async function changeOrderStatus(
   }
 
   // Optimistic-Concurrency: UPDATE nur wenn die Row seit unserem SELECT
-  // nicht von einem parallelen Status-Wechsel veraendert wurde. updated_at
-  // muss exakt matchen (Postgres timestamptz-Praezision = us). Affected=0
-  // -> 409-aehnlicher Konflikt; UI soll Reload anbieten.
-  const updateResult = await query<{ updated_at: Date | string }>(
+  // nicht von einem parallelen Status-Wechsel veraendert wurde. Vergleich
+  // auf Postgres-Seite gegen ::text-Cast, damit volle us-Praezision bleibt
+  // (siehe SELECT oben). Affected=0 -> Konflikt-Antwort.
+  const updateResult = await query<{ updated_at_token: string }>(
     `UPDATE booking.orders
      SET status = $2, updated_at = now()
-     WHERE order_no = $1 AND updated_at = $3
-     RETURNING updated_at`,
-    [orderNo, toStatus, row.updated_at],
+     WHERE order_no = $1 AND updated_at::text = $3
+     RETURNING updated_at::text AS updated_at_token`,
+    [orderNo, toStatus, row.updated_at_token],
   );
   if (updateResult.length === 0) {
     return {

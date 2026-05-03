@@ -62,28 +62,51 @@ function scheduleProvisionalExpiry(deps) {
       for (const row of rows) {
         await ctx.perRow(row, async (r) => {
           const orderNo = r.order_no;
-          // Loader: gibt das Row-Objekt in normalisierter Form zurueck
+
+          // loadOrder liest **frisch** aus der DB statt den Snapshot aus
+          // dem initialen Batch-SELECT zu nutzen. Damit kein Stale-Read,
+          // wenn ein Auftrag zwischen Batch-Read und perRow manuell
+          // geaendert wurde (CodeRabbit-Review #253). Gleichzeitig wird die
+          // Expiry-Bedingung erneut geprueft — wenn der Auftrag inzwischen
+          // nicht mehr provisorisch ist oder das Ablaufdatum entfernt
+          // wurde, ueberspringen wir ihn.
           const loadOrder = async function() {
+            const fresh = await pool.query(
+              `SELECT order_no, status, provisional_expires_at, billing, address, services, pricing,
+                      photographer, schedule, photographer_event_id, office_event_id, object, attendee_emails
+               FROM orders WHERE order_no = $1 LIMIT 1`,
+              [orderNo],
+            );
+            const f = fresh.rows[0];
+            if (!f) return null;
+            if (f.status !== 'provisional' || !f.provisional_expires_at || new Date(f.provisional_expires_at) > new Date()) {
+              ctx.log("Auftrag nicht mehr ablaufbereit, skip:", orderNo, { status: f.status });
+              return null;
+            }
             return {
               orderNo,
-              status: r.status,
-              photographer: r.photographer || {},
-              photographerEventId: r.photographer_event_id,
-              officeEventId: r.office_event_id,
-              schedule: r.schedule || {},
-              billing: r.billing || {},
-              address: r.address || "",
-              services: r.services || {},
-              pricing: r.pricing || {},
-              object: r.object || {},
+              status: f.status,
+              photographer: f.photographer || {},
+              photographerEventId: f.photographer_event_id,
+              officeEventId: f.office_event_id,
+              schedule: f.schedule || {},
+              billing: f.billing || {},
+              address: f.address || "",
+              services: f.services || {},
+              pricing: f.pricing || {},
+              object: f.object || {},
             };
           };
 
-          // Zentrale Workflow-Engine: provisional -> pending via expiry_job
+          // Zentrale Workflow-Engine: provisional -> pending via expiry_job.
+          // changeOrderStatus ruft loadOrder; wenn null, brechen wir hier ab
+          // (frisch-gelesener Auftrag passt nicht mehr zur Expiry-Bedingung).
+          const freshSnapshot = await loadOrder();
+          if (!freshSnapshot) return;
           const result = await changeOrderStatus(orderNo, "pending", {
             source: "expiry_job",
             actorId: "job:provisional-expiry",
-            loadOrder,
+            loadOrder: async () => freshSnapshot,
           }, { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} });
 
           if (!result.success) {
@@ -93,11 +116,12 @@ function scheduleProvisionalExpiry(deps) {
 
           ctx.log("Auftrag zurueck auf pending:", orderNo, { calendarResult: result.calendarResult });
 
-          // Ablauf-Mail an Kunde (idempotent via email_send_log)
-          if (mailOn && sendMail && r.billing && r.billing.email) {
+          // Ablauf-Mail an Kunde (idempotent via email_send_log) — nutzt den
+          // frisch-gelesenen Snapshot fuer aktuelle billing/services-Daten.
+          if (mailOn && sendMail && freshSnapshot.billing && freshSnapshot.billing.email) {
             try {
-              const vars = buildTemplateVars(r, {});
-              await sendMailIdempotent(pool, "provisional_expired", r.billing.email, orderNo, vars, sendMail);
+              const vars = buildTemplateVars(freshSnapshot, {});
+              await sendMailIdempotent(pool, "provisional_expired", freshSnapshot.billing.email, orderNo, vars, sendMail);
             } catch (mailErr) {
               ctx.error("Ablauf-Mail fehlgeschlagen:", orderNo, mailErr && mailErr.message);
             }
