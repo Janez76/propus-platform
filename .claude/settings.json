@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "agent-toolkit": {
+      "source": {
+        "source": "github",
+        "repo": "softaworks/agent-toolkit"
+      }
+    }
+  }
+}

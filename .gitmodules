@@ -1,0 +1,3 @@
+[submodule "third-party/agent-toolkit"]
+	path = third-party/agent-toolkit
+	url = https://github.com/softaworks/agent-toolkit.git
