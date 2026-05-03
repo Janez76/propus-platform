@@ -58,9 +58,14 @@ function registerDocsRoutes(app, log = console) {
     }
   });
 
+  // persistAuthorization speichert Auth-Tokens im Browser-localStorage und ist
+  // in Produktion XSS-exponiert (CodeRabbit-Nitpick PR #251). Daher nur in
+  // Nicht-Produktion aktiv – lokal/dev darf der Token erhalten bleiben.
+  const persistAuthorization = process.env.NODE_ENV !== "production";
+
   const swaggerOpts = {
     customSiteTitle: "Propus Platform – API Docs",
-    swaggerOptions: { url: "/api/docs/openapi.json", persistAuthorization: true },
+    swaggerOptions: { url: "/api/docs/openapi.json", persistAuthorization },
   };
 
   // HTML zuerst registrieren – beide Pfade liefern dieselbe Seite (kein 301).
