@@ -55,6 +55,8 @@ async function createNextcloudShare(ncPath) {
       Accept: "application/json",
     },
     body: body.toString(),
+    // Bug-Hunt T07: ohne Timeout haengt der Worker bei langsamem Nextcloud.
+    signal: AbortSignal.timeout(15_000),
   });
 
   const json = await response.json().catch(() => null);
@@ -89,6 +91,7 @@ async function deleteNextcloudShare(shareId) {
       "OCS-APIRequest": "true",
       Accept: "application/json",
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

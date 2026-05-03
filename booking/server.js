@@ -496,7 +496,9 @@ const bookingMaterialUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, BOOKING_UPLOAD_TMP),
     filename: (_req, file, cb) => {
-      const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}-${path.basename(file.originalname || "file")}`;
+      // crypto.randomBytes statt Math.random: kryptographisch zufaellig,
+      // verhindert vorhersagbare Filenames + TOCTOU-Race auf temp-Verzeichnis.
+      const unique = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${path.basename(file.originalname || "file")}`;
       cb(null, unique);
     }
   }),
@@ -510,7 +512,7 @@ const bookingChunkUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, BOOKING_UPLOAD_TMP),
     filename: (_req, file, cb) => {
-      const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}-${path.basename(file.originalname || "chunk")}`;
+      const unique = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${path.basename(file.originalname || "chunk")}`;
       cb(null, unique);
     }
   }),
@@ -565,7 +567,7 @@ const photographerPortraitUpload = multer({
       const ext = path.extname(file.originalname || "").toLowerCase();
       const allowed = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
       const useExt = allowed.has(ext) ? ext : ".png";
-      const base = `portrait-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const base = `portrait-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
       cb(null, `${base}${useExt}`);
     },
   }),
@@ -954,7 +956,7 @@ function buildIcsEvent({ title, description, location, date, time, durationMin, 
   const startStamp = date.replaceAll("-", "") + "T" + time.replace(":", "") + "00";
   const endStamp = endDate.replaceAll("-", "") + "T" + formatMinutes(endMin).replace(":", "") + "00";
   const dtstamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  const uid = existingUid || `propus-${Date.now()}-${Math.random().toString(36).slice(2)}@propus.ch`;
+  const uid = existingUid || `propus-${Date.now()}-${crypto.randomBytes(8).toString("hex")}@propus.ch`;
   const icsMethod = method || "REQUEST";
   const status = icsMethod === "CANCEL" ? "\r\nSTATUS:CANCELLED" : "";
 
@@ -12697,7 +12699,9 @@ app.post("/api/admin/photographers/:key/send-credentials", requireAdmin, async (
     const lang = native_language || "de";
     let tempPw = null;
     if (!password_hash) {
-      tempPw = Math.random().toString(36).slice(2, 10) + "X9!";
+      // crypto.randomBytes statt Math.random: temporaeres Passwort darf
+      // nicht vorhersagbar sein. 12 Bytes -> 16 Base64URL-Zeichen + Suffix.
+      tempPw = crypto.randomBytes(12).toString("base64url") + "X9!";
       const hash = await customerAuth.hashPassword(tempPw);
       await p.query("UPDATE photographer_settings SET password_hash=$1 WHERE photographer_key=$2", [hash, key]);
     }

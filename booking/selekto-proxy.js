@@ -76,7 +76,11 @@ async function resolveConnectIpv4(host) {
 
   try {
     const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=A`;
-    const r = await fetch(dohUrl, { headers: { accept: "application/dns-json" } });
+    // Bug-Hunt T07: ohne Timeout haengt der DNS-Resolve-Pfad bei DoH-Outage.
+    const r = await fetch(dohUrl, {
+      headers: { accept: "application/dns-json" },
+      signal: AbortSignal.timeout(5_000),
+    });
     if (!r.ok) return host;
     const data = await r.json();
     const answers = (data.Answer || []).filter((x) => x.type === 1 && isIpv4String(x.data.trim()));
@@ -323,7 +327,10 @@ async function pdfInlineMiddleware(req, res, next) {
       res.end("Parameter url fehlt oder ungültig.");
       return;
     }
-    const upstream = await fetch(target, { redirect: "follow" });
+    const upstream = await fetch(target, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(30_000),
+    });
     if (!upstream.ok) {
       res.statusCode = upstream.status;
       res.end();
