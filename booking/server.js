@@ -622,9 +622,83 @@ async function initOrderCounter() {
   } catch(e){ console.error("[order-counter] init error", e?.message); }
   console.log("[order-counter] initialized at", orderCounter, "-> next will be", orderCounter + 1);
 }
-function nextOrderNumber(){
-  orderCounter += 1;
-  return orderCounter;
+/**
+ * Defensiver Bootstrap der order_no-Sequence. Wird einmal pro Prozess
+ * sichergestellt, falls die kanonische Migration `core/migrations/
+ * 055_orders_order_no_sequence.sql` (noch) nicht eingespielt ist
+ * (Codex-Review #253: booking/db.js runMigrations() faehrt nur
+ * booking/migrations, nicht core).
+ *
+ * Race-safe: nutzt CREATE SEQUENCE IF NOT EXISTS (Postgres ≥ 9.5). Wenn
+ * zwei Prozesse gleichzeitig den ersten nextOrderNumber-Call ausloesen,
+ * legt nur einer die Sequence an, der andere findet sie. Idempotent ueber
+ * _orderSequenceReady-Flag (in-memory pro Prozess).
+ */
+let _orderSequenceReady = false;
+async function ensureOrderSequence(pool) {
+  if (_orderSequenceReady) return;
+  // CREATE IF NOT EXISTS macht den Initial-Bootstrap atomar gegenueber
+  // parallelen Erst-Aufrufen. START WITH muss aus MAX(order_no)+1
+  // berechnet werden — der Wert ist nur beim allerersten Mal relevant
+  // (CREATE wird sonst no-op).
+  const startRow = await pool.query(`SELECT COALESCE(MAX(order_no), 0) + 1 AS start_val FROM booking.orders`);
+  const startVal = Number(startRow.rows[0]?.start_val) || 1;
+  await pool.query(`CREATE SEQUENCE IF NOT EXISTS booking.orders_order_no_seq AS BIGINT START WITH ${startVal}`);
+  // ALTER ist idempotent + race-safe — bleibt auch dann sicher wenn ein
+  // anderer Prozess gerade dasselbe macht.
+  await pool.query(`ALTER TABLE booking.orders ALTER COLUMN order_no SET DEFAULT nextval('booking.orders_order_no_seq')`);
+  await pool.query(`ALTER SEQUENCE booking.orders_order_no_seq OWNED BY booking.orders.order_no`);
+  // setval damit die Sequence nicht hinter MAX(order_no) ist (z.B. nach
+  // manuellen Inserts oder nach dem ersten Bootstrap-Lauf).
+  await pool.query(
+    `SELECT setval('booking.orders_order_no_seq'::regclass,
+                   GREATEST((SELECT COALESCE(MAX(order_no), 0) FROM booking.orders), last_value))
+     FROM booking.orders_order_no_seq`,
+  );
+  _orderSequenceReady = true;
+}
+
+/**
+ * Liefert die naechste Bestellnummer atomar aus der Postgres-Sequence
+ * `booking.orders_order_no_seq` (Migration 055).
+ *
+ * Fail-closed im DB-Modus: bei Sequence-Fehler oder ungueltigem Wert wird
+ * geworfen statt auf den in-memory Counter zurueckzufallen — andernfalls
+ * koennten zwei App-Instanzen bei DB-Outage parallel ueberlappende Nummern
+ * vergeben und nach Recovery den UNIQUE-Constraint reissen (CodeRabbit
+ * Review #253).
+ *
+ * In-memory-Fallback ist ausschliesslich fuer den DB-losen Modus aktiv
+ * (kein DATABASE_URL gesetzt — z.B. lokales JSON-File-Setup). Mehrere
+ * Allokatoren (Express duplicate, Express manuelle Bestellung, Next-App
+ * duplicate, Assistant-Tool) nutzen alle dieselbe Sequence.
+ */
+async function nextOrderNumber(){
+  if (!process.env.DATABASE_URL) {
+    orderCounter += 1;
+    return orderCounter;
+  }
+
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) {
+    throw new Error("nextOrderNumber: DATABASE_URL gesetzt, aber kein DB-Pool verfuegbar");
+  }
+
+  // Defensiver Bootstrap fuer Setups, die nur booking/migrations fahren
+  // und core/migrations/055 nicht eingespielt haben.
+  await ensureOrderSequence(pool);
+
+  const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
+  const n = Number(r.rows && r.rows[0] && r.rows[0].n);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `nextOrderNumber: ungueltiger Sequence-Wert ${r.rows?.[0]?.n} (Migration 055 nicht eingespielt?)`,
+    );
+  }
+  // In-memory-Counter mitziehen, damit ein spaeterer Wechsel in den DB-losen
+  // Modus nicht hinter der Sequence zurueckfaellt.
+  if (n > orderCounter) orderCounter = n;
+  return n;
 }
 
 const GRAPH_ENV_KEYS = [
@@ -4704,7 +4778,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
     }
 
     // Bestellnummer erst nach erfolgreicher Validierung vergeben
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
 
     const photographerPhone = PHOTOG_PHONES[photographerKey] || "-";
 
@@ -7824,7 +7898,7 @@ app.delete("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
 app.post("/api/admin/orders", requireAdmin, async (req, res) => {
   try {
     const data = normalizeTextDeep(req.body || {});
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
     const photographerKey = String(data.photographerKey || "").toLowerCase();
     const photographerCfg = PHOTOGRAPHERS_CONFIG.find(p => p.key === photographerKey);
     const photographerEmail =
