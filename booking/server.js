@@ -622,9 +622,43 @@ async function initOrderCounter() {
   } catch(e){ console.error("[order-counter] init error", e?.message); }
   console.log("[order-counter] initialized at", orderCounter, "-> next will be", orderCounter + 1);
 }
-function nextOrderNumber(){
-  orderCounter += 1;
-  return orderCounter;
+/**
+ * Liefert die naechste Bestellnummer atomar aus der Postgres-Sequence
+ * `booking.orders_order_no_seq` (Migration 055).
+ *
+ * Fail-closed im DB-Modus: bei Sequence-Fehler oder ungueltigem Wert wird
+ * geworfen statt auf den in-memory Counter zurueckzufallen — andernfalls
+ * koennten zwei App-Instanzen bei DB-Outage parallel ueberlappende Nummern
+ * vergeben und nach Recovery den UNIQUE-Constraint reissen (CodeRabbit
+ * Review #253).
+ *
+ * In-memory-Fallback ist ausschliesslich fuer den DB-losen Modus aktiv
+ * (kein DATABASE_URL gesetzt — z.B. lokales JSON-File-Setup). Mehrere
+ * Allokatoren (Express duplicate, Express manuelle Bestellung, Next-App
+ * duplicate, Assistant-Tool) nutzen alle dieselbe Sequence.
+ */
+async function nextOrderNumber(){
+  if (!process.env.DATABASE_URL) {
+    orderCounter += 1;
+    return orderCounter;
+  }
+
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) {
+    throw new Error("nextOrderNumber: DATABASE_URL gesetzt, aber kein DB-Pool verfuegbar");
+  }
+
+  const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
+  const n = Number(r.rows && r.rows[0] && r.rows[0].n);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `nextOrderNumber: ungueltiger Sequence-Wert ${r.rows?.[0]?.n} (Migration 055 nicht eingespielt?)`,
+    );
+  }
+  // In-memory-Counter mitziehen, damit ein spaeterer Wechsel in den DB-losen
+  // Modus nicht hinter der Sequence zurueckfaellt.
+  if (n > orderCounter) orderCounter = n;
+  return n;
 }
 
 const GRAPH_ENV_KEYS = [
@@ -4704,7 +4738,7 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
     }
 
     // Bestellnummer erst nach erfolgreicher Validierung vergeben
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
 
     const photographerPhone = PHOTOG_PHONES[photographerKey] || "-";
 
@@ -7824,7 +7858,7 @@ app.delete("/api/admin/orders/:orderNo", requireAdmin, async (req, res) => {
 app.post("/api/admin/orders", requireAdmin, async (req, res) => {
   try {
     const data = normalizeTextDeep(req.body || {});
-    const orderNo = nextOrderNumber();
+    const orderNo = await nextOrderNumber();
     const photographerKey = String(data.photographerKey || "").toLowerCase();
     const photographerCfg = PHOTOGRAPHERS_CONFIG.find(p => p.key === photographerKey);
     const photographerEmail =

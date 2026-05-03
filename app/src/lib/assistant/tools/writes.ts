@@ -303,10 +303,12 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       const objectJson = { type: "Immobilie" };
       const settingsJson = notes ? { assistant_notes: notes } : {};
 
+      // order_no nicht mehr per MAX(order_no)+1 (TOCTOU-Race), sondern über
+      // die Postgres-Sequence aus Migration 055. order_no weglassen → DEFAULT
+      // greift, RETURNING liefert die allokierte Nummer.
       const row = await runQueryOne<{ order_no: number }>(
-        `INSERT INTO booking.orders (order_no, customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
+        `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
          VALUES (
-           (SELECT COALESCE(MAX(order_no), 0) + 1 FROM booking.orders),
            $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
          )
          RETURNING order_no`,
