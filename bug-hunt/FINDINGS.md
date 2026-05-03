@@ -777,6 +777,34 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Vorschlag: Compose-Service-Name (`http://platform:3100`) statt IP.
 - Aufwand: M · Confidence: L
 
+#### [T02][HIGH][M] Side-Effects laufen vor Order-INSERT (neuer Backlog-Eintrag aus Sprint B PR #253)
+- Dateien: `booking/server.js:4707-…` (`/api/booking`), `booking/server.js:7827-…` (`/api/admin/orders`)
+- Kategorie: 4. SQL & DB / 6. Atomicity
+- Hinweis: Sprint B PR #253 hat die TOCTOU-Allokation per Sequence
+  gelöst (`booking.orders_order_no_seq`). Übrig bleibt aber: in beiden
+  Express-Hot-Path-Routen werden Side-Effects (Mail-Versand, Outlook-
+  Calendar-Event, Discount-Code-Verbrauch, Filename-Generierung mit
+  `orderNo`) **vor** dem `db.insertOrder()` getriggert. Wenn der Insert
+  fehlschlägt (Constraint-Violation, Unique-Verletzung, transienter
+  Fehler), bleiben verwaiste Calendar-Events und gesendete Mails für
+  eine nie persistierte Bestellung zurück.
+- Auswirkung: Operationale Inkonsistenzen — Kunde bekommt Bestätigungs-
+  Mail, aber im Admin-UI taucht keine Order auf; Photographer-Calendar
+  zeigt Termin ohne Order-Referenz; Discount-Codes werden verbraucht
+  ohne korrespondierende Order.
+- Reproduktion: Insert mit absichtlichem Constraint-Conflict (z.B.
+  manuelle Race-Condition) → Mail-Log + Calendar-Event prüfen.
+- Vorschlag: `INSERT … RETURNING order_no` als ersten Schritt; danach
+  Side-Effects in einer Outbox-Tabelle persistieren (Sprint-D-Outbox),
+  von einem Worker mit Retry/Backoff verarbeiten lassen. Minimum-
+  Variante: Side-Effects in try/catch wrappen, bei Insert-Fehler
+  Compensating-Actions (Mail-Storno, Calendar-Delete, Discount-Refund)
+  ausführen.
+- Aufwand: L (vollwertige Outbox), M (Compensating-Actions)
+- Confidence: M
+- Tags: #data-loss #regression-risk
+- Quelle: CodeRabbit-Review auf PR #253 (gefunden während Sprint B Sequence-Migration).
+
 ---
 
 ## Cross-Cutting (wiederkehrende Muster)
