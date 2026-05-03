@@ -68,6 +68,8 @@ COPY core ./core
 COPY infra ./infra
 COPY platform ./platform
 COPY scripts ./scripts
+# OpenAPI-Spec wird zur Laufzeit von booking/docs-routes.js (/api/docs) gelesen.
+COPY docs/openapi ./docs/openapi
 
 RUN chmod +x /app/scripts/*.sh 2>/dev/null || true
 
