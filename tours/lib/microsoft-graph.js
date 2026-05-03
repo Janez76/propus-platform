@@ -279,6 +279,36 @@ async function sendDraftMessage(options = {}) {
 }
 
 /**
+ * Empfänger-Allowlist für sendMailDirect (Bug-Hunt T14 CRITICAL: Mail-Abuse).
+ *
+ * Default-Allow: alle E-Mails an Domain `propus.ch` (eigene Org). Zusätzliche
+ * Domains/Adressen können per Env konfiguriert werden:
+ *   MAIL_RECIPIENT_ALLOW_DOMAINS  – komma-getrennt, z.B. "propus.ch,kunde.com"
+ *   MAIL_RECIPIENT_ALLOW_ADDRESSES – komma-getrennt, exakte Adressen
+ *   MAIL_RECIPIENT_STRICT=1       – Hard-Block bei nicht-allowlist (sonst nur WARN)
+ *
+ * Strict-Mode ist OFF per Default, damit dieser Sicherheits-Patch keine
+ * legitimen Kunden-Mails abreissen kann. Production sollte nach einer
+ * Beobachtungsphase auf STRICT=1 umgestellt werden.
+ */
+function parseMailAllowlistEnv(name) {
+  return String(process.env[name] || '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isRecipientAllowed(to) {
+  const addr = String(to || '').trim().toLowerCase();
+  if (!addr || !addr.includes('@')) return false;
+  const allowAddresses = new Set(['', ...parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_ADDRESSES')]);
+  if (allowAddresses.has(addr)) return true;
+  const domain = addr.slice(addr.lastIndexOf('@') + 1);
+  const allowDomains = new Set(['propus.ch', ...parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_DOMAINS')]);
+  return allowDomains.has(domain);
+}
+
+/**
  * Sendet eine E-Mail direkt (ein API-Call, ohne Draft).
  * Benötigt Mail.Send Application Permission + ggf. ApplicationAccessPolicy in Exchange.
  * Siehe docker/M365-MAIL-SETUP.md falls "Access is denied".
@@ -287,6 +317,17 @@ async function sendMailDirect(options = {}) {
   const { mailboxUpn = getGraphConfig().mailboxUpn, to, subject, htmlBody, textBody, attachments = [] } = options;
   if (!to || !subject || (!htmlBody && !textBody)) {
     return { success: false, error: 'Empfänger, Betreff oder Body fehlen' };
+  }
+  if (!isRecipientAllowed(to)) {
+    const strict = String(process.env.MAIL_RECIPIENT_STRICT || '').trim() === '1';
+    if (strict) {
+      console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', to);
+      return { success: false, error: 'recipient_not_allowed' };
+    }
+    // Warn-only: weiterhin verschicken, damit dieser Patch keine bestehenden
+    // Customer-Mails abreisst. Nach Pruefung der Logs Allowlist erweitern und
+    // STRICT=1 aktivieren.
+    console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', to);
   }
   const contentType = htmlBody ? 'HTML' : 'Text';
   const content = htmlBody || String(textBody || '').trim();

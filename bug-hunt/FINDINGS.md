@@ -40,13 +40,13 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ## Index
 
 ### CRITICAL
-- [T01][CRITICAL] JWT ohne Signaturprüfung → `app/src/lib/auth.ts:18-39`
-- [T01][CRITICAL] Admin-Bridge ermöglicht Customer-Impersonation → `tours/routes/portal.js:91-124`
-- [T07][CRITICAL] Kein Fetch-Timeout im Next-Proxy → `app/src/lib/proxy.ts:68`
-- [T09][CRITICAL] Payrexx-Webhook ohne Replay-Schutz → `tours/routes/payrexx-webhook.js:51-73`
-- [T10][CRITICAL] Leere `key`-Datei im Repo-Root → `key`
-- [T13][CRITICAL] Async-Express-Handler ohne try/catch → `tours/routes/api.js:28-545`
-- [T14][CRITICAL] `sendMailDirect` ohne Empfänger-Allowlist → `tours/lib/microsoft-graph.js:286-316`
+- [T01][CRITICAL] JWT ohne Signaturprüfung → `app/src/lib/auth.ts:18-39` *(Sprint A: gefixt durch Entfernen des unsicheren Codes — siehe commit `ce57b82`)*
+- ~~[T01][CRITICAL] Admin-Bridge ermöglicht Customer-Impersonation~~ → **auf HIGH herabgestuft nach Re-Lesen** (siehe Detail-Block, der sichtbare Code setzt nur die E-Mail des Admins selbst).
+- [T07][CRITICAL] Kein Fetch-Timeout im Next-Proxy → `app/src/lib/proxy.ts:68` *(Sprint A: gefixt — commit `ce57b82`)*
+- [T09][CRITICAL] Payrexx-Webhook ohne Replay-Schutz → `tours/routes/payrexx-webhook.js:51-73` *(Sprint A: gefixt via `webhook_events`-Idempotency-Tabelle)*
+- [T10][CRITICAL] Leere `key`-Datei im Repo-Root → bereits gelöscht vor Sprint A.
+- [T13][CRITICAL] Async-Express-Handler ohne try/catch → `tours/routes/api.js:28-545` *(Sprint A: globaler Async-Error-Shim in tours+booking — commit `5e531fd`)*
+- [T14][CRITICAL] `sendMailDirect` ohne Empfänger-Allowlist → `tours/lib/microsoft-graph.js:286-316` *(Sprint A: Allowlist-Helper mit warn-only Default + STRICT-Env)*
 
 ### HIGH
 - [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456`
@@ -133,20 +133,30 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Confidence: H
 - Tags: #security #breaking
 
-#### [T01][CRITICAL][H] Admin-Bridge ermöglicht Impersonation jedes Customers
+#### [T01][HIGH][M] Admin-Bridge: ungeprüfter Impersonation-Pfad (Re-Klassifizierung)
 - Datei: `tours/routes/portal.js:91-124`
 - Kategorie: 1. Security / Privilege Escalation
-- Problem: `/portal/admin-bridge` setzt `portalCustomerEmail` aus `row.user_key`
-  ohne zu prüfen, ob der eingeloggte Admin diesen spezifischen Kunden
-  impersonifizieren darf. `isAdminImpersonation: true` wird unkonditional
-  gesetzt.
-- Auswirkung: Horizontale Privilege-Escalation – jeder Admin mit
-  `customer_admin`-Rolle pivotet zu beliebigem Kunden.
-- Vorschlag: Whitelist pro Admin (`admin_id → allowed_customer_ids`), zwingender
-  Audit-Log-Eintrag pro Bridge, Re-Auth-Prompt für sensible Aktionen.
-- Aufwand: M
-- Confidence: H
-- Tags: #security #data-loss
+- **Update Sprint A (2026-05-03):** Beim erneuten Lesen **CRITICAL → HIGH
+  herabgestuft.** Der Code setzt `portalCustomerEmail = row.user_key`, also die
+  E-Mail des **eingeloggten Admins selbst** – nicht eine fremde Kunden-E-Mail.
+  Der ursprüngliche „pivotet zu beliebigem Kunden"-Pfad ist im sichtbaren Code
+  nicht reproduzierbar. Allerdings:
+    - `isAdminImpersonation: true` wird unkonditional gesetzt,
+    - `impersonatorUserKey` wird gesetzt, ohne dass irgendwo geprüft wird,
+      welchen Customer der Admin als Subject übernehmen soll,
+    - in nachgelagerten Routen könnte ein zusätzlicher Switch-Mechanismus den
+      `portalCustomerEmail` umsetzen, ohne dass dieser Bridge-Endpoint die
+      Berechtigung mitprüft.
+- Auswirkung: Solange kein nachgelagerter Subject-Switch existiert, sieht der
+  Admin im Portal nur die Daten zu seiner eigenen E-Mail (limitierter Effekt).
+  Existiert ein solcher Switch, ist horizontale Privilege-Escalation möglich.
+- Vorschlag (unverändert): Whitelist `admin_id → allowed_customer_ids`,
+  zwingender Audit-Log pro Bridge, Re-Auth-Prompt für sensible Aktionen. Vor
+  Implementierung: separater Audit, der den vollständigen Impersonation-Flow
+  durch `tours/routes/portal*.js` und das Frontend traced.
+- Aufwand: M (nach Audit ggf. L)
+- Confidence: M
+- Tags: #security
 
 #### [T07][CRITICAL][H] Kein Fetch-Timeout im Next→Express-Proxy
 - Datei: `app/src/lib/proxy.ts:68`

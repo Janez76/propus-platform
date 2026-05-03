@@ -27,6 +27,45 @@ async function ensureRenewalInvoiceSchema() {
 }
 
 /**
+ * Idempotency-Tabelle (siehe core/migrations/054_webhook_idempotency.sql).
+ * Wird einmal pro Prozess sichergestellt, falls die Migration noch nicht
+ * gefahren wurde (defensiv).
+ */
+let webhookIdempotencyReady = false;
+async function ensureWebhookIdempotencySchema() {
+  if (webhookIdempotencyReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tour_manager.webhook_events (
+      id             BIGSERIAL PRIMARY KEY,
+      provider       TEXT        NOT NULL,
+      event_id       TEXT        NOT NULL,
+      reference_id   TEXT        NULL,
+      status         TEXT        NULL,
+      received_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      payload_sha256 TEXT        NULL,
+      CONSTRAINT webhook_events_provider_event_uniq UNIQUE (provider, event_id)
+    )
+  `).catch(() => {});
+  webhookIdempotencyReady = true;
+}
+
+/**
+ * Versucht einen Webhook-Event zu reservieren. Rueckgabe true = neu,
+ * false = bereits verarbeitet (Replay).
+ */
+async function claimWebhookEvent({ provider, eventId, referenceId, status, payloadSha256 }) {
+  await ensureWebhookIdempotencySchema();
+  const result = await pool.query(
+    `INSERT INTO tour_manager.webhook_events (provider, event_id, reference_id, status, payload_sha256)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (provider, event_id) DO NOTHING
+     RETURNING id`,
+    [provider, eventId, referenceId || null, status || null, payloadSha256 || null],
+  );
+  return result.rowCount > 0;
+}
+
+/**
  * Parst PHP-style URL-encoded Nested Arrays:
  *   transaction[id]=1 → { transaction: { id: '1' } }
  */
@@ -90,6 +129,28 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
   );
 
   console.log('[payrexx-webhook] OK – status:', status, 'referenceId:', referenceId);
+
+  // Replay-Schutz: Pro (provider, event_id) nur einmal verarbeiten. Wenn die
+  // Reservation false zurueckliefert, war der Event schon mal da -> mit 200
+  // antworten (damit Payrexx nicht endlos retried), aber Side-Effects skippen.
+  const transactionId = String(transaction?.id || transaction?.uuid || '').trim();
+  if (transactionId) {
+    const fresh = await claimWebhookEvent({
+      provider: 'payrexx',
+      eventId: transactionId,
+      referenceId,
+      status,
+      payloadSha256: crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex'),
+    });
+    if (!fresh) {
+      console.log('[payrexx-webhook] replay ignoriert – transactionId:', transactionId);
+      return res.json({ ok: true, replay: true });
+    }
+  } else {
+    // Kein Transaction-Identifier -> keine Idempotency moeglich. Loggen, aber
+    // nicht ablehnen, damit unerwartete Provider-Varianten nicht stillen.
+    console.warn('[payrexx-webhook] kein transaction.id im Payload, ueberspringe Replay-Check');
+  }
 
   if (status === 'confirmed' || status === 'paid') {
     const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
