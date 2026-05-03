@@ -17,10 +17,17 @@
         "source": "github",
         "repo": "jamesprial/prial-plugins"
       }
+    },
+    "claude-homelab": {
+      "source": {
+        "source": "github",
+        "repo": "jmagar/claude-homelab"
+      }
     }
   },
   "enabledPlugins": {
     "etewiah-property-web-builder@cascade-code-testing-misc": true,
-    "unraid-assistant@prial-plugins": true
+    "unraid-assistant@prial-plugins": true,
+    "unraid-mcp@claude-homelab": true
   }
 }
