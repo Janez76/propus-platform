@@ -133,30 +133,10 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - Confidence: H
 - Tags: #security #breaking
 
-#### [T01][HIGH][M] Admin-Bridge: ungeprüfter Impersonation-Pfad (Re-Klassifizierung)
-- Datei: `tours/routes/portal.js:91-124`
-- Kategorie: 1. Security / Privilege Escalation
-- **Update Sprint A (2026-05-03):** Beim erneuten Lesen **CRITICAL → HIGH
-  herabgestuft.** Der Code setzt `portalCustomerEmail = row.user_key`, also die
-  E-Mail des **eingeloggten Admins selbst** – nicht eine fremde Kunden-E-Mail.
-  Der ursprüngliche „pivotet zu beliebigem Kunden"-Pfad ist im sichtbaren Code
-  nicht reproduzierbar. Allerdings:
-    - `isAdminImpersonation: true` wird unkonditional gesetzt,
-    - `impersonatorUserKey` wird gesetzt, ohne dass irgendwo geprüft wird,
-      welchen Customer der Admin als Subject übernehmen soll,
-    - in nachgelagerten Routen könnte ein zusätzlicher Switch-Mechanismus den
-      `portalCustomerEmail` umsetzen, ohne dass dieser Bridge-Endpoint die
-      Berechtigung mitprüft.
-- Auswirkung: Solange kein nachgelagerter Subject-Switch existiert, sieht der
-  Admin im Portal nur die Daten zu seiner eigenen E-Mail (limitierter Effekt).
-  Existiert ein solcher Switch, ist horizontale Privilege-Escalation möglich.
-- Vorschlag (unverändert): Whitelist `admin_id → allowed_customer_ids`,
-  zwingender Audit-Log pro Bridge, Re-Auth-Prompt für sensible Aktionen. Vor
-  Implementierung: separater Audit, der den vollständigen Impersonation-Flow
-  durch `tours/routes/portal*.js` und das Frontend traced.
-- Aufwand: M (nach Audit ggf. L)
-- Confidence: M
-- Tags: #security
+> **Hinweis:** Das ursprünglich hier verortete CRITICAL „Admin-Bridge ermöglicht
+> Customer-Impersonation" wurde in Sprint A nach erneutem Lesen auf **HIGH**
+> herabgestuft und in den HIGH-Block weiter unten verschoben (siehe Sprint-A-PR
+> #250 / Commit-Trail).
 
 #### [T07][CRITICAL][H] Kein Fetch-Timeout im Next→Express-Proxy
 - Datei: `app/src/lib/proxy.ts:68`
@@ -232,6 +212,31 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ---
 
 ### HIGH
+
+#### [T01][HIGH][M] Admin-Bridge: ungeprüfter Impersonation-Pfad (Re-Klassifizierung CRITICAL→HIGH)
+- Datei: `tours/routes/portal.js:91-124`
+- Kategorie: 1. Security / Privilege Escalation
+- **Update Sprint A (2026-05-03):** Beim erneuten Lesen **CRITICAL → HIGH
+  herabgestuft.** Der Code setzt `portalCustomerEmail = row.user_key`, also die
+  E-Mail des **eingeloggten Admins selbst** – nicht eine fremde Kunden-E-Mail.
+  Der ursprüngliche „pivotet zu beliebigem Kunden“-Pfad ist im sichtbaren Code
+  nicht reproduzierbar. Allerdings:
+    - `isAdminImpersonation: true` wird unkonditional gesetzt,
+    - `impersonatorUserKey` wird gesetzt, ohne dass irgendwo geprüft wird,
+      welchen Customer der Admin als Subject übernehmen soll,
+    - in nachgelagerten Routen könnte ein zusätzlicher Switch-Mechanismus den
+      `portalCustomerEmail` umsetzen, ohne dass dieser Bridge-Endpoint die
+      Berechtigung mitprüft.
+- Auswirkung: Solange kein nachgelagerter Subject-Switch existiert, sieht der
+  Admin im Portal nur die Daten zu seiner eigenen E-Mail (limitierter Effekt).
+  Existiert ein solcher Switch, ist horizontale Privilege-Escalation möglich.
+- Vorschlag (unverändert): Whitelist `admin_id → allowed_customer_ids`,
+  zwingender Audit-Log pro Bridge, Re-Auth-Prompt für sensible Aktionen. Vor
+  Implementierung: separater Audit, der den vollständigen Impersonation-Flow
+  durch `tours/routes/portal*.js` und das Frontend traced.
+- Aufwand: M (nach Audit ggf. L)
+- Confidence: M
+- Tags: #security
 
 #### [T01/T13/T14][HIGH][H] Hardcoded Default Session-Secrets
 - Dateien: `tours/server.js:96-98`, `booking/server.js:2456-2457`

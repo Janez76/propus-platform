@@ -14750,6 +14750,70 @@ async function seedExxasConfigFromEnvIfUnset() {
   }
 }
 
+// ─── Catch-all Express-Error-Handler (module-level) ───────────────────────────
+// Fängt alles ab, was via async-error-shim oder next(err) hier landet. MUSS
+// NACH dem Mount aller Routen stehen — daher hier am Ende des Module-Scopes,
+// noch vor startServer(). So bleibt der Handler auch im PROPUS_PLATFORM_MERGED-
+// Modus aktiv (in dem startServer() nicht laeuft, app aber von platform/server.js
+// gemountet wird).
+//
+// Liest sowohl err.status als auch err.statusCode (Express idiomatisch) damit
+// 4xx-Fehler nicht faelschlich als 500 antworten.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  if (!err) return;
+  const status = Number(err.statusCode ?? err.status) || 500;
+  const expose = process.env.NODE_ENV !== "production";
+  const payload = {
+    error: status >= 500 ? "Internal Server Error" : err.message || "Bad Request",
+  };
+  if (expose) {
+    payload.message = String(err.message || err);
+    if (err.stack) payload.stack = String(err.stack).split("\n").slice(0, 6);
+  }
+  try {
+    console.error("[booking] route error", {
+      method: req && req.method,
+      url: req && req.originalUrl,
+      status,
+      message: err.message,
+    });
+  } catch (_e) {}
+  if (res && !res.headersSent) res.status(status).json(payload);
+});
+
+// ─── Process-Sicherheitsnetze (einmalig, idempotent) ──────────────────────────
+// Module-level damit auch im Merged-Modus + bei Mehrfach-Imports nur einmal
+// registriert wird. Nach Node.js-Doku darf der Prozess nach uncaughtException
+// NICHT weiterlaufen (undefined state), daher process.exit(1) mit setTimeout
+// zum Logs-Flushen.
+let _bookingProcessHandlersInstalled = false;
+function installProcessHandlers() {
+  if (_bookingProcessHandlersInstalled) return;
+  _bookingProcessHandlersInstalled = true;
+  process.on("unhandledRejection", (reason) => {
+    try {
+      console.error(
+        "[booking] unhandledRejection",
+        reason && (reason.stack || reason.message || reason),
+      );
+    } catch (_e) {}
+  });
+  process.on("uncaughtException", (err) => {
+    try {
+      console.error(
+        "[booking] uncaughtException",
+        err && (err.stack || err.message || err),
+      );
+    } finally {
+      // Verzögerter Exit damit Logs noch geflusht werden; danach uebernimmt
+      // der externe Prozess-Monitor (Docker/PM2) den Restart.
+      setTimeout(() => process.exit(1), 100).unref();
+    }
+  });
+}
+installProcessHandlers();
+
 async function startServer() {
   await ensureDatabaseBootstrapped();
   await seedExxasConfigFromEnvIfUnset();
@@ -14776,44 +14840,6 @@ async function startServer() {
       console.log(`Availability API running on http://localhost:${PORT}`);
     });
   }
-
-  // Catch-all Express-Error-Handler: fängt alles ab, was via
-  // async-error-shim oder next(err) hier landet. Erst NACH dem Mount aller
-  // Routen registriert.
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, req, res, _next) => {
-    if (!err) return;
-    const status = Number(err.status) || 500;
-    const expose = process.env.NODE_ENV !== "production";
-    const payload = {
-      error: status >= 500 ? "Internal Server Error" : err.message || "Bad Request",
-    };
-    if (expose) {
-      payload.message = String(err.message || err);
-      if (err.stack) payload.stack = String(err.stack).split("\n").slice(0, 6);
-    }
-    try {
-      console.error("[booking] route error", {
-        method: req && req.method,
-        url: req && req.originalUrl,
-        status,
-        message: err.message,
-      });
-    } catch (_e) {}
-    if (res && !res.headersSent) res.status(status).json(payload);
-  });
-
-  // Sicherheitsnetz für Background-Jobs / Cron / nicht-Express-Pfade.
-  process.on("unhandledRejection", (reason) => {
-    try {
-      console.error("[booking] unhandledRejection", reason && (reason.stack || reason.message || reason));
-    } catch (_e) {}
-  });
-  process.on("uncaughtException", (err) => {
-    try {
-      console.error("[booking] uncaughtException", err && (err.stack || err.message || err));
-    } catch (_e) {}
-  });
 
   // Hintergrund-Jobs starten (hinter feature.backgroundJobs Flag)
   try {

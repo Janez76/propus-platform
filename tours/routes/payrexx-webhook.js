@@ -34,19 +34,29 @@ async function ensureRenewalInvoiceSchema() {
 let webhookIdempotencyReady = false;
 async function ensureWebhookIdempotencySchema() {
   if (webhookIdempotencyReady) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tour_manager.webhook_events (
-      id             BIGSERIAL PRIMARY KEY,
-      provider       TEXT        NOT NULL,
-      event_id       TEXT        NOT NULL,
-      reference_id   TEXT        NULL,
-      status         TEXT        NULL,
-      received_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      payload_sha256 TEXT        NULL,
-      CONSTRAINT webhook_events_provider_event_uniq UNIQUE (provider, event_id)
-    )
-  `).catch(() => {});
-  webhookIdempotencyReady = true;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tour_manager.webhook_events (
+        id             BIGSERIAL PRIMARY KEY,
+        provider       TEXT        NOT NULL,
+        event_id       TEXT        NOT NULL,
+        reference_id   TEXT        NULL,
+        status         TEXT        NULL,
+        received_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        payload_sha256 TEXT        NULL,
+        CONSTRAINT webhook_events_provider_event_uniq UNIQUE (provider, event_id)
+      )
+    `);
+    webhookIdempotencyReady = true;
+  } catch (err) {
+    // Bewusst NICHT readyReady setzen, damit der naechste Aufruf erneut probiert.
+    // Die Migration core/migrations/054_webhook_idempotency.sql ist die kanonische
+    // Quelle; dieses ensure ist nur ein defensives Bootstrap.
+    console.warn(
+      '[payrexx-webhook] ensureWebhookIdempotencySchema fehlgeschlagen:',
+      err && err.message ? err.message : err,
+    );
+  }
 }
 
 /**
@@ -63,6 +73,26 @@ async function claimWebhookEvent({ provider, eventId, referenceId, status, paylo
     [provider, eventId, referenceId || null, status || null, payloadSha256 || null],
   );
   return result.rowCount > 0;
+}
+
+/**
+ * Gibt einen Webhook-Claim wieder frei. Wird bei einem Top-Level-Fehler im
+ * Side-Effect-Block aufgerufen, damit Payrexx-Retries die Verarbeitung erneut
+ * starten koennen. Vollwertige two-state Idempotency (received vs processed)
+ * waere sauberer, sprengt aber Sprint A — siehe Backlog-Note.
+ */
+async function releaseWebhookEvent({ provider, eventId }) {
+  try {
+    await pool.query(
+      `DELETE FROM tour_manager.webhook_events WHERE provider = $1 AND event_id = $2`,
+      [provider, eventId],
+    );
+  } catch (err) {
+    console.warn(
+      '[payrexx-webhook] releaseWebhookEvent fehlgeschlagen (ignoriert):',
+      err && err.message ? err.message : err,
+    );
+  }
 }
 
 /**
@@ -130,112 +160,129 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
 
   console.log('[payrexx-webhook] OK – status:', status, 'referenceId:', referenceId);
 
-  // Replay-Schutz: Pro (provider, event_id) nur einmal verarbeiten. Wichtig:
-  // event_id schliesst den Status mit ein, damit ein frueher Non-Terminal-Event
-  // (z.B. "pending") nicht den Slot fuer das spaetere "confirmed"/"paid"
-  // belegt. Codex-Review #250: ohne Status im Key wuerde der echte Payment-
-  // Webhook als Replay verworfen werden.
-  const transactionId = String(transaction?.id || transaction?.uuid || '').trim();
-  if (transactionId) {
+  if (status === 'confirmed' || status === 'paid') {
+    // Replay-Schutz: NUR fuer terminale Payment-States deduzieren. Davor wuerde
+    // ein frueher 'pending'-Event den Slot konsumieren (Codex Review #1) und
+    // 'confirmed'+'paid' wuerden als zwei verschiedene Events laufen, obwohl
+    // beide denselben Side-Effect-Branch triggern (Codex Review #2). Loesung:
+    // claimWebhookEvent NUR hier, mit kanonischem ':paid'-Suffix.
+    //
+    // event_id-Strategie:
+    //   1. transaction.id wenn vorhanden  -> stabiler Provider-Identifier
+    //   2. sonst SHA-256 des Roh-Bodies   -> deterministischer Fallback
+    const transactionId = String(transaction?.id || transaction?.uuid || '').trim();
+    const payloadSha256 = crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex');
+    const baseEventId = transactionId || `sha256-${payloadSha256}`;
     const fresh = await claimWebhookEvent({
       provider: 'payrexx',
-      eventId: `${transactionId}:${status || 'unknown'}`,
+      eventId: `${baseEventId}:paid`,
       referenceId,
       status,
-      payloadSha256: crypto.createHash('sha256').update(rawBody, 'utf8').digest('hex'),
+      payloadSha256,
     });
     if (!fresh) {
-      console.log('[payrexx-webhook] replay ignoriert – transactionId:', transactionId, 'status:', status);
+      console.log('[payrexx-webhook] replay ignoriert – baseEventId:', baseEventId, 'status:', status);
       return res.json({ ok: true, replay: true });
     }
-  } else {
-    // Kein Transaction-Identifier -> keine Idempotency moeglich. Loggen, aber
-    // nicht ablehnen, damit unerwartete Provider-Varianten nicht stillen.
-    console.warn('[payrexx-webhook] kein transaction.id im Payload, ueberspringe Replay-Check');
-  }
 
-  if (status === 'confirmed' || status === 'paid') {
-    const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
-    if (match) {
-      const tourId = parseInt(match[1], 10);
-      const invoiceRef = match[2];
-      const invoiceResult = await pool.query(
-        `SELECT id, invoice_number, invoice_kind, invoice_status, tour_id
-         FROM tour_manager.renewal_invoices
-         WHERE (id::text = $1 OR invoice_number = $1)
-           AND tour_id = $2
-         LIMIT 1`,
-        [invoiceRef, tourId]
-      );
-      const invoice = invoiceResult.rows[0];
-      const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
-      const tour = normalizeTourRow(tourResult.rows[0] || null);
-      const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
-      let matterportState = tour?.matterport_state || null;
+    // Compensating action: bei einem Top-Level-Fehler im Side-Effect-Block den
+    // Claim wieder freigeben, damit Payrexx-Retries die Verarbeitung erneut
+    // anstossen. Vollwertige two-state-Idempotency (received vs processed) ist
+    // Backlog (Sprint B). Side-Effect-Calls mit eigenem .catch() (Mail,
+    // Matterport setVisibility) werfen sowieso nicht — die zaehlen als best-
+    // effort und blockieren den Webhook nicht.
+    const claimedEventId = `${baseEventId}:paid`;
+    try {
+      const match = referenceId.match(/tour-(\d+)-(?:inv|internal)-(.+)/);
+      if (match) {
+        const tourId = parseInt(match[1], 10);
+        const invoiceRef = match[2];
+        const invoiceResult = await pool.query(
+          `SELECT id, invoice_number, invoice_kind, invoice_status, tour_id
+           FROM tour_manager.renewal_invoices
+           WHERE (id::text = $1 OR invoice_number = $1)
+             AND tour_id = $2
+           LIMIT 1`,
+          [invoiceRef, tourId]
+        );
+        const invoice = invoiceResult.rows[0];
+        const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
+        const tour = normalizeTourRow(tourResult.rows[0] || null);
+        const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
+        let matterportState = tour?.matterport_state || null;
 
-      const paidAtRaw = transaction?.time || new Date().toISOString();
+        const paidAtRaw = transaction?.time || new Date().toISOString();
 
-      let subscriptionWindow;
-      if (isReactivation) {
-        subscriptionWindow = getSubscriptionWindowFromStart(paidAtRaw);
-      } else {
-        const existingEnd = tour?.canonical_term_end_date || tour?.term_end_date || tour?.ablaufdatum || null;
-        const base = existingEnd && new Date(existingEnd) > new Date() ? existingEnd : paidAtRaw;
-        subscriptionWindow = getSubscriptionWindowFromStart(base);
-      }
-
-      if (isReactivation && tour?.matterport_space_id) {
-        const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
-        if (mpResult?.success) {
-          matterportState = 'active';
-          await mpSetVisibility(tour.matterport_space_id, 'LINK_ONLY').catch((err) =>
-            console.warn('payrexx-webhook: setVisibility LINK_ONLY failed', tour.matterport_space_id, err?.message)
-          );
+        let subscriptionWindow;
+        if (isReactivation) {
+          subscriptionWindow = getSubscriptionWindowFromStart(paidAtRaw);
+        } else {
+          const existingEnd = tour?.canonical_term_end_date || tour?.term_end_date || tour?.ablaufdatum || null;
+          const base = existingEnd && new Date(existingEnd) > new Date() ? existingEnd : paidAtRaw;
+          subscriptionWindow = getSubscriptionWindowFromStart(base);
         }
-      }
 
-      await pool.query(
-        `UPDATE tour_manager.renewal_invoices
-         SET invoice_status = 'paid',
-             paid_at = $3::date,
-             payment_source = 'payrexx',
-             payment_method = 'payrexx',
-             subscription_start_at = $3::date,
-             subscription_end_at = $4::date
-         WHERE (id::text = $1 OR invoice_number = $1)
-           AND tour_id = $2`,
-        [invoiceRef, tourId, subscriptionWindow.startIso, subscriptionWindow.endIso]
-      );
+        if (isReactivation && tour?.matterport_space_id) {
+          const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
+          if (mpResult?.success) {
+            matterportState = 'active';
+            await mpSetVisibility(tour.matterport_space_id, 'LINK_ONLY').catch((err) =>
+              console.warn('payrexx-webhook: setVisibility LINK_ONLY failed', tour.matterport_space_id, err?.message)
+            );
+          }
+        }
 
-      const newTermEndDate = subscriptionWindow.endIso;
-      const tourUpdateResult = await pool.query(
-        `UPDATE tour_manager.tours
-         SET status = 'ACTIVE',
-             term_end_date = $2,
-             ablaufdatum = $2,
-             subscription_start_date = $4::date,
-             matterport_state = COALESCE($3, matterport_state),
-             updated_at = NOW()
-         WHERE id = $1 AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
-        [tourId, newTermEndDate, matterportState, subscriptionWindow.startIso]
-      );
+        await pool.query(
+          `UPDATE tour_manager.renewal_invoices
+           SET invoice_status = 'paid',
+               paid_at = $3::date,
+               payment_source = 'payrexx',
+               payment_method = 'payrexx',
+               subscription_start_at = $3::date,
+               subscription_end_at = $4::date
+           WHERE (id::text = $1 OR invoice_number = $1)
+             AND tour_id = $2`,
+          [invoiceRef, tourId, subscriptionWindow.startIso, subscriptionWindow.endIso]
+        );
 
-      await logAction(tourId, 'system', 'payrexx', 'PAYMENT_CONFIRMED', {
-        referenceId,
-        transactionStatus: status,
-        reactivation: isReactivation,
-        subscription_start_at: subscriptionWindow.startIso,
-        subscription_end_at: subscriptionWindow.endIso,
-      });
+        const newTermEndDate = subscriptionWindow.endIso;
+        const tourUpdateResult = await pool.query(
+          `UPDATE tour_manager.tours
+           SET status = 'ACTIVE',
+               term_end_date = $2,
+               ablaufdatum = $2,
+               subscription_start_date = $4::date,
+               matterport_state = COALESCE($3, matterport_state),
+               updated_at = NOW()
+           WHERE id = $1 AND status = 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT'`,
+          [tourId, newTermEndDate, matterportState, subscriptionWindow.startIso]
+        );
 
-      if (tourUpdateResult.rowCount > 0) {
-        const templateKey = isReactivation ? 'reactivation_confirmed' : 'extension_confirmed';
-        tourActions.sendPaymentConfirmedEmail(tourId, newTermEndDate, templateKey).catch((err) => {
-          console.error('[payrexx-webhook] sendPaymentConfirmedEmail failed', tourId, err.message);
+        await logAction(tourId, 'system', 'payrexx', 'PAYMENT_CONFIRMED', {
+          referenceId,
+          transactionStatus: status,
+          reactivation: isReactivation,
+          subscription_start_at: subscriptionWindow.startIso,
+          subscription_end_at: subscriptionWindow.endIso,
         });
+
+        if (tourUpdateResult.rowCount > 0) {
+          const templateKey = isReactivation ? 'reactivation_confirmed' : 'extension_confirmed';
+          tourActions.sendPaymentConfirmedEmail(tourId, newTermEndDate, templateKey).catch((err) => {
+            console.error('[payrexx-webhook] sendPaymentConfirmedEmail failed', tourId, err.message);
+          });
+        }
+      } else {
+        console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
       }
-    } else {
-      console.log('[payrexx-webhook] referenceId passt nicht zu Tour-Format:', referenceId);
+    } catch (err) {
+      // Slot wieder freigeben, damit Payrexx beim Retry erneut angenommen wird.
+      console.error(
+        '[payrexx-webhook] Fehler in Side-Effect-Block, gebe Idempotency-Claim frei:',
+        err && err.message ? err.message : err,
+      );
+      await releaseWebhookEvent({ provider: 'payrexx', eventId: claimedEventId });
+      throw err;
     }
   }
 

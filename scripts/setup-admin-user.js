@@ -17,19 +17,32 @@ const { Pool } = require("pg");
 const crypto = require("crypto");
 
 // ─── Konfiguration ────────────────────────────────────────────────────────────
-// Defaults stammen aus Env-Vars, damit dieses Skript nicht versehentlich mit
-// einem im Repo dokumentierten Default-Passwort einen Admin anlegt.
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "janez";
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "js@propus.ch";
-const ADMIN_NAME     = process.env.ADMIN_NAME     || "Janez";
+// KEINE hartkodierten Identitaets-Defaults: das Skript schreibt sonst still in
+// den falschen Account. Aliase fuer die existierenden Deploy-Variablen
+// ADMIN_USER / ADMIN_PASS bleiben erhalten (siehe docker-compose.vps.yml,
+// .env.vps.example, scripts/ADMIN-SETUP-ANLEITUNG.md).
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || process.env.ADMIN_USER  || "";
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    || "";
+const ADMIN_NAME     = process.env.ADMIN_NAME     || "";
 const ADMIN_ROLE     = process.env.ADMIN_ROLE     || "super_admin";
-const ADMIN_PASSWORD = process.argv[2] || process.env.ADMIN_PASSWORD || "";
+const ADMIN_PASSWORD =
+  process.argv[2] ||
+  process.env.ADMIN_PASSWORD ||
+  process.env.ADMIN_PASS ||
+  "";
 
-if (!ADMIN_PASSWORD) {
+if (!ADMIN_USERNAME || !ADMIN_EMAIL || !ADMIN_NAME || !ADMIN_PASSWORD) {
+  const missing = [
+    !ADMIN_USERNAME && "ADMIN_USERNAME (oder ADMIN_USER)",
+    !ADMIN_EMAIL && "ADMIN_EMAIL",
+    !ADMIN_NAME && "ADMIN_NAME",
+    !ADMIN_PASSWORD && "ADMIN_PASSWORD (oder ADMIN_PASS, oder Argument $1)",
+  ].filter(Boolean);
   console.error(
-    "✖ Kein Passwort übergeben.\n" +
+    "✖ Admin-Bootstrap unvollständig konfiguriert. Fehlend: " + missing.join(", ") + "\n" +
       "  Verwendung:  node scripts/setup-admin-user.js <password>\n" +
-      "  oder Env:    ADMIN_PASSWORD=… node scripts/setup-admin-user.js",
+      "  Env:         ADMIN_USERNAME, ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD\n" +
+      "  Aliase:      ADMIN_USER, ADMIN_PASS (Legacy)",
   );
   process.exit(1);
 }

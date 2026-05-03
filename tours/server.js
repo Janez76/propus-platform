@@ -196,19 +196,29 @@ app.use((err, req, res, _next) => {
   if (res && !res.headersSent) res.status(status).json(payload);
 });
 
-// Letztes Sicherheitsnetz: bei einer Promise-Rejection oder einem nicht
-// gefangenen Fehler nicht crashen, sondern strukturiert loggen. (Express-Layer
-// werden ohnehin schon vom Shim abgedeckt; das hier ist fuer Cron/Timer/etc.)
-process.on('unhandledRejection', (reason) => {
-  try {
-    console.error('[tours] unhandledRejection', reason && (reason.stack || reason.message || reason));
-  } catch (_e) {}
-});
-process.on('uncaughtException', (err) => {
-  try {
-    console.error('[tours] uncaughtException', err && (err.stack || err.message || err));
-  } catch (_e) {}
-});
+// Globale Error-Handler / Sicherheitsnetz fuer Cron/Timer/non-Express-Pfade.
+// Idempotent registriert damit Mehrfach-Imports nicht zu Listener-Leaks fuehren.
+let _toursProcessHandlersInstalled = false;
+function installProcessHandlers() {
+  if (_toursProcessHandlersInstalled) return;
+  _toursProcessHandlersInstalled = true;
+  process.on('unhandledRejection', (reason) => {
+    try {
+      console.error('[tours] unhandledRejection', reason && (reason.stack || reason.message || reason));
+    } catch (_e) {}
+  });
+  process.on('uncaughtException', (err) => {
+    try {
+      console.error('[tours] uncaughtException', err && (err.stack || err.message || err));
+    } finally {
+      // Node.js-Doku: nach uncaughtException ist der Prozesszustand
+      // potenziell korrupt. Verzoegerter Exit damit Logs geflusht werden,
+      // danach Restart durch Docker/PM2.
+      setTimeout(() => process.exit(1), 100).unref();
+    }
+  });
+}
+installProcessHandlers();
 
 const PORT = process.env.PORT || 3000;
 

@@ -319,14 +319,18 @@ async function sendMailDirect(options = {}) {
     return { success: false, error: 'Empfänger, Betreff oder Body fehlen' };
   }
   if (!isRecipientAllowed(to)) {
-    const strict = String(process.env.MAIL_RECIPIENT_STRICT || '').trim() === '1';
+    // Default: in production STRICT (block), sonst warn-only. Override via
+    // MAIL_RECIPIENT_STRICT=1 (force strict) bzw. =0 (force warn-only).
+    const explicit = String(process.env.MAIL_RECIPIENT_STRICT || '').trim();
+    const strict = explicit === '1' || (explicit !== '0' && process.env.NODE_ENV === 'production');
     if (strict) {
       console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', to);
       return { success: false, error: 'recipient_not_allowed' };
     }
-    // Warn-only: weiterhin verschicken, damit dieser Patch keine bestehenden
-    // Customer-Mails abreisst. Nach Pruefung der Logs Allowlist erweitern und
-    // STRICT=1 aktivieren.
+    // Warn-only-Pfad: Mail wird trotzdem verschickt, damit Dev/Staging-Setups
+    // bestehende Customer-Mails nicht abreissen. Vor jeder Production-Migration
+    // sollte die Allowlist um die in den Logs gesehenen Domains erweitert
+    // werden.
     console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', to);
   }
   const contentType = htmlBody ? 'HTML' : 'Text';

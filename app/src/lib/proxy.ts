@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
 const PLATFORM_INTERNAL_URL = process.env.PLATFORM_INTERNAL_URL;
-const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 30_000);
+const _parsedProxyTimeout = Number(process.env.PROXY_TIMEOUT_MS);
+const PROXY_TIMEOUT_MS =
+  Number.isFinite(_parsedProxyTimeout) && _parsedProxyTimeout > 0
+    ? _parsedProxyTimeout
+    : 30_000;
+if (process.env.PROXY_TIMEOUT_MS && PROXY_TIMEOUT_MS === 30_000) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[proxy] PROXY_TIMEOUT_MS=${process.env.PROXY_TIMEOUT_MS} ist ungueltig (erwarte positive Zahl), verwende 30000ms.`,
+  );
+}
 const REQUEST_HEADERS_TO_SKIP = new Set([
   "accept-encoding",
   "connection",
