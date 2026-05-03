@@ -2,7 +2,7 @@
  * jobs/calendar-retry.js
  * Stuendlich: Fehlgeschlagene Calendar-Event-Deletes aus der calendar_delete_queue erneut versuchen.
  *
- * Exponentieller Backoff: 1h, 2h, 4h, 8h, 16h (max. 5 Versuche).
+ * Exponentieller Backoff: 2h, 4h, 8h, 16h, 32h (max. 5 Versuche; Formel: 2^(attempt+1)h).
  * Nach 5 Fehlversuchen bleibt der Eintrag stehen und muss manuell geprueft werden.
  *
  * Nutzt scheduleSafeCronJob (core/lib/safe-cron-job.js) fuer Distributed-
