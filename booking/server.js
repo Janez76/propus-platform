@@ -623,6 +623,43 @@ async function initOrderCounter() {
   console.log("[order-counter] initialized at", orderCounter, "-> next will be", orderCounter + 1);
 }
 /**
+ * Defensiver Bootstrap der order_no-Sequence. Wird einmal pro Prozess
+ * sichergestellt, falls die kanonische Migration `core/migrations/
+ * 055_orders_order_no_sequence.sql` (noch) nicht eingespielt ist
+ * (Codex-Review #253: booking/db.js runMigrations() faehrt nur
+ * booking/migrations, nicht core).
+ *
+ * Idempotent: CREATE IF NOT EXISTS, START WITH MAX(order_no)+1, COLUMN
+ * DEFAULT setval. Bei bereits vorhandener Sequence: setval auf max(MAX, current).
+ */
+let _orderSequenceReady = false;
+async function ensureOrderSequence(pool) {
+  if (_orderSequenceReady) return;
+  const exists = await pool.query(
+    `SELECT 1 FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE c.relkind = 'S' AND c.relname = 'orders_order_no_seq' AND n.nspname = 'booking'
+     LIMIT 1`,
+  );
+  if (exists.rowCount === 0) {
+    const startRow = await pool.query(`SELECT COALESCE(MAX(order_no), 0) + 1 AS start_val FROM booking.orders`);
+    const startVal = Number(startRow.rows[0]?.start_val) || 1;
+    await pool.query(`CREATE SEQUENCE booking.orders_order_no_seq AS BIGINT START WITH ${startVal}`);
+    await pool.query(`ALTER TABLE booking.orders ALTER COLUMN order_no SET DEFAULT nextval('booking.orders_order_no_seq')`);
+    await pool.query(`ALTER SEQUENCE booking.orders_order_no_seq OWNED BY booking.orders.order_no`);
+    console.log(`[order-counter] Sequence booking.orders_order_no_seq angelegt (START=${startVal})`);
+  } else {
+    // Sequence existiert: stelle sicher dass sie nicht hinter MAX(order_no) ist.
+    await pool.query(
+      `SELECT setval('booking.orders_order_no_seq'::regclass,
+                     GREATEST((SELECT COALESCE(MAX(order_no), 0) FROM booking.orders), last_value))
+       FROM booking.orders_order_no_seq`,
+    );
+  }
+  _orderSequenceReady = true;
+}
+
+/**
  * Liefert die naechste Bestellnummer atomar aus der Postgres-Sequence
  * `booking.orders_order_no_seq` (Migration 055).
  *
@@ -647,6 +684,10 @@ async function nextOrderNumber(){
   if (!pool) {
     throw new Error("nextOrderNumber: DATABASE_URL gesetzt, aber kein DB-Pool verfuegbar");
   }
+
+  // Defensiver Bootstrap fuer Setups, die nur booking/migrations fahren
+  // und core/migrations/055 nicht eingespielt haben.
+  await ensureOrderSequence(pool);
 
   const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
   const n = Number(r.rows && r.rows[0] && r.rows[0].n);
