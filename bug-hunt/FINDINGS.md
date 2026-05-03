@@ -214,7 +214,7 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 ### HIGH
 
 #### [T01][HIGH][M] Admin-Bridge: ungeprüfter Impersonation-Pfad (Re-Klassifizierung CRITICAL→HIGH)
-- Datei: `tours/routes/portal.js:91-124`
+- Datei: `tours/routes/portal-api.js:54-69` (`requirePortalSession`-Bridge), zusätzlich `tours/routes/portal.js:91-124` (`/portal/admin-bridge` Redirect-Setter)
 - Kategorie: 1. Security / Privilege Escalation
 - **Update Sprint A (2026-05-03):** Beim erneuten Lesen **CRITICAL → HIGH
   herabgestuft.** Der Code setzt `portalCustomerEmail = row.user_key`, also die

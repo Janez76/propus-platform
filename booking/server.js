@@ -14759,8 +14759,7 @@ async function seedExxasConfigFromEnvIfUnset() {
 //
 // Liest sowohl err.status als auch err.statusCode (Express idiomatisch) damit
 // 4xx-Fehler nicht faelschlich als 500 antworten.
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, _next) => {
+app.use((err, req, res, next) => {
   if (!err) return;
   const status = Number(err.statusCode ?? err.status) || 500;
   const expose = process.env.NODE_ENV !== "production";
@@ -14779,7 +14778,11 @@ app.use((err, req, res, _next) => {
       message: err.message,
     });
   } catch (_e) {}
-  if (res && !res.headersSent) res.status(status).json(payload);
+  // Wenn die Response schon teilweise gesendet wurde (z.B. SSE/Stream/Download),
+  // an Express' Default-Handler delegieren, damit die Verbindung sauber beendet
+  // wird statt mit einem ERR_HTTP_HEADERS_SENT zu hängen.
+  if (res && res.headersSent) return next(err);
+  return res.status(status).json(payload);
 });
 
 // ─── Process-Sicherheitsnetze (einmalig, idempotent) ──────────────────────────
@@ -14807,8 +14810,10 @@ function installProcessHandlers() {
       );
     } finally {
       // Verzögerter Exit damit Logs noch geflusht werden; danach uebernimmt
-      // der externe Prozess-Monitor (Docker/PM2) den Restart.
-      setTimeout(() => process.exit(1), 100).unref();
+      // der externe Prozess-Monitor (Docker/PM2) den Restart. KEIN .unref()
+      // — sonst koennte der Prozess vor dem Exit-Timer auslaufen und mit
+      // Code 0 enden, was Docker als "normal stop" interpretieren wuerde.
+      setTimeout(() => process.exit(1), 100);
     }
   });
 }

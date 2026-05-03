@@ -206,8 +206,17 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
           [invoiceRef, tourId]
         );
         const invoice = invoiceResult.rows[0];
+        if (!invoice) {
+          // Race-Condition zwischen Checkout und Persistenz oder verzoegerte
+          // Invoice-Erstellung. Throw -> outer catch gibt den Idempotency-
+          // Claim frei -> Payrexx-Retry verarbeitet erneut.
+          throw new Error(`payrexx-webhook: renewal_invoice nicht gefunden (referenceId=${referenceId})`);
+        }
         const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [tourId]);
         const tour = normalizeTourRow(tourResult.rows[0] || null);
+        if (!tour) {
+          throw new Error(`payrexx-webhook: tour nicht gefunden (tourId=${tourId}, referenceId=${referenceId})`);
+        }
         const isReactivation = invoice?.invoice_kind === 'portal_reactivation';
         let matterportState = tour?.matterport_state || null;
 

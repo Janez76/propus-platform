@@ -281,15 +281,20 @@ async function sendDraftMessage(options = {}) {
 /**
  * Empfänger-Allowlist für sendMailDirect (Bug-Hunt T14 CRITICAL: Mail-Abuse).
  *
- * Default-Allow: alle E-Mails an Domain `propus.ch` (eigene Org). Zusätzliche
- * Domains/Adressen können per Env konfiguriert werden:
- *   MAIL_RECIPIENT_ALLOW_DOMAINS  – komma-getrennt, z.B. "propus.ch,kunde.com"
- *   MAIL_RECIPIENT_ALLOW_ADDRESSES – komma-getrennt, exakte Adressen
- *   MAIL_RECIPIENT_STRICT=1       – Hard-Block bei nicht-allowlist (sonst nur WARN)
+ * Konfiguration per Env (alles optional):
+ *   MAIL_RECIPIENT_ALLOW_DOMAINS    – komma-getrennt, z.B. "propus.ch,kunde.com"
+ *   MAIL_RECIPIENT_ALLOW_ADDRESSES  – komma-getrennt, exakte Adressen
+ *   MAIL_RECIPIENT_STRICT=1         – Hard-Block bei nicht-allowlist (sonst nur WARN)
  *
- * Strict-Mode ist OFF per Default, damit dieser Sicherheits-Patch keine
- * legitimen Kunden-Mails abreissen kann. Production sollte nach einer
- * Beobachtungsphase auf STRICT=1 umgestellt werden.
+ * Verhalten:
+ *   - Sind weder ALLOW_DOMAINS noch ALLOW_ADDRESSES gesetzt, ist die Allowlist
+ *     deaktiviert und jeder formatvalide Empfaenger wird durchgelassen
+ *     (out-of-the-box keine Funktionsregression bei externen Customer-Mails).
+ *   - Sobald mindestens eine Allowlist-Variable gesetzt ist, gilt sie. Wer
+ *     nicht passt, bekommt im Default warn-only (Mail geht raus + Log) und
+ *     mit MAIL_RECIPIENT_STRICT=1 hard-block.
+ *   - Aktivierungs-Pfad fuer Production: Allowlist anhand der gesehenen
+ *     Domains pflegen, dann STRICT=1 setzen.
  */
 function parseMailAllowlistEnv(name) {
   return String(process.env[name] || '')
@@ -301,11 +306,21 @@ function parseMailAllowlistEnv(name) {
 function isRecipientAllowed(to) {
   const addr = String(to || '').trim().toLowerCase();
   if (!addr || !addr.includes('@')) return false;
-  const allowAddresses = new Set(['', ...parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_ADDRESSES')]);
-  if (allowAddresses.has(addr)) return true;
+  const allowAddresses = parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_ADDRESSES');
+  const allowDomains = parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_DOMAINS');
+  // Keine Allowlist konfiguriert -> Funktion ist deaktiviert, alles erlaubt.
+  if (!allowAddresses.length && !allowDomains.length) return true;
+  if (allowAddresses.includes(addr)) return true;
   const domain = addr.slice(addr.lastIndexOf('@') + 1);
-  const allowDomains = new Set(['propus.ch', ...parseMailAllowlistEnv('MAIL_RECIPIENT_ALLOW_DOMAINS')]);
-  return allowDomains.has(domain);
+  return allowDomains.includes(domain);
+}
+
+/** Maskiert eine Empfaenger-Adresse fuer Logs (PII-Schutz). */
+function maskRecipientForLog(value) {
+  const addr = String(value || '').trim().toLowerCase();
+  const at = addr.indexOf('@');
+  if (at <= 0) return '[redacted]';
+  return `${addr[0]}***${addr.slice(at)}`;
 }
 
 /**
@@ -327,11 +342,12 @@ async function sendMailDirect(options = {}) {
     // MAIL_RECIPIENT_STRICT=1, nachdem die Allowlist (MAIL_RECIPIENT_ALLOW_
     // DOMAINS / -ADDRESSES) anhand der Log-Beobachtung vervollstaendigt wurde.
     const strict = String(process.env.MAIL_RECIPIENT_STRICT || '').trim() === '1';
+    const masked = maskRecipientForLog(to);
     if (strict) {
-      console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', to);
+      console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', masked);
       return { success: false, error: 'recipient_not_allowed' };
     }
-    console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', to);
+    console.warn('[microsoft-graph] sendMailDirect: Empfaenger NICHT in Allowlist (warn-only):', masked);
   }
   const contentType = htmlBody ? 'HTML' : 'Text';
   const content = htmlBody || String(textBody || '').trim();

@@ -173,10 +173,11 @@ app.get('/health', (req, res) => res.json({ ok: true }));
 
 // Globaler Express-Error-Handler: faengt alles ab, was via async-error-shim
 // (oder explizites next(err)) hier landet. Antwortet strukturiert statt den
-// Client haengen zu lassen, leakt aber keine Stack-Traces in Production.
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, _next) => {
-  const status = Number(err && err.status) || 500;
+// Client haengen zu lassen, leakt aber keine Stack-Traces in Production. Bei
+// bereits gesendeten Headers (Streams/SSE/Downloads) wird an Express' Default-
+// Handler delegiert.
+app.use((err, req, res, next) => {
+  const status = Number((err && (err.statusCode ?? err.status)) || 500);
   const expose = process.env.NODE_ENV !== 'production';
   const payload = {
     error: status >= 500 ? 'Internal Server Error' : (err && err.message) || 'Bad Request',
@@ -193,7 +194,8 @@ app.use((err, req, res, _next) => {
       message: err && err.message,
     });
   } catch (_e) {}
-  if (res && !res.headersSent) res.status(status).json(payload);
+  if (res && res.headersSent) return next(err);
+  return res.status(status).json(payload);
 });
 
 // Globale Error-Handler / Sicherheitsnetz fuer Cron/Timer/non-Express-Pfade.
@@ -213,8 +215,9 @@ function installProcessHandlers() {
     } finally {
       // Node.js-Doku: nach uncaughtException ist der Prozesszustand
       // potenziell korrupt. Verzoegerter Exit damit Logs geflusht werden,
-      // danach Restart durch Docker/PM2.
-      setTimeout(() => process.exit(1), 100).unref();
+      // danach Restart durch Docker/PM2. KEIN .unref() — sonst koennte der
+      // Prozess vor Ablauf des Timers regulaer enden (Exit-Code 0).
+      setTimeout(() => process.exit(1), 100);
     }
   });
 }
