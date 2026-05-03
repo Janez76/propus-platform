@@ -20,7 +20,7 @@ function scheduleCalendarRetry(deps) {
   const { db, graphClient } = deps;
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  scheduleSafeCronJob({
+  return scheduleSafeCronJob({
     name: "calendar-retry",
     cron: "5 * * * *",
     pool,
@@ -29,6 +29,30 @@ function scheduleCalendarRetry(deps) {
       ctx.log("Calendar-Delete-Retry-Job gestartet");
       if (!pool) { ctx.warn("Kein DB-Pool verfuegbar, uebersprungen"); return; }
       if (!graphClient) { ctx.warn("graphClient nicht verfuegbar, uebersprungen"); return; }
+
+      /**
+       * Retry-Bookkeeping: erhoeht attempts, setzt last_error + next_retry_at
+       * mit exponentiellem Backoff (2h, 4h, 8h, 16h, 32h). Nutzt die Methode
+       * fuer alle Fehlerpfade — Graph-API-Failures, DB-Update-Failures im
+       * 404-Branch, alles. Honoriert die dokumentierte max-5-Versuche-Regel.
+       */
+      async function recordRetry(r, err) {
+        const attempts = r.attempts + 1;
+        const backoffMs = Math.pow(2, attempts) * 60 * 60 * 1000;
+        const nextRetryAt = new Date(Date.now() + backoffMs);
+        const lastError = String(err && err.message || err).slice(0, 500);
+        try {
+          await pool.query(
+            `UPDATE calendar_delete_queue
+             SET attempts = $1, last_error = $2, next_retry_at = $3
+             WHERE id = $4`,
+            [attempts, lastError, nextRetryAt, r.id],
+          );
+        } catch (updateErr) {
+          ctx.error("Queue-Update fehlgeschlagen", { id: r.id, error: updateErr && updateErr.message });
+        }
+        return { attempts, lastError };
+      }
 
       let rows;
       try {
@@ -50,56 +74,50 @@ function scheduleCalendarRetry(deps) {
 
       for (const row of rows) {
         await ctx.perRow(row, async (r) => {
+          // Helper: Order-Cleanup + done_at-Marker. Bei DB-Fehler in einem
+          // der beiden Schritte → Retry-Bookkeeping (Backoff/Max-Attempts).
+          // Reihenfolge: erst updateOrderFields, dann done_at — sonst koennte
+          // ein durchgefuehrter Calendar-Delete mit nicht-genulltem
+          // photographer_event_id zurueckbleiben (CodeRabbit Major).
+          async function finalizeAsDone() {
+            const eventIdField = r.event_type === "photographer" ? "photographer_event_id" : "office_event_id";
+            try {
+              await db.updateOrderFields(Number(r.order_no), {
+                [eventIdField]: null,
+                calendar_sync_status: "deleted",
+              });
+              await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
+              return { ok: true };
+            } catch (dbErr) {
+              const { attempts, lastError } = await recordRetry(r, dbErr);
+              ctx.error("DB-Cleanup fehlgeschlagen, retry-Bookkeeping aktualisiert", {
+                orderNo: r.order_no,
+                attempts,
+                error: lastError,
+              });
+              return { ok: false };
+            }
+          }
+
           try {
             await graphClient.api("/users/" + r.user_email + "/events/" + r.event_id).delete();
-
-            // Reihenfolge wichtig: erst Order-Cleanup, dann done_at setzen.
-            // Wenn updateOrderFields scheitert, bleibt done_at IS NULL und der
-            // naechste Tick kann den Eintrag erneut bearbeiten — kein dauerhaft
-            // inkonsistenter Zustand (CodeRabbit Major).
-            const eventIdField = r.event_type === "photographer" ? "photographer_event_id" : "office_event_id";
-            await db.updateOrderFields(Number(r.order_no), {
-              [eventIdField]: null,
-              calendar_sync_status: "deleted",
-            });
-            await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
-
-            ctx.log("Retry erfolgreich", { orderNo: r.order_no, eventType: r.event_type, eventId: r.event_id });
-
+            const fin = await finalizeAsDone();
+            if (fin.ok) {
+              ctx.log("Retry erfolgreich", { orderNo: r.order_no, eventType: r.event_type, eventId: r.event_id });
+            }
           } catch (err) {
             const isGone = err && (err.statusCode === 404);
             if (isGone) {
-              // 404 = Event existiert nicht mehr, gilt als erledigt. Auch hier
-              // erst Order-Cleanup, dann done_at — bei DB-Fehler retryt der
-              // Job, aber graphClient liefert eh weiter 404, also no-op.
-              const eventIdField = r.event_type === "photographer" ? "photographer_event_id" : "office_event_id";
-              try {
-                await db.updateOrderFields(Number(r.order_no), {
-                  [eventIdField]: null,
-                  calendar_sync_status: "deleted",
-                });
-              } catch (dbErr) {
-                ctx.error("DB-Update im 404-Zweig fehlgeschlagen, done_at wird NICHT gesetzt:", { orderNo: r.order_no, error: dbErr && dbErr.message });
-                return; // done_at bleibt offen, naechster Tick versucht erneut
+              // 404 = Event existiert nicht mehr → gilt als erledigt.
+              // finalizeAsDone uebernimmt Order-Cleanup + done_at; bei
+              // DB-Fehler wird Retry-Bookkeeping aktualisiert.
+              const fin = await finalizeAsDone();
+              if (fin.ok) {
+                ctx.log("Event bereits geloescht (404), als done markiert", { orderNo: r.order_no, eventType: r.event_type });
               }
-              await pool.query("UPDATE calendar_delete_queue SET done_at = NOW() WHERE id = $1", [r.id]);
-              ctx.log("Event bereits geloescht (404), als done markiert", { orderNo: r.order_no, eventType: r.event_type });
             } else {
-              // Noch ein Fehler: Backoff erhoehen
-              const attempts = r.attempts + 1;
-              const backoffMs = Math.pow(2, attempts) * 60 * 60 * 1000;
-              const nextRetryAt = new Date(Date.now() + backoffMs);
-              const lastError = String(err && err.message || err).slice(0, 500);
-              try {
-                await pool.query(
-                  `UPDATE calendar_delete_queue
-                   SET attempts = $1, last_error = $2, next_retry_at = $3
-                   WHERE id = $4`,
-                  [attempts, lastError, nextRetryAt, r.id]
-                );
-              } catch (updateErr) {
-                ctx.error("Queue-Update fehlgeschlagen", { id: r.id, error: updateErr && updateErr.message });
-              }
+              // Graph-API-Fehler: regulaeres Retry-Bookkeeping.
+              const { attempts, lastError } = await recordRetry(r, err);
               ctx.error("Retry fehlgeschlagen, naechster Versuch in", Math.pow(2, attempts) + "h", {
                 orderNo: r.order_no,
                 eventType: r.event_type,

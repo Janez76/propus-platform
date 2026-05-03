@@ -23,7 +23,7 @@ function scheduleProvisionalReminders(deps) {
   const { db, getSetting, sendMail, OFFICE_EMAIL } = deps;
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  scheduleSafeCronJob({
+  return scheduleSafeCronJob({
     name: "provisional-reminders",
     cron: "0 * * * *",
     pool,

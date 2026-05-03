@@ -176,7 +176,7 @@ function scheduleWebsizeSync(deps) {
   const { db } = deps || {};
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  scheduleSafeCronJob({
+  return scheduleSafeCronJob({
     name: "websize-sync",
     cron: "*/10 * * * *",
     pool,

@@ -28,7 +28,7 @@ function scheduleDuplicateCandidatesNightly(deps) {
     process.env.DUPLICATE_CANDIDATES_REPORT_EMAIL || OFFICE_EMAIL || "office@propus.ch"
   );
 
-  scheduleSafeCronJob({
+  return scheduleSafeCronJob({
     name: "duplicate-customers-nightly",
     cron: "15 2 * * *",
     pool,

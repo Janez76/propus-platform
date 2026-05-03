@@ -29,7 +29,7 @@ function scheduleConfirmationPending(deps) {
   const { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES, createPortalMagicLink } = deps;
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  scheduleSafeCronJob({
+  return scheduleSafeCronJob({
     name: "confirmation-pending",
     cron: "15 * * * *",
     pool,
