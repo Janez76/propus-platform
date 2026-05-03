@@ -624,33 +624,41 @@ async function initOrderCounter() {
 }
 /**
  * Liefert die naechste Bestellnummer atomar aus der Postgres-Sequence
- * `booking.orders_order_no_seq` (Migration 055). Faellt auf den in-memory
- * Counter zurueck, falls die Sequence (noch) nicht existiert oder die DB
- * temporaer nicht erreichbar ist — damit das System bei Migrations-Lag oder
- * DB-Outage nicht komplett blockiert.
+ * `booking.orders_order_no_seq` (Migration 055).
  *
- * Mehrere Allokatoren (Express duplicate, Express manuelle Bestellung,
- * Next-App duplicate-actions.ts) muessen alle die Sequence nutzen, damit
- * keine zwei Pfade dieselbe Nummer vergeben (Codex-Review #253).
+ * Fail-closed im DB-Modus: bei Sequence-Fehler oder ungueltigem Wert wird
+ * geworfen statt auf den in-memory Counter zurueckzufallen — andernfalls
+ * koennten zwei App-Instanzen bei DB-Outage parallel ueberlappende Nummern
+ * vergeben und nach Recovery den UNIQUE-Constraint reissen (CodeRabbit
+ * Review #253).
+ *
+ * In-memory-Fallback ist ausschliesslich fuer den DB-losen Modus aktiv
+ * (kein DATABASE_URL gesetzt — z.B. lokales JSON-File-Setup). Mehrere
+ * Allokatoren (Express duplicate, Express manuelle Bestellung, Next-App
+ * duplicate, Assistant-Tool) nutzen alle dieselbe Sequence.
  */
 async function nextOrderNumber(){
-  try {
-    const pool = db.getPool ? db.getPool() : null;
-    if (pool) {
-      const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
-      const n = Number(r.rows && r.rows[0] && r.rows[0].n);
-      if (Number.isInteger(n) && n > 0) {
-        // In-memory-Counter mitziehen, damit der Fallback-Pfad nicht hinter der
-        // Sequence zurueckfaellt.
-        if (n > orderCounter) orderCounter = n;
-        return n;
-      }
-    }
-  } catch (e) {
-    console.warn("[order-counter] Sequence nicht verfuegbar, Fallback auf in-memory:", e?.message || e);
+  if (!process.env.DATABASE_URL) {
+    orderCounter += 1;
+    return orderCounter;
   }
-  orderCounter += 1;
-  return orderCounter;
+
+  const pool = db.getPool ? db.getPool() : null;
+  if (!pool) {
+    throw new Error("nextOrderNumber: DATABASE_URL gesetzt, aber kein DB-Pool verfuegbar");
+  }
+
+  const r = await pool.query(`SELECT nextval('booking.orders_order_no_seq') AS n`);
+  const n = Number(r.rows && r.rows[0] && r.rows[0].n);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `nextOrderNumber: ungueltiger Sequence-Wert ${r.rows?.[0]?.n} (Migration 055 nicht eingespielt?)`,
+    );
+  }
+  // In-memory-Counter mitziehen, damit ein spaeterer Wechsel in den DB-losen
+  // Modus nicht hinter der Sequence zurueckfaellt.
+  if (n > orderCounter) orderCounter = n;
+  return n;
 }
 
 const GRAPH_ENV_KEYS = [

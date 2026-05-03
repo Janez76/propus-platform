@@ -22,7 +22,9 @@ const { changeOrderStatus } = require("../order-status-workflow");
  */
 function scheduleProvisionalExpiry(deps) {
   const { db, getSetting, sendMail, graphClient, OFFICE_EMAIL, PHOTOG_PHONES } = deps;
-  const pool = db.getPool ? db.getPool() : null;
+  // Defensiver Guard gegen null-deps oder DB-loses Boot (Test-Setups,
+  // PROPUS_PLATFORM_MERGED ohne booking-DB): null statt crash.
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
   scheduleSafeCronJob({
     name: "provisional-expiry",
@@ -63,13 +65,13 @@ function scheduleProvisionalExpiry(deps) {
         await ctx.perRow(row, async (r) => {
           const orderNo = r.order_no;
 
-          // loadOrder liest **frisch** aus der DB statt den Snapshot aus
-          // dem initialen Batch-SELECT zu nutzen. Damit kein Stale-Read,
-          // wenn ein Auftrag zwischen Batch-Read und perRow manuell
-          // geaendert wurde (CodeRabbit-Review #253). Gleichzeitig wird die
-          // Expiry-Bedingung erneut geprueft — wenn der Auftrag inzwischen
-          // nicht mehr provisorisch ist oder das Ablaufdatum entfernt
-          // wurde, ueberspringen wir ihn.
+          // loadOrder liest **frisch** aus der DB statt den Snapshot aus dem
+          // initialen Batch-SELECT zu reusen. Damit kein Stale-Read, wenn ein
+          // Auftrag zwischen Batch-Read und perRow manuell geaendert wurde.
+          // Returnt null wenn der Auftrag nicht mehr existiert; sonst ein
+          // normalisiertes Snapshot-Objekt OHNE Expiry-Filter, damit der
+          // Loader auch nach erfolgreichem Status-Wechsel fuer den Mail-Pfad
+          // wiederverwendbar ist.
           const loadOrder = async function() {
             const fresh = await pool.query(
               `SELECT order_no, status, provisional_expires_at, billing, address, services, pricing,
@@ -79,13 +81,10 @@ function scheduleProvisionalExpiry(deps) {
             );
             const f = fresh.rows[0];
             if (!f) return null;
-            if (f.status !== 'provisional' || !f.provisional_expires_at || new Date(f.provisional_expires_at) > new Date()) {
-              ctx.log("Auftrag nicht mehr ablaufbereit, skip:", orderNo, { status: f.status });
-              return null;
-            }
             return {
               orderNo,
               status: f.status,
+              provisionalExpiresAt: f.provisional_expires_at,
               photographer: f.photographer || {},
               photographerEventId: f.photographer_event_id,
               officeEventId: f.office_event_id,
@@ -98,15 +97,28 @@ function scheduleProvisionalExpiry(deps) {
             };
           };
 
+          // Pre-Check: ist der Auftrag jetzt noch ablaufbereit? Falls nicht
+          // (Status nicht mehr 'provisional', oder provisional_expires_at
+          // entfernt/in die Zukunft verschoben), ueberspringen.
+          const preCheck = await loadOrder();
+          if (!preCheck) return;
+          if (
+            preCheck.status !== "provisional" ||
+            !preCheck.provisionalExpiresAt ||
+            new Date(preCheck.provisionalExpiresAt) > new Date()
+          ) {
+            ctx.log("Auftrag nicht mehr ablaufbereit, skip:", orderNo, { status: preCheck.status });
+            return;
+          }
+
           // Zentrale Workflow-Engine: provisional -> pending via expiry_job.
-          // changeOrderStatus ruft loadOrder; wenn null, brechen wir hier ab
-          // (frisch-gelesener Auftrag passt nicht mehr zur Expiry-Bedingung).
-          const freshSnapshot = await loadOrder();
-          if (!freshSnapshot) return;
+          // loadOrder wird LIVE durchgereicht, damit changeOrderStatus bei
+          // Re-Validierung den dann aktuellen DB-Stand sieht (CodeRabbit-Review:
+          // gefrorener Snapshot wuerde konkurrierende Updates verschlucken).
           const result = await changeOrderStatus(orderNo, "pending", {
             source: "expiry_job",
             actorId: "job:provisional-expiry",
-            loadOrder: async () => freshSnapshot,
+            loadOrder,
           }, { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES: PHOTOG_PHONES || {} });
 
           if (!result.success) {
@@ -116,12 +128,15 @@ function scheduleProvisionalExpiry(deps) {
 
           ctx.log("Auftrag zurueck auf pending:", orderNo, { calendarResult: result.calendarResult });
 
-          // Ablauf-Mail an Kunde (idempotent via email_send_log) — nutzt den
-          // frisch-gelesenen Snapshot fuer aktuelle billing/services-Daten.
-          if (mailOn && sendMail && freshSnapshot.billing && freshSnapshot.billing.email) {
+          // Ablauf-Mail an Kunde (idempotent via email_send_log). Wir lesen
+          // den aktuellen Stand erneut, damit billing/services nach
+          // changeOrderStatus aktuell sind. Fallback auf preCheck wenn der
+          // Auftrag in der Zwischenzeit weg ist (selten).
+          const snap = (await loadOrder().catch(() => null)) || preCheck;
+          if (mailOn && sendMail && snap.billing && snap.billing.email) {
             try {
-              const vars = buildTemplateVars(freshSnapshot, {});
-              await sendMailIdempotent(pool, "provisional_expired", freshSnapshot.billing.email, orderNo, vars, sendMail);
+              const vars = buildTemplateVars(snap, {});
+              await sendMailIdempotent(pool, "provisional_expired", snap.billing.email, orderNo, vars, sendMail);
             } catch (mailErr) {
               ctx.error("Ablauf-Mail fehlgeschlagen:", orderNo, mailErr && mailErr.message);
             }
