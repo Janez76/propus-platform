@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { logger } from "./logger";
 
 const PLATFORM_INTERNAL_URL = process.env.PLATFORM_INTERNAL_URL;
+// AbortSignal.timeout akzeptiert int32-range; Werte >= 2^32 werfen RangeError.
+// Wir clampen daher zwischen 1ms und 24h (86_400_000ms), Default 30s.
+const _MAX_PROXY_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const _parsedProxyTimeout = Number(process.env.PROXY_TIMEOUT_MS);
-const PROXY_TIMEOUT_MS =
-  Number.isFinite(_parsedProxyTimeout) && _parsedProxyTimeout > 0
-    ? _parsedProxyTimeout
-    : 30_000;
-if (process.env.PROXY_TIMEOUT_MS && PROXY_TIMEOUT_MS === 30_000) {
+const _proxyTimeoutValid =
+  Number.isFinite(_parsedProxyTimeout) &&
+  _parsedProxyTimeout > 0 &&
+  _parsedProxyTimeout <= _MAX_PROXY_TIMEOUT_MS;
+const PROXY_TIMEOUT_MS = _proxyTimeoutValid ? _parsedProxyTimeout : 30_000;
+if (process.env.PROXY_TIMEOUT_MS && !_proxyTimeoutValid) {
   // eslint-disable-next-line no-console
   console.warn(
-    `[proxy] PROXY_TIMEOUT_MS=${process.env.PROXY_TIMEOUT_MS} ist ungueltig (erwarte positive Zahl), verwende 30000ms.`,
+    `[proxy] PROXY_TIMEOUT_MS=${process.env.PROXY_TIMEOUT_MS} ist ungueltig (erwarte 1..${_MAX_PROXY_TIMEOUT_MS}ms), verwende 30000ms.`,
   );
 }
 const REQUEST_HEADERS_TO_SKIP = new Set([
