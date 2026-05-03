@@ -281,6 +281,14 @@ Cron: `POST /api/tours/cron/posteingang-triggers`
 - **Auth**: Session-basiert (lokale Passwort-Auth, Admin + Portal)
 - **Deploy**: Docker Compose auf VPS, GitHub Actions CI/CD
 
+### Production-Image: `platform/Dockerfile` (nicht `booking/Dockerfile`)
+
+- **Production-Container** auf der VPS ist **`platform/Dockerfile`** — Multi-Stage-Image mit Next.js (Port 3001, externer Entry) **und** Express (Port 3100, intern). Next.js proxied per `rewrites()` an Express via `PLATFORM_INTERNAL_URL=http://localhost:3100`.
+- `booking/Dockerfile` ist ein **standalone**-Image für isolierte Booking-Deploys (NAS / lokal); auf der VPS spielt es keine Rolle.
+- **Konsequenz für Runtime-Files (z. B. `docs/openapi/openapi.yaml`):** Wenn Express ein File aus dem Repo zur Laufzeit liest, **muss der `COPY` im `platform/Dockerfile`-Runtime-Stage** stehen — Patches an `booking/Dockerfile` haben für die VPS keinen Effekt.
+- **Express-Routen im platform-Image** kommen aus `booking/server.js` (gestartet via `scripts/start.sh`, parallel zum Next.js-Standalone). Pfade sind also relativ zu `/app/booking/__dirname`.
+- **Neue `/api/*`-Pfade brauchen einen Eintrag in `app/next.config.ts` `rewrites().beforeFiles`** — sonst fängt der SPA-Fallback die Anfrage und Express sieht sie nie. Dynamische Pfade (`/:path*`) matchen nicht den leeren Pfad — die Wurzel (`/api/foo`) und der Sub-Pfad (`/api/foo/:path*`) müssen separat gelistet werden, wenn beides bedient werden soll.
+
 ### VPS-Deploy: `tar`/`rsync`-Excludes (häufige Falle)
 
 - **Kein loses `backups`-Pattern ohne Root-Anker:** Sowohl GNU `tar --exclude=…` als auch `rsync --exclude='…'` matchen oft den **Basisnamen** auf **jeder** Pfadtiefe. Ein Exclude wie `backups` oder `backups/` schließt damit nicht nur das Top-Level-Verzeichnis `backups/` (Runtime-Backups), sondern auch **`app/src/components/backups/`** (React-Backup-UI) aus — die Dateien fehlen dann still im Deploy-Archiv bzw. werden per rsync nicht aktualisiert; der Docker-Build auf dem VPS tippt gegen **alten** Stand, während `git` lokal sauber ist.
