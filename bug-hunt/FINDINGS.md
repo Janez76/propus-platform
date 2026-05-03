@@ -24,14 +24,16 @@ Cross-Cutting-Block referenziert.
 | MEDIUM   | 30 |
 | LOW      | 6 |
 | INFO     | 2 |
-| **Total (ohne Pilot)** | **68** |
+| **Total (dedupliziert, ohne Pilot)** | **68** |
 
-> Pilot-Findings (`bug-hunt/PILOT.md`, 11 Einträge inkl. eigener TOCTOU-/Tx-/
-> Mail-Findings) sind hier bewusst **nicht** dupliziert. Nur im
-> Cross-Cutting-Block (Punkt 10) referenziert.
+> **Zählbasis:** dedupliziert, exklusive Pilot. Pilot-Findings
+> (`bug-hunt/PILOT.md`, 11 Einträge inkl. eigener TOCTOU-/Tx-/Mail-Findings)
+> sind hier bewusst **nicht** dupliziert und werden nur im Cross-Cutting-Block
+> (Punkt 10) referenziert. 7+23+30+6+2 = 68 = Tabelle.
 
-Tranchen-Verteilung: T01/T03 (12) · T02/T04 (16) · T05/T08 (15) · T07/T09 (15) ·
-T10/T12/T15 (12) · T13/T14 (17) · Cross-Cutting-Dedup (-18 → 69 unique).
+Tranchen-Verteilung (vor Dedup): T01/T03 (12) · T02/T04 (16) · T05/T08 (15) ·
+T07/T09 (15) · T10/T12/T15 (12) · T13/T14 (17) = 87 Roh-Findings · nach
+Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 
 ---
 
