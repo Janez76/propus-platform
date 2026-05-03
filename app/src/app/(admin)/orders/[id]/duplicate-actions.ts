@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOrderEditor, sessionActorId } from "@/lib/auth.server";
 import { queryOne } from "@/lib/db";
+import { ensureBookingOrderSequence } from "@/lib/orderSequence";
 import { logOrderEvent, logStatusAuditEntry } from "@/lib/audit";
 
 export type DuplicateOrderResult =
@@ -56,7 +57,10 @@ export async function duplicateOrder(
   }
 
   // INSERT ohne explizites order_no — Default `nextval(orders_order_no_seq)`
-  // greift atomar. RETURNING liefert die allokierte Nummer.
+  // greift atomar. RETURNING liefert die allokierte Nummer. Vor dem
+  // INSERT defensiver Bootstrap der Sequence, falls Migration 055 noch
+  // nicht eingespielt ist (Codex-Review #253).
+  await ensureBookingOrderSequence();
   let newOrderNo: number;
   try {
     const inserted = await queryOne<{ order_no: number }>(

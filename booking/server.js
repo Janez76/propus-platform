@@ -629,33 +629,32 @@ async function initOrderCounter() {
  * (Codex-Review #253: booking/db.js runMigrations() faehrt nur
  * booking/migrations, nicht core).
  *
- * Idempotent: CREATE IF NOT EXISTS, START WITH MAX(order_no)+1, COLUMN
- * DEFAULT setval. Bei bereits vorhandener Sequence: setval auf max(MAX, current).
+ * Race-safe: nutzt CREATE SEQUENCE IF NOT EXISTS (Postgres ≥ 9.5). Wenn
+ * zwei Prozesse gleichzeitig den ersten nextOrderNumber-Call ausloesen,
+ * legt nur einer die Sequence an, der andere findet sie. Idempotent ueber
+ * _orderSequenceReady-Flag (in-memory pro Prozess).
  */
 let _orderSequenceReady = false;
 async function ensureOrderSequence(pool) {
   if (_orderSequenceReady) return;
-  const exists = await pool.query(
-    `SELECT 1 FROM pg_class c
-     JOIN pg_namespace n ON n.oid = c.relnamespace
-     WHERE c.relkind = 'S' AND c.relname = 'orders_order_no_seq' AND n.nspname = 'booking'
-     LIMIT 1`,
+  // CREATE IF NOT EXISTS macht den Initial-Bootstrap atomar gegenueber
+  // parallelen Erst-Aufrufen. START WITH muss aus MAX(order_no)+1
+  // berechnet werden — der Wert ist nur beim allerersten Mal relevant
+  // (CREATE wird sonst no-op).
+  const startRow = await pool.query(`SELECT COALESCE(MAX(order_no), 0) + 1 AS start_val FROM booking.orders`);
+  const startVal = Number(startRow.rows[0]?.start_val) || 1;
+  await pool.query(`CREATE SEQUENCE IF NOT EXISTS booking.orders_order_no_seq AS BIGINT START WITH ${startVal}`);
+  // ALTER ist idempotent + race-safe — bleibt auch dann sicher wenn ein
+  // anderer Prozess gerade dasselbe macht.
+  await pool.query(`ALTER TABLE booking.orders ALTER COLUMN order_no SET DEFAULT nextval('booking.orders_order_no_seq')`);
+  await pool.query(`ALTER SEQUENCE booking.orders_order_no_seq OWNED BY booking.orders.order_no`);
+  // setval damit die Sequence nicht hinter MAX(order_no) ist (z.B. nach
+  // manuellen Inserts oder nach dem ersten Bootstrap-Lauf).
+  await pool.query(
+    `SELECT setval('booking.orders_order_no_seq'::regclass,
+                   GREATEST((SELECT COALESCE(MAX(order_no), 0) FROM booking.orders), last_value))
+     FROM booking.orders_order_no_seq`,
   );
-  if (exists.rowCount === 0) {
-    const startRow = await pool.query(`SELECT COALESCE(MAX(order_no), 0) + 1 AS start_val FROM booking.orders`);
-    const startVal = Number(startRow.rows[0]?.start_val) || 1;
-    await pool.query(`CREATE SEQUENCE booking.orders_order_no_seq AS BIGINT START WITH ${startVal}`);
-    await pool.query(`ALTER TABLE booking.orders ALTER COLUMN order_no SET DEFAULT nextval('booking.orders_order_no_seq')`);
-    await pool.query(`ALTER SEQUENCE booking.orders_order_no_seq OWNED BY booking.orders.order_no`);
-    console.log(`[order-counter] Sequence booking.orders_order_no_seq angelegt (START=${startVal})`);
-  } else {
-    // Sequence existiert: stelle sicher dass sie nicht hinter MAX(order_no) ist.
-    await pool.query(
-      `SELECT setval('booking.orders_order_no_seq'::regclass,
-                     GREATEST((SELECT COALESCE(MAX(order_no), 0) FROM booking.orders), last_value))
-       FROM booking.orders_order_no_seq`,
-    );
-  }
   _orderSequenceReady = true;
 }
 

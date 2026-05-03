@@ -1,4 +1,5 @@
 import { query as defaultQuery, queryOne as defaultQueryOne } from "@/lib/db";
+import { ensureBookingOrderSequence } from "@/lib/orderSequence";
 import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
@@ -305,7 +306,10 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
 
       // order_no nicht mehr per MAX(order_no)+1 (TOCTOU-Race), sondern über
       // die Postgres-Sequence aus Migration 055. order_no weglassen → DEFAULT
-      // greift, RETURNING liefert die allokierte Nummer.
+      // greift, RETURNING liefert die allokierte Nummer. Vor dem INSERT
+      // defensiver Bootstrap, falls Migration 055 noch nicht eingespielt ist
+      // (Codex-Review #253).
+      await ensureBookingOrderSequence();
       const row = await runQueryOne<{ order_no: number }>(
         `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
          VALUES (
