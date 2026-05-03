@@ -308,8 +308,8 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // die Postgres-Sequence aus Migration 055. order_no weglassen → DEFAULT
       // greift, RETURNING liefert die allokierte Nummer. Vor dem INSERT
       // defensiver Bootstrap, falls Migration 055 noch nicht eingespielt ist
-      // (Codex-Review #253).
-      await ensureBookingOrderSequence();
+      // (Codex-Review #253). runQuery durchreichen damit DI in Tests greift.
+      await ensureBookingOrderSequence(runQuery);
       const row = await runQueryOne<{ order_no: number }>(
         `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
          VALUES (

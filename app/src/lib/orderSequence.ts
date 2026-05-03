@@ -11,32 +11,43 @@
  *
  * Aufrufer (duplicateOrder, assistant create_order) sollten diese
  * Funktion vor dem ersten INSERT auf `booking.orders` ohne expliziten
- * `order_no` aufrufen.
+ * `order_no` aufrufen. Der optionale `runQuery`-Parameter ist für Tests
+ * (DI mit gemocktem `query`); in Production wird der echte
+ * `@/lib/db.query` benutzt.
  */
 
-import { query } from "./db";
+import { query as defaultQuery } from "./db";
+
+type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
 
 let _ensured = false;
 
-export async function ensureBookingOrderSequence(): Promise<void> {
+export async function ensureBookingOrderSequence(runQuery?: QueryFn): Promise<void> {
   if (_ensured) return;
-  const startRows = await query<{ start_val: number }>(
+  const q: QueryFn = runQuery ?? (defaultQuery as QueryFn);
+  // Defensiv: bei DI-Mocks die undefined zurueckliefern wuerden, fallback auf [].
+  const startRows = (await q<{ start_val: number }>(
     `SELECT COALESCE(MAX(order_no), 0) + 1 AS start_val FROM booking.orders`,
-  );
+  )) ?? [];
   const startVal = Number(startRows[0]?.start_val) || 1;
-  await query(
+  await q(
     `CREATE SEQUENCE IF NOT EXISTS booking.orders_order_no_seq AS BIGINT START WITH ${startVal}`,
   );
-  await query(
+  await q(
     `ALTER TABLE booking.orders ALTER COLUMN order_no SET DEFAULT nextval('booking.orders_order_no_seq')`,
   );
-  await query(
+  await q(
     `ALTER SEQUENCE booking.orders_order_no_seq OWNED BY booking.orders.order_no`,
   );
-  await query(
+  await q(
     `SELECT setval('booking.orders_order_no_seq'::regclass,
                    GREATEST((SELECT COALESCE(MAX(order_no), 0) FROM booking.orders), last_value))
      FROM booking.orders_order_no_seq`,
   );
   _ensured = true;
+}
+
+/** Nur für Tests: setzt den ensured-Flag zurück. */
+export function _resetEnsuredFlagForTests(): void {
+  _ensured = false;
 }
