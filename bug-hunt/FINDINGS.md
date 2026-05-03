@@ -779,7 +779,7 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 
 #### [T02][HIGH][M] Side-Effects laufen vor Order-INSERT (neuer Backlog-Eintrag aus Sprint B PR #253)
 - Dateien: `booking/server.js:4707-…` (`/api/booking`), `booking/server.js:7827-…` (`/api/admin/orders`)
-- Kategorie: 4. SQL & DB / 6. Atomicity
+- Kategorie: 6. Atomicity
 - Hinweis: Sprint B PR #253 hat die TOCTOU-Allokation per Sequence
   gelöst (`booking.orders_order_no_seq`). Übrig bleibt aber: in beiden
   Express-Hot-Path-Routen werden Side-Effects (Mail-Versand, Outlook-
