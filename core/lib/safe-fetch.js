@@ -63,26 +63,49 @@ async function safeFetch(url, options = {}) {
   const timeout = clampTimeout(timeoutMs);
   const timeoutSignal = AbortSignal.timeout(timeout);
   // Wenn externes Signal mitgegeben wurde, kombinieren (Node 18+).
-  const signal = externalSignal
-    ? (typeof AbortSignal.any === 'function'
-        ? AbortSignal.any([timeoutSignal, externalSignal])
-        : timeoutSignal) // Fallback: Timeout greift, externes nicht.
-    : timeoutSignal;
+  let signal;
+  if (externalSignal) {
+    if (typeof AbortSignal.any === 'function') {
+      signal = AbortSignal.any([timeoutSignal, externalSignal]);
+    } else {
+      // Node < 20: AbortSignal.any nicht verfuegbar -> Timeout greift, externes
+      // Signal wird ignoriert. Debug-loggen damit das in CI/Logs sichtbar ist.
+      // eslint-disable-next-line no-console
+      (console.debug || console.log).call(
+        console,
+        '[safeFetch] AbortSignal.any nicht verfuegbar, externes Signal wird ignoriert',
+      );
+      signal = timeoutSignal;
+    }
+  } else {
+    signal = timeoutSignal;
+  }
 
   let response;
   try {
     response = await fetch(url, { method, headers, body, signal });
   } catch (err) {
     const name = err && err.name;
-    const timedOut = name === 'TimeoutError' || name === 'AbortError';
+    // Unterscheide Timeout vs. externer User-Abort:
+    //   - timeoutSignal.aborted === true  -> echter Timeout (504-Klassifizierung)
+    //   - externes Signal aborted         -> Caller-Cancel (kein Timeout, kein Network-Error)
+    //   - TimeoutError                    -> immer Timeout
+    const isTimeoutError = name === 'TimeoutError';
+    const timeoutFired = isTimeoutError || (timeoutSignal && timeoutSignal.aborted);
+    const externallyAborted = name === 'AbortError' && !timeoutFired;
     return {
       ok: false,
       status: 0,
       statusText: '',
       data: null,
-      error: timedOut ? `timeout after ${timeout}ms` : (err && err.message) || String(err),
-      timedOut,
-      networkError: !timedOut,
+      error: timeoutFired
+        ? `timeout after ${timeout}ms`
+        : externallyAborted
+          ? 'aborted'
+          : (err && err.message) || String(err),
+      timedOut: !!timeoutFired,
+      aborted: !!externallyAborted,
+      networkError: !timeoutFired && !externallyAborted,
     };
   }
 
@@ -97,7 +120,36 @@ async function safeFetch(url, options = {}) {
         data = await response.arrayBuffer();
       }
     } catch (err) {
-      // Body-Parse-Fehler nicht als Hard-Fail: behalte Status und melde Parse-Fehler im error.
+      // Sonderfall: das `timeoutSignal` laeuft nach fetch()-Return weiter und
+      // kann waehrend response.json()/.text() feuern (grosser Body). Solche
+      // Faelle sind echte Timeouts, keine Body-Parse-Fehler.
+      const name = err && err.name;
+      const isAbortLike = name === 'TimeoutError' || name === 'AbortError';
+      if (isAbortLike && timeoutSignal && timeoutSignal.aborted) {
+        return {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          data: null,
+          error: `timeout after ${timeout}ms`,
+          timedOut: true,
+          aborted: false,
+          networkError: false,
+        };
+      }
+      if (isAbortLike) {
+        return {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          data: null,
+          error: 'aborted',
+          timedOut: false,
+          aborted: true,
+          networkError: false,
+        };
+      }
+      // Echter Body-Parse-Fehler (z.B. invalid JSON): Status bleibt erhalten.
       return {
         ok: response.ok,
         status: response.status,
@@ -105,6 +157,7 @@ async function safeFetch(url, options = {}) {
         data: null,
         error: `body_parse_failed: ${(err && err.message) || String(err)}`,
         timedOut: false,
+        aborted: false,
         networkError: false,
       };
     }
@@ -117,6 +170,7 @@ async function safeFetch(url, options = {}) {
     data,
     error: response.ok ? null : `http_${response.status}`,
     timedOut: false,
+    aborted: false,
     networkError: false,
   };
 }

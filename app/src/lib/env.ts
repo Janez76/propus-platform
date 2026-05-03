@@ -18,6 +18,7 @@
  *   const url = env.PLATFORM_INTERNAL_URL;
  */
 
+import "server-only";
 import { z } from "zod";
 
 const positiveInt = z.coerce
@@ -63,28 +64,48 @@ let _cached: ServerEnv | null = null;
 function loadEnv(): ServerEnv {
   if (_cached) return _cached;
   const parsed = serverEnvSchema.safeParse(process.env);
-  if (!parsed.success) {
-    const issues = parsed.error.issues
-      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
-      .join("\n");
-    const msg = `Env-Validierung fehlgeschlagen:\n${issues}`;
-    if (process.env.NODE_ENV === "production") {
-      // In Production: laut loggen, aber nicht crashen — sonst killt eine
-      // einzelne fehlende optionale Variable die ganze App. Hard-Required-
-      // Variablen werden im jeweiligen Aufrufer mit `assertRequired(...)`
-      // explizit verifiziert.
-      // eslint-disable-next-line no-console
-      console.error("[env]", msg);
-    } else {
-      // eslint-disable-next-line no-console
-      console.warn("[env]", msg);
-    }
-    // Trotzdem ein Default-Objekt zurueckliefern, damit der Import nicht
-    // crasht. Felder sind dann undefined / Zod-Defaults.
-    _cached = serverEnvSchema.parse({ NODE_ENV: process.env.NODE_ENV || "development" });
+  if (parsed.success) {
+    _cached = parsed.data;
     return _cached;
   }
-  _cached = parsed.data;
+
+  // Validation fehlgeschlagen: pro Feld einzeln parsen, damit ein einzelner
+  // ungueltiger Wert nicht alle anderen mitkippt. Sonst wuerde z.B. ein
+  // malformed OFFICE_EMAIL stillschweigend PLATFORM_INTERNAL_URL und alle
+  // anderen Felder unsetzen.
+  const issues = parsed.error.issues
+    .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+    .join("\n");
+  const msg = `Env-Validierung fehlgeschlagen:\n${issues}`;
+  if (process.env.NODE_ENV === "production") {
+    // eslint-disable-next-line no-console
+    console.error("[env]", msg);
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn("[env]", msg);
+  }
+
+  // Field-level Fallback: pro Schlüssel im Schema einzeln parsen; was kaputt
+  // ist, wird mit dem Schema-Default belegt (z.B. PROXY_TIMEOUT_MS=30_000)
+  // oder bleibt undefined fuer optionale Felder.
+  const shape = serverEnvSchema.shape as Record<string, z.ZodTypeAny>;
+  const partial: Record<string, unknown> = {};
+  for (const key of Object.keys(shape)) {
+    const fieldSchema = shape[key];
+    const fieldResult = fieldSchema.safeParse((process.env as Record<string, unknown>)[key]);
+    if (fieldResult.success) {
+      partial[key] = fieldResult.data;
+    } else {
+      // Bewusst kein Default-Reparse — wenn der Feld-Wert weder gueltig noch
+      // eine valide leere Eingabe ist (z.B. ein nicht-numerisches
+      // PROXY_TIMEOUT_MS), greift hier ggf. der Schema-Default beim erneuten
+      // safeParse mit `undefined`.
+      const fallback = fieldSchema.safeParse(undefined);
+      if (fallback.success) partial[key] = fallback.data;
+      // sonst: Schluessel bleibt unset (undefined).
+    }
+  }
+  _cached = partial as ServerEnv;
   return _cached;
 }
 

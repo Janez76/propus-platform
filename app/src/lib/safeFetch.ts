@@ -39,6 +39,7 @@ export interface SafeFetchResult<T = unknown> {
   data: T | null;
   error: string | null;
   timedOut: boolean;
+  aborted: boolean;
   networkError: boolean;
 }
 
@@ -59,32 +60,53 @@ export async function safeFetch<T = unknown>(
 
   const timeout = clampTimeout(timeoutMs);
   const timeoutSignal = AbortSignal.timeout(timeout);
-  const signal: AbortSignal =
-    externalSignal && typeof (AbortSignal as unknown as { any?: unknown }).any === "function"
-      ? (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any([
-          timeoutSignal,
-          externalSignal,
-        ])
-      : timeoutSignal;
+  const hasAbortSignalAny =
+    typeof (AbortSignal as unknown as { any?: unknown }).any === "function";
+  let signal: AbortSignal;
+  if (externalSignal) {
+    if (hasAbortSignalAny) {
+      signal = (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any([
+        timeoutSignal,
+        externalSignal,
+      ]);
+    } else {
+      // Node < 20 / Browser-Fallback: AbortSignal.any unverfuegbar -> Timeout
+      // greift, externes Signal wird ignoriert. Debug-Log damit das nicht
+      // stillschweigend passiert.
+      // eslint-disable-next-line no-console
+      (console.debug ?? console.log).call(
+        console,
+        "[safeFetch] AbortSignal.any nicht verfuegbar, externes Signal wird ignoriert",
+      );
+      signal = timeoutSignal;
+    }
+  } else {
+    signal = timeoutSignal;
+  }
 
   let response: Response;
   try {
     response = await fetch(url, { method, headers, body, signal, cache, redirect });
   } catch (err) {
     const name = err instanceof Error ? err.name : "";
-    const timedOut = name === "TimeoutError" || name === "AbortError";
+    const isTimeoutError = name === "TimeoutError";
+    const timeoutFired = isTimeoutError || timeoutSignal.aborted;
+    const externallyAborted = name === "AbortError" && !timeoutFired;
     return {
       ok: false,
       status: 0,
       statusText: "",
       data: null,
-      error: timedOut
+      error: timeoutFired
         ? `timeout after ${timeout}ms`
-        : err instanceof Error
-          ? err.message
-          : String(err),
-      timedOut,
-      networkError: !timedOut,
+        : externallyAborted
+          ? "aborted"
+          : err instanceof Error
+            ? err.message
+            : String(err),
+      timedOut: timeoutFired,
+      aborted: externallyAborted,
+      networkError: !timeoutFired && !externallyAborted,
     };
   }
 
@@ -99,6 +121,33 @@ export async function safeFetch<T = unknown>(
         data = (await response.arrayBuffer()) as unknown as T;
       }
     } catch (err) {
+      // Timeout/Abort kann auch waehrend des Body-Parsings feuern (grosser Body).
+      const name = err instanceof Error ? err.name : "";
+      const isAbortLike = name === "TimeoutError" || name === "AbortError";
+      if (isAbortLike && timeoutSignal.aborted) {
+        return {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          data: null,
+          error: `timeout after ${timeout}ms`,
+          timedOut: true,
+          aborted: false,
+          networkError: false,
+        };
+      }
+      if (isAbortLike) {
+        return {
+          ok: false,
+          status: response.status,
+          statusText: response.statusText,
+          data: null,
+          error: "aborted",
+          timedOut: false,
+          aborted: true,
+          networkError: false,
+        };
+      }
       return {
         ok: response.ok,
         status: response.status,
@@ -106,6 +155,7 @@ export async function safeFetch<T = unknown>(
         data: null,
         error: `body_parse_failed: ${err instanceof Error ? err.message : String(err)}`,
         timedOut: false,
+        aborted: false,
         networkError: false,
       };
     }
@@ -118,6 +168,7 @@ export async function safeFetch<T = unknown>(
     data,
     error: response.ok ? null : `http_${response.status}`,
     timedOut: false,
+    aborted: false,
     networkError: false,
   };
 }

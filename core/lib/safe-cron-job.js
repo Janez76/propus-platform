@@ -27,7 +27,7 @@
  *     run: async (ctx) => {
  *       const rows = await fetchPendingReviews(ctx);
  *       for (const row of rows) {
- *         await ctx.perRow(row, async () => sendReview(row));
+ *         await ctx.perRow(row, async (r) => sendReview(r));
  *       }
  *     },
  *   });
