@@ -23,6 +23,17 @@ const JPEG_QUALITY     = 90;
 const SUPPORTED_EXT    = new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".heic", ".heif"]);
 
 /**
+ * Fallback-Logger wenn ensureWebsizeCopy/runWebsizeSync ohne ctx aufgerufen
+ * werden (z.B. aus Tests oder direktem Aufruf). Identische Signatur zu
+ * ctx.log/warn/error aus scheduleSafeCronJob, aber via console.* mit Prefix.
+ */
+const _consoleCtx = {
+  log:   (...args) => console.log("[job:websizeSync]", ...args),
+  warn:  (...args) => console.warn("[job:websizeSync]", ...args),
+  error: (...args) => console.error("[job:websizeSync]", ...args),
+};
+
+/**
  * Gibt alle Dateien (rekursiv) in einem Verzeichnis zurück.
  * @param {string} dir
  * @returns {string[]} absolute Pfade
@@ -49,7 +60,7 @@ function listFilesRecursive(dir) {
  * @param {string} dstRoot  WEBSIZE-Wurzel
  * @returns {Promise<"created"|"skipped"|"error">}
  */
-async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
+async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot, logger = _consoleCtx) {
   const ext = path.extname(srcAbs).toLowerCase();
   if (!SUPPORTED_EXT.has(ext)) return "skipped";
 
@@ -85,28 +96,17 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
     }
     return "created";
   } catch (err) {
-    console.error("[job:websizeSync] Fehler bei", srcAbs, "->", dstAbs, err && err.message);
+    logger.error("Fehler bei", srcAbs, "->", dstAbs, err && err.message);
     return "error";
   }
 }
-
-/**
- * Fallback-Logger wenn runWebsizeSync ohne ctx aufgerufen wird (z.B. aus
- * Tests oder direktem Aufruf). Verhalten: identische Signatur zu ctx.log/
- * warn/error, aber via console.* mit altem Prefix.
- */
-const _consoleCtx = {
-  log:   (...args) => console.log("[job:websizeSync]", ...args),
-  warn:  (...args) => console.warn("[job:websizeSync]", ...args),
-  error: (...args) => console.error("[job:websizeSync]", ...args),
-};
 
 /**
  * Führt die Synchronisation für alle Aufträge durch, die einen Kundenordner haben.
  * @param {object} deps - { db }  db muss eine getPool()-Methode besitzen
  * @param {object} [ctx] - Logger aus scheduleSafeCronJob (optional, fallback console)
  */
-async function runWebsizeSync(deps, ctx = _consoleCtx) {
+async function runWebsizeSync(deps = {}, ctx = _consoleCtx) {
   const { db } = deps;
   if (!db) return;
 
@@ -149,7 +149,7 @@ async function runWebsizeSync(deps, ctx = _consoleCtx) {
     const srcFiles   = listFilesRecursive(fullsizeDir);
 
     for (const srcAbs of srcFiles) {
-      const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir);
+      const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir, ctx);
       if (result === "created")  totalCreated++;
       if (result === "skipped")  totalSkipped++;
       if (result === "error")    totalErrors++;

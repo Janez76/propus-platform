@@ -41,6 +41,25 @@ function scheduleDuplicateCandidatesNightly(deps) {
       const report = await runDuplicateReport(pool);
       let inserted = 0;
 
+      // Per-Row-Insert in einer eigenen perRow-Closure, damit ein transienter
+      // DB-Fehler bei einem Kandidaten nicht den ganzen Batch killt
+      // (CodeRabbit Major). 42P01 (Tabelle fehlt) wird wie vorher zu no-op.
+      async function insertCandidate(id, keep, reasonTag) {
+        const ins = await pool
+          .query(
+            `INSERT INTO booking.customer_duplicate_candidates (new_customer_id, suspected_keep_id, score, reason, status)
+             VALUES ($1, $2, $3, $4, 'open')
+             ON CONFLICT (new_customer_id, suspected_keep_id) DO NOTHING
+             RETURNING id`,
+            [id, keep, 0.25, reasonTag],
+          )
+          .catch((e) => {
+            if (e && e.code === "42P01") return { rows: [] };
+            throw e;
+          });
+        if (ins.rows && ins.rows.length) inserted += 1;
+      }
+
       async function addPairs(groups, reasonTag) {
         const gr = Array.isArray(groups) ? groups : [];
         for (const g of gr) {
@@ -52,19 +71,9 @@ function scheduleDuplicateCandidatesNightly(deps) {
           for (const r of rlist) {
             const id = Number(r.id);
             if (!Number.isFinite(id) || id === keep) continue;
-            const ins = await pool
-              .query(
-                `INSERT INTO booking.customer_duplicate_candidates (new_customer_id, suspected_keep_id, score, reason, status)
-                 VALUES ($1, $2, $3, $4, 'open')
-                 ON CONFLICT (new_customer_id, suspected_keep_id) DO NOTHING
-                 RETURNING id`,
-                [id, keep, 0.25, `${reasonTag}_nightly`]
-              )
-              .catch((e) => {
-                if (e && e.code === "42P01") return { rows: [] };
-                throw e;
-              });
-            if (ins.rows && ins.rows.length) inserted += 1;
+            await ctx.perRow({ id, keep, reasonTag }, async () => {
+              await insertCandidate(id, keep, `${reasonTag}_nightly`);
+            });
           }
         }
       }
@@ -81,19 +90,9 @@ function scheduleDuplicateCandidatesNightly(deps) {
         for (const r of rlist) {
           const id = Number(r.id);
           if (!Number.isFinite(id) || id === keep) continue;
-          const ins = await pool
-            .query(
-              `INSERT INTO booking.customer_duplicate_candidates (new_customer_id, suspected_keep_id, score, reason, status)
-               VALUES ($1, $2, $3, $4, 'open')
-               ON CONFLICT (new_customer_id, suspected_keep_id) DO NOTHING
-               RETURNING id`,
-              [id, keep, 0.25, "D_nightly"]
-            )
-            .catch((e) => {
-              if (e && e.code === "42P01") return { rows: [] };
-              throw e;
-            });
-          if (ins.rows && ins.rows.length) inserted += 1;
+          await ctx.perRow({ id, keep, reasonTag: "D" }, async () => {
+            await insertCandidate(id, keep, "D_nightly");
+          });
         }
       }
 
