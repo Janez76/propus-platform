@@ -3,11 +3,21 @@
  *
  * Endpoints:
  *   - GET /api/docs                   → Swagger UI (lädt Spec aus JSON-Endpoint)
+ *   - GET /api/docs/                  → Swagger UI (gleiche HTML wie /api/docs)
  *   - GET /api/docs/openapi.json      → OpenAPI-Spec als JSON
  *   - GET /api/docs/openapi.yaml      → Original-YAML
  *
  * Beim Start wird die Spec einmal validiert (Parse-Check). Bei Fehler werden die
  * Routen *nicht* registriert, damit der Server trotzdem hochkommt.
+ *
+ * Redirect-Loop-Schutz: `swaggerUi.serveFiles` verwendet intern
+ * `express.static`, das `/api/docs` per 301 nach `/api/docs/` umleitet
+ * (serve-static directory-redirect). Hinter Next.js mit Default
+ * `trailingSlash: false` strippt Next den Slash wieder, was eine Endlosschleife
+ * (`ERR_TOO_MANY_REDIRECTS`) erzeugt. Wir umgehen das, indem wir die HTML-Seite
+ * an beiden Pfaden direkt ausliefern und ein `<base href="/api/docs/">`
+ * injizieren – damit lösen die relativen Asset-URLs (`./swagger-ui.css` …)
+ * unabhängig vom aktuellen Pfad konsistent gegen `/api/docs/` auf.
  */
 const fs = require("fs");
 const fsp = require("fs/promises");
@@ -48,16 +58,31 @@ function registerDocsRoutes(app, log = console) {
     }
   });
 
-  app.use(
-    "/api/docs",
-    swaggerUi.serveFiles(null, {
-      swaggerOptions: { url: "/api/docs/openapi.json", persistAuthorization: true },
-    }),
-    swaggerUi.setup(null, {
-      customSiteTitle: "Propus Platform – API Docs",
-      swaggerOptions: { url: "/api/docs/openapi.json", persistAuthorization: true },
-    }),
-  );
+  // persistAuthorization speichert Auth-Tokens im Browser-localStorage und ist
+  // in Produktion XSS-exponiert (CodeRabbit-Nitpick PR #251). Daher nur in
+  // Nicht-Produktion aktiv – lokal/dev darf der Token erhalten bleiben.
+  const persistAuthorization = process.env.NODE_ENV !== "production";
+
+  const swaggerOpts = {
+    customSiteTitle: "Propus Platform – API Docs",
+    swaggerOptions: { url: "/api/docs/openapi.json", persistAuthorization },
+  };
+
+  // HTML zuerst registrieren – beide Pfade liefern dieselbe Seite (kein 301).
+  // <base href="/api/docs/"> sorgt dafür, dass `./swagger-ui.css` etc. korrekt
+  // unter `/api/docs/swagger-ui.css` aufgelöst werden, auch wenn der Trailing
+  // Slash fehlt.
+  app.get(["/api/docs", "/api/docs/"], (_req, res) => {
+    const html = swaggerUi
+      .generateHTML(null, swaggerOpts)
+      .replace("<head>", '<head>\n  <base href="/api/docs/">');
+    res.type("html").send(html);
+  });
+
+  // Statische Assets + swagger-ui-init.js nur unter `/api/docs/` (mit Slash).
+  // Nicht unter `/api/docs` mounten, sonst löst `express.static` wieder den
+  // 301-Redirect auf den Mount-Root aus.
+  app.use("/api/docs/", swaggerUi.serveFiles(null, swaggerOpts));
 }
 
 module.exports = { registerDocsRoutes };
