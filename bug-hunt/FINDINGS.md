@@ -1,3 +1,7 @@
+<!-- markdownlint-disable MD052 -->
+<!-- Die Notation [TXX][SEVERITY][CONFIDENCE] ist keine Reference-Link-Syntax,
+     sondern ein internes Tranchen-Schema. MD052 ist deshalb hier deaktiviert. -->
+
 # Propus Platform – Findings (Bug Hunt)
 
 **Start:** 2026-05-03
@@ -16,11 +20,15 @@ Cross-Cutting-Block referenziert.
 | Severity | Anzahl |
 |----------|-------:|
 | CRITICAL | 7 |
-| HIGH     | 24 |
+| HIGH     | 23 |
 | MEDIUM   | 30 |
 | LOW      | 6 |
 | INFO     | 2 |
-| **Total (ohne Pilot)** | **69** |
+| **Total (ohne Pilot)** | **68** |
+
+> Pilot-Findings (`bug-hunt/PILOT.md`, 11 Einträge inkl. eigener TOCTOU-/Tx-/
+> Mail-Findings) sind hier bewusst **nicht** dupliziert. Nur im
+> Cross-Cutting-Block (Punkt 10) referenziert.
 
 Tranchen-Verteilung: T01/T03 (12) · T02/T04 (16) · T05/T08 (15) · T07/T09 (15) ·
 T10/T12/T15 (12) · T13/T14 (17) · Cross-Cutting-Dedup (-18 → 69 unique).
@@ -40,10 +48,9 @@ T10/T12/T15 (12) · T13/T14 (17) · Cross-Cutting-Dedup (-18 → 69 unique).
 
 ### HIGH
 - [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456`
-- [T01][HIGH] `setup-admin-user.js` mit Default-Passwort → `scripts/setup-admin-user.js:24`
+- [T10][HIGH] `setup-admin-user.js` mit Default-Passwort → `scripts/setup-admin-user.js:24`
 - [T01][HIGH] Portal-API IDOR via Admin-Bridge → `tours/routes/portal-api.js:54-69`
 - [T03][HIGH] Open Redirect (`//attacker.com`) → `tours/routes/auth.js:119-121`
-- [T02][HIGH] TOCTOU Conflict-Check vs Update (s. Pilot) → `…/termin/actions.ts:62-97`
 - [T02][HIGH] Multi-Step-Mutation ohne Transaktion → `…/order-bulk-actions.ts:21-68`
 - [T02][HIGH] TOCTOU Order-No-Allokation → `…/duplicate-actions.ts:56-90`
 - [T02][HIGH] `revalidate*()` nach `redirect()` (Throw verschluckt Revalidate) → `verknuepfungen/actions.ts:59,113,133,175,195`
