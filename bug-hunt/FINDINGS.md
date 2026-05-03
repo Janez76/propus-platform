@@ -19,8 +19,8 @@ Cross-Cutting-Block referenziert.
 
 | Severity | Anzahl |
 |----------|-------:|
-| CRITICAL | 7 |
-| HIGH     | 23 |
+| CRITICAL | 6 |
+| HIGH     | 24 |
 | MEDIUM   | 30 |
 | LOW      | 6 |
 | INFO     | 2 |
@@ -29,7 +29,12 @@ Cross-Cutting-Block referenziert.
 > **Zählbasis:** dedupliziert, exklusive Pilot. Pilot-Findings
 > (`bug-hunt/PILOT.md`, 11 Einträge inkl. eigener TOCTOU-/Tx-/Mail-Findings)
 > sind hier bewusst **nicht** dupliziert und werden nur im Cross-Cutting-Block
-> (Punkt 10) referenziert. 7+23+30+6+2 = 68 = Tabelle.
+> (Punkt 10) referenziert. 6+24+30+6+2 = 68 = Tabelle.
+>
+> **Severity-Update Sprint A:** „Admin-Bridge Customer-Impersonation" wurde
+> CRITICAL → HIGH herabgestuft (sichtbarer Code setzt nur die E-Mail des Admins
+> selbst, nicht eine fremde Kunden-E-Mail). Damit: CRITICAL 7→6, HIGH 23→24.
+> Total bleibt 68.
 
 Tranchen-Verteilung (vor Dedup): T01/T03 (12) · T02/T04 (16) · T05/T08 (15) ·
 T07/T09 (15) · T10/T12/T15 (12) · T13/T14 (17) = 87 Roh-Findings · nach
@@ -49,7 +54,8 @@ Cross-Cutting-Dedup (−19) → **68 unique** = `Total (ohne Pilot)`.
 - [T14][CRITICAL] `sendMailDirect` ohne Empfänger-Allowlist → `tours/lib/microsoft-graph.js:286-316` *(Sprint A: Allowlist-Helper mit warn-only Default + STRICT-Env)*
 
 ### HIGH
-- [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456`
+- [T01][HIGH] Admin-Bridge: ungeprüfter Impersonation-Pfad *(Re-Klassifizierung CRITICAL→HIGH in Sprint A)* → `tours/routes/portal-api.js:54-69` (+ `tours/routes/portal.js:91-124`). Detail-Block siehe HIGH-Sektion weiter unten.
+- [T01/T13/T14][HIGH] Hardcoded Default Session-Secrets → `tours/server.js:96`, `booking/server.js:2456` *(Sprint A: gefixt mit Hard-Fail in production)*
 - [T10][HIGH] `setup-admin-user.js` mit Default-Passwort → `scripts/setup-admin-user.js:24`
 - [T01][HIGH] Portal-API IDOR via Admin-Bridge → `tours/routes/portal-api.js:54-69`
 - [T03][HIGH] Open Redirect (`//attacker.com`) → `tours/routes/auth.js:119-121`

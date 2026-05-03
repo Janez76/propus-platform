@@ -297,7 +297,10 @@ async function sendDraftMessage(options = {}) {
  *     Domains pflegen, dann STRICT=1 setzen.
  */
 function parseMailAllowlistEnv(name) {
-  return String(process.env[name] || '')
+  // Liest aus derselben Config-Quelle wie der Rest des Moduls (process.env +
+  // M365_ENV_FILE / Fallback-.env), damit Allowlist und STRICT-Flag aus einer
+  // M365-Setup-Datei nicht stillschweigend ignoriert werden.
+  return String(getEnvValue(name) || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
@@ -341,7 +344,7 @@ async function sendMailDirect(options = {}) {
     // Sicherheitsgewinn. Daher Strict NUR bei expliziter Aktivierung via
     // MAIL_RECIPIENT_STRICT=1, nachdem die Allowlist (MAIL_RECIPIENT_ALLOW_
     // DOMAINS / -ADDRESSES) anhand der Log-Beobachtung vervollstaendigt wurde.
-    const strict = String(process.env.MAIL_RECIPIENT_STRICT || '').trim() === '1';
+    const strict = String(getEnvValue('MAIL_RECIPIENT_STRICT') || '').trim() === '1';
     const masked = maskRecipientForLog(to);
     if (strict) {
       console.error('[microsoft-graph] sendMailDirect blockiert (strict): nicht in Allowlist:', masked);
