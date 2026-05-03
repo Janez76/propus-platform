@@ -234,13 +234,11 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
           subscriptionWindow = getSubscriptionWindowFromStart(base);
         }
 
-        // Ab hier laufen externe / nicht-idempotente Side-Effects: Matterport-
-        // Reaktivierung, Subscription-Window-Berechnung-basierte UPDATES.
-        // Ein Retry duerfte die NICHT erneut anstossen, daher Claim ab hier
-        // gebunden lassen (committed=true) — auch wenn die UPDATEs danach
-        // failen.
-        committed = true;
-
+        // Matterport-Reaktivierung läuft VOR `committed=true`. Begründung:
+        //   - mpUnarchiveSpace ist idempotent (no-op auf bereits aktivem Space).
+        //   - Wenn Matterport transient failed (Netzwerk/API-Outage), darf
+        //     der Claim freigegeben werden, damit Payrexx-Retry die Zahlung
+        //     anwendet. Bisher waren noch keine DB-UPDATEs gelaufen.
         if (isReactivation && tour?.matterport_space_id) {
           const mpResult = await mpUnarchiveSpace(tour.matterport_space_id);
           if (mpResult?.success) {
@@ -263,6 +261,14 @@ router.post('/payrexx', express.raw({ type: '*/*' }), async (req, res) => {
              AND tour_id = $2`,
           [invoiceRef, tourId, subscriptionWindow.startIso, subscriptionWindow.endIso]
         );
+
+        // Ab hier ist die Zahlung in der DB als 'paid' markiert (renewal_invoices).
+        // Spaetere Schritte (tours-UPDATE, logAction, sendPaymentConfirmedEmail)
+        // sind entweder idempotent (UPDATE … WHERE status='CUSTOMER_ACCEPTED_…')
+        // oder best-effort. Ein Retry an dieser Stelle wuerde aber die nicht-
+        // idempotente Subscription-Window-Berechnung (existingEnd-basiert)
+        // doppelt anwenden -> committed=true.
+        committed = true;
 
         const newTermEndDate = subscriptionWindow.endIso;
         const tourUpdateResult = await pool.query(
