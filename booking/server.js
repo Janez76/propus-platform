@@ -1,4 +1,6 @@
 const express = require("express");
+// Async-Error-Shim MUSS vor allen Routern geladen werden.
+require("./lib/async-error-shim");
 const compression = require("compression");
 const multer = require("multer");
 const cors = require("cors");
@@ -14774,6 +14776,44 @@ async function startServer() {
       console.log(`Availability API running on http://localhost:${PORT}`);
     });
   }
+
+  // Catch-all Express-Error-Handler: fängt alles ab, was via
+  // async-error-shim oder next(err) hier landet. Erst NACH dem Mount aller
+  // Routen registriert.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, _next) => {
+    if (!err) return;
+    const status = Number(err.status) || 500;
+    const expose = process.env.NODE_ENV !== "production";
+    const payload = {
+      error: status >= 500 ? "Internal Server Error" : err.message || "Bad Request",
+    };
+    if (expose) {
+      payload.message = String(err.message || err);
+      if (err.stack) payload.stack = String(err.stack).split("\n").slice(0, 6);
+    }
+    try {
+      console.error("[booking] route error", {
+        method: req && req.method,
+        url: req && req.originalUrl,
+        status,
+        message: err.message,
+      });
+    } catch (_e) {}
+    if (res && !res.headersSent) res.status(status).json(payload);
+  });
+
+  // Sicherheitsnetz für Background-Jobs / Cron / nicht-Express-Pfade.
+  process.on("unhandledRejection", (reason) => {
+    try {
+      console.error("[booking] unhandledRejection", reason && (reason.stack || reason.message || reason));
+    } catch (_e) {}
+  });
+  process.on("uncaughtException", (err) => {
+    try {
+      console.error("[booking] uncaughtException", err && (err.stack || err.message || err));
+    } catch (_e) {}
+  });
 
   // Hintergrund-Jobs starten (hinter feature.backgroundJobs Flag)
   try {

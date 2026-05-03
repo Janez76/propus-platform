@@ -2,6 +2,9 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../docker/.env') });
 require('dotenv').config();
 const express = require('express');
+// Async-Error-Shim MUSS vor allen Routern geladen werden, damit Express-Layers
+// gepatcht sind, bevor Handler registriert werden.
+require('./lib/async-error-shim');
 const session = require('express-session');
 const { requireAdminOrRedirect } = require('./middleware/auth');
 
@@ -167,6 +170,45 @@ app.use('/api', apiRoutes);
 
 // Health
 app.get('/health', (req, res) => res.json({ ok: true }));
+
+// Globaler Express-Error-Handler: faengt alles ab, was via async-error-shim
+// (oder explizites next(err)) hier landet. Antwortet strukturiert statt den
+// Client haengen zu lassen, leakt aber keine Stack-Traces in Production.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  const status = Number(err && err.status) || 500;
+  const expose = process.env.NODE_ENV !== 'production';
+  const payload = {
+    error: status >= 500 ? 'Internal Server Error' : (err && err.message) || 'Bad Request',
+  };
+  if (expose && err) {
+    payload.message = String(err.message || err);
+    if (err.stack) payload.stack = String(err.stack).split('\n').slice(0, 6);
+  }
+  try {
+    console.error('[tours] route error', {
+      method: req && req.method,
+      url: req && req.originalUrl,
+      status,
+      message: err && err.message,
+    });
+  } catch (_e) {}
+  if (res && !res.headersSent) res.status(status).json(payload);
+});
+
+// Letztes Sicherheitsnetz: bei einer Promise-Rejection oder einem nicht
+// gefangenen Fehler nicht crashen, sondern strukturiert loggen. (Express-Layer
+// werden ohnehin schon vom Shim abgedeckt; das hier ist fuer Cron/Timer/etc.)
+process.on('unhandledRejection', (reason) => {
+  try {
+    console.error('[tours] unhandledRejection', reason && (reason.stack || reason.message || reason));
+  } catch (_e) {}
+});
+process.on('uncaughtException', (err) => {
+  try {
+    console.error('[tours] uncaughtException', err && (err.stack || err.message || err));
+  } catch (_e) {}
+});
 
 const PORT = process.env.PORT || 3000;
 
