@@ -185,3 +185,4 @@ Vor jedem Deploy die Build-Nummer in `scripts/bump-deploy-version.ps1` erhöhen.
 | [docs/FIRMENHOMEPAGE-KATALOG-API.md](docs/FIRMENHOMEPAGE-KATALOG-API.md) | Website-Katalog-API                     |
 | [docs/ADMIN-FRONTEND-DESIGN.md](docs/ADMIN-FRONTEND-DESIGN.md) | Design-System, Theme, Komponenten                  |
 | [docs/PLATTFORM-TEXTE-UND-ARCHITEKTUR.md](docs/PLATTFORM-TEXTE-UND-ARCHITEKTUR.md) | Texte und Seiten-Architektur  |
+| [docs/CURSOR-MCP-EXA.md](docs/CURSOR-MCP-EXA.md)             | Cursor MCP — Exa Web-Search Setup                     |
