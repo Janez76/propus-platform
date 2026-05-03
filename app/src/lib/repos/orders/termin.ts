@@ -25,8 +25,16 @@ export async function buildPhotographerJson(
   key: string | null,
 ): Promise<Record<string, unknown>> {
   if (!key) return {};
+  // FOR UPDATE: sperrt die Photographer-Row fuer die Dauer der Termin-Tx,
+  // damit ein paralleles Loeschen/Umbenennen nicht zwischen unserem
+  // Snapshot-Read und dem orders-UPDATE einen Stale-Snapshot in
+  // orders.photographer schreiben laesst (Bug-Hunt T02 HIGH).
   const { rows } = await c.query<{ key: string; name: string; email: string; phone: string }>(
-    `SELECT key, name, email, phone FROM booking.photographers WHERE key = $1 LIMIT 1`,
+    `SELECT key, name, email, phone
+     FROM booking.photographers
+     WHERE key = $1
+     LIMIT 1
+     FOR UPDATE`,
     [key],
   );
   const p = rows[0];

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireOrderEditor, sessionActorId } from "@/lib/auth.server";
-import { query, queryOne } from "@/lib/db";
+import { queryOne } from "@/lib/db";
 import { logOrderEvent, logStatusAuditEntry } from "@/lib/audit";
 
 export type DuplicateOrderResult =
@@ -18,8 +18,10 @@ export type DuplicateOrderResult =
  * ohne Dateien, ohne E-Mails. Der Benutzer kann das Duplikat anschließend im
  * Termin-Tab vollständig konfigurieren und planen.
  *
- * Die nächste freie Order-Nummer wird per `MAX(order_no)+1` allokiert; die
- * UNIQUE-Constraint auf `order_no` schützt vor Race-Conditions.
+ * Die nächste freie Order-Nummer wird über die Postgres-Sequence
+ * `booking.orders_order_no_seq` allokiert (Migration 055). Damit ist die
+ * Allokation atomar — keine Race-Condition zwischen MAX-Lookup und INSERT
+ * mehr.
  */
 export async function duplicateOrder(
   sourceOrderNo: number,
@@ -53,30 +55,25 @@ export async function duplicateOrder(
     return { ok: false, error: "Quell-Bestellung nicht gefunden" };
   }
 
-  const next = await queryOne<{ next_no: number }>(
-    `SELECT COALESCE(MAX(order_no), 0) + 1 AS next_no FROM booking.orders`,
-  );
-  const newOrderNo = Number(next?.next_no ?? 0);
-  if (!Number.isInteger(newOrderNo) || newOrderNo <= 0) {
-    return { ok: false, error: "Konnte keine neue Bestell-Nummer ermitteln" };
-  }
-
+  // INSERT ohne explizites order_no — Default `nextval(orders_order_no_seq)`
+  // greift atomar. RETURNING liefert die allokierte Nummer.
+  let newOrderNo: number;
   try {
-    await query(
+    const inserted = await queryOne<{ order_no: number }>(
       `INSERT INTO booking.orders (
-         order_no, status, source, created_at, updated_at,
+         status, source, created_at, updated_at,
          address, billing, object, services, pricing,
          photographer, photographer_key, onsite_contacts, key_pickup,
          schedule
        )
        VALUES (
-         $1, 'pending', 'duplicate', now(), now(),
-         $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb,
-         $7::jsonb, $8, $9::jsonb, $10::jsonb,
+         'pending', 'duplicate', now(), now(),
+         $1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb,
+         $6::jsonb, $7, $8::jsonb, $9::jsonb,
          '{}'::jsonb
-       )`,
+       )
+       RETURNING order_no`,
       [
-        newOrderNo,
         source.address ?? null,
         JSON.stringify(source.billing ?? {}),
         JSON.stringify(source.object ?? {}),
@@ -88,6 +85,10 @@ export async function duplicateOrder(
         JSON.stringify(source.key_pickup ?? {}),
       ],
     );
+    if (!inserted || !Number.isInteger(inserted.order_no)) {
+      return { ok: false, error: "Insert lieferte keine order_no zurück" };
+    }
+    newOrderNo = inserted.order_no;
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Insert fehlgeschlagen";
     return { ok: false, error: `Duplizieren fehlgeschlagen: ${msg}` };

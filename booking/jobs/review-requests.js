@@ -14,8 +14,8 @@
 
 "use strict";
 
-const cron = require("node-cron");
 const crypto = require("crypto");
+const { scheduleSafeCronJob } = require("../../core/lib/safe-cron-job");
 const { buildTemplateVars, sendMailIdempotent, normalizeMailSendResult } = require("../template-renderer");
 
 // Erinnerungsabstand: fruehestens nach 14 Tagen (in Sekunden fuer SQL-Interval)
@@ -25,18 +25,22 @@ const REMINDER_MAX_DAYS = 60;
 
 function scheduleReviewRequests(deps) {
   const { db, getSetting, sendMail, createPortalMagicLink } = deps;
+  const pool = db.getPool ? db.getPool() : null;
 
-  cron.schedule("0 10 * * *", async function runReviews() {
-    console.log("[job:reviews] Review-Anfrage-Job gestartet");
-    try {
+  scheduleSafeCronJob({
+    name: "review-requests",
+    cron: "0 10 * * *",
+    pool,
+    timezone: "Europe/Zurich",
+    run: async (ctx) => {
+      ctx.log("Review-Anfrage-Job gestartet");
       const flagResult = await getSetting("feature.autoReviewRequest");
       if (!flagResult || !flagResult.value) {
-        console.log("[job:reviews] feature.autoReviewRequest=false, uebersprungen");
+        ctx.log("feature.autoReviewRequest=false, uebersprungen");
         return;
       }
 
-      const pool = db.getPool ? db.getPool() : null;
-      if (!pool) { console.warn("[job:reviews] DB nicht verfuegbar"); return; }
+      if (!pool) { ctx.warn("DB nicht verfuegbar"); return; }
 
       const delayResult = await getSetting("workflow.reviewRequestDelayHours");
       const delayHours = Number((delayResult && delayResult.value) || 120);
@@ -80,11 +84,11 @@ function scheduleReviewRequests(deps) {
       const rows = [...firstRows, ...reminderRows];
 
       if (!rows.length) {
-        console.log("[job:reviews] keine faelligen Review-Anfragen");
+        ctx.log("keine faelligen Review-Anfragen");
         return;
       }
 
-      console.log("[job:reviews] faellige Review-Anfragen:", firstRows.length, "erste,", reminderRows.length, "Erinnerungen");
+      ctx.log("faellige Review-Anfragen:", firstRows.length, "erste,", reminderRows.length, "Erinnerungen");
       const mailEnabled = await getSetting("feature.emailTemplatesOnStatusChange");
       const mailOn = !!(mailEnabled && mailEnabled.value);
       const frontendUrl = process.env.FRONTEND_URL || "https://admin-booking.propus.ch";
@@ -93,44 +97,45 @@ function scheduleReviewRequests(deps) {
 
       for (const row of rows) {
         const isReminder = row.review_request_count === 1;
-        try {
+        // ctx.perRow faengt Per-Row-Fehler ab — 1 bad-record blockiert nicht
+        // den ganzen Batch.
+        await ctx.perRow(row, async (r) => {
           const token = crypto.randomBytes(32).toString("base64url");
           await pool.query(
             "INSERT INTO order_reviews (order_no, token) VALUES ($1,$2) ON CONFLICT DO NOTHING",
-            [row.order_no, token]
+            [r.order_no, token]
           );
           const reviewLink = frontendUrl + "/review/" + token;
 
           let mailSent = false;
           let mailReason = "mail_disabled_or_missing_recipient";
-          if (mailOn && sendMail && row.billing && row.billing.email) {
+          if (mailOn && sendMail && r.billing && r.billing.email) {
             const reviewMagicLink = createPortalMagicLink
-              ? await createPortalMagicLink(row.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
+              ? await createPortalMagicLink(r.billing || {}, { sessionDays: 30, returnTo: "/portal/dashboard" }).catch(() => null)
               : null;
-            const vars = buildTemplateVars(row, { reviewLink, googleReviewLink, companyName, portalMagicLink: reviewMagicLink || "" });
+            const vars = buildTemplateVars(r, { reviewLink, googleReviewLink, companyName, portalMagicLink: reviewMagicLink || "" });
             const templateKey = isReminder ? "review_reminder" : "review_request";
             const result = await sendMailIdempotent(
-              pool, templateKey, row.billing.email, row.order_no, vars, sendMail
+              pool, templateKey, r.billing.email, r.order_no, vars, sendMail
             );
             if (result && result.sent === true) {
               mailSent = true;
               mailReason = "sent";
             } else if (!result.sent && result.reason === "template_not_found") {
-              // Fallback wenn kein Template hinterlegt – allgemeiner Text ohne Auftragsbezug
               const subject = isReminder
                 ? "Haben Sie uns auf Google bewertet? Wir wuerden uns freuen!"
                 : "Wie hat Ihnen Ihr Shooting bei " + companyName + " gefallen?";
-              const html = "<p>Guten Tag " + (row.billing.name || "") + ",</p>"
+              const html = "<p>Guten Tag " + (r.billing.name || "") + ",</p>"
                 + "<p>Ihr Feedback ist uns sehr wichtig. Wir wuerden uns freuen, wenn Sie kurz eine Bewertung hinterlassen:</p>"
                 + "<p><a href=\"" + reviewLink + "\">Jetzt bewerten (1–5 Sterne)</a></p>"
                 + "<p><a href=\"" + googleReviewLink + "\">Auf Google bewerten</a></p>"
                 + "<p>Herzliche Gruesse<br>Ihr " + companyName + "-Team</p>";
               const text = "Jetzt bewerten: " + reviewLink + "\nAuf Google bewerten: " + googleReviewLink;
-              const fallbackResult = normalizeMailSendResult(await sendMail(row.billing.email, subject, html, text));
+              const fallbackResult = normalizeMailSendResult(await sendMail(r.billing.email, subject, html, text));
               if (fallbackResult.sent) {
                 mailSent = true;
                 mailReason = "fallback_sent";
-                console.log("[job:reviews] Fallback-Mail gesendet fuer Auftrag", row.order_no, isReminder ? "(Erinnerung)" : "(erste Anfrage)");
+                ctx.log("Fallback-Mail gesendet fuer Auftrag", r.order_no, isReminder ? "(Erinnerung)" : "(erste Anfrage)");
               } else {
                 mailReason = fallbackResult.reason || "fallback_send_not_confirmed";
               }
@@ -138,29 +143,23 @@ function scheduleReviewRequests(deps) {
               mailReason = result && result.reason ? result.reason : "send_not_confirmed";
             }
           } else {
-            console.log("[job:reviews] Review-Link:", reviewLink, "(Mail-Flag:", mailOn, ")");
+            ctx.log("Review-Link:", reviewLink, "(Mail-Flag:", mailOn, ")");
           }
 
           if (mailSent) {
             await pool.query(
               "UPDATE orders SET review_request_sent_at=NOW(), review_request_count=review_request_count+1, updated_at=NOW() WHERE order_no=$1",
-              [row.order_no]
+              [r.order_no]
             );
           } else {
-            console.warn("[job:reviews] Marker nicht gesetzt, Versand nicht bestaetigt", { orderNo: row.order_no, isReminder, reason: mailReason });
+            ctx.warn("Marker nicht gesetzt, Versand nicht bestaetigt", { orderNo: r.order_no, isReminder, reason: mailReason });
           }
-        } catch (err) {
-          console.error("[job:reviews] Fehler fuer Auftrag", row.order_no, err && err.message);
-        }
+        });
       }
 
-      console.log("[job:reviews] Review-Anfrage-Job abgeschlossen");
-    } catch (err) {
-      console.error("[job:reviews] Unerwarteter Fehler:", err && err.message);
-    }
-  }, { timezone: "Europe/Zurich" });
-
-  console.log("[job:reviews] Review-Anfrage-Job registriert (taeglich 10:00 Zuerich)");
+      ctx.log("Review-Anfrage-Job abgeschlossen");
+    },
+  });
 }
 
 module.exports = { scheduleReviewRequests };

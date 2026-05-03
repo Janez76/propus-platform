@@ -30,8 +30,9 @@ export async function changeOrderStatus(
     status: string;
     photographer_key: string | null;
     schedule: unknown;
+    updated_at: Date | string;
   }>(
-    `SELECT status, photographer_key, schedule
+    `SELECT status, photographer_key, schedule, updated_at
      FROM booking.orders WHERE order_no = $1 LIMIT 1`,
     [orderNo],
   );
@@ -57,12 +58,24 @@ export async function changeOrderStatus(
     return { ok: false, error: transErr };
   }
 
-  await query(
+  // Optimistic-Concurrency: UPDATE nur wenn die Row seit unserem SELECT
+  // nicht von einem parallelen Status-Wechsel veraendert wurde. updated_at
+  // muss exakt matchen (Postgres timestamptz-Praezision = us). Affected=0
+  // -> 409-aehnlicher Konflikt; UI soll Reload anbieten.
+  const updateResult = await query<{ updated_at: Date | string }>(
     `UPDATE booking.orders
      SET status = $2, updated_at = now()
-     WHERE order_no = $1`,
-    [orderNo, toStatus],
+     WHERE order_no = $1 AND updated_at = $3
+     RETURNING updated_at`,
+    [orderNo, toStatus, row.updated_at],
   );
+  if (updateResult.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Bestellung wurde von einem anderen Vorgang geändert. Bitte Seite neu laden und erneut versuchen.",
+    };
+  }
 
   const actorId = sessionActorId(editor);
   await logStatusAuditEntry({
