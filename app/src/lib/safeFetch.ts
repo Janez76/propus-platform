@@ -19,6 +19,28 @@ function clampTimeout(value: unknown): number {
   return n;
 }
 
+/**
+ * Kombiniert Timeout-Signal mit optionalem externem Signal.
+ *   - Node ≥ 20.3 / 18.17 / moderne Browser: AbortSignal.any().
+ *   - Aeltere Runtimes: lokaler AbortController + once-Listener.
+ */
+function combineSignals(timeoutSignal: AbortSignal, externalSignal?: AbortSignal): AbortSignal {
+  if (!externalSignal) return timeoutSignal;
+  const anyFn = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any;
+  if (typeof anyFn === "function") {
+    return anyFn([timeoutSignal, externalSignal]);
+  }
+  const controller = new AbortController();
+  if (timeoutSignal.aborted || externalSignal.aborted) {
+    controller.abort();
+    return controller.signal;
+  }
+  const onAbort = () => controller.abort();
+  timeoutSignal.addEventListener("abort", onAbort, { once: true });
+  externalSignal.addEventListener("abort", onAbort, { once: true });
+  return controller.signal;
+}
+
 export type SafeFetchResponseType = "json" | "text" | "arraybuffer" | "none";
 
 export interface SafeFetchOptions {
@@ -60,29 +82,7 @@ export async function safeFetch<T = unknown>(
 
   const timeout = clampTimeout(timeoutMs);
   const timeoutSignal = AbortSignal.timeout(timeout);
-  const hasAbortSignalAny =
-    typeof (AbortSignal as unknown as { any?: unknown }).any === "function";
-  let signal: AbortSignal;
-  if (externalSignal) {
-    if (hasAbortSignalAny) {
-      signal = (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any([
-        timeoutSignal,
-        externalSignal,
-      ]);
-    } else {
-      // Node < 20 / Browser-Fallback: AbortSignal.any unverfuegbar -> Timeout
-      // greift, externes Signal wird ignoriert. Debug-Log damit das nicht
-      // stillschweigend passiert.
-      // eslint-disable-next-line no-console
-      (console.debug ?? console.log).call(
-        console,
-        "[safeFetch] AbortSignal.any nicht verfuegbar, externes Signal wird ignoriert",
-      );
-      signal = timeoutSignal;
-    }
-  } else {
-    signal = timeoutSignal;
-  }
+  const signal = combineSignals(timeoutSignal, externalSignal);
 
   let response: Response;
   try {
@@ -148,8 +148,11 @@ export async function safeFetch<T = unknown>(
           networkError: false,
         };
       }
+      // Echter Body-Parse-Fehler (z.B. invalid JSON, leerer 204-Body als
+      // JSON gelesen): ok: false, damit Aufrufer mit `if (!ok)` das nicht
+      // als success durchwinken.
       return {
-        ok: response.ok,
+        ok: false,
         status: response.status,
         statusText: response.statusText,
         data: null,

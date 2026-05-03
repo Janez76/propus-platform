@@ -29,6 +29,31 @@ function clampTimeout(value) {
 }
 
 /**
+ * Kombiniert Timeout-Signal mit optionalem externem Signal.
+ *
+ * - Node >= 20.3 / 18.17: nutzt natives AbortSignal.any().
+ * - Aeltere Runtimes: lokaler AbortController, der auf beide Signale hoert.
+ *   Der Listener wird `once`-registriert, damit nach dem ersten Abort
+ *   nichts haengen bleibt; das jeweils nicht-feuernde Signal verliert
+ *   seine Referenz spaetestens beim GC.
+ */
+function combineSignals(timeoutSignal, externalSignal) {
+  if (!externalSignal) return timeoutSignal;
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([timeoutSignal, externalSignal]);
+  }
+  const controller = new AbortController();
+  if (timeoutSignal.aborted || externalSignal.aborted) {
+    controller.abort();
+    return controller.signal;
+  }
+  const onAbort = () => controller.abort();
+  timeoutSignal.addEventListener('abort', onAbort, { once: true });
+  externalSignal.addEventListener('abort', onAbort, { once: true });
+  return controller.signal;
+}
+
+/**
  * Wrapper um globales fetch.
  *
  * @param {string|URL} url
@@ -47,6 +72,7 @@ function clampTimeout(value) {
  *   data: any | null,
  *   error: string | null,
  *   timedOut: boolean,
+ *   aborted: boolean,
  *   networkError: boolean,
  * }>}
  */
@@ -62,24 +88,7 @@ async function safeFetch(url, options = {}) {
 
   const timeout = clampTimeout(timeoutMs);
   const timeoutSignal = AbortSignal.timeout(timeout);
-  // Wenn externes Signal mitgegeben wurde, kombinieren (Node 18+).
-  let signal;
-  if (externalSignal) {
-    if (typeof AbortSignal.any === 'function') {
-      signal = AbortSignal.any([timeoutSignal, externalSignal]);
-    } else {
-      // Node < 20: AbortSignal.any nicht verfuegbar -> Timeout greift, externes
-      // Signal wird ignoriert. Debug-loggen damit das in CI/Logs sichtbar ist.
-      // eslint-disable-next-line no-console
-      (console.debug || console.log).call(
-        console,
-        '[safeFetch] AbortSignal.any nicht verfuegbar, externes Signal wird ignoriert',
-      );
-      signal = timeoutSignal;
-    }
-  } else {
-    signal = timeoutSignal;
-  }
+  const signal = combineSignals(timeoutSignal, externalSignal);
 
   let response;
   try {
@@ -149,9 +158,11 @@ async function safeFetch(url, options = {}) {
           networkError: false,
         };
       }
-      // Echter Body-Parse-Fehler (z.B. invalid JSON): Status bleibt erhalten.
+      // Echter Body-Parse-Fehler (z.B. invalid JSON, leerer 204-Body als
+      // JSON gelesen): ok: false setzen, damit Aufrufer mit `if (!ok)` das
+      // nicht als success durchwinken. Status bleibt erhalten fuer Logging.
       return {
-        ok: response.ok,
+        ok: false,
         status: response.status,
         statusText: response.statusText,
         data: null,

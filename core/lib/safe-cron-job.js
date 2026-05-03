@@ -94,10 +94,23 @@ async function acquireAdvisoryLock(pool, lockKey) {
     return {
       acquired: true,
       release: async () => {
+        let unlockErr = null;
         try {
           await client.query("SELECT pg_advisory_unlock($1::bigint)", [lockKey]);
-        } catch (_e) {}
-        client.release();
+        } catch (err) {
+          unlockErr = err;
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[safe-cron-job] pg_advisory_unlock fehlgeschlagen, verwerfe Client: ${err && err.message ? err.message : err}`,
+          );
+        }
+        // Wichtig: Advisory-Locks sind session-scoped. Wenn das Unlock fehl-
+        // schlug, behaelt diese Connection den Lock weiter — wenn wir sie an
+        // den Pool zurueckgeben, wuerde sie spaeter andere Queries bedienen
+        // und der Lock blockierte den Job permanent. Daher Client zerstoeren
+        // (release(err) signalisiert pg, die Connection nicht zu reusen).
+        if (unlockErr) client.release(unlockErr);
+        else client.release();
       },
     };
   } catch (err) {
