@@ -64,6 +64,22 @@ export function deleteGallery(id: string) {
   return galleryFetch<{ ok: boolean }>(`/${id}`, { method: "DELETE" });
 }
 
+export type BulkDeleteResult = {
+  deleted: string[];
+  failed: Array<{ id: string; error: string }>;
+};
+
+export async function bulkDeleteGalleries(ids: string[]): Promise<BulkDeleteResult> {
+  const results = await Promise.allSettled(ids.map((id) => deleteGallery(id)));
+  const deleted: string[] = [];
+  const failed: BulkDeleteResult["failed"] = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") deleted.push(ids[i]);
+    else failed.push({ id: ids[i], error: r.reason instanceof Error ? r.reason.message : String(r.reason) });
+  });
+  return { deleted, failed };
+}
+
 export function duplicateGallery(id: string) {
   return galleryFetch<{ ok: boolean; gallery: ClientGalleryRow }>(`/${id}/duplicate`, {
     method: "POST",

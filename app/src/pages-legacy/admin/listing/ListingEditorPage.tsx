@@ -562,7 +562,13 @@ const SortableImageThumb = memo(function SortableImageThumb({
     >
       <div className="gal-edit-thumb__inner">
         {thumbUrl ? (
-          <img className="gal-edit-thumb__img" src={thumbUrl} alt="" loading="lazy" />
+          <img
+            className="gal-edit-thumb__img"
+            src={thumbUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <div className="gal-edit-thumb__placeholder" aria-hidden="true" />
         )}

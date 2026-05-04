@@ -85,11 +85,17 @@ router.put('/email-templates/:tplId', async (req, res) => {
 });
 
 // GET /:id — Galerie-Detail inkl. Bilder + Feedback
+// Bilder-Filter spiegelt die Public-API: bevorzugt Websize-Varianten,
+// damit Admin-Editor und Kundenansicht dieselbe Bildermenge zeigen.
+// Fullsize-Originale bleiben für den Kunden-Download (NAS-Zip) verfügbar.
 router.get('/:id', async (req, res) => {
   try {
     const g = await gallery.getGallery(req.params.id);
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
-    const images = await gallery.listGalleryImages(g.id);
+    const all = await gallery.listGalleryImages(g.id);
+    const WEBSIZE_RE = /web[\s_-]?size/i;
+    const websizeOnly = all.filter((img) => WEBSIZE_RE.test(String(img.source_path || '')));
+    const images = websizeOnly.length > 0 ? websizeOnly : gallery.dedupeGalleryRowsPreferWebsize(all);
     const feedback = await gallery.listGalleryFeedback(g.id);
     res.json({ ok: true, gallery: g, images, feedback });
   } catch (e) {
@@ -149,7 +155,9 @@ router.patch('/:id/images/:imgId', async (req, res) => {
   }
 });
 
-// GET /:id/images/:imgId/file — Admin-Vorschau fuer lokale NAS-Bilder
+// GET /:id/images/:imgId/file — Admin-Vorschau fuer lokale NAS-Bilder.
+// Bevorzugt die Websize-Variante (KB statt MB pro Thumbnail), damit der
+// Editor mit vielen Bildern flüssig bleibt. Fullsize bleibt Fallback.
 router.get('/:id/images/:imgId/file', async (req, res) => {
   try {
     const g = await gallery.getGallery(req.params.id);
@@ -158,7 +166,7 @@ router.get('/:id/images/:imgId/file', async (req, res) => {
     const img = images.find((row) => row.id === req.params.imgId);
     if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
     if (img.source_type === 'nas_local') {
-      const filePath = gallery.resolveGalleryImageFile(img);
+      const filePath = gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img);
       if (!filePath) return res.status(404).json({ ok: false, error: 'Bildpfad nicht gefunden.' });
       return res.sendFile(filePath);
     }

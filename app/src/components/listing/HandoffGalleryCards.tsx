@@ -28,6 +28,9 @@ export type HandoffGalleryCardsProps = {
   copyFlashId: string | null;
   busyId: string | null;
   fmtDateShort: (iso: string) => string;
+  /** Optional: Mehrfachauswahl aktivieren (nur Listing). */
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelect?: (id: string) => void;
 };
 
 /**
@@ -42,17 +45,60 @@ export function HandoffGalleryCards({
   copyFlashId,
   busyId,
   fmtDateShort,
+  selectedIds,
+  onToggleSelect,
 }: HandoffGalleryCardsProps) {
+  const selectionEnabled = Boolean(onToggleSelect);
   return (
     <div className="gal-grid">
-      {rows.map((g) => (
-        <article key={g.id} className="gal-card">
+      {rows.map((g) => {
+        const isSelected = selectedIds?.has(g.id) ?? false;
+        return (
+        <article
+          key={g.id}
+          className={`gal-card${isSelected ? " gal-card--selected" : ""}`}
+          style={
+            isSelected
+              ? { outline: "2px solid var(--gold-600, #b8860b)", outlineOffset: -2 }
+              : undefined
+          }
+        >
           <div
             className="gal-cover relative"
             style={{
               backgroundImage: "linear-gradient(160deg, var(--gold-50) 0%, var(--paper-strip) 50%, var(--card) 100%)",
             }}
           >
+            {selectionEnabled ? (
+              <label
+                className="gal-card-select"
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  left: 8,
+                  zIndex: 2,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  background: "rgba(255,255,255,0.92)",
+                  border: "1px solid var(--border, #d6d3d1)",
+                  cursor: "pointer",
+                }}
+                onClick={(e) => e.stopPropagation()}
+                title={isSelected ? "Auswahl aufheben" : "Auswählen"}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggleSelect?.(g.id)}
+                  aria-label={`«${g.title}» auswählen`}
+                  style={{ width: 16, height: 16, cursor: "pointer" }}
+                />
+              </label>
+            ) : null}
             <div className="gal-cover-overlay">
               <span className="gal-pw">{g.slug}</span>
             </div>
@@ -128,7 +174,8 @@ export function HandoffGalleryCards({
             </button>
           </div>
         </article>
-      ))}
+        );
+      })}
     </div>
   );
 }
