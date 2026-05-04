@@ -7,6 +7,7 @@ import type { CatalogAddon, CatalogCategory, CatalogData } from "../../api/booki
 import { bookingPublicAssetUrl } from "../../lib/bookingAssets";
 import { BookingPublicHeader } from "./BookingPublicHeader";
 import { BookingPublicFooter } from "./BookingPublicFooter";
+import { SafeHtml } from "../../components/SafeHtml";
 
 type Review = { author: string; rating: number; text: string; relativeTime?: string };
 type ReviewsData = { ok: boolean; rating?: number; total?: number; reviews: Review[] };
@@ -132,9 +133,11 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
         <div className="min-w-0 flex-1">
           <span className="text-sm font-bold text-[var(--text-main)]">{category.name}</span>
           {showDesc && (
-            <span
+            <SafeHtml
+              html={desc}
+              variant="mail_styled"
+              as="span"
               className="ml-2 text-xs font-normal text-[var(--text-subtle)]"
-              dangerouslySetInnerHTML={{ __html: desc }}
             />
           )}
         </div>
@@ -467,9 +470,11 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                       <div className="flex-1 pr-4">
                         <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                         {pkg.description && (
-                          <div
+                          <SafeHtml
+                            html={pkg.description}
+                            variant="mail_styled"
+                            as="div"
                             className="mt-0.5 line-clamp-1 text-xs text-[var(--text-subtle)]"
-                            dangerouslySetInnerHTML={{ __html: pkg.description }}
                           />
                         )}
                       </div>
