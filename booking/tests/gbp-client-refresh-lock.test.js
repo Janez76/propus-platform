@@ -1,6 +1,5 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const Module = require("node:module");
 
 /**
  * Test fuer den In-flight-Refresh-Lock in gbp-client.getAccessToken
