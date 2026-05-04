@@ -111,17 +111,21 @@ export async function saveLeistungen(
   // dispatcht via performAdminReschedule (PR Phase 2b, Bug-Hunt T07).
   // Ein Server-Crash zwischen DB-Commit und Calendar-API kann die
   // Operation nicht mehr verlieren.
-  const prevDuration = Number((before.schedule as { durationMin?: number } | null)?.durationMin || 0);
-  const sched = before.schedule as { date?: string; time?: string } | null;
-  const durationChanged =
-    v.durationMinOverride != null && prevDuration !== v.durationMinOverride;
-  const shouldEnqueueReschedule =
-    durationChanged &&
-    !!sched?.date &&
-    !!sched?.time &&
-    String(before.status || "").toLowerCase() !== "cancelled";
-
   await withTransaction(async (c) => {
+    // FOR UPDATE liest schedule/status aus der GERADE GESPERRTEN Row,
+    // statt aus dem `before`-Snapshot vor der Tx — sonst koennte ein
+    // paralleles UPDATE zwischen `before` und `withTransaction` Datum/
+    // Uhrzeit aendern, der Outbox-Job aber den alten Slot rescheduln
+    // (CodeRabbit Major #262).
+    const locked = await queryOne<{
+      schedule: { date?: string; time?: string; durationMin?: number } | null;
+      status: string | null;
+    }>(
+      `SELECT schedule, status FROM booking.orders WHERE order_no = $1 FOR UPDATE`,
+      [v.orderNo],
+      c,
+    );
+
     await c.query(
       `UPDATE booking.orders SET
          services = $2::jsonb,
@@ -151,10 +155,21 @@ export async function saveLeistungen(
       );
     }
 
+    const lockedSched = locked?.schedule ?? null;
+    const lockedPrevDuration = Number(lockedSched?.durationMin || 0);
+    const lockedStatus = String(locked?.status || "").toLowerCase();
+    const shouldEnqueueReschedule =
+      v.durationMinOverride != null &&
+      lockedPrevDuration !== v.durationMinOverride &&
+      !!lockedSched?.date &&
+      !!lockedSched?.time &&
+      lockedStatus !== "cancelled" &&
+      lockedStatus !== "archived";
+
     if (shouldEnqueueReschedule) {
       await enqueueOutbox(c, v.orderNo, "calendar_reschedule", {
-        date: String(sched!.date),
-        time: String(sched!.time).slice(0, 5),
+        date: String(lockedSched!.date),
+        time: String(lockedSched!.time).slice(0, 5),
         durationMin: v.durationMinOverride,
       });
     }

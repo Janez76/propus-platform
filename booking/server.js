@@ -7492,8 +7492,11 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
     err.code = "NOT_FOUND";
     throw err;
   }
-  if (order.status === "cancelled") {
-    const err = new Error("Abgesagte Bestellungen k\u00f6nnen nicht verschoben werden");
+  if (order.status === "cancelled" || order.status === "archived") {
+    // Archived deckt verspaetete Outbox-Jobs ab, deren Order zwischen
+    // Enqueue und Dispatch storniert/archiviert wurde (CodeRabbit Major
+    // #262).
+    const err = new Error("Abgesagte oder archivierte Bestellungen k\u00f6nnen nicht verschoben werden");
     err.code = "BAD_REQUEST";
     throw err;
   }

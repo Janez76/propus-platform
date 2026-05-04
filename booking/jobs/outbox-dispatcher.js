@@ -46,30 +46,29 @@ function scheduleOutboxDispatcher(deps) {
   const { db, getSetting, sendMailWithFallback, performAdminReschedule } = deps;
 
   // Reale Handler erst hier registrieren, weil sie Server-deps brauchen.
-  // Idempotent: scheduleSafeCronJob laeuft beim Boot einmalig — eine
-  // doppelte register()-Call wuerde den vorherigen Handler ueberschreiben,
-  // was hier gewollt ist (immer der aktuellste Closure).
-  if (typeof sendMailWithFallback === "function") {
-    registry.register(
-      "workflow_status_mail",
-      makeWorkflowStatusMailHandler({ sendMailWithFallback }),
-    );
-  } else {
-    console.warn(
-      "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail-Handler NICHT registriert",
+  // Hart fehlschlagen wenn deps fehlen, statt warn + degradieren:
+  // sonst wuerden enqueued Outbox-Rows beim Dispatch als "unbekannter
+  // Handler-Kind" terminal auf status=failed landen — kein Recovery,
+  // permanenter Daten-Drift gegenueber DB-State (CodeRabbit Major #262).
+  if (typeof sendMailWithFallback !== "function") {
+    throw new Error(
+      "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail kann nicht verarbeitet werden. Boot abgebrochen.",
     );
   }
+  registry.register(
+    "workflow_status_mail",
+    makeWorkflowStatusMailHandler({ sendMailWithFallback }),
+  );
 
-  if (typeof performAdminReschedule === "function") {
-    registry.register(
-      "calendar_reschedule",
-      makeCalendarRescheduleHandler({ performAdminReschedule }),
-    );
-  } else {
-    console.warn(
-      "[outbox] performAdminReschedule fehlt in deps — calendar_reschedule-Handler NICHT registriert",
+  if (typeof performAdminReschedule !== "function") {
+    throw new Error(
+      "[outbox] performAdminReschedule fehlt in deps — calendar_reschedule kann nicht verarbeitet werden. Boot abgebrochen.",
     );
   }
+  registry.register(
+    "calendar_reschedule",
+    makeCalendarRescheduleHandler({ performAdminReschedule }),
+  );
 
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
