@@ -17,6 +17,8 @@ const INITIAL_MESSAGE: ChatMessage = {
   content: "Grüezi! Ich bin der Propus-Chatbot. Wie kann ich Ihnen heute weiterhelfen?",
 };
 
+const MAX_API_MESSAGES = 20;
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
@@ -38,7 +40,12 @@ export default function ChatPage() {
     setLoading(true);
 
     const userMsg: ChatMessage = { role: "user", content: trimmed };
-    const apiMessages = [...messages, userMsg].filter((m) => m !== INITIAL_MESSAGE);
+    const apiMessages = [...messages, userMsg]
+      .filter((m) => m !== INITIAL_MESSAGE)
+      .slice(-MAX_API_MESSAGES);
+    while (apiMessages.length > 0 && apiMessages[0].role !== "user") {
+      apiMessages.shift();
+    }
     setMessages((prev) => [...prev, userMsg, { role: "assistant", content: "" }]);
 
     try {
