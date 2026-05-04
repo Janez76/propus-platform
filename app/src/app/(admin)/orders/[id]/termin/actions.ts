@@ -7,8 +7,9 @@ import { logOrderEvent, logStatusAuditEntry } from "@/lib/audit";
 import { findScheduleConflicts } from "@/lib/repos/orders/conflicts";
 import { getOrderForTerminEdit, updateOrderTermin } from "@/lib/repos/orders/termin";
 import { getTransitionError, getSideEffects, getEmailEffects } from "@/lib/orderWorkflow/stateMachine";
-import { sendWorkflowMails } from "@/lib/mail/workflowMail";
-import { queryOne } from "@/lib/db";
+import { renderWorkflowMails } from "@/lib/mail/workflowMail";
+import { queryOne, withTransaction } from "@/lib/db";
+import { enqueueOutbox } from "@/lib/outbox";
 import { terminFormSchema, type TerminFormValues } from "@/lib/validators/orders/termin";
 import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
 import type { BulkTxOptions } from "../_bulk-tx";
@@ -160,69 +161,75 @@ export async function saveOrderTermin(
         }
       : null;
 
-  const mailTask =
-    v.status !== oldStatus && v.sendEmails
-      ? async () => {
-          const effects = getSideEffects(oldStatus, v.status);
-          const emailEffects = getEmailEffects(effects);
-          if (emailEffects.length === 0) return;
-          const billing = await queryOne<{
-            email: string | null;
-          }>(`SELECT billing->>'email' AS email FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
-          const photo = v.photographerKey
-            ? await queryOne<{ email: string | null }>(
-                `SELECT email FROM booking.photographers WHERE key = $1`,
-                [v.photographerKey],
-              )
-            : null;
-          const targets = v.sendEmailTargets ?? {
-            customer: true,
-            office: true,
-            photographer: true,
-            cc: true,
-          };
-          const result = await sendWorkflowMails(
-            emailEffects,
-            {
-              orderNo: v.orderNo,
-              customerEmail: billing?.email,
-              officeEmail: process.env.OFFICE_EMAIL,
-              photographerEmail: photo?.email,
-              scheduleDate: v.scheduleDate,
-              scheduleTime: v.scheduleTime,
-            },
-            targets,
-            {},
-          );
-          if (result.errors.length > 0) {
-            await logOrderEvent(
-              v.orderNo,
-              "note_added",
-              {
-                old: {},
-                new: { mailErrors: result.errors, mailSent: result.sent },
-              },
-              editor,
-            );
-          }
+  // Workflow-Mails wandern jetzt in die booking.order_outbox: rendern
+  // hier inkl. Empfaenger-Snapshot (billing/photographer-Email zum
+  // Zeitpunkt des Status-Wechsels), enqueuen in derselben Tx wie das
+  // Order-UPDATE, der Outbox-Worker stellt zu. Damit ueberleben Mails
+  // einen Server-Crash zwischen DB-Commit und Mail-Versand
+  // (Bug-Hunt T08 HIGH, PR Phase 2a).
+  if (v.status !== oldStatus && v.sendEmails) {
+    const emailEffects = getEmailEffects(getSideEffects(oldStatus, v.status));
+    if (emailEffects.length > 0) {
+      const billing = await queryOne<{ email: string | null }>(
+        `SELECT billing->>'email' AS email FROM booking.orders WHERE order_no = $1`,
+        [v.orderNo],
+        tx,
+      );
+      const photo = v.photographerKey
+        ? await queryOne<{ email: string | null }>(
+            `SELECT email FROM booking.photographers WHERE key = $1`,
+            [v.photographerKey],
+            tx,
+          )
+        : null;
+      const targets = v.sendEmailTargets ?? {
+        customer: true,
+        office: true,
+        photographer: true,
+        cc: true,
+      };
+      const rendered = renderWorkflowMails(
+        emailEffects,
+        {
+          orderNo: v.orderNo,
+          customerEmail: billing?.email,
+          officeEmail: process.env.OFFICE_EMAIL,
+          photographerEmail: photo?.email,
+          scheduleDate: v.scheduleDate,
+          scheduleTime: v.scheduleTime,
+        },
+        targets,
+      );
+      // withTransaction(fn, tx) reused tx wenn vorhanden; sonst eigene
+      // kurze Tx fuer die Outbox-INSERTs (standalone-Modus).
+      await withTransaction(async (insertTx) => {
+        for (const mail of rendered) {
+          await enqueueOutbox(insertTx, v.orderNo, "workflow_status_mail", {
+            to: mail.to,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            effect: mail.effect,
+            role: mail.role,
+            context: `order:${v.orderNo}:status:${oldStatus}->${v.status}:${mail.effect}:${mail.role}`,
+          });
         }
-      : null;
+      }, tx);
+    }
+  }
 
   // Wenn `tx` gesetzt ist, MUSS auch `postCommit` gesetzt sein — sonst
-  // wuerden HTTP/Mail-Side-Effects mitten in der noch offenen
-  // Transaktion abgefeuert und koennten beim Rollback nicht mehr
-  // zurueckgenommen werden (CodeRabbit Major #259). Vertragsbruch des
-  // Callers (saveOrderAllSections setzt immer beide).
+  // wuerde der HTTP-Reschedule mitten in der noch offenen Transaktion
+  // abgefeuert und koennte beim Rollback nicht mehr zurueckgenommen
+  // werden (CodeRabbit Major #259).
   if (tx && !postCommit) {
     return { ok: false, error: "Interner Fehler: tx ohne postCommit ist nicht erlaubt" };
   }
 
   if (postCommit) {
     if (reschedTask) postCommit.push(reschedTask);
-    if (mailTask) postCommit.push(mailTask);
   } else {
     if (reschedTask) await reschedTask();
-    if (mailTask) await mailTask();
   }
 
   if (tx) return { ok: true };

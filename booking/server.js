@@ -15024,6 +15024,7 @@ async function startServer() {
       OFFICE_EMAIL,
       PHOTOG_PHONES,
       sendMail: sendMailViaGraph,
+      sendMailWithFallback,
       createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {
