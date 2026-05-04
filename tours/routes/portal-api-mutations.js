@@ -11,8 +11,41 @@
 const crypto = require('crypto');
 const express = require('express');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const { pool } = require('../lib/db');
+
+/**
+ * Rate-Limits gegen Brute-Force/Enumeration auf den Auth-Endpoints
+ * (Bug-Hunt T13 HIGH).
+ *
+ * `keyGenerator` kombiniert IP + body.email damit eine ganze Office-IP
+ * nicht durch ein einziges falsch eingegebenes Passwort eines Mitarbeiters
+ * gesperrt wird. `standardHeaders: true` setzt RateLimit-* Response-Header.
+ */
+const loginRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8, // 8 Versuche / 15 min — eng genug fuer Brute-Force, weit genug fuer Tippfehler
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    return `${req.ip}|${email}`;
+  },
+  message: { ok: false, error: 'Zu viele Login-Versuche. Bitte spaeter erneut versuchen.' },
+});
+
+const forgotPasswordRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5, // 5 Anfragen / Stunde — verhindert Email-Bombing + Account-Enumeration
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    return `${req.ip}|${email}`;
+  },
+  message: { ok: false, error: 'Zu viele Anfragen. Bitte in einer Stunde erneut versuchen.' },
+});
 const { logAction } = require('../lib/actions');
 const { normalizeTourRow } = require('../lib/normalize');
 const {
@@ -33,8 +66,27 @@ const {
   getSubscriptionWindowFromStart,
 } = require('../lib/subscriptions');
 const { getDisplayedTourStatus } = require('../lib/tour-detail-payload');
+const magicBytes = require('../lib/magic-bytes');
 
 const PORTAL_BASE_URL = process.env.PORTAL_BASE_URL || 'https://portal.propus.ch';
+
+/**
+ * Validiert nach multer.single() dass der hochgeladene Buffer wirklich
+ * ein Image ist (Magic-Bytes-Check). Ergaenzt den client-controlled
+ * mimetype/originalname-Check des fileFilter (Bug-Hunt T13 MEDIUM).
+ *
+ * Rueckgabe: middleware-Style (req, res, next).
+ */
+function validateImageMagicBytes(req, res, next) {
+  if (!req.file) return next();
+  if (!magicBytes.matchesKind(req.file.buffer, 'image')) {
+    return res.status(415).json({
+      ok: false,
+      error: 'Ungueltiges Datei-Format. Erlaubt: JPG, PNG, GIF, WebP.',
+    });
+  }
+  return next();
+}
 
 const profileUpload = multer({
   storage: multer.memoryStorage(),
@@ -47,7 +99,7 @@ const profileUpload = multer({
 
 // ─── Öffentliche Endpunkte (kein Session-Guard) ─────────────────────────────
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginRateLimit, async (req, res) => {
   try {
     if (req.session?.portalCustomerEmail) return res.json({ ok: true });
     const email = portalAuth.normalizeEmail(req.body?.email);
@@ -81,7 +133,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordRateLimit, async (req, res) => {
   // Immer dieselbe generische Antwort zurückgeben – verhindert Email-Enumeration.
   // Mail wird fire-and-forget versendet, damit Response-Zeit unabhängig vom SMTP/Graph-Roundtrip ist.
   const genericMsg = 'Falls ein Konto existiert, wurde eine E-Mail gesendet.';
@@ -453,7 +505,7 @@ router.get('/tours/:id/detail', async (req, res) => {
 
 // ─── Profil ───────────────────────────────────────────────────────────────────
 
-router.post('/profile/me', profileUpload.single('photo'), async (req, res) => {
+router.post('/profile/me', profileUpload.single('photo'), validateImageMagicBytes, async (req, res) => {
   try {
     const email = req.session.portalCustomerEmail;
     const displayName = String(req.body?.displayName || '').trim() || null;

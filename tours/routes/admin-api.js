@@ -8,6 +8,26 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { pool } = require('../lib/db');
+const magicBytes = require('../lib/magic-bytes');
+
+/**
+ * Validiert nach multer.single() dass der Buffer wirklich CSV oder XML ist
+ * — beides Text-Formate ohne fixe Magic-Bytes, daher heuristisch via
+ * Pattern-Match auf die ersten 1KB. Ergaenzt den client-controlled
+ * mimetype/originalname-Check (Bug-Hunt T13 MEDIUM).
+ */
+function validateBankFileContent(req, res, next) {
+  if (!req.file) return next();
+  const isXml = magicBytes.matchesText(req.file.buffer, 'xml');
+  const isCsv = magicBytes.matchesText(req.file.buffer, 'csv');
+  if (!isXml && !isCsv) {
+    return res.status(415).json({
+      ok: false,
+      error: 'Datei ist weder CSV noch XML — bitte Inhalt pruefen.',
+    });
+  }
+  return next();
+}
 const phase3 = require('../lib/admin-phase3');
 const matterport = require('../lib/matterport');
 const exxas = require('../lib/exxas');
@@ -2787,7 +2807,7 @@ router.get('/bank-import/order-search', async (req, res) => {
   }
 });
 
-router.post('/bank-import/preview', bankDataUpload.single('bankFile'), async (req, res) => {
+router.post('/bank-import/preview', bankDataUpload.single('bankFile'), validateBankFileContent, async (req, res) => {
   try {
     const result = await phase3.previewBankImportUpload({
       buffer: req.file?.buffer,
@@ -2801,7 +2821,7 @@ router.post('/bank-import/preview', bankDataUpload.single('bankFile'), async (re
   }
 });
 
-router.post('/bank-import/upload', bankDataUpload.single('bankFile'), async (req, res) => {
+router.post('/bank-import/upload', bankDataUpload.single('bankFile'), validateBankFileContent, async (req, res) => {
   try {
     const actorEmail = adminEmail(req);
     const result = await phase3.runBankImportUpload({

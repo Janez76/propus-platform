@@ -80,6 +80,41 @@ const {
 const { computePricing, computeTourDuration } = require("./pricing");
 const { resolveEffectiveSqm } = require("./product-meta");
 const { markDiscountUsed, validateDiscountCode } = require("./discount-codes");
+
+/**
+ * In-memory Rate-Limiter für validate_discount (Bug-Hunt T14 MEDIUM).
+ *
+ * Verhindert Brute-Force-Enumeration valider Discount-Codes via dem
+ * /api/booking-Endpoint. Token-Bucket: max 30 Versuche pro IP innerhalb
+ * von 60s. Schluessel ist die IP allein (nicht IP+code), damit auch
+ * iteratives Durchprobieren mit verschiedenen Codes blockt.
+ *
+ * Bewusst KEIN express-rate-limit als Middleware, weil validate_discount
+ * nur ein Branch innerhalb des grossen /api/booking-Endpoints ist und
+ * ein generelles Rate-Limit auf den Endpoint die normalen Buchungs-Flows
+ * stoeren wuerde.
+ */
+const _discountRateBuckets = new Map();
+const DISCOUNT_RATE_WINDOW_MS = 60_000;
+const DISCOUNT_RATE_MAX = 30;
+function discountRateAllow(ip) {
+  const now = Date.now();
+  const key = String(ip || "unknown");
+  const bucket = _discountRateBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    _discountRateBuckets.set(key, { count: 1, resetAt: now + DISCOUNT_RATE_WINDOW_MS });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= DISCOUNT_RATE_MAX;
+}
+// Periodisch aufraeumen damit die Map nicht unbegrenzt waechst
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, b] of _discountRateBuckets) {
+    if (b.resetAt <= now) _discountRateBuckets.delete(k);
+  }
+}, 5 * 60_000).unref?.();
 const { getSetting, listEffectiveDefaults, setSystemSettings: settingsResolverSet } = require("./settings-resolver");
 const db = require("./db");
 const { createPostgresSessionStore } = require("../auth/postgres-session-store");
@@ -13091,6 +13126,15 @@ app.post("/api/bot", async (req, res) => {
 
     // - ACTION: validate_discount -
     if (action === "validate_discount") {
+      // Rate-Limit: 30 Versuche/min/IP. Bei Ueberschreitung 429.
+      if (!discountRateAllow(req.ip)) {
+        return res.status(429).json({
+          action: "validate_discount",
+          valid: false,
+          reason: "rate_limited",
+          message: "Zu viele Versuche. Bitte spaeter erneut versuchen.",
+        });
+      }
       const { code, customerEmail } = req.body;
       if (!code) return res.json({ action:"validate_discount", valid:false, reason:"no_code" });
       const result = await validateDiscountCode(code, { customerEmail });
