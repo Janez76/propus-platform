@@ -42,6 +42,7 @@ import {
   type PosteingangStats,
   type PosteingangAdminUser,
 } from "../../../api/toursAdmin";
+import { SafeHtml } from "../../../components/SafeHtml";
 
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -917,7 +918,15 @@ function MessageBubble({
         )}
       </div>
       {m.body_html && m.direction !== "internal_note" ? (
-        <div className="prose prose-invert max-w-none text-[#e8e4dc]" dangerouslySetInnerHTML={{ __html: m.body_html }} />
+        // Bug-Hunt T05 HIGH: externes Mail-HTML wird via SafeHtml mit DOMPurify
+        // sanitisiert (Mail-Profil: typische HTML-Tags + http(s)/mailto/tel-Links,
+        // alle <a>-Tags bekommen target="_blank" rel="noopener noreferrer").
+        <SafeHtml
+          html={m.body_html}
+          variant="mail"
+          as="div"
+          className="prose prose-invert max-w-none text-[#e8e4dc]"
+        />
       ) : (
         <div className="whitespace-pre-wrap text-[#e8e4dc]">{m.body_text || ""}</div>
       )}
