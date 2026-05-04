@@ -3,9 +3,21 @@
  * Registriert alle Cron-Jobs.
  * Wird in startServer() von server.js aufgerufen.
  *
- * Alle Jobs starten nur wenn "feature.backgroundJobs"=true (oder jobspezifisches Flag).
+ * Aufteilung:
+ *   - `scheduleOutboxDispatcher(deps)` laeuft UNABHAENGIG vom Flag
+ *     `feature.backgroundJobs` (eigener Setting-Key
+ *     `feature.outboxDispatcher` mit Default `true` — siehe
+ *     settings-defaults.js). Begruendung: Outbox dispatcht persistierte
+ *     Side-Effects (Workflow-Mails, Calendar-Reschedule) und ist
+ *     korrektheits-relevant — sonst entstehen Drifts zwischen DB-State
+ *     (z. B. Termin-Aenderung in saveLeistungen) und Outlook/Mail-State.
+ *   - Alle uebrigen Jobs (Provisional-Expiry/Reminder, Review-Anfragen,
+ *     Calendar-Retry, Confirmation-Pending, Websize-Sync, Duplicate-
+ *     Customers) starten nur bei `feature.backgroundJobs=true`.
  *
- * @param {object} deps - { db, getSetting, graphClient, OFFICE_EMAIL, PHOTOG_PHONES }
+ * @param {object} deps - { db, getSetting, graphClient, OFFICE_EMAIL,
+ *   PHOTOG_PHONES, sendMail, sendMailWithFallback, performAdminReschedule,
+ *   createPortalMagicLink }
  */
 
 "use strict";
