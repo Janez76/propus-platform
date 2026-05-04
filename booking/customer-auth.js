@@ -17,11 +17,32 @@ async function scryptAsync(password, salt, keylen) {
   });
 }
 
+/**
+ * Pruefung gegen die Passwort-Policy. Wirft mit aussagekraeftiger
+ * Fehlermeldung wenn das Passwort zu schwach ist (Bug-Hunt T03 MEDIUM).
+ *
+ * Mindestlaenge 12 + mindestens 2 Zeichenklassen (Lowercase/Uppercase/
+ * Digit/Symbol). 8 Zeichen waren NIST-Empfehlung von 2017 — heute
+ * Brute-Force-fest erst ab 12+ mit Klassen.
+ */
+function validatePasswordPolicy(password) {
+  const pw = String(password || "");
+  if (pw.length < 12) {
+    throw new Error("Passwort muss mindestens 12 Zeichen lang sein");
+  }
+  let classes = 0;
+  if (/[a-z]/.test(pw)) classes++;
+  if (/[A-Z]/.test(pw)) classes++;
+  if (/\d/.test(pw)) classes++;
+  if (/[^A-Za-z0-9]/.test(pw)) classes++;
+  if (classes < 2) {
+    throw new Error("Passwort muss mindestens zwei Zeichen-Klassen enthalten (Gross/Klein, Ziffer, Sonderzeichen)");
+  }
+}
+
 async function hashPassword(password) {
   const pw = String(password || "");
-  if (pw.length < 8) {
-    throw new Error("Passwort muss mindestens 8 Zeichen lang sein");
-  }
+  validatePasswordPolicy(pw);
 
   const salt = crypto.randomBytes(16);
   const derivedKey = await scryptAsync(pw, salt, 64);
@@ -56,5 +77,6 @@ module.exports = {
   hashPassword,
   verifyPassword,
   createSessionToken,
+  validatePasswordPolicy,
 };
 

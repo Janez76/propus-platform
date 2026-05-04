@@ -34,9 +34,58 @@ function clientIp(req: NextRequest): string | undefined {
   return req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || undefined;
 }
 
+/**
+ * Per-User Burst-Rate-Limit (Bug-Hunt T03 MEDIUM). Daily-Token-Limit
+ * deckt Kosten-Cap ab; ohne Burst-Limit kann ein einzelner User Burst-
+ * traffic ueber den ganzen User-Pool hinweg eskalieren bis die Anthropic-
+ * API antwortet — wir wollen lokal pro User ein Lower-Bound enforce.
+ *
+ * Default 20 req/min/user via in-memory Map. Konfigurierbar via env
+ * `ASSISTANT_PER_MIN_LIMIT`. Map wird periodisch GC'd damit sie nicht
+ * unbounded waechst.
+ */
+const ASSISTANT_PER_MIN_LIMIT = (() => {
+  const raw = process.env.ASSISTANT_PER_MIN_LIMIT;
+  const n = raw ? parseInt(raw, 10) : 20;
+  return Number.isFinite(n) && n > 0 ? n : 20;
+})();
+const ASSISTANT_BURST_WINDOW_MS = 60_000;
+const _assistantBurstBuckets = new Map<string, { count: number; resetAt: number }>();
+function checkAssistantBurstLimit(userKey: string): boolean {
+  const now = Date.now();
+  const bucket = _assistantBurstBuckets.get(userKey);
+  if (!bucket || bucket.resetAt <= now) {
+    _assistantBurstBuckets.set(userKey, { count: 1, resetAt: now + ASSISTANT_BURST_WINDOW_MS });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= ASSISTANT_PER_MIN_LIMIT;
+}
+// Periodischer Cleanup damit die Map nicht waechst.
+if (typeof globalThis !== "undefined" && !(globalThis as { _assistantBurstGC?: boolean })._assistantBurstGC) {
+  (globalThis as { _assistantBurstGC?: boolean })._assistantBurstGC = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, b] of _assistantBurstBuckets) {
+      if (b.resetAt <= now) _assistantBurstBuckets.delete(k);
+    }
+  }, 5 * 60_000).unref?.();
+}
+
 export async function POST(req: NextRequest) {
   const user = await resolveAssistantUser(req);
   if (!user) return errorResponse("Nicht authentifiziert", "auth_failed", 401);
+
+  // Per-Minute-Burst-Limit pro User. Tritt vor dem Daily-Limit-Check auf,
+  // damit ein einziger Schleifen-Bug im Frontend nicht das Daily-Budget
+  // in Sekunden verbrennt (Bug-Hunt T03 MEDIUM).
+  if (!isAssistantDailyLimitExempt(user.email) && !checkAssistantBurstLimit(user.id)) {
+    return errorResponse(
+      "Zu viele Anfragen pro Minute. Bitte kurz warten.",
+      "rate_limited",
+      429,
+    );
+  }
 
   let body: { userMessage?: unknown; history?: unknown; conversationId?: unknown; modelMode?: unknown };
   try {
