@@ -24,8 +24,12 @@ export class PostCommitQueue {
     this.tasks.push(task);
   }
   async run(label = "post-commit"): Promise<{ errors: unknown[] }> {
+    // Konsumierend: bereits gelaufene Tasks duerfen bei einem
+    // versehentlichen erneuten run() nicht ein zweites Mal feuern
+    // (CodeRabbit Minor #259).
+    const tasks = this.tasks.splice(0);
     const errors: unknown[] = [];
-    for (const task of this.tasks) {
+    for (const task of tasks) {
       try {
         await task();
       } catch (err) {

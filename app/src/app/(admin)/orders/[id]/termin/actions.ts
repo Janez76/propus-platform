@@ -208,6 +208,15 @@ export async function saveOrderTermin(
         }
       : null;
 
+  // Wenn `tx` gesetzt ist, MUSS auch `postCommit` gesetzt sein — sonst
+  // wuerden HTTP/Mail-Side-Effects mitten in der noch offenen
+  // Transaktion abgefeuert und koennten beim Rollback nicht mehr
+  // zurueckgenommen werden (CodeRabbit Major #259). Vertragsbruch des
+  // Callers (saveOrderAllSections setzt immer beide).
+  if (tx && !postCommit) {
+    return { ok: false, error: "Interner Fehler: tx ohne postCommit ist nicht erlaubt" };
+  }
+
   if (postCommit) {
     if (reschedTask) postCommit.push(reschedTask);
     if (mailTask) postCommit.push(mailTask);

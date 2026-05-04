@@ -172,10 +172,14 @@ export async function saveLeistungen(
             const { cookies } = await import("next/headers");
             const token = (await cookies()).get("admin_session")?.value ?? "";
             const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
-            await fetch(
+            // 10 s Timeout via AbortSignal damit ein haengender Booking-
+            // Service nicht den ganzen Save-Flow blockiert (CodeRabbit
+            // Major #259).
+            const resp = await fetch(
               `${apiBase}/api/admin/orders/${encodeURIComponent(String(v.orderNo))}/reschedule`,
               {
                 method: "PATCH",
+                signal: AbortSignal.timeout(10_000),
                 headers: {
                   "Content-Type": "application/json",
                   ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -187,11 +191,24 @@ export async function saveLeistungen(
                 }),
               },
             );
+            if (!resp.ok) {
+              console.error(
+                "[saveLeistungen] 365 calendar sync HTTP error",
+                resp.status,
+                await resp.text().catch(() => ""),
+              );
+            }
           } catch (err) {
             console.error("[saveLeistungen] 365 calendar sync failed (non-critical)", err);
           }
         }
       : null;
+
+  // tx ohne postCommit waere ein Vertragsbruch — Side-Effects wuerden
+  // mitten in der noch offenen Tx feuern (CodeRabbit Major #259).
+  if (tx && !postCommit) {
+    return { ok: false as const, error: "Interner Fehler: tx ohne postCommit ist nicht erlaubt" };
+  }
 
   if (postCommit) {
     if (reschedTask) postCommit.push(reschedTask);
