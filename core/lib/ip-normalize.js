@@ -40,22 +40,38 @@ function normalizeIpKey(ip) {
   if (kind === 0) return 'unknown';
   if (kind === 4) return noZone;
 
+  // IPv6 mit eingebettetem IPv4 (RFC 4291 §2.2, z. B.
+  // "2001:db8::192.0.2.1" oder "64:ff9b::1.2.3.4") ist gueltig — net.isIP
+  // klassifiziert das als IPv6, aber unsere Hextet-Pruefung lehnt
+  // dezimale Oktette ab. Wir konvertieren die eingebettete v4 deshalb
+  // zuerst in zwei Hex-Hextets, damit der Standard-Pfad weiterlaeuft
+  // und unterschiedliche Schreibweisen denselben Bucket-Key liefern
+  // (Codex P2 #258).
+  let work = noZone.toLowerCase();
+  const v4Tail = work.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (v4Tail) {
+    if (!net.isIPv4(v4Tail[1])) return 'unknown';
+    const [a, b, c, d] = v4Tail[1].split('.').map(Number);
+    const h1 = ((a << 8) | b).toString(16);
+    const h2 = ((c << 8) | d).toString(16);
+    work = work.slice(0, -v4Tail[1].length) + h1 + ':' + h2;
+  }
+
   // IPv6: `::` -> 8 Hextets expandieren
-  const lower = noZone.toLowerCase();
-  const dblIdx = lower.indexOf('::');
+  const dblIdx = work.indexOf('::');
   let hextets;
   if (dblIdx >= 0) {
     // Mehr als ein `::` ist ungueltig (net.isIP fangt das eigentlich
     // schon ab; defensiv trotzdem pruefen).
-    if (lower.indexOf('::', dblIdx + 1) >= 0) return 'unknown';
-    const leftStr = lower.slice(0, dblIdx);
-    const rightStr = lower.slice(dblIdx + 2);
+    if (work.indexOf('::', dblIdx + 1) >= 0) return 'unknown';
+    const leftStr = work.slice(0, dblIdx);
+    const rightStr = work.slice(dblIdx + 2);
     const left = leftStr ? leftStr.split(':') : [];
     const right = rightStr ? rightStr.split(':') : [];
     const fillCount = Math.max(0, 8 - left.length - right.length);
     hextets = [...left, ...Array(fillCount).fill('0'), ...right];
   } else {
-    hextets = lower.split(':');
+    hextets = work.split(':');
   }
 
   // Defensive Post-Validierung: nach der Expansion muessen es genau 8
