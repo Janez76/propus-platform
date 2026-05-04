@@ -144,8 +144,10 @@ function buildGalleryDedupKey(rawPath) {
 function dedupeByBasenamePreferWebsize(hrefs) {
   const byKey = new Map();
   for (const href of hrefs) {
-    const base = String(href).split('/').filter(Boolean).pop() || href;
-    const key = stripGallerySizeSuffixFromBasename(base);
+    // Pfad-bewusster Schlüssel: gleicher Basename in unterschiedlichen
+    // Unterordnern (z. B. /Schlafzimmer/foo.jpg vs /Wohnzimmer/foo.jpg)
+    // bleibt damit getrennt, nur echte Größen-Varianten werden entdoppelt.
+    const key = buildGalleryDedupKey(href) || String(href);
     const current = byKey.get(key);
     if (!current || pathScoreForGallery(href) > pathScoreForGallery(current)) {
       byKey.set(key, href);
