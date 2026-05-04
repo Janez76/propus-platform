@@ -8546,6 +8546,49 @@ app.post("/api/admin/orders/:orderNo/exxas-sync-links", requireAdmin, async (req
 // POST /api/bot  -  { "action": "...", ...params }
 // ==============================
 
+// Public dispatch: validate_discount wird vom Booking-Widget pre-checkout
+// ohne Token aufgerufen (app/src/api/bookingPublic.ts:243). Diese Middleware
+// matched den Action-Branch und beantwortet ihn direkt; andere Actions
+// fallen via next() zur authentifizierten Handler-Registrierung weiter.
+// Rate-Limit (30/min/IP) verhindert Brute-Force-Enumeration valider Codes
+// (Bug-Hunt T14 MEDIUM, CodeRabbit Critical #258).
+app.post("/api/bot", async (req, res, next) => {
+  const action = String(req.body?.action || "").trim();
+  if (action !== "validate_discount") return next();
+  try {
+    if (!discountRateAllow(req.ip)) {
+      return res.status(429).json({
+        action: "validate_discount",
+        valid: false,
+        reason: "rate_limited",
+        message: "Zu viele Versuche. Bitte spaeter erneut versuchen.",
+      });
+    }
+    const { code, customerEmail } = req.body || {};
+    if (!code) return res.json({ action: "validate_discount", valid: false, reason: "no_code" });
+    const result = await validateDiscountCode(code, { customerEmail });
+    if (!result?.ok) {
+      return res.json({ action: "validate_discount", valid: false, reason: result?.reason || "invalid_code" });
+    }
+    // Antwort liefert sowohl Legacy- (type/percent) als auch neue Felder
+    // (kind/amount), damit bestehende Clients (bookingPublic.ts,
+    // SummaryPanel.tsx) weiterfunktionieren.
+    const discountType = result.type || result.kind || null;
+    const isPercent = discountType === "percent";
+    return res.json({
+      action: "validate_discount",
+      valid: true,
+      code: result.code,
+      type: discountType,
+      kind: result.kind || result.type || null,
+      amount: result.amount,
+      percent: isPercent ? result.amount : (result.percent ?? null),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message || "validate_discount fehlgeschlagen" });
+  }
+});
+
 app.post("/api/bot", requirePhotographerOrAdmin, async (req, res) => {
   try {
     const action = String(req.body?.action || "").trim();
@@ -8600,35 +8643,7 @@ app.post("/api/bot", requirePhotographerOrAdmin, async (req, res) => {
         ...result,
       });
     }
-    // - ACTION: validate_discount -
-    // Express matcht den ersten registrierten Handler — der zweite
-    // /api/bot-Handler weiter unten wird fuer authentifizierte Anfragen
-    // nie erreicht. Daher hier integriert. Rate-Limit (30/min/IP)
-    // verhindert Brute-Force-Enumeration valider Codes (Bug-Hunt T14
-    // MEDIUM, CodeRabbit Major).
-    if (action === "validate_discount") {
-      if (!discountRateAllow(req.ip)) {
-        return res.status(429).json({
-          action: "validate_discount",
-          valid: false,
-          reason: "rate_limited",
-          message: "Zu viele Versuche. Bitte spaeter erneut versuchen.",
-        });
-      }
-      const { code, customerEmail } = req.body;
-      if (!code) return res.json({ action: "validate_discount", valid: false, reason: "no_code" });
-      const result = await validateDiscountCode(code, { customerEmail });
-      if (!result?.ok) {
-        return res.json({ action: "validate_discount", valid: false, reason: result?.reason || "invalid_code" });
-      }
-      return res.json({
-        action: "validate_discount",
-        valid: true,
-        code: result.code,
-        kind: result.kind,
-        amount: result.amount,
-      });
-    }
+    // validate_discount wird durch die public Middleware oben behandelt.
     return res.status(400).json({ error: "Unbekannte action" });
   } catch (err) {
     res.status(500).json({ error: err.message || "Bot action fehlgeschlagen" });

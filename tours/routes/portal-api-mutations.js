@@ -22,7 +22,25 @@ const { pool } = require('../lib/db');
  * `keyGenerator` kombiniert IP + body.email damit eine ganze Office-IP
  * nicht durch ein einziges falsch eingegebenes Passwort eines Mitarbeiters
  * gesperrt wird. `standardHeaders: true` setzt RateLimit-* Response-Header.
+ *
+ * IPv6-Schluessel werden auf /64-Subnetz normalisiert, damit ein Angreifer
+ * nicht durch Address-Rotation innerhalb seines delegierten Pools die
+ * Limits umgeht (Codex P1 #258).
  */
+function normalizeIpKey(ip) {
+  const raw = String(ip || '').trim();
+  if (!raw) return 'unknown';
+  // IPv4-mapped IPv6 (::ffff:1.2.3.4) → IPv4 verwenden
+  const v4Mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (v4Mapped) return v4Mapped[1];
+  // IPv6 → erste 4 Hextets (= /64) als Bucket
+  if (raw.includes(':') && !raw.includes('.')) {
+    const hextets = raw.split(':').filter(Boolean).slice(0, 4);
+    return hextets.join(':') + '::/64';
+  }
+  return raw;
+}
+
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 8, // 8 Versuche / 15 min — eng genug fuer Brute-Force, weit genug fuer Tippfehler
@@ -30,7 +48,7 @@ const loginRateLimit = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    return `${req.ip}|${email}`;
+    return `${normalizeIpKey(req.ip)}|${email}`;
   },
   message: { ok: false, error: 'Zu viele Login-Versuche. Bitte spaeter erneut versuchen.' },
 });
@@ -42,7 +60,7 @@ const forgotPasswordRateLimit = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => {
     const email = String(req.body?.email || '').trim().toLowerCase();
-    return `${req.ip}|${email}`;
+    return `${normalizeIpKey(req.ip)}|${email}`;
   },
   message: { ok: false, error: 'Zu viele Anfragen. Bitte in einer Stunde erneut versuchen.' },
 });
