@@ -22,12 +22,22 @@ const { scheduleOutboxDispatcher }      = require("./outbox-dispatcher");
 async function startJobs(deps) {
   const { getSetting } = deps;
 
-  // Globaler Jobs-Flag
+  // Outbox-Dispatcher ist ein Korrektheits-Mechanismus (Side-Effects
+  // duerfen nach DB-Commit nicht verloren gehen) und laeuft daher
+  // UNABHAENGIG vom feature.backgroundJobs-Gate. Eigener Setting-Key,
+  // Default opt-out (siehe settings-defaults.js).
+  // Codex P1 #262: Sonst lief in Default-Setups (jobs=false) der
+  // Calendar-Reschedule nie, weil seine Outbox-Rows nie dispatcht
+  // wurden.
+  scheduleOutboxDispatcher(deps);
+
+  // Globaler Jobs-Flag fuer alle anderen Hintergrund-Jobs (Provisional-
+  // Expiry, Reviews, Calendar-Retry, Websize-Sync, ...).
   const flagResult = await getSetting("feature.backgroundJobs");
   const jobsEnabled = !!(flagResult && flagResult.value);
 
   if (!jobsEnabled) {
-    console.log("[jobs] feature.backgroundJobs=false — keine Jobs gestartet (Shadow-Modus)");
+    console.log("[jobs] feature.backgroundJobs=false — uebrige Jobs nicht gestartet (Shadow-Modus)");
     return;
   }
 
@@ -40,7 +50,6 @@ async function startJobs(deps) {
   scheduleConfirmationPending(deps);
   scheduleWebsizeSync(deps);
   scheduleDuplicateCandidatesNightly(deps);
-  scheduleOutboxDispatcher(deps);
 
   console.log("[jobs] alle Jobs registriert");
 }

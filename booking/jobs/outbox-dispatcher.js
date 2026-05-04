@@ -79,8 +79,13 @@ function scheduleOutboxDispatcher(deps) {
     pool,
     timezone: "Europe/Zurich",
     run: async (ctx) => {
-      const flagResult = await getSetting?.("feature.backgroundJobs");
-      if (!flagResult || !flagResult.value) return;
+      // Outbox-Dispatcher hat ein EIGENES Flag (`feature.outboxDispatcher`,
+      // Default true), getrennt vom globalen feature.backgroundJobs.
+      // Outbox-Side-Effects sind Korrektheits-relevant — sie muessen
+      // auch in Setups ohne weitere Jobs laufen (Codex P1 #262).
+      const flagResult = await getSetting?.("feature.outboxDispatcher");
+      const enabled = flagResult ? !!flagResult.value : true; // Default opt-out
+      if (!enabled) return;
       if (!pool) {
         ctx.warn("DB nicht verfuegbar");
         return;

@@ -74,6 +74,11 @@ const DEFAULT_APP_SETTINGS = {
   "feature.emailTemplatesOnStatusChange": false,
   // Hintergrund-Jobs (Provisorium-Reminder + Expiry, Review-Anfragen)
   "feature.backgroundJobs": false,
+  // Outbox-Dispatcher (Side-Effect-Persistenz fuer Status-Mails +
+  // Calendar-Reschedule). Default true — der Dispatcher ist
+  // Korrektheits-relevant (sonst Drift zwischen DB-State und
+  // Outlook/Mail-State); separat vom backgroundJobs-Flag.
+  "feature.outboxDispatcher": true,
   // Review-Anfrage automatisch nach 'done' verschicken
   "feature.autoReviewRequest": false,
   // Wartezeit (Stunden) nach 'done' bevor Review-Mail gesendet wird
