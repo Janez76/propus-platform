@@ -42,7 +42,13 @@ export async function saveOrderTermin(
     return { ok: false, error: "Bestellung nicht gefunden" };
   }
 
-  const oldStatus = String(order.status || "pending");
+  // Schema garantiert `status NOT NULL DEFAULT 'pending'` + CHECK constraint.
+  // Bei fehlendem/leerem Wert explizit melden statt still auf "pending"
+  // defaulten (Bug-Hunt T02 HIGH).
+  if (typeof order.status !== "string" || !order.status) {
+    return { ok: false, error: "Bestellung hat keinen gueltigen Status" };
+  }
+  const oldStatus = order.status;
   const mergedForCheck = {
     photographerKey: v.photographerKey,
     schedule: { date: v.scheduleDate, time: v.scheduleTime },

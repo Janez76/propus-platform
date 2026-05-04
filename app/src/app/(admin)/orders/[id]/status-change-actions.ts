@@ -42,7 +42,15 @@ export async function changeOrderStatus(
   );
   if (!row) return { ok: false, error: "Bestellung nicht gefunden" };
 
-  const oldStatus = String(row.status || "pending");
+  // Schema garantiert `status NOT NULL DEFAULT 'pending'` + CHECK constraint
+  // (siehe core/migrations/002_booking_schema.sql). Ein fehlender oder
+  // leerer Wert deutet auf Daten-Korruption hin und sollte explizit
+  // gemeldet werden statt still auf "pending" zu defaulten — sonst maskiert
+  // dieser State-Machine-Eingang einen Bug (Bug-Hunt T02 HIGH).
+  if (typeof row.status !== "string" || !row.status) {
+    return { ok: false, error: "Bestellung hat keinen gueltigen Status" };
+  }
+  const oldStatus = row.status;
   if (oldStatus === toStatus) {
     return { ok: true };
   }
