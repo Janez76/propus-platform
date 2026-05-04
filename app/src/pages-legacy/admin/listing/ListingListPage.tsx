@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LayoutGrid, Table2 } from "lucide-react";
-import { deleteGallery, listGalleries, publicGalleryUrl } from "../../../api/listingAdmin";
+import { bulkDeleteGalleries, deleteGallery, listGalleries, publicGalleryUrl } from "../../../api/listingAdmin";
 import { pathListingAdmin } from "../../../components/listing/paths";
 import type { GalleryListRow } from "../../../components/listing/types";
 import { HandoffGalleryCards } from "../../../components/listing/HandoffGalleryCards";
@@ -78,6 +78,9 @@ export function ListingListPage() {
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<GalleryListRow | null>(null);
   const [listLayout, setListLayout] = useState<"cards" | "table">("cards");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoadErr(null);
@@ -112,6 +115,19 @@ export function ListingListPage() {
     };
   }, [filterMenuOpen]);
 
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds((prev) => (prev.size === 0 ? prev : new Set()));
+  }, []);
+
   const visibleRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = rows;
@@ -145,6 +161,71 @@ export function ListingListPage() {
     });
     return sorted;
   }, [rows, search, quickFilter, sortOrder]);
+
+  // IDs aufräumen, die nach Filter/Search nicht mehr sichtbar sind.
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleIds = new Set(visibleRows.map((r) => r.id));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (visibleIds.has(id)) next.add(id);
+        else changed = true;
+      });
+      return changed ? next : prev;
+    });
+  }, [visibleRows]);
+
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selectedIds.has(r.id));
+  const someVisibleSelected = visibleRows.some((r) => selectedIds.has(r.id));
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const allSelected = visibleRows.length > 0 && visibleRows.every((r) => next.has(r.id));
+      if (allSelected) {
+        visibleRows.forEach((r) => next.delete(r.id));
+      } else {
+        visibleRows.forEach((r) => next.add(r.id));
+      }
+      return next;
+    });
+  }, [visibleRows]);
+
+  const selectedRows = useMemo(
+    () => rows.filter((r) => selectedIds.has(r.id)),
+    [rows, selectedIds],
+  );
+
+  async function confirmBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) {
+      setBulkDeleteOpen(false);
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const result = await bulkDeleteGalleries(ids);
+      if (result.failed.length > 0) {
+        const msg = result.failed
+          .map((f) => `${f.id.slice(0, 8)}…: ${f.error}`)
+          .slice(0, 3)
+          .join("\n");
+        const more = result.failed.length > 3 ? `\n… und ${result.failed.length - 3} weitere Fehler.` : "";
+        alert(
+          `${result.deleted.length} gelöscht, ${result.failed.length} fehlgeschlagen.\n\n${msg}${more}`,
+        );
+      }
+      clearSelection();
+      await refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Massen-Löschen fehlgeschlagen");
+    } finally {
+      setBulkBusy(false);
+      setBulkDeleteOpen(false);
+    }
+  }
 
   async function onCopyMagicLink(g: GalleryListRow) {
     const url = publicGalleryUrl(g);
@@ -421,6 +502,46 @@ export function ListingListPage() {
           </div>
         </div>
 
+        {selectedIds.size > 0 ? (
+          <div
+            className="gal-admin-bulk-bar"
+            role="region"
+            aria-label="Mehrfachaktionen"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              margin: "0 0 12px 0",
+              background: "var(--paper-strip, #f5f5f4)",
+              border: "1px solid var(--border, #d6d3d1)",
+              borderRadius: 8,
+            }}
+          >
+            <span style={{ fontWeight: 600 }}>
+              {selectedIds.size} ausgewählt
+            </span>
+            <span style={{ flex: 1 }} />
+            <button
+              type="button"
+              className="admin-btn admin-btn--outline"
+              onClick={clearSelection}
+              disabled={bulkBusy}
+            >
+              Auswahl aufheben
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn--danger"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={bulkBusy}
+            >
+              <i className="fa-solid fa-trash-can" aria-hidden style={{ marginRight: 6 }} />
+              {bulkBusy ? "Lösche…" : `${selectedIds.size} Listing${selectedIds.size === 1 ? "" : "s"} löschen`}
+            </button>
+          </div>
+        ) : null}
+
         {listLayout === "cards" ? (
           visibleRows.length > 0 ? (
             <HandoffGalleryCards
@@ -432,6 +553,8 @@ export function ListingListPage() {
               copyFlashId={copyFlashId}
               busyId={busyId}
               fmtDateShort={fmtDateShort}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
             />
           ) : (
             <p className="admin-table-empty" style={{ border: 0, padding: "2rem" }}>
@@ -445,6 +568,19 @@ export function ListingListPage() {
           <table className="admin-table gal-admin-listings-tbl dt">
             <thead>
               <tr>
+                <th scope="col" style={{ width: 40, textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    aria-label={allVisibleSelected ? "Alle abwählen" : "Alle markieren"}
+                    checked={allVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = !allVisibleSelected && someVisibleSelected;
+                    }}
+                    onChange={toggleSelectAllVisible}
+                    style={{ cursor: visibleRows.length > 0 ? "pointer" : "default" }}
+                    disabled={visibleRows.length === 0}
+                  />
+                </th>
                 <th className="gal-admin-listings-tbl__col-title" scope="col">
                   Titel
                 </th>
@@ -473,7 +609,16 @@ export function ListingListPage() {
             </thead>
             <tbody>
               {visibleRows.map((g) => (
-                <tr key={g.id}>
+                <tr key={g.id} className={selectedIds.has(g.id) ? "is-selected" : undefined}>
+                  <td style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      aria-label={`«${g.title}» auswählen`}
+                      checked={selectedIds.has(g.id)}
+                      onChange={() => toggleSelect(g.id)}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </td>
                   <td>
                     <p className="gal-admin-listings-title-line">
                       <Link to={pathListingAdmin(g.id)} className="gal-admin-listings-title-link">
@@ -586,6 +731,12 @@ export function ListingListPage() {
         gallery={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void confirmDeleteGallery()}
+      />
+
+      <ListingDeleteConfirmModal
+        galleries={bulkDeleteOpen ? selectedRows : []}
+        onClose={() => (bulkBusy ? null : setBulkDeleteOpen(false))}
+        onConfirm={() => void confirmBulkDelete()}
       />
     </>
   );
