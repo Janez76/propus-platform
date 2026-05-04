@@ -89,6 +89,11 @@ export function PosteingangPage() {
   const [noteText, setNoteText] = useState("");
   const [composerTab, setComposerTab] = useState<"reply" | "note">("reply");
   const [sending, setSending] = useState(false);
+  // Synchroner Doppel-Submit-Guard (Bug-Hunt T05 HIGH): `setSending(true)` greift
+  // erst nach dem React-Re-Render — zwischen zwei schnellen Klicks kann der
+  // Button-`disabled`-State noch alt sein. Ein Ref blockt sofort, bevor der
+  // zweite Aufruf in den Send-Pfad laeuft.
+  const sendingLockRef = useRef(false);
 
   const [custQuery, setCustQuery] = useState("");
   const [custResults, setCustResults] = useState<{ id: number; name: string; email: string }[]>([]);
@@ -171,6 +176,8 @@ export function PosteingangPage() {
 
   async function onSend() {
     if (!selectedId || !detail) return;
+    if (sendingLockRef.current) return;
+    sendingLockRef.current = true;
     setSending(true);
     try {
       if (composerTab === "note") {
@@ -191,6 +198,7 @@ export function PosteingangPage() {
       alert(e instanceof Error ? e.message : String(e));
     } finally {
       setSending(false);
+      sendingLockRef.current = false;
     }
   }
 
