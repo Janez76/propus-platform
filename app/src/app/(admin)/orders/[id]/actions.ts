@@ -7,11 +7,12 @@ import { requireOrderEditor } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { suggestSplitName } from "@/lib/nameSplit";
 import { parseFormDataToUebersicht } from "@/lib/validators/orders/uebersicht";
+import type { BulkTxOptions } from "./_bulk-tx";
 
-export type UpdateOverviewOptions = { skipRedirect?: boolean };
+export type UpdateOverviewOptions = { skipRedirect?: boolean } & BulkTxOptions;
 
 export async function updateOrderOverview(formData: FormData, options: UpdateOverviewOptions = {}) {
-  const { skipRedirect = false } = options;
+  const { skipRedirect = false, tx } = options;
   const editor = await requireOrderEditor();
   const p = parseFormDataToUebersicht(formData);
   if (!p.success) {
@@ -32,6 +33,7 @@ export async function updateOrderOverview(formData: FormData, options: UpdateOve
   const before = await queryOne<Record<string, unknown>>(
     `SELECT billing FROM booking.orders WHERE order_no = $1`,
     [orderNo],
+    tx,
   );
 
   const companyName = v.booking_type === "firma" ? (v.company_name || null) : null;
@@ -55,6 +57,7 @@ export async function updateOrderOverview(formData: FormData, options: UpdateOve
          updated_at = NOW()
      WHERE order_no = $2`,
     [JSON.stringify(billingPatch), orderNo],
+    tx,
   );
 
   if (before?.billing) {
@@ -63,8 +66,11 @@ export async function updateOrderOverview(formData: FormData, options: UpdateOve
       "billing_updated",
       { old: { billing: before.billing }, new: { billing: { ...((before.billing as object) || {}), ...billingPatch } } },
       editor,
+      tx,
     );
   }
+
+  if (tx) return;
 
   revalidatePath(`/orders/${orderNo}`);
   if (!skipRedirect) {

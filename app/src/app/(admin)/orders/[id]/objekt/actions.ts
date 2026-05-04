@@ -2,19 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireOrderEditor, sessionActorId } from "@/lib/auth.server";
+import { requireOrderEditor } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { joinAddressLine } from "@/lib/parseOrderAddress";
 import { objektFormSchema } from "@/lib/validators/orders/objekt";
 import { queryOne, withTransaction } from "@/lib/db";
+import type { BulkTxOptions } from "../_bulk-tx";
 
-export type SaveOrderObjektOptions = { skipRedirect?: boolean };
+export type SaveOrderObjektOptions = { skipRedirect?: boolean } & BulkTxOptions;
 
 export async function saveOrderObjekt(
   input: unknown,
   options: SaveOrderObjektOptions = {},
 ) {
-  const { skipRedirect = false } = options;
+  const { skipRedirect = false, tx } = options;
   const editor = await requireOrderEditor();
   const parsed = objektFormSchema.safeParse(input);
   if (!parsed.success) {
@@ -26,7 +27,7 @@ export async function saveOrderObjekt(
     address: string | null;
     object: Record<string, unknown> | null;
     onsite_contacts: unknown;
-  }>(`SELECT address, object, onsite_contacts FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
+  }>(`SELECT address, object, onsite_contacts FROM booking.orders WHERE order_no = $1`, [v.orderNo], tx);
   if (!before) {
     return { ok: false as const, error: "Bestellung nicht gefunden" };
   }
@@ -56,17 +57,20 @@ export async function saveOrderObjekt(
        WHERE order_no = $1`,
       [v.orderNo, addressLine, JSON.stringify(objectPatch), JSON.stringify(contacts)],
     );
-  });
+    await logOrderEvent(
+      v.orderNo,
+      "object_updated",
+      {
+        old: { address: before.address, object: before.object, onsite: before.onsite_contacts },
+        new: { address: addressLine, object: objectPatch, onsite: contacts },
+      },
+      editor,
+      c,
+    );
+  }, tx);
 
-  await logOrderEvent(
-    v.orderNo,
-    "object_updated",
-    {
-      old: { address: before.address, object: before.object, onsite: before.onsite_contacts },
-      new: { address: addressLine, object: objectPatch, onsite: contacts },
-    },
-    editor,
-  );
+  // Im Bulk-Save (tx uebergeben) macht der Caller revalidate/redirect.
+  if (tx) return;
 
   revalidatePath(`/orders/${v.orderNo}/objekt`);
   revalidatePath(`/orders/${v.orderNo}`);

@@ -9,6 +9,7 @@ import { getPackageByKey } from "@/lib/pricingCatalog";
 import { calculatePricing } from "@/lib/pricing";
 import { queryOne, withTransaction } from "@/lib/db";
 import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
+import type { BulkTxOptions } from "../_bulk-tx";
 
 type AddonRow = {
   id: string;
@@ -19,13 +20,13 @@ type AddonRow = {
   priceOverride?: number | null;
 };
 
-export type SaveLeistungenOptions = { skipRedirect?: boolean };
+export type SaveLeistungenOptions = { skipRedirect?: boolean } & BulkTxOptions;
 
 export async function saveLeistungen(
   input: unknown,
   options: SaveLeistungenOptions = {},
 ) {
-  const { skipRedirect = false } = options;
+  const { skipRedirect = false, tx, postCommit } = options;
   const editor = await requireOrderEditor();
   const p = leistungenFormSchema.safeParse(input);
   if (!p.success) {
@@ -39,7 +40,7 @@ export async function saveLeistungen(
     schedule: Record<string, unknown> | null;
     status: string | null;
     created_at: string | null;
-  }>(`SELECT services, pricing, schedule, status, created_at::text AS created_at FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
+  }>(`SELECT services, pricing, schedule, status, created_at::text AS created_at FROM booking.orders WHERE order_no = $1`, [v.orderNo], tx);
   if (!before) {
     return { ok: false as const, error: "Bestellung nicht gefunden" };
   }
@@ -115,8 +116,31 @@ export async function saveLeistungen(
        WHERE order_no = $1`,
       [v.orderNo, JSON.stringify(servicesPatch), JSON.stringify(pricingPatch), JSON.stringify(schedPatch)],
     );
-  });
+    await logOrderEvent(
+      v.orderNo,
+      "services_updated",
+      { old: { services: before.services, pricing: before.pricing }, new: { services: servicesPatch, pricing: pricingPatch } },
+      editor,
+      c,
+    );
+    if (
+      String((before.pricing as { total?: string } | null)?.total ?? "") !==
+      String(pricingPatch.total)
+    ) {
+      await logOrderEvent(
+        v.orderNo,
+        "pricing_updated",
+        { old: before.pricing, new: pricingPatch },
+        editor,
+        c,
+      );
+    }
+  }, tx);
 
+  // Side-Effects (HTTP) ab hier — duerfen NICHT in der Tx laufen, sonst
+  // bleibt die HTTP-Aktion bei einem Rollback haengen und die Welt
+  // driftet auseinander. Im Bulk-Save (postCommit gesetzt) sammeln, sonst
+  // direkt ausfuehren.
   const prevDuration = Number((before.schedule as { durationMin?: number } | null)?.durationMin || 0);
   const overrideApplies = v.durationMinOverride != null;
   const durationFromOverride =
@@ -124,68 +148,60 @@ export async function saveLeistungen(
       ? v.durationMinOverride
       : null;
   const sched = before.schedule as { date?: string; time?: string } | null;
-  if (
+  const reschedTask =
     durationFromOverride != null &&
     sched?.date &&
     sched?.time &&
     String(before.status || "").toLowerCase() !== "cancelled"
-  ) {
-    await requestAdminReschedule(v.orderNo, {
-      date: sched.date,
-      time: String(sched.time).slice(0, 5),
-      durationMin: durationFromOverride,
-    });
-  }
+      ? async () => {
+          await requestAdminReschedule(v.orderNo, {
+            date: String(sched.date),
+            time: String(sched.time).slice(0, 5),
+            durationMin: durationFromOverride,
+          });
+        }
+      : null;
 
-  await logOrderEvent(
-    v.orderNo,
-    "services_updated",
-    { old: { services: before.services, pricing: before.pricing }, new: { services: servicesPatch, pricing: pricingPatch } },
-    editor,
-  );
-  if (
-    String((before.pricing as { total?: string } | null)?.total ?? "") !==
-    String(pricingPatch.total)
-  ) {
-    await logOrderEvent(
-      v.orderNo,
-      "pricing_updated",
-      { old: before.pricing, new: pricingPatch },
-      editor,
-    );
-  }
-
-  // If duration changed, sync the 365/Outlook calendar event (delete old, create new with correct duration).
-  // The reschedule endpoint handles this silently (no emails when only duration changes).
-  if (
+  const calendarSyncTask =
     v.durationMinOverride != null &&
     Number((before.schedule as Record<string, unknown> | null)?.durationMin ?? 0) !== v.durationMinOverride &&
     (before.schedule as Record<string, unknown> | null)?.date &&
     (before.schedule as Record<string, unknown> | null)?.time
-  ) {
-    try {
-      const { cookies } = await import("next/headers");
-      const token = (await cookies()).get("admin_session")?.value ?? "";
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
-      await fetch(
-        `${apiBase}/api/admin/orders/${encodeURIComponent(String(v.orderNo))}/reschedule`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            date: String((before.schedule as Record<string, unknown>).date),
-            time: String((before.schedule as Record<string, unknown>).time),
-            durationMin: v.durationMinOverride,
-          }),
-        },
-      );
-    } catch (err) {
-      console.error("[saveLeistungen] 365 calendar sync failed (non-critical)", err);
-    }
+      ? async () => {
+          try {
+            const { cookies } = await import("next/headers");
+            const token = (await cookies()).get("admin_session")?.value ?? "";
+            const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
+            await fetch(
+              `${apiBase}/api/admin/orders/${encodeURIComponent(String(v.orderNo))}/reschedule`,
+              {
+                method: "PATCH",
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  date: String((before.schedule as Record<string, unknown>).date),
+                  time: String((before.schedule as Record<string, unknown>).time),
+                  durationMin: v.durationMinOverride,
+                }),
+              },
+            );
+          } catch (err) {
+            console.error("[saveLeistungen] 365 calendar sync failed (non-critical)", err);
+          }
+        }
+      : null;
+
+  if (postCommit) {
+    if (reschedTask) postCommit.push(reschedTask);
+    if (calendarSyncTask) postCommit.push(calendarSyncTask);
+  } else {
+    if (reschedTask) await reschedTask();
+    if (calendarSyncTask) await calendarSyncTask();
   }
+
+  if (tx) return;
 
   revalidatePath(`/orders/${v.orderNo}/leistungen`);
   revalidatePath(`/orders/${v.orderNo}`);
