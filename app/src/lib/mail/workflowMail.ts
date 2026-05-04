@@ -19,6 +19,20 @@ export type OrderMailContext = {
 };
 
 /**
+ * Eine fertig gerenderte Mail (kein Versand). Wird vom Outbox-Pfad
+ * benutzt: rendere im Aufruferprozess inkl. Snapshot der Empfaenger-
+ * Adressen, persistiere als Outbox-Row, der Worker stellt zu.
+ */
+export type RenderedWorkflowMail = {
+  effect: string;
+  role: keyof MailTargets;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+};
+
+/**
  * Minimaler Mails-Adapter für admin Manual-Status: mappt alte email.*-Effect-Keys auf Sammelversand.
  * (Vollständige HTML-Templates: später aus booking/templates/emails.js portierbar)
  */
@@ -32,6 +46,53 @@ const EFFECT_ROLES: Record<string, (keyof MailTargets)[] | "cancel_special"> = {
   "email.paused_photographer": ["photographer"],
   "email.cancelled_all": "cancel_special",
 };
+
+/**
+ * Pure-Render: bestimmt Empfaenger + Body fuer alle gegebenen Effects
+ * OHNE Mail-Versand. Wird vom Outbox-Enqueue-Pfad genutzt, damit die
+ * Mail-Daten in derselben Tx wie das Order-UPDATE festgehalten werden
+ * koennen.
+ *
+ * Das Ergebnis haengt ausschliesslich von `effectKeys/ctx/targets` ab —
+ * KEIN ENV-Lookup, KEINE Globals (CodeRabbit Major #261). Caller die
+ * eine Office-Adresse aus process.env.OFFICE_EMAIL setzen wollen, muessen
+ * das explizit in `ctx.officeEmail` einsetzen.
+ */
+export function renderWorkflowMails(
+  effectKeys: string[],
+  ctx: OrderMailContext,
+  targets: MailTargets,
+): RenderedWorkflowMail[] {
+  const result: RenderedWorkflowMail[] = [];
+  const append = (effect: string, role: keyof MailTargets) => {
+    const to = toAddr(role, ctx, { allowOfficeEnvFallback: false });
+    if (!to) return;
+    const { subject, html } = buildBody(effect, role, ctx);
+    result.push({
+      effect,
+      role,
+      to,
+      subject,
+      html,
+      text: html.replace(/<[^>]+>/g, " "),
+    });
+  };
+  for (const effect of effectKeys) {
+    if (!effect.startsWith("email.")) continue;
+    const mapping = EFFECT_ROLES[effect];
+    if (!mapping) continue;
+    if (mapping === "cancel_special") {
+      for (const role of ["customer", "office", "photographer"] as const) {
+        if (targets[role]) append(effect, role);
+      }
+      continue;
+    }
+    for (const role of mapping) {
+      if (targets[role]) append(effect, role);
+    }
+  }
+  return result;
+}
 
 export async function sendWorkflowMails(
   effectKeys: string[],
@@ -86,9 +147,17 @@ export async function sendWorkflowMails(
   return { sent, skipped, errors };
 }
 
-function toAddr(role: keyof MailTargets, ctx: OrderMailContext): string | null {
+function toAddr(
+  role: keyof MailTargets,
+  ctx: OrderMailContext,
+  opts: { allowOfficeEnvFallback?: boolean } = {},
+): string | null {
+  const allowOfficeEnvFallback = opts.allowOfficeEnvFallback ?? true;
   if (role === "customer") return ctx.customerEmail || null;
-  if (role === "office") return ctx.officeEmail || process.env.OFFICE_EMAIL || null;
+  if (role === "office") {
+    if (ctx.officeEmail) return ctx.officeEmail;
+    return allowOfficeEnvFallback ? process.env.OFFICE_EMAIL || null : null;
+  }
   if (role === "photographer") return ctx.photographerEmail || null;
   return null;
 }

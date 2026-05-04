@@ -7,8 +7,9 @@ import { logOrderEvent, logStatusAuditEntry } from "@/lib/audit";
 import { findScheduleConflicts } from "@/lib/repos/orders/conflicts";
 import { getOrderForTerminEdit, updateOrderTermin } from "@/lib/repos/orders/termin";
 import { getTransitionError, getSideEffects, getEmailEffects } from "@/lib/orderWorkflow/stateMachine";
-import { sendWorkflowMails } from "@/lib/mail/workflowMail";
-import { queryOne } from "@/lib/db";
+import { renderWorkflowMails } from "@/lib/mail/workflowMail";
+import { queryOne, withTransaction } from "@/lib/db";
+import { enqueueOutbox } from "@/lib/outbox";
 import { terminFormSchema, type TerminFormValues } from "@/lib/validators/orders/termin";
 import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
 import type { BulkTxOptions } from "../_bulk-tx";
@@ -91,64 +92,119 @@ export async function saveOrderTermin(
     v.scheduleTime !== String(scheduleBefore.time || "") ||
     v.durationMin !== Number(scheduleBefore.durationMin || 0);
 
-  // DB-Mutationen + Audit-Logs zusammen in der (eingehaengten oder
-  // selbst geoeffneten) Transaktion.
-  await updateOrderTermin(
-    {
-      orderNo: v.orderNo,
-      scheduleDate: v.scheduleDate,
-      scheduleTime: v.scheduleTime,
-      durationMin: v.durationMin,
-      status: v.status,
-      photographerKey: v.photographerKey,
-    },
-    tx,
-  );
-
+  // ALLE DB-Mutationen + Audit-Logs + Outbox-Inserts in EINER Tx.
+  // withTransaction(fn, tx) reused tx im Bulk-Save-Modus, oeffnet im
+  // Standalone-Modus eine eigene. Bisher commitete updateOrderTermin
+  // im Standalone-Modus VOR dem Outbox-Insert in eigener Tx — bei einem
+  // Crash dazwischen blieb der Status-Change persistiert OHNE Outbox-Row,
+  // die Mail ging trotz Outbox-Migration verloren (Codex P1 #261).
   const actorId = sessionActorId(editor);
+  const emailEffectsToEnqueue =
+    v.status !== oldStatus && v.sendEmails
+      ? getEmailEffects(getSideEffects(oldStatus, v.status))
+      : [];
 
-  if (v.status !== oldStatus) {
-    await logStatusAuditEntry(
+  await withTransaction(async (workTx) => {
+    await updateOrderTermin(
       {
         orderNo: v.orderNo,
-        fromStatus: oldStatus,
-        toStatus: v.status,
-        source: "admin_manual",
-        actorId,
+        scheduleDate: v.scheduleDate,
+        scheduleTime: v.scheduleTime,
+        durationMin: v.durationMin,
+        status: v.status,
+        photographerKey: v.photographerKey,
       },
-      tx,
+      workTx,
     );
-    await logOrderEvent(
-      v.orderNo,
-      "status_changed",
-      { old: { status: oldStatus }, new: { status: v.status } },
-      editor,
-      tx,
-    );
-  }
 
-  if (scheduleChanged) {
-    await logOrderEvent(
-      v.orderNo,
-      "schedule_updated",
-      { old: scheduleBefore, new: { date: v.scheduleDate, time: v.scheduleTime, durationMin: v.durationMin } },
-      editor,
-      tx,
-    );
-  }
+    if (v.status !== oldStatus) {
+      await logStatusAuditEntry(
+        {
+          orderNo: v.orderNo,
+          fromStatus: oldStatus,
+          toStatus: v.status,
+          source: "admin_manual",
+          actorId,
+        },
+        workTx,
+      );
+      await logOrderEvent(
+        v.orderNo,
+        "status_changed",
+        { old: { status: oldStatus }, new: { status: v.status } },
+        editor,
+        workTx,
+      );
+    }
 
-  if (String(photoBefore || "") !== String(v.photographerKey || "")) {
-    await logOrderEvent(
-      v.orderNo,
-      "photographer_assigned",
-      { old: { photographer_key: photoBefore }, new: { photographer_key: v.photographerKey } },
-      editor,
-      tx,
-    );
-  }
+    if (scheduleChanged) {
+      await logOrderEvent(
+        v.orderNo,
+        "schedule_updated",
+        { old: scheduleBefore, new: { date: v.scheduleDate, time: v.scheduleTime, durationMin: v.durationMin } },
+        editor,
+        workTx,
+      );
+    }
 
-  // Side-Effects (HTTP-Reschedule + Workflow-Mails) post-commit.
-  // Im Bulk-Save (postCommit gesetzt) sammeln; sonst direkt ausfuehren.
+    if (String(photoBefore || "") !== String(v.photographerKey || "")) {
+      await logOrderEvent(
+        v.orderNo,
+        "photographer_assigned",
+        { old: { photographer_key: photoBefore }, new: { photographer_key: v.photographerKey } },
+        editor,
+        workTx,
+      );
+    }
+
+    // Workflow-Mails als Outbox-Rows in derselben Tx (Bug-Hunt T08 HIGH).
+    if (emailEffectsToEnqueue.length > 0) {
+      const billing = await queryOne<{ email: string | null }>(
+        `SELECT billing->>'email' AS email FROM booking.orders WHERE order_no = $1`,
+        [v.orderNo],
+        workTx,
+      );
+      const photo = v.photographerKey
+        ? await queryOne<{ email: string | null }>(
+            `SELECT email FROM booking.photographers WHERE key = $1`,
+            [v.photographerKey],
+            workTx,
+          )
+        : null;
+      const targets = v.sendEmailTargets ?? {
+        customer: true,
+        office: true,
+        photographer: true,
+        cc: true,
+      };
+      const rendered = renderWorkflowMails(
+        emailEffectsToEnqueue,
+        {
+          orderNo: v.orderNo,
+          customerEmail: billing?.email,
+          officeEmail: process.env.OFFICE_EMAIL,
+          photographerEmail: photo?.email,
+          scheduleDate: v.scheduleDate,
+          scheduleTime: v.scheduleTime,
+        },
+        targets,
+      );
+      for (const mail of rendered) {
+        await enqueueOutbox(workTx, v.orderNo, "workflow_status_mail", {
+          to: mail.to,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          effect: mail.effect,
+          role: mail.role,
+          context: `order:${v.orderNo}:status:${oldStatus}->${v.status}:${mail.effect}:${mail.role}`,
+        });
+      }
+    }
+  }, tx);
+
+  // Side-Effect (HTTP-Reschedule) post-commit. Im Bulk-Save (postCommit
+  // gesetzt) sammeln; sonst direkt ausfuehren.
   const reschedTask =
     scheduleChanged && v.status !== "cancelled"
       ? async () => {
@@ -160,69 +216,18 @@ export async function saveOrderTermin(
         }
       : null;
 
-  const mailTask =
-    v.status !== oldStatus && v.sendEmails
-      ? async () => {
-          const effects = getSideEffects(oldStatus, v.status);
-          const emailEffects = getEmailEffects(effects);
-          if (emailEffects.length === 0) return;
-          const billing = await queryOne<{
-            email: string | null;
-          }>(`SELECT billing->>'email' AS email FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
-          const photo = v.photographerKey
-            ? await queryOne<{ email: string | null }>(
-                `SELECT email FROM booking.photographers WHERE key = $1`,
-                [v.photographerKey],
-              )
-            : null;
-          const targets = v.sendEmailTargets ?? {
-            customer: true,
-            office: true,
-            photographer: true,
-            cc: true,
-          };
-          const result = await sendWorkflowMails(
-            emailEffects,
-            {
-              orderNo: v.orderNo,
-              customerEmail: billing?.email,
-              officeEmail: process.env.OFFICE_EMAIL,
-              photographerEmail: photo?.email,
-              scheduleDate: v.scheduleDate,
-              scheduleTime: v.scheduleTime,
-            },
-            targets,
-            {},
-          );
-          if (result.errors.length > 0) {
-            await logOrderEvent(
-              v.orderNo,
-              "note_added",
-              {
-                old: {},
-                new: { mailErrors: result.errors, mailSent: result.sent },
-              },
-              editor,
-            );
-          }
-        }
-      : null;
-
   // Wenn `tx` gesetzt ist, MUSS auch `postCommit` gesetzt sein — sonst
-  // wuerden HTTP/Mail-Side-Effects mitten in der noch offenen
-  // Transaktion abgefeuert und koennten beim Rollback nicht mehr
-  // zurueckgenommen werden (CodeRabbit Major #259). Vertragsbruch des
-  // Callers (saveOrderAllSections setzt immer beide).
+  // wuerde der HTTP-Reschedule mitten in der noch offenen Transaktion
+  // abgefeuert und koennte beim Rollback nicht mehr zurueckgenommen
+  // werden (CodeRabbit Major #259).
   if (tx && !postCommit) {
     return { ok: false, error: "Interner Fehler: tx ohne postCommit ist nicht erlaubt" };
   }
 
   if (postCommit) {
     if (reschedTask) postCommit.push(reschedTask);
-    if (mailTask) postCommit.push(mailTask);
   } else {
     if (reschedTask) await reschedTask();
-    if (mailTask) await mailTask();
   }
 
   if (tx) return { ok: true };

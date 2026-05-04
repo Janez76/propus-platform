@@ -17,11 +17,14 @@ const {
   createRegistry,
   processOutboxBatch,
 } = require("../lib/outbox-dispatcher");
+const {
+  makeWorkflowStatusMailHandler,
+} = require("../lib/outbox-handler-workflow-mail");
 
 /**
- * Globale Handler-Registry. In Phase 1 (PR 4) ist nur ein No-Op-Handler
- * fuer Smoke-Tests registriert. Folge-PRs wandern Side-Effect-Typen
- * inkrementell hierher (workflow_status_mail, calendar_reschedule, ...).
+ * Globale Handler-Registry. Smoke-Handler wird beim Modul-Load
+ * registriert; reale Handler brauchen Server-deps (sendMail) und
+ * werden in scheduleOutboxDispatcher(deps) per Closure registriert.
  */
 const registry = createRegistry();
 
@@ -37,7 +40,23 @@ registry.register("noop_log", async (ctx) => {
 });
 
 function scheduleOutboxDispatcher(deps) {
-  const { db, getSetting } = deps;
+  const { db, getSetting, sendMailWithFallback } = deps;
+
+  // Reale Handler erst hier registrieren, weil sie Server-deps brauchen.
+  // Idempotent: scheduleSafeCronJob laeuft beim Boot einmalig — eine
+  // doppelte register()-Call wuerde den vorherigen Handler ueberschreiben,
+  // was hier gewollt ist (immer der aktuellste Closure).
+  if (typeof sendMailWithFallback === "function") {
+    registry.register(
+      "workflow_status_mail",
+      makeWorkflowStatusMailHandler({ sendMailWithFallback }),
+    );
+  } else {
+    console.warn(
+      "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail-Handler NICHT registriert",
+    );
+  }
+
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
   scheduleSafeCronJob({
