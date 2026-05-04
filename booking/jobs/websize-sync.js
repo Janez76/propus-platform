@@ -13,14 +13,25 @@
 
 const fs    = require("fs");
 const path  = require("path");
-const cron  = require("node-cron");
 const sharp = require("sharp");
+const { scheduleSafeCronJob } = require("../../core/lib/safe-cron-job");
 
 const FULLSIZE_SUBPATH = "Finale/Bilder/FULLSIZE";
 const WEBSIZE_SUBPATH  = "Finale/Bilder/WEB SIZE";
 const MAX_LONG_EDGE    = 1920;
 const JPEG_QUALITY     = 90;
 const SUPPORTED_EXT    = new Set([".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".heic", ".heif"]);
+
+/**
+ * Fallback-Logger wenn ensureWebsizeCopy/runWebsizeSync ohne ctx aufgerufen
+ * werden (z.B. aus Tests oder direktem Aufruf). Identische Signatur zu
+ * ctx.log/warn/error aus scheduleSafeCronJob, aber via console.* mit Prefix.
+ */
+const _consoleCtx = {
+  log:   (...args) => console.log("[job:websizeSync]", ...args),
+  warn:  (...args) => console.warn("[job:websizeSync]", ...args),
+  error: (...args) => console.error("[job:websizeSync]", ...args),
+};
 
 /**
  * Gibt alle Dateien (rekursiv) in einem Verzeichnis zurück.
@@ -49,7 +60,7 @@ function listFilesRecursive(dir) {
  * @param {string} dstRoot  WEBSIZE-Wurzel
  * @returns {Promise<"created"|"skipped"|"error">}
  */
-async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
+async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot, logger = _consoleCtx) {
   const ext = path.extname(srcAbs).toLowerCase();
   if (!SUPPORTED_EXT.has(ext)) return "skipped";
 
@@ -85,7 +96,7 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
     }
     return "created";
   } catch (err) {
-    console.error("[job:websizeSync] Fehler bei", srcAbs, "->", dstAbs, err && err.message);
+    logger.error("Fehler bei", srcAbs, "->", dstAbs, err && err.message);
     return "error";
   }
 }
@@ -93,8 +104,9 @@ async function ensureWebsizeCopy(srcAbs, srcRoot, dstRoot) {
 /**
  * Führt die Synchronisation für alle Aufträge durch, die einen Kundenordner haben.
  * @param {object} deps - { db }  db muss eine getPool()-Methode besitzen
+ * @param {object} [ctx] - Logger aus scheduleSafeCronJob (optional, fallback console)
  */
-async function runWebsizeSync(deps) {
+async function runWebsizeSync(deps = {}, ctx = _consoleCtx) {
   const { db } = deps;
   if (!db) return;
 
@@ -103,7 +115,7 @@ async function runWebsizeSync(deps) {
   try {
     const pool = db.getPool ? db.getPool() : null;
     if (!pool) {
-      console.warn("[job:websizeSync] Kein DB-Pool verfügbar, übersprungen");
+      ctx.warn("Kein DB-Pool verfügbar, übersprungen");
       return;
     }
     const { rows } = await pool.query(
@@ -116,7 +128,7 @@ async function runWebsizeSync(deps) {
     );
     folderLinks = rows;
   } catch (err) {
-    console.error("[job:websizeSync] Kann Ordnerliste nicht laden:", err && err.message);
+    ctx.error("Kann Ordnerliste nicht laden:", err && err.message);
     return;
   }
 
@@ -137,7 +149,7 @@ async function runWebsizeSync(deps) {
     const srcFiles   = listFilesRecursive(fullsizeDir);
 
     for (const srcAbs of srcFiles) {
-      const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir);
+      const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir, ctx);
       if (result === "created")  totalCreated++;
       if (result === "skipped")  totalSkipped++;
       if (result === "error")    totalErrors++;
@@ -145,8 +157,8 @@ async function runWebsizeSync(deps) {
   }
 
   if (totalCreated > 0 || totalErrors > 0) {
-    console.log(
-      `[job:websizeSync] Fertig — erzeugt: ${totalCreated}, übersprungen: ${totalSkipped}, Fehler: ${totalErrors}`,
+    ctx.log(
+      `Fertig — erzeugt: ${totalCreated}, übersprungen: ${totalSkipped}, Fehler: ${totalErrors}`,
     );
   }
 }
@@ -161,17 +173,22 @@ function scheduleWebsizeSync(deps) {
     console.log("[job:websizeSync] deaktiviert - kein periodischer Websize-Sync registriert");
     return;
   }
-  cron.schedule("*/10 * * * *", async function runJob() {
-    try {
-      await runWebsizeSync(deps);
-    } catch (err) {
-      console.error("[job:websizeSync] Unerwarteter Fehler:", err && err.message);
-    }
-  }, {
-    timezone: process.env.TIMEZONE || "Europe/Zurich",
-  });
+  const { db } = deps || {};
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  console.log("[job:websizeSync] Websize-Sync registriert (alle 10 Minuten)");
+  return scheduleSafeCronJob({
+    name: "websize-sync",
+    cron: "*/10 * * * *",
+    pool,
+    timezone: process.env.TIMEZONE || "Europe/Zurich",
+    run: async (ctx) => {
+      // runWebsizeSync hat eigene Loops + per-File-error-Behandlung; hier
+      // reicht Tick-Boundary + Distributed-Lock vom Wrapper. ctx wird
+      // durchgereicht damit Logs konsistent das `[cron:websize-sync]`-
+      // Prefix tragen.
+      await runWebsizeSync(deps, ctx);
+    },
+  });
 }
 
 module.exports = { scheduleWebsizeSync, runWebsizeSync, ensureWebsizeCopy };

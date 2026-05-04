@@ -7,11 +7,13 @@
  *
  * Mail-Versand hinter feature.emailTemplatesOnStatusChange.
  * Idempotent: prueft _sent_at-Felder vor jedem Update.
+ *
+ * Nutzt scheduleSafeCronJob (Distributed-Lock + Per-Row-Boundary).
  */
 
 "use strict";
 
-const cron = require("node-cron");
+const { scheduleSafeCronJob } = require("../../core/lib/safe-cron-job");
 const { buildTemplateVars, sendMailIdempotent } = require("../template-renderer");
 
 /**
@@ -19,18 +21,23 @@ const { buildTemplateVars, sendMailIdempotent } = require("../template-renderer"
  */
 function scheduleProvisionalReminders(deps) {
   const { db, getSetting, sendMail, OFFICE_EMAIL } = deps;
+  const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
-  cron.schedule("0 * * * *", async function runReminders() {
-    console.log("[job:reminders] Provisorium-Reminder-Job gestartet");
-    try {
+  return scheduleSafeCronJob({
+    name: "provisional-reminders",
+    cron: "0 * * * *",
+    pool,
+    timezone: "Europe/Zurich",
+    run: async (ctx) => {
+      ctx.log("Provisorium-Reminder-Job gestartet");
+
       const flagResult = await getSetting("feature.backgroundJobs");
       if (!flagResult || !flagResult.value) {
-        console.log("[job:reminders] feature.backgroundJobs=false, uebersprungen");
+        ctx.log("feature.backgroundJobs=false, uebersprungen");
         return;
       }
 
-      const pool = db.getPool ? db.getPool() : null;
-      if (!pool) { console.warn("[job:reminders] DB nicht verfuegbar"); return; }
+      if (!pool) { ctx.warn("DB nicht verfuegbar"); return; }
 
       const mailEnabled = await getSetting("feature.emailTemplatesOnStatusChange");
       const mailOn = !!(mailEnabled && mailEnabled.value);
@@ -40,7 +47,7 @@ function scheduleProvisionalReminders(deps) {
       // Hilfsfunktion: Mail idempotent senden + DB-Marker setzen
       async function sendReminder(row, templateKey, sentAtColumn) {
         if (!(mailOn && sendMail && row.billing && row.billing.email)) {
-          console.log("[job:reminders]", templateKey, "faellig:", row.order_no, mailOn ? "(kein Mail-Empfaenger)" : "(Mail-Flag off)");
+          ctx.log(templateKey, "faellig:", row.order_no, mailOn ? "(kein Mail-Empfaenger)" : "(Mail-Flag off)");
           return { sent: false, reason: "mail_disabled_or_missing_recipient" };
         }
 
@@ -63,11 +70,11 @@ function scheduleProvisionalReminders(deps) {
             `UPDATE orders SET ${sentAtColumn}=NOW(), updated_at=NOW() WHERE order_no=$1 AND status='provisional' AND ${sentAtColumn} IS NULL`,
             [row.order_no]
           );
-          console.log("[job:reminders] marker gesetzt", { orderNo: row.order_no, templateKey, sentAtColumn });
+          ctx.log("marker gesetzt", { orderNo: row.order_no, templateKey, sentAtColumn });
           return { sent: true };
         }
 
-        console.warn("[job:reminders] marker nicht gesetzt, Versand nicht bestaetigt", {
+        ctx.warn("marker nicht gesetzt, Versand nicht bestaetigt", {
           orderNo: row.order_no,
           templateKey,
           reason: result && result.reason ? result.reason : "unknown",
@@ -87,11 +94,9 @@ function scheduleProvisionalReminders(deps) {
         [r1Threshold]
       );
       for (const row of r1Rows) {
-        try {
-          await sendReminder(row, "provisional_reminder_1", "provisional_reminder_1_sent_at");
-        } catch (err) {
-          console.error("[job:reminders] Fehler Reminder-1 fuer Auftrag", row.order_no, err && err.message);
-        }
+        await ctx.perRow(row, async (r) => {
+          await sendReminder(r, "provisional_reminder_1", "provisional_reminder_1_sent_at");
+        });
       }
 
       // Reminder 2: >= 48h nach Buchung, Reminder-1 bereits gesendet, Reminder-2 noch nicht
@@ -107,14 +112,12 @@ function scheduleProvisionalReminders(deps) {
         [r2Threshold]
       );
       for (const row of r2Rows) {
-        try {
-          await sendReminder(row, "provisional_reminder_2", "provisional_reminder_2_sent_at");
-        } catch (err) {
-          console.error("[job:reminders] Fehler Reminder-2 fuer Auftrag", row.order_no, err && err.message);
-        }
+        await ctx.perRow(row, async (r) => {
+          await sendReminder(r, "provisional_reminder_2", "provisional_reminder_2_sent_at");
+        });
       }
 
-      // Reminder 3: >= 72h nach Buchung (letzter Tag), Reminder-2 bereits gesendet, Reminder-3 noch nicht
+      // Reminder 3: >= 72h nach Buchung (letzter Tag)
       const r3Threshold = new Date(now.getTime() - 72 * 60 * 60 * 1000).toISOString();
       const { rows: r3Rows } = await pool.query(
         `SELECT order_no, provisional_booked_at, provisional_expires_at, billing, address, services, pricing, photographer, schedule, confirmation_token
@@ -127,30 +130,24 @@ function scheduleProvisionalReminders(deps) {
         [r3Threshold]
       );
       for (const row of r3Rows) {
-        try {
-          await sendReminder(row, "provisional_reminder_3", "provisional_reminder_3_sent_at");
+        await ctx.perRow(row, async (r) => {
+          await sendReminder(r, "provisional_reminder_3", "provisional_reminder_3_sent_at");
           // Büro einmalig beim letzten Reminder (Tag 3) benachrichtigen
           if (mailOn && sendMail && OFFICE_EMAIL) {
-            const vars = buildTemplateVars(row, {});
+            const vars = buildTemplateVars(r, {});
             const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
-            await sendMailIdempotent(pool, "office_provisional_expiry_notice", OFFICE_EMAIL, row.order_no, vars, sendFn)
+            await sendMailIdempotent(pool, "office_provisional_expiry_notice", OFFICE_EMAIL, r.order_no, vars, sendFn)
               .catch(function(e) {
-                console.error("[job:reminders] office_provisional_expiry_notice fehlgeschlagen:", row.order_no, e && e.message);
+                ctx.error("office_provisional_expiry_notice fehlgeschlagen:", r.order_no, e && e.message);
               });
           }
-        } catch (err) {
-          console.error("[job:reminders] Fehler Reminder-3 fuer Auftrag", row.order_no, err && err.message);
-        }
+        });
       }
 
       const total = r1Rows.length + r2Rows.length + r3Rows.length;
-      console.log("[job:reminders] abgeschlossen. Reminder-1:", r1Rows.length, "Reminder-2:", r2Rows.length, "Reminder-3:", r3Rows.length, "total:", total);
-    } catch (err) {
-      console.error("[job:reminders] Unerwarteter Fehler:", err && err.message);
-    }
-  }, { timezone: "Europe/Zurich" });
-
-  console.log("[job:reminders] Provisorium-Reminder-Job registriert (stuendlich)");
+      ctx.log("abgeschlossen. Reminder-1:", r1Rows.length, "Reminder-2:", r2Rows.length, "Reminder-3:", r3Rows.length, "total:", total);
+    },
+  });
 }
 
 module.exports = { scheduleProvisionalReminders };
