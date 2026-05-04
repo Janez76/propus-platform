@@ -24,6 +24,11 @@ const REVIEWS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 Minuten
 
 // In-Memory-Cache fuer Access Token
 let _accessTokenCache = null; // { token: string, expiresAt: number }
+// In-flight Refresh-Promise: Lock gegen concurrent Refresh-Requests.
+// Ohne Lock starten parallele Calls beide einen Token-Refresh, was bei
+// Google's rotating Refresh-Tokens den vorherigen invalidieren kann
+// (Bug-Hunt T07 HIGH).
+let _refreshInFlight = null;
 
 // In-Memory-Cache fuer Reviews
 let _reviewsCache = null;
@@ -142,54 +147,68 @@ async function getAccessToken(pool) {
   if (_accessTokenCache && Date.now() < _accessTokenCache.expiresAt - 5 * 60 * 1000) {
     return _accessTokenCache.token;
   }
+  // Wenn bereits ein Refresh laeuft, auf dessen Ergebnis warten —
+  // verhindert dass parallele Aufrufer Google's rotating Refresh-Token
+  // invalidieren (Bug-Hunt T07 HIGH).
+  if (_refreshInFlight) return _refreshInFlight;
 
-  // Aus DB laden
-  const { rows } = await pool.query("SELECT * FROM gbp_oauth_tokens WHERE id = 1");
-  if (!rows[0]) throw new Error("GBP nicht verbunden – bitte zuerst mit Google verbinden");
-  const row = rows[0];
+  _refreshInFlight = (async () => {
+    try {
+      // Aus DB laden
+      const { rows } = await pool.query("SELECT * FROM gbp_oauth_tokens WHERE id = 1");
+      if (!rows[0]) throw new Error("GBP nicht verbunden – bitte zuerst mit Google verbinden");
+      const row = rows[0];
 
-  // Wenn Access Token noch frisch, direkt nutzen
-  if (_isTokenFresh(row.expires_at)) {
-    _accessTokenCache = { token: row.access_token, expiresAt: new Date(row.expires_at).getTime() };
-    return row.access_token;
-  }
+      // Wenn Access Token noch frisch (z. B. ein anderer Pod hat ihn gerade
+      // refreshed), direkt nutzen ohne weiteren Refresh-Call.
+      if (_isTokenFresh(row.expires_at)) {
+        _accessTokenCache = { token: row.access_token, expiresAt: new Date(row.expires_at).getTime() };
+        return row.access_token;
+      }
 
-  // Refresh Token nutzen
-  if (!row.refresh_token) throw new Error("Kein Refresh Token vorhanden – bitte neu verbinden");
+      // Refresh Token nutzen
+      if (!row.refresh_token) throw new Error("Kein Refresh Token vorhanden – bitte neu verbinden");
 
-  const body = new URLSearchParams({
-    refresh_token: row.refresh_token,
-    client_id: getClientId(),
-    client_secret: getClientSecret(),
-    grant_type: "refresh_token",
-  });
+      const body = new URLSearchParams({
+        refresh_token: row.refresh_token,
+        client_id: getClientId(),
+        client_secret: getClientSecret(),
+        grant_type: "refresh_token",
+      });
 
-  const r = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-    signal: AbortSignal.timeout(10000),
-  });
+      const r = await fetch(TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        signal: AbortSignal.timeout(10000),
+      });
 
-  const j = await r.json();
-  if (!j.access_token) {
-    throw new Error("Token-Refresh fehlgeschlagen: " + (j.error_description || j.error || JSON.stringify(j)));
-  }
+      const j = await r.json();
+      if (!j.access_token) {
+        throw new Error("Token-Refresh fehlgeschlagen: " + (j.error_description || j.error || JSON.stringify(j)));
+      }
 
-  const expiresAt = new Date(Date.now() + (j.expires_in || 3600) * 1000);
+      const expiresAt = new Date(Date.now() + (j.expires_in || 3600) * 1000);
 
-  // DB und Cache aktualisieren
-  await pool.query(
-    `UPDATE gbp_oauth_tokens SET
-       access_token = $1,
-       expires_at   = $2,
-       updated_at   = NOW()
-     WHERE id = 1`,
-    [j.access_token, expiresAt.toISOString()]
-  );
+      // DB und Cache aktualisieren
+      await pool.query(
+        `UPDATE gbp_oauth_tokens SET
+           access_token = $1,
+           expires_at   = $2,
+           updated_at   = NOW()
+         WHERE id = 1`,
+        [j.access_token, expiresAt.toISOString()]
+      );
 
-  _accessTokenCache = { token: j.access_token, expiresAt: expiresAt.getTime() };
-  return j.access_token;
+      _accessTokenCache = { token: j.access_token, expiresAt: expiresAt.getTime() };
+      return j.access_token;
+    } finally {
+      // Lock immer wieder freigeben — auch im Fehlerfall, sonst bleiben
+      // alle Folgecalls auf einer abgebrochenen Promise haengen.
+      _refreshInFlight = null;
+    }
+  })();
+  return _refreshInFlight;
 }
 
 /**
