@@ -20,6 +20,9 @@ const {
 const {
   makeWorkflowStatusMailHandler,
 } = require("../lib/outbox-handler-workflow-mail");
+const {
+  makeCalendarRescheduleHandler,
+} = require("../lib/outbox-handler-calendar-reschedule");
 
 /**
  * Globale Handler-Registry. Smoke-Handler wird beim Modul-Load
@@ -40,22 +43,32 @@ registry.register("noop_log", async (ctx) => {
 });
 
 function scheduleOutboxDispatcher(deps) {
-  const { db, getSetting, sendMailWithFallback } = deps;
+  const { db, getSetting, sendMailWithFallback, performAdminReschedule } = deps;
 
   // Reale Handler erst hier registrieren, weil sie Server-deps brauchen.
-  // Idempotent: scheduleSafeCronJob laeuft beim Boot einmalig — eine
-  // doppelte register()-Call wuerde den vorherigen Handler ueberschreiben,
-  // was hier gewollt ist (immer der aktuellste Closure).
-  if (typeof sendMailWithFallback === "function") {
-    registry.register(
-      "workflow_status_mail",
-      makeWorkflowStatusMailHandler({ sendMailWithFallback }),
-    );
-  } else {
-    console.warn(
-      "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail-Handler NICHT registriert",
+  // Hart fehlschlagen wenn deps fehlen, statt warn + degradieren:
+  // sonst wuerden enqueued Outbox-Rows beim Dispatch als "unbekannter
+  // Handler-Kind" terminal auf status=failed landen — kein Recovery,
+  // permanenter Daten-Drift gegenueber DB-State (CodeRabbit Major #262).
+  if (typeof sendMailWithFallback !== "function") {
+    throw new Error(
+      "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail kann nicht verarbeitet werden. Boot abgebrochen.",
     );
   }
+  registry.register(
+    "workflow_status_mail",
+    makeWorkflowStatusMailHandler({ sendMailWithFallback }),
+  );
+
+  if (typeof performAdminReschedule !== "function") {
+    throw new Error(
+      "[outbox] performAdminReschedule fehlt in deps — calendar_reschedule kann nicht verarbeitet werden. Boot abgebrochen.",
+    );
+  }
+  registry.register(
+    "calendar_reschedule",
+    makeCalendarRescheduleHandler({ performAdminReschedule }),
+  );
 
   const pool = db && typeof db.getPool === "function" ? db.getPool() : null;
 
@@ -65,8 +78,13 @@ function scheduleOutboxDispatcher(deps) {
     pool,
     timezone: "Europe/Zurich",
     run: async (ctx) => {
-      const flagResult = await getSetting?.("feature.backgroundJobs");
-      if (!flagResult || !flagResult.value) return;
+      // Outbox-Dispatcher hat ein EIGENES Flag (`feature.outboxDispatcher`,
+      // Default true), getrennt vom globalen feature.backgroundJobs.
+      // Outbox-Side-Effects sind Korrektheits-relevant — sie muessen
+      // auch in Setups ohne weitere Jobs laufen (Codex P1 #262).
+      const flagResult = await getSetting?.("feature.outboxDispatcher");
+      const enabled = flagResult ? !!flagResult.value : true; // Default opt-out
+      if (!enabled) return;
       if (!pool) {
         ctx.warn("DB nicht verfuegbar");
         return;

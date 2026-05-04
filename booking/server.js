@@ -7466,19 +7466,39 @@ app.get("/api/admin/orders/:orderNo/chat/events", requirePhotographerOrAdmin, as
 });
 
 
-app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res) => {
-  const orderNo = Number(req.params.orderNo);
-  const { date, time, durationMin: durationMinRaw } = req.body || {};
-  if(!date || !time){
-    return res.status(400).json({ error: "Datum und Uhrzeit erforderlich" });
+/**
+ * Kern-Logik fuer "reschedule" \u2014 extrahiert aus dem Express-Handler,
+ * damit auch der Outbox-Worker die gleiche Operation ausloesen kann
+ * (Bug-Hunt T07/T08, PR Phase 2b).
+ *
+ * Wirft Error mit `.code = 'NOT_FOUND'` oder `'BAD_REQUEST'` fuer
+ * fachliche Fehler. Andere Fehler (Graph/SMTP) werden \u2014 wie bisher \u2014
+ * nur per console.error geloggt; der Worker betrachtet die Operation als
+ * erfolgreich, sobald die DB-Mutation persistiert ist (best-effort
+ * calendar/mail).
+ */
+async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
+  const orderNo = Number(orderNoIn);
+  const { date, time, durationMin: durationMinRaw } = body || {};
+  if (!date || !time) {
+    const err = new Error("Datum und Uhrzeit erforderlich");
+    err.code = "BAD_REQUEST";
+    throw err;
   }
   const orders = await loadOrders();
   const order = orders.find(o => o.orderNo === orderNo);
-  if(!order){
-    return res.status(404).json({ error: "Order not found" });
+  if (!order) {
+    const err = new Error("Order not found");
+    err.code = "NOT_FOUND";
+    throw err;
   }
-  if(order.status === "cancelled"){
-    return res.status(400).json({ error: "Abgesagte Bestellungen k\u00f6nnen nicht verschoben werden" });
+  if (order.status === "cancelled" || order.status === "archived") {
+    // Archived deckt verspaetete Outbox-Jobs ab, deren Order zwischen
+    // Enqueue und Dispatch storniert/archiviert wurde (CodeRabbit Major
+    // #262).
+    const err = new Error("Abgesagte oder archivierte Bestellungen k\u00f6nnen nicht verschoben werden");
+    err.code = "BAD_REQUEST";
+    throw err;
   }
 
   const oldDate = order.schedule?.date || "";
@@ -7486,7 +7506,9 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
   const oldDurationMin = Number(order.schedule?.durationMin || 60);
   const durationMin = durationMinRaw === undefined ? Number(order.schedule?.durationMin || 60) : Number(durationMinRaw);
   if (!Number.isFinite(durationMin) || durationMin <= 0) {
-    return res.status(400).json({ error: "Gueltige Dauer erforderlich" });
+    const err = new Error("Gueltige Dauer erforderlich");
+    err.code = "BAD_REQUEST";
+    throw err;
   }
   const timingChanged = oldDate !== date || oldTime !== time;
   const photographerKey = String(order.photographer?.key || "").toLowerCase();
@@ -7666,7 +7688,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
     await db.logOrderEvent({
       orderNo,
       eventType: "schedule_change",
-      actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
+      actor: { user: actor?.user || "admin", role: actor?.role || "" },
       oldValue: { date: oldDate, time: oldTime, durationMin: oldDurationMin },
       newValue: { date, time, durationMin },
       metadata: { timingChanged },
@@ -7674,7 +7696,22 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
   } catch (logErr) {
     console.error("[reschedule] event log error", logErr && logErr.message);
   }
-  res.json({ ok: true, orderNo, schedule: { date, time, durationMin }, emailsSent: timingChanged });
+  return { ok: true, orderNo, schedule: { date, time, durationMin }, emailsSent: timingChanged };
+}
+
+app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res) => {
+  try {
+    const result = await performAdminReschedule({
+      orderNo: req.params.orderNo,
+      body: req.body || {},
+      actor: { user: req.user?.name || req.user?.id || "admin", role: req.user?.role || "" },
+    });
+    res.json(result);
+  } catch (err) {
+    if (err && err.code === "BAD_REQUEST") return res.status(400).json({ error: err.message });
+    if (err && err.code === "NOT_FOUND") return res.status(404).json({ error: err.message });
+    throw err;
+  }
 });
 
 // Fotograf -ndern
@@ -15025,6 +15062,7 @@ async function startServer() {
       PHOTOG_PHONES,
       sendMail: sendMailViaGraph,
       sendMailWithFallback,
+      performAdminReschedule,
       createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {

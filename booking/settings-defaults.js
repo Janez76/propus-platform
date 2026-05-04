@@ -65,7 +65,10 @@ const DEFAULT_APP_SETTINGS = {
   // Dezente DB-Feldhinweise in Admin- und Frontpanel anzeigen
   "feature.dbFieldHints": false,
 
-  // ─── Workflow v2 Feature Flags (alle OFF = Phase-1-Fundament ohne Side Effects) ───
+  // ─── Workflow v2 Feature Flags ───
+  // Die meisten dieser Flags sind OFF by default (Phase-1-Fundament ohne
+  // optionale Side Effects). EINE Ausnahme: feature.outboxDispatcher ist
+  // ON by default — der Dispatcher ist korrektheits-relevant (s. u.).
   // Provisorische Buchungen aktivieren (Statusübergang pending→provisional)
   "feature.provisionalBooking": false,
   // Kalender-Side-Effects bei Statusübergängen (Phase 2)
@@ -74,6 +77,16 @@ const DEFAULT_APP_SETTINGS = {
   "feature.emailTemplatesOnStatusChange": false,
   // Hintergrund-Jobs (Provisorium-Reminder + Expiry, Review-Anfragen)
   "feature.backgroundJobs": false,
+  // Outbox-Dispatcher (Side-Effect-Persistenz fuer Status-Mails +
+  // Calendar-Reschedule).
+  // *** DEFAULT TRUE — bewusst abweichend von den anderen feature.*-Flags. ***
+  // Begruendung: der Dispatcher liefert nur DB-persistierte Side-Effects
+  // aus, die saveLeistungen/saveOrderTermin in derselben Tx wie das
+  // Order-UPDATE schreiben. Ohne Dispatcher driftet DB-State gegen
+  // Outlook-/Mail-State (Bug-Hunt T07/T08). Unabhaengig vom Gate
+  // feature.backgroundJobs (siehe jobs/index.js — wird VOR dem Gate
+  // registriert).
+  "feature.outboxDispatcher": true,
   // Review-Anfrage automatisch nach 'done' verschicken
   "feature.autoReviewRequest": false,
   // Wartezeit (Stunden) nach 'done' bevor Review-Mail gesendet wird
