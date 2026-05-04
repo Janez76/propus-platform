@@ -63,7 +63,10 @@ export function HeroGreeting({
       })
       .catch(() => { /* stay empty */ });
     return () => { cancelled = true; };
-  }, [token]);
+    // `lang` als Dep, damit ein Sprachwechsel ein erneutes Laden des
+    // Profils ausloest (firstName-Resolver kann sprachabhaengige Felder
+    // bevorzugen) — Bug-Hunt T05 MEDIUM.
+  }, [token, lang]);
 
   const now = new Date();
   const hour = now.getHours();
