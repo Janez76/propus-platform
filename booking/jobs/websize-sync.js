@@ -138,22 +138,38 @@ async function runWebsizeSync(deps = {}, ctx = _consoleCtx) {
   let totalSkipped = 0;
   let totalErrors  = 0;
 
+  // Pro Folder try/catch: ein einzelner Fehler (Permissions, broken Symlink,
+  // verschwundener Mount) darf nicht den gesamten Batch abbrechen. Wenn ctx
+  // einen perRow-Helper hat (scheduleSafeCronJob-Pfad), nutzen wir ihn —
+  // sonst Fallback-try/catch (Bug-Hunt T09 HIGH).
+  const perFolder = typeof ctx.perRow === "function"
+    ? (link, fn) => ctx.perRow(link, fn)
+    : async (link, fn) => {
+        try { await fn(link); }
+        catch (err) {
+          ctx.error("Folder-Verarbeitung fehlgeschlagen, weiter mit naechstem:",
+            link?.absolute_path, err && err.message ? err.message : err);
+        }
+      };
+
   for (const link of folderLinks) {
-    const customerRoot = link.absolute_path;
-    if (!customerRoot || !fs.existsSync(customerRoot)) continue;
+    await perFolder(link, async (l) => {
+      const customerRoot = l.absolute_path;
+      if (!customerRoot || !fs.existsSync(customerRoot)) return;
 
-    const fullsizeDir = path.join(customerRoot, FULLSIZE_SUBPATH);
-    if (!fs.existsSync(fullsizeDir)) continue;
+      const fullsizeDir = path.join(customerRoot, FULLSIZE_SUBPATH);
+      if (!fs.existsSync(fullsizeDir)) return;
 
-    const websizeDir = path.join(customerRoot, WEBSIZE_SUBPATH);
-    const srcFiles   = listFilesRecursive(fullsizeDir);
+      const websizeDir = path.join(customerRoot, WEBSIZE_SUBPATH);
+      const srcFiles   = listFilesRecursive(fullsizeDir);
 
-    for (const srcAbs of srcFiles) {
-      const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir, ctx);
-      if (result === "created")  totalCreated++;
-      if (result === "skipped")  totalSkipped++;
-      if (result === "error")    totalErrors++;
-    }
+      for (const srcAbs of srcFiles) {
+        const result = await ensureWebsizeCopy(srcAbs, fullsizeDir, websizeDir, ctx);
+        if (result === "created")  totalCreated++;
+        if (result === "skipped")  totalSkipped++;
+        if (result === "error")    totalErrors++;
+      }
+    });
   }
 
   if (totalCreated > 0 || totalErrors > 0) {
