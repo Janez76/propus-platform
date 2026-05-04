@@ -135,7 +135,7 @@ function PriceListCategory({ category, addons, defaultOpen, lang }: { category: 
           {showDesc && (
             <SafeHtml
               html={desc}
-              variant="mail"
+              variant="mail_styled"
               as="span"
               className="ml-2 text-xs font-normal text-[var(--text-subtle)]"
             />
@@ -472,7 +472,7 @@ export function LandingPage({ lang, onLangChange, onStart }: LandingPageProps) {
                         {pkg.description && (
                           <SafeHtml
                             html={pkg.description}
-                            variant="mail"
+                            variant="mail_styled"
                             as="div"
                             className="mt-0.5 line-clamp-1 text-xs text-[var(--text-subtle)]"
                           />

@@ -49,7 +49,7 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
           {category.description && (
             <SafeHtml
               html={category.description}
-              variant="mail"
+              variant="mail_styled"
               as="p"
               className="mb-2 px-1 text-xs text-[var(--text-subtle)]"
             />
@@ -170,7 +170,7 @@ export function StepServices({ lang }: { lang: Lang }) {
                   {pkg.description && (
                     <SafeHtml
                       html={pkg.description}
-                      variant="mail"
+                      variant="mail_styled"
                       as="p"
                       className="mt-1 text-xs text-[var(--text-subtle)] line-clamp-3"
                     />

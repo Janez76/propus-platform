@@ -467,7 +467,7 @@ function SortableCategorySection({
           {readOnly ? (
             <SafeHtml
               html={descriptionDraft || "—"}
-              variant="mail"
+              variant="mail_styled"
               as="div"
               className="prose prose-sm max-w-none text-xs text-[var(--text-subtle)]"
             />

@@ -272,7 +272,7 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: number; onClose: () 
             <p className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide mb-1">Mail-Vorschau (HTML)</p>
             <SafeHtml
               html={preview.mail.html}
-              variant="mail"
+              variant="mail_styled"
               as="div"
               className="rounded border border-[var(--border-soft)] overflow-auto max-h-80 bg-white text-xs"
             />
