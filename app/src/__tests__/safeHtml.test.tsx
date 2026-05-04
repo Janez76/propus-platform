@@ -85,17 +85,35 @@ describe("sanitizeHtml", () => {
     });
   });
 
-  describe("wrapper tag (CodeRabbit Major #265)", () => {
-    it("forces div wrapper for variant=mail even when as='p' is requested", () => {
+  describe("wrapper tag (CodeRabbit Major + Codex P2 #265)", () => {
+    it("maps as='p' to div for variant=mail (auto-close trap)", () => {
       const { container } = render(
         <SafeHtml html="<div>block</div>" variant="mail" as="p" />,
       );
       expect(container.firstElementChild?.tagName).toBe("DIV");
     });
-    it("forces div wrapper for variant=mail_styled", () => {
+    it("maps as='p' to div for variant=mail_styled", () => {
       const { container } = render(
         <SafeHtml html="<div>block</div>" variant="mail_styled" as="p" />,
       );
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+    });
+    it("respects as='span' for mail_styled (inline-flow use case)", () => {
+      // LandingPage rendert die Category-description per as=span,
+      // damit `ml-2` neben dem Titel korrekt floated (Codex P2 #265).
+      const { container } = render(
+        <SafeHtml html="text" variant="mail_styled" as="span" />,
+      );
+      expect(container.firstElementChild?.tagName).toBe("SPAN");
+    });
+    it("respects as='div' for mail_styled", () => {
+      const { container } = render(
+        <SafeHtml html="text" variant="mail_styled" as="div" />,
+      );
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+    });
+    it("defaults to div for mail without as prop", () => {
+      const { container } = render(<SafeHtml html="text" variant="mail" />);
       expect(container.firstElementChild?.tagName).toBe("DIV");
     });
     it("respects `as` prop for variant=ui", () => {

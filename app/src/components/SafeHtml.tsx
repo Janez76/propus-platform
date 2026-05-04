@@ -178,13 +178,23 @@ export function SafeHtml({ html, variant = "ui", as, className }: SafeHtmlProps)
   // bereits gerenderte Mail-Body bei jedem Keystroke neu sanitisiert
   // (Codex P2: spuerbarer UI-Lag bei langen Threads).
   const safe = useMemo(() => sanitize(html ?? "", variant), [html, variant]);
-  // Wrapper-Tag: ui kann frei waehlen (default span), mail-Varianten
-  // werden hart auf `div` normalisiert — sonst entsteht invalides
-  // <p>-Nesting wenn das sanitisierte HTML Block-Elemente
-  // (div/ul/table) enthaelt; Browser repariert das per Reparenting,
-  // was Layout- und Hydration-Glitches ausloest (CodeRabbit Major #265).
-  const Tag: WrapperTag =
-    variant === "ui" ? (as ?? "span") : "div";
+  // Wrapper-Tag-Auswahl:
+  //  - variant="ui": as wird respektiert (default span).
+  //  - mail/mail_styled: as="p" wird auf "div" gemappt — ein <p>-Wrapper
+  //    macht beim Rendering von Block-Elementen (div/ul/table) im
+  //    sanitisierten HTML einen Auto-Close-Reparenting, was
+  //    Layout- und Hydration-Glitches ausloest (CodeRabbit Major #265).
+  //    span/div bleiben aber moeglich, damit Caller wie LandingPage
+  //    den inline-Flow (z. B. category-description neben dem Titel
+  //    mit `ml-2`) erhalten koennen (Codex P2 #265).
+  let Tag: WrapperTag;
+  if (variant === "ui") {
+    Tag = as ?? "span";
+  } else if (as === "p") {
+    Tag = "div";
+  } else {
+    Tag = as ?? "div";
+  }
   if (Tag === "div") {
     return <div className={className} dangerouslySetInnerHTML={{ __html: safe }} />;
   }
