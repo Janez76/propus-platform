@@ -536,9 +536,10 @@ async function listGalleries({ search, filter, sort } = {}) {
   if (sort === 'oldest') orderBy = 'ORDER BY g.updated_at ASC';
   else if (sort === 'alphabetical') orderBy = 'ORDER BY g.title ASC';
 
-  // image_count: bevorzugt die Anzahl Websize-Bilder (gleicher Filter wie
-  // Admin-Editor + Public-View). Fällt auf die Gesamtzahl zurück, wenn die
-  // Galerie keine Websize-Pfade hat (Alt-Daten ohne Websize-Trennung).
+  // image_count: zählt pro Basename höchstens einmal (deckt sich mit der
+  // Dedupe-Logik im Editor: Websize+Fullsize-Duplikate gelten als ein
+  // Bild). Rows ohne Pfad bekommen über die ID einen eindeutigen Schlüssel,
+  // damit sie nicht zusammengefasst werden.
   const sql = `
     SELECT g.*,
       COALESCE(ic.cnt, 0)::int AS image_count,
@@ -546,10 +547,13 @@ async function listGalleries({ search, filter, sort } = {}) {
     FROM tour_manager.galleries g
     LEFT JOIN (
       SELECT gallery_id,
-        COALESCE(
-          NULLIF(COUNT(*) FILTER (WHERE source_path ~* 'web[ _-]?size'), 0),
-          COUNT(*)
-        ) AS cnt
+        COUNT(DISTINCT LOWER(
+          COALESCE(
+            NULLIF(SUBSTRING(source_path FROM '[^/]+$'), ''),
+            NULLIF(SUBSTRING(remote_src FROM '[^/]+$'), ''),
+            '__row_' || id::text
+          )
+        )) AS cnt
       FROM tour_manager.gallery_images
       GROUP BY gallery_id
     ) ic ON ic.gallery_id = g.id

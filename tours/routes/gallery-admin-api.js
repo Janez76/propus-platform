@@ -84,18 +84,18 @@ router.put('/email-templates/:tplId', async (req, res) => {
   }
 });
 
-// GET /:id — Galerie-Detail inkl. Bilder + Feedback
-// Bilder-Filter spiegelt die Public-API: bevorzugt Websize-Varianten,
-// damit Admin-Editor und Kundenansicht dieselbe Bildermenge zeigen.
+// GET /:id — Galerie-Detail inkl. Bilder + Feedback.
+// Doppelte Einträge (gleicher Basename als Websize + Fullsize) werden
+// pro Bild auf die Websize-Variante reduziert. Fullsize-Bilder OHNE
+// Websize-Pendant bleiben sichtbar, damit der Admin sie weiterhin
+// sehen, sortieren und löschen kann (z. B. bei Teilmigrationen).
 // Fullsize-Originale bleiben für den Kunden-Download (NAS-Zip) verfügbar.
 router.get('/:id', async (req, res) => {
   try {
     const g = await gallery.getGallery(req.params.id);
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const all = await gallery.listGalleryImages(g.id);
-    const WEBSIZE_RE = /web[\s_-]?size/i;
-    const websizeOnly = all.filter((img) => WEBSIZE_RE.test(String(img.source_path || '')));
-    const images = websizeOnly.length > 0 ? websizeOnly : gallery.dedupeGalleryRowsPreferWebsize(all);
+    const images = gallery.dedupeGalleryRowsPreferWebsize(all);
     const feedback = await gallery.listGalleryFeedback(g.id);
     res.json({ ok: true, gallery: g, images, feedback });
   } catch (e) {
