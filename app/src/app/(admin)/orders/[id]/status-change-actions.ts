@@ -5,8 +5,17 @@ import { requireOrderEditor, sessionActorId } from "@/lib/auth.server";
 import { query, queryOne } from "@/lib/db";
 import { logOrderEvent, logStatusAuditEntry } from "@/lib/audit";
 import { getTransitionError } from "@/lib/orderWorkflow/stateMachine";
+import { ORDER_STATUS } from "@/lib/orderWorkflow/orderStatus";
 
 export type ChangeStatusResult = { ok: true } | { ok: false; error: string };
+
+// Status-Werte, die der Topbar-Mehrweg-Knopf setzen darf. Aus der zentralen
+// ORDER_STATUS-Konstante abgeleitet, statt hardcoded — verhindert Drift wenn
+// die State-Machine erweitert wird (Bug-Hunt T02 LOW).
+type TopbarTargetStatus =
+  | typeof ORDER_STATUS.CANCELLED
+  | typeof ORDER_STATUS.ARCHIVED
+  | typeof ORDER_STATUS.PAUSED;
 
 /**
  * Setzt den Status einer Bestellung (z. B. „cancelled" oder „archived") über
@@ -19,7 +28,7 @@ export type ChangeStatusResult = { ok: true } | { ok: false; error: string };
  */
 export async function changeOrderStatus(
   orderNo: number,
-  toStatus: "cancelled" | "archived" | "paused",
+  toStatus: TopbarTargetStatus,
 ): Promise<ChangeStatusResult> {
   if (!Number.isInteger(orderNo) || orderNo <= 0) {
     return { ok: false, error: "Ungültige Bestell-Nummer" };
