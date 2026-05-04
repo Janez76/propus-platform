@@ -98,11 +98,18 @@ const PROFILES: Record<SafeHtmlVariant, DOMPurifyConfig> = {
 
 /**
  * CSS-Properties die im `mail_styled`-Profil per inline-style durchgehen
- * duerfen. Bewusst KEINE Layout-/Position-Properties (clickjacking) und
- * KEINE background-image/background-* (tracking-pixel via url()).
+ * duerfen. Bewusst KEINE Layout-/Position-Properties (clickjacking).
+ *
+ * `background`-Properties stehen in der Allowlist, aber der
+ * DANGEROUS_CSS_VALUE-Filter unten strippt `url(...)`-Werte —
+ * `background: #f0f0f0` und `background: linear-gradient(...)` bleiben,
+ * `background-image: url(http://tracker)` wird raus (Codex P2 #265).
  */
 const SAFE_CSS_PROPS = new Set([
-  "color", "background-color",
+  "color",
+  "background", "background-color", "background-image",
+  "background-position", "background-repeat", "background-size",
+  "background-attachment", "background-clip", "background-origin",
   "font-family", "font-size", "font-weight", "font-style", "font-variant",
   "text-align", "text-decoration", "text-transform", "text-indent",
   "padding", "padding-top", "padding-right", "padding-bottom", "padding-left",

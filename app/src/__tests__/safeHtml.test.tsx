@@ -51,11 +51,16 @@ describe("sanitizeHtml", () => {
       expect(out).not.toContain("top:");
       expect(out).not.toContain("z-index");
     });
-    it("strips background-image (tracking pixel via url())", () => {
-      const out = sanitizeHtml('<div style="color: red; background-image: url(http://evil/p.png)">x</div>', "mail_styled");
-      expect(out).toContain("color: red");
-      expect(out).not.toContain("background-image");
-      expect(out).not.toContain("url(");
+    it("strips background-image with url() (tracking pixel) but keeps gradient/color", () => {
+      // url() bleibt geblockt, alle anderen background-Werte sind erlaubt
+      // (Codex P2 #265 — Mail-Vorschauen brauchen Layout-Treue).
+      const trackerOut = sanitizeHtml('<div style="background-image: url(http://evil/p.png)">x</div>', "mail_styled");
+      expect(trackerOut).not.toContain("background-image");
+      expect(trackerOut).not.toContain("url(");
+      const gradientOut = sanitizeHtml('<div style="background: linear-gradient(to right, red, blue)">x</div>', "mail_styled");
+      expect(gradientOut).toContain("linear-gradient");
+      const colorOut = sanitizeHtml('<div style="background: #f0f0f0">x</div>', "mail_styled");
+      expect(colorOut).toContain("background: #f0f0f0");
     });
     it("strips expression() and javascript: in style values", () => {
       const out = sanitizeHtml('<p style="color: expression(alert(1))">x</p>', "mail_styled");
