@@ -52,6 +52,11 @@ const EFFECT_ROLES: Record<string, (keyof MailTargets)[] | "cancel_special"> = {
  * OHNE Mail-Versand. Wird vom Outbox-Enqueue-Pfad genutzt, damit die
  * Mail-Daten in derselben Tx wie das Order-UPDATE festgehalten werden
  * koennen.
+ *
+ * Das Ergebnis haengt ausschliesslich von `effectKeys/ctx/targets` ab —
+ * KEIN ENV-Lookup, KEINE Globals (CodeRabbit Major #261). Caller die
+ * eine Office-Adresse aus process.env.OFFICE_EMAIL setzen wollen, muessen
+ * das explizit in `ctx.officeEmail` einsetzen.
  */
 export function renderWorkflowMails(
   effectKeys: string[],
@@ -60,7 +65,7 @@ export function renderWorkflowMails(
 ): RenderedWorkflowMail[] {
   const result: RenderedWorkflowMail[] = [];
   const append = (effect: string, role: keyof MailTargets) => {
-    const to = toAddr(role, ctx);
+    const to = toAddr(role, ctx, { allowOfficeEnvFallback: false });
     if (!to) return;
     const { subject, html } = buildBody(effect, role, ctx);
     result.push({
@@ -142,9 +147,17 @@ export async function sendWorkflowMails(
   return { sent, skipped, errors };
 }
 
-function toAddr(role: keyof MailTargets, ctx: OrderMailContext): string | null {
+function toAddr(
+  role: keyof MailTargets,
+  ctx: OrderMailContext,
+  opts: { allowOfficeEnvFallback?: boolean } = {},
+): string | null {
+  const allowOfficeEnvFallback = opts.allowOfficeEnvFallback ?? true;
   if (role === "customer") return ctx.customerEmail || null;
-  if (role === "office") return ctx.officeEmail || process.env.OFFICE_EMAIL || null;
+  if (role === "office") {
+    if (ctx.officeEmail) return ctx.officeEmail;
+    return allowOfficeEnvFallback ? process.env.OFFICE_EMAIL || null : null;
+  }
   if (role === "photographer") return ctx.photographerEmail || null;
   return null;
 }

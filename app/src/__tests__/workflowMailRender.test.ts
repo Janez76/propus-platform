@@ -67,4 +67,20 @@ describe("renderWorkflowMails", () => {
     );
     expect(out.map((m) => m.effect)).toEqual(["email.confirmed_customer"]);
   });
+
+  it("does NOT fall back to process.env.OFFICE_EMAIL (CodeRabbit Major #261)", () => {
+    const prev = process.env.OFFICE_EMAIL;
+    process.env.OFFICE_EMAIL = "leak@from-env.invalid";
+    try {
+      const out = renderWorkflowMails(
+        ["email.confirmed_office"],
+        { orderNo: 1 }, // explizit KEIN officeEmail
+        targetsAll,
+      );
+      expect(out).toEqual([]);
+    } finally {
+      if (prev === undefined) delete process.env.OFFICE_EMAIL;
+      else process.env.OFFICE_EMAIL = prev;
+    }
+  });
 });
