@@ -1,4 +1,4 @@
-FROM node:20.18.1-slim
+FROM node:22-slim
 
 WORKDIR /app
 COPY tours/package.json ./package.json
