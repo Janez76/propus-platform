@@ -43,6 +43,20 @@ const nextConfig: NextConfig = {
           source: "/api/admin/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/admin/:path*`,
         },
+        // Tour Manager Admin API + Galleries
+        {
+          source: "/api/tours/admin",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/admin`,
+        },
+        {
+          source: "/api/tours/admin/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/admin/:path*`,
+        },
+        // Posteingang Webhook (Microsoft Graph Notifications)
+        {
+          source: "/api/tours/posteingang/webhook",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/posteingang/webhook`,
+        },
         // Swagger UI + OpenAPI-Spec (booking/docs-routes.js).
         // /api/docs allein muss separat gelistet werden, sonst greift der
         // /:path*-Eintrag nicht (path ist hier optional/leer).
