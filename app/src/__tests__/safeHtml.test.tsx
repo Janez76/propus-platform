@@ -115,5 +115,13 @@ describe("sanitizeHtml", () => {
       expect(sanitizeHtml(null)).toBe("");
       expect(sanitizeHtml(undefined)).toBe("");
     });
+    it("handles malformed CSS gracefully (extra semicolons)", () => {
+      const out = sanitizeHtml('<p style=";;color:red;;;">x</p>', "mail_styled");
+      expect(out).toContain("color: red");
+    });
+    it("strips CSS declaration without value", () => {
+      const out = sanitizeHtml('<p style="color">x</p>', "mail_styled");
+      expect(out).toBe("<p>x</p>");
+    });
   });
 });
