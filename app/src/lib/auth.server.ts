@@ -25,6 +25,9 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   if (!token) return null;
 
   const tokenHash = hashToken(token);
+  // revoked_at IS NULL: respektiert Soft-Revoke aus Migration 056. Migration
+  // muss vor Code-Update eingespielt sein (Auto-Deploy faehrt Migrations
+  // vor Container-Restart, siehe scripts/deploy-remote.sh).
   const row = await queryOne<{
     role: string;
     user_key: string | null;
@@ -33,7 +36,9 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   }>(
     `SELECT role, user_key, user_name, impersonator_user_key
      FROM booking.admin_sessions
-     WHERE token_hash = $1 AND expires_at > NOW()`,
+     WHERE token_hash = $1
+       AND expires_at > NOW()
+       AND revoked_at IS NULL`,
     [tokenHash],
   );
   if (!row) return null;
