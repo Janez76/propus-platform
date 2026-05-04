@@ -87,27 +87,22 @@ function parsePropfind(xml) {
   return out;
 }
 
+// Erkennt Größen-Marker im Dateinamen vor der Endung, z. B.
+// `IMG_001-websize.jpg`, `foo_fs.jpg`, `bar.fullsize.png`.
+const GALLERY_WEBSIZE_BASENAME_RE = /[._-](?:web[\s_-]?size|websize|ws|web)(?=\.[a-z0-9]+$)/i;
+const GALLERY_FULLSIZE_BASENAME_RE = /[._-](?:full[\s_-]?size|fullsize|fs|full|original|orig|hires|hi)(?=\.[a-z0-9]+$)/i;
+
 function pathScoreForGallery(p) {
   const pl = String(p || '').toLowerCase();
   if (pl.includes('/finale/bilder/web size/')) return 6;
   if (pl.includes('/zur auswahl/')) return 5;
   if (pl.includes('/websize/')) return 4;
+  if (GALLERY_WEBSIZE_BASENAME_RE.test(pl)) return 4;
   if (pl.includes('/web/')) return 3;
   if (pl.includes('/staging/')) return 2;
   if (pl.includes('/fullsize/')) return 1;
+  if (GALLERY_FULLSIZE_BASENAME_RE.test(pl)) return 1;
   return 2;
-}
-
-function dedupeByBasenamePreferWebsize(hrefs) {
-  const byBase = new Map();
-  for (const href of hrefs) {
-    const base = href.split('/').filter(Boolean).pop() || href;
-    const current = byBase.get(base);
-    if (!current || pathScoreForGallery(href) > pathScoreForGallery(current)) {
-      byBase.set(base, href);
-    }
-  }
-  return [...byBase.values()];
 }
 
 /**
@@ -124,14 +119,48 @@ function normalizeGallerySizeFolderInPath(rawPath) {
 }
 
 /**
+ * Dateinamen-Suffixe wie `-fullsize`, `_websize`, `-fs`, `-ws` vor der
+ * Endung entfernen, damit `IMG_001-fullsize.jpg` und `IMG_001-websize.jpg`
+ * denselben Schlüssel ergeben.
+ */
+const GALLERY_SIZE_SUFFIX_RE = /[._-](?:web[\s_-]?size|websize|full[\s_-]?size|fullsize|fs|ws|web|full|original|orig|preview|small|large|hi|lo|hires|lowres|2400|web2400)(?=\.[a-z0-9]+$)/i;
+function stripGallerySizeSuffixFromBasename(basename) {
+  if (!basename) return '';
+  return String(basename).toLowerCase().replace(GALLERY_SIZE_SUFFIX_RE, '');
+}
+
+/**
+ * Aus einem Pfad einen vollständig normalisierten Dedupe-Schlüssel bauen:
+ * Größen-Ordner zu `/__size__/`, Basename ohne Größen-Suffix.
+ */
+function buildGalleryDedupKey(rawPath) {
+  const normalized = normalizeGallerySizeFolderInPath(rawPath);
+  if (!normalized) return '';
+  const i = normalized.lastIndexOf('/');
+  if (i < 0) return stripGallerySizeSuffixFromBasename(normalized);
+  return normalized.slice(0, i + 1) + stripGallerySizeSuffixFromBasename(normalized.slice(i + 1));
+}
+
+function dedupeByBasenamePreferWebsize(hrefs) {
+  const byKey = new Map();
+  for (const href of hrefs) {
+    const base = String(href).split('/').filter(Boolean).pop() || href;
+    const key = stripGallerySizeSuffixFromBasename(base);
+    const current = byKey.get(key);
+    if (!current || pathScoreForGallery(href) > pathScoreForGallery(current)) {
+      byKey.set(key, href);
+    }
+  }
+  return [...byKey.values()];
+}
+
+/**
  * Dedupliziert Galerie-Image-Rows. Strategie:
- *   1. Pfad lowercased + Größen-Ordnername normalisiert (z. B. `/FULLSIZE/`
- *      und `/WEB SIZE/` → `/__size__/`). Damit erkennen wir Paare
- *      auch dann, wenn die Dateinamen identisch sind, aber die Ordner
- *      unterschiedlich heißen.
- *   2. Innerhalb einer Gruppe gewinnt die Variante mit dem höchsten
+ *   1. Pfad lowercased + Größen-Ordnername normalisiert (`/FULLSIZE/` → `/__size__/`).
+ *   2. Basename zusätzlich ohne Größen-Suffix (`IMG_001-fullsize.jpg` → `img_001.jpg`).
+ *   3. Innerhalb einer Gruppe gewinnt die Variante mit dem höchsten
  *      `pathScoreForGallery`-Score (Websize > Fullsize).
- *   3. Rows ohne Pfad-Information werden über die ID eindeutig gehalten,
+ *   4. Rows ohne Pfad-Information werden über die ID eindeutig gehalten,
  *      damit sie nicht zusammengefasst werden.
  * Die Originalreihenfolge bleibt erhalten.
  */
@@ -140,8 +169,7 @@ function dedupeGalleryRowsPreferWebsize(rows) {
   const bestByKey = new Map();
   for (const row of rows) {
     const rawPath = row?.source_path || row?.remote_src || '';
-    const normalized = normalizeGallerySizeFolderInPath(rawPath);
-    const key = normalized || `__row_${row?.id || Math.random()}`;
+    const key = buildGalleryDedupKey(rawPath) || `__row_${row?.id || Math.random()}`;
     const current = bestByKey.get(key);
     if (!current || pathScoreForGallery(rawPath) > pathScoreForGallery(current.source_path || current.remote_src || '')) {
       bestByKey.set(key, row);
@@ -555,11 +583,11 @@ async function listGalleries({ search, filter, sort } = {}) {
   if (sort === 'oldest') orderBy = 'ORDER BY g.updated_at ASC';
   else if (sort === 'alphabetical') orderBy = 'ORDER BY g.title ASC';
 
-  // image_count: zählt pro normalisiertem Pfad höchstens einmal.
-  // Größen-Ordner (FULLSIZE / WEB SIZE / etc.) werden auf einen Platzhalter
-  // gemapped, sodass Duplikate desselben Bildes als eines zählen — analog
-  // zur Editor-Dedupe in dedupeGalleryRowsPreferWebsize. Rows ohne Pfad
-  // bekommen über die ID einen eindeutigen Schlüssel.
+  // image_count: zählt pro normalisiertem Pfad höchstens einmal — analog
+  // zur Editor-Dedupe in dedupeGalleryRowsPreferWebsize:
+  //   1. Größen-Ordner (FULLSIZE / WEB SIZE / etc.) → /__size__/
+  //   2. Größen-Suffix im Dateinamen (-fullsize, _websize, -fs, ...) entfernen
+  // Rows ohne Pfad bekommen über die ID einen eindeutigen Schlüssel.
   const sql = `
     SELECT g.*,
       COALESCE(ic.cnt, 0)::int AS image_count,
@@ -569,13 +597,18 @@ async function listGalleries({ search, filter, sort } = {}) {
       SELECT gallery_id,
         COUNT(DISTINCT
           REGEXP_REPLACE(
-            COALESCE(
-              NULLIF(LOWER(source_path), ''),
-              NULLIF(LOWER(remote_src), ''),
-              '__row_' || id::text
+            REGEXP_REPLACE(
+              COALESCE(
+                NULLIF(LOWER(source_path), ''),
+                NULLIF(LOWER(remote_src), ''),
+                '__row_' || id::text
+              ),
+              '/(web[ _-]?size|websize|full[ _-]?size|fullsize|originals?|previews?)(?=/)',
+              '/__size__',
+              'g'
             ),
-            '/(web[ _-]?size|websize|full[ _-]?size|fullsize|originals?|previews?)(?=/)',
-            '/__size__',
+            '[._-](web[ _-]?size|websize|full[ _-]?size|fullsize|fs|ws|web|full|original|orig|preview|small|large|hi|lo|hires|lowres|2400|web2400)(\\.[a-z0-9]+)$',
+            '\\2',
             'g'
           )
         ) AS cnt

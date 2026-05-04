@@ -3,9 +3,72 @@
  * Gemountet unter /api/tours/admin/galleries (requireAdmin davor in platform/server.js).
  */
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const router = express.Router();
 const gallery = require('../lib/gallery');
 const { sendMailDirect } = require('../lib/microsoft-graph');
+
+// Editor-Thumbnails: server-seitig per sharp generiert und auf Disk gecached.
+// Cache-Datei: tours/uploads/gallery-thumbs/<gallery_id>/<image_id>_<w>_<mtime>.jpg
+const GALLERY_THUMB_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'gallery-thumbs');
+const ALLOWED_THUMB_WIDTHS = new Set([200, 400, 600]);
+const galleryThumbInflight = new Map();
+
+function parseThumbWidth(raw) {
+  const w = Number.parseInt(String(raw || '400'), 10);
+  return ALLOWED_THUMB_WIDTHS.has(w) ? w : 400;
+}
+
+async function ensureGalleryThumb(srcPath, galleryId, imageId, width) {
+  let stat;
+  try {
+    stat = await fs.promises.stat(srcPath);
+  } catch {
+    return null;
+  }
+  const mtime = Math.floor(stat.mtimeMs);
+  const cacheDir = path.join(GALLERY_THUMB_CACHE_DIR, String(galleryId));
+  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}.jpg`);
+  try {
+    const cacheStat = await fs.promises.stat(cachePath);
+    if (cacheStat.isFile() && cacheStat.size > 0) return cachePath;
+  } catch { /* miss */ }
+
+  if (galleryThumbInflight.has(cachePath)) {
+    await galleryThumbInflight.get(cachePath);
+    return cachePath;
+  }
+  const promise = (async () => {
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    // Vorhandene Varianten (anderer mtime) löschen, damit der Cache pro Image
+    // nicht beliebig wächst.
+    try {
+      const entries = await fs.promises.readdir(cacheDir);
+      const prefix = `${imageId}_${width}_`;
+      for (const entry of entries) {
+        if (entry.startsWith(prefix) && entry !== path.basename(cachePath)) {
+          await fs.promises.unlink(path.join(cacheDir, entry)).catch(() => {});
+        }
+      }
+    } catch { /* ignore */ }
+    const tmp = `${cachePath}.${process.pid}.tmp`;
+    await sharp(srcPath, { failOn: 'none' })
+      .rotate()
+      .resize({ width, withoutEnlargement: true, fit: 'inside' })
+      .jpeg({ quality: 75, mozjpeg: true })
+      .toFile(tmp);
+    await fs.promises.rename(tmp, cachePath);
+  })();
+  galleryThumbInflight.set(cachePath, promise);
+  try {
+    await promise;
+  } finally {
+    galleryThumbInflight.delete(cachePath);
+  }
+  return cachePath;
+}
 
 // GET / — Liste aller Galerien
 router.get('/', async (req, res) => {
@@ -172,6 +235,33 @@ router.get('/:id/images/:imgId/file', async (req, res) => {
     }
     if (!img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
     return res.redirect(img.remote_src);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:id/images/:imgId/thumb?w=200|400|600 — kleines JPG-Thumbnail.
+// Für nas_local wird per sharp ein Thumb erzeugt und auf Disk gecached;
+// remote_url bleibt redirect (Cloud liefert ihre eigenen Bilder aus).
+router.get('/:id/images/:imgId/thumb', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const images = await gallery.listGalleryImages(g.id);
+    const img = images.find((row) => row.id === req.params.imgId);
+    if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    if (img.source_type !== 'nas_local') {
+      if (!img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+      return res.redirect(img.remote_src);
+    }
+    const srcPath = gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img);
+    if (!srcPath) return res.status(404).json({ ok: false, error: 'Bildpfad nicht gefunden.' });
+    const width = parseThumbWidth(req.query.w);
+    const cachePath = await ensureGalleryThumb(srcPath, g.id, img.id, width);
+    if (!cachePath) return res.status(404).json({ ok: false, error: 'Thumbnail konnte nicht erzeugt werden.' });
+    res.set('Cache-Control', 'private, max-age=86400, immutable');
+    res.type('jpg');
+    return res.sendFile(cachePath);
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }

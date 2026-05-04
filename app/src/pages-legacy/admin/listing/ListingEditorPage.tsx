@@ -20,7 +20,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRe
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   adminGalleryFloorPlanUrl,
-  adminGalleryImageUrl,
+  adminGalleryImageThumbUrl,
   browseGalleryNas,
   createGallery,
   deleteFeedback,
@@ -195,6 +195,7 @@ type GalleryOrderOption = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  objectTypeLabel: string | null;
   coreCustomerId: string | null;
   coreCompany: string;
   coreEmail: string;
@@ -284,6 +285,9 @@ function normalizeOrderOption(raw: unknown): GalleryOrderOption | null {
     contactName: String(r.contactName || ""),
     contactEmail: String(r.contactEmail || ""),
     contactPhone: String(r.contactPhone || ""),
+    objectTypeLabel: r.objectTypeLabel == null || String(r.objectTypeLabel).trim() === ""
+      ? null
+      : String(r.objectTypeLabel).trim(),
     coreCustomerId: r.coreCustomerId == null || String(r.coreCustomerId).trim() === "" ? null : String(r.coreCustomerId),
     coreCompany: String(r.coreCompany || ""),
     coreEmail: String(r.coreEmail || ""),
@@ -549,7 +553,10 @@ const SortableImageThumb = memo(function SortableImageThumb({
     opacity: isDragging ? 0.55 : undefined,
   };
 
-  const thumbUrl = img.source_type === "nas_local" ? adminGalleryImageUrl(img.gallery_id, img.id) : img.remote_src ?? "";
+  const thumbUrl =
+    img.source_type === "nas_local"
+      ? adminGalleryImageThumbUrl(img.gallery_id, img.id, 400)
+      : img.remote_src ?? "";
 
   const name = displayNameForGalleryImage(img);
 
@@ -568,6 +575,8 @@ const SortableImageThumb = memo(function SortableImageThumb({
             alt=""
             loading="lazy"
             decoding="async"
+            width={400}
+            height={400}
           />
         ) : (
           <div className="gal-edit-thumb__placeholder" aria-hidden="true" />
@@ -644,6 +653,7 @@ export function ListingEditorPage() {
   const cloudDraftRef = useRef("");
   const matterportDraftRef = useRef("");
   const lastSelectedOrderRef = useRef<GalleryOrderOption | null>(null);
+  const [titleInput, setTitleInput] = useState<string | undefined>(undefined);
   const [addressInput, setAddressInput] = useState("");
   const [clientEmailInput, setClientEmailInput] = useState("");
   const [matterportInput, setMatterportInput] = useState("");
@@ -935,6 +945,24 @@ export function ListingEditorPage() {
       if (order.contactEmail.trim()) setClientEmailInput(order.contactEmail.trim());
       else if (order.email.trim()) setClientEmailInput(order.email.trim());
 
+      // Titel automatisch vorschlagen: "<Buchungstyp> <Adresse>" — aber nur,
+      // wenn der aktuelle Titel-Draft leer oder noch der Default „Ohne Titel" ist.
+      // Manuell getippte Titel werden nicht überschrieben.
+      const currentTitleDraft = titleDraftRef.current.trim();
+      const titleIsBlank = !currentTitleDraft || currentTitleDraft.toLowerCase() === "ohne titel";
+      let titleAutofilled = false;
+      if (titleIsBlank) {
+        const suggestedTitle = [order.objectTypeLabel, order.address.trim()]
+          .filter((part): part is string => Boolean(part && part.trim()))
+          .join(" ")
+          .trim();
+        if (suggestedTitle) {
+          setTitleInput(suggestedTitle);
+          titleDraftRef.current = suggestedTitle;
+          titleAutofilled = true;
+        }
+      }
+
       const nextCustomerLabel =
         order.coreCompany.trim() || order.company.trim() || order.contactName.trim() || order.coreEmail.trim() || order.email.trim();
       let parsedCustomerId: number | null = null;
@@ -1008,7 +1036,9 @@ export function ListingEditorPage() {
         // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
       }
 
-      const autofillParts = ["Kunde", "Kontakt", "Adresse"];
+      const autofillParts = titleAutofilled
+        ? ["Titel", "Kunde", "Kontakt", "Adresse"]
+        : ["Kunde", "Kontakt", "Adresse"];
       if (id) {
         try {
           const context = await getGalleryNasContext(id, order.order_no);
@@ -1502,6 +1532,7 @@ export function ListingEditorPage() {
             <EditorDraftField
               syncKey={g.updated_at}
               serverValue={g.title}
+              valueOverride={titleInput}
               draftRef={titleDraftRef}
               inputId="gal-edit-title"
               placeholder="z. B. EFH mit Ausblick"

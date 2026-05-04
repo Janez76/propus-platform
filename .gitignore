@@ -14,6 +14,7 @@ data/pgdata/
 booking/data/
 booking/analysis-customer-stammdaten/
 analysis-nas-customer-folders/
+tours/uploads/
 *.log
 .tmp*/
 # Lokale ZIP-Entpackung (z. B. BKBN-Extractor-Artefakte)
