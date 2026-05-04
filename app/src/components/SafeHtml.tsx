@@ -63,27 +63,31 @@ const PROFILES: Record<SafeHtmlVariant, DOMPurifyConfig> = {
 };
 
 /**
- * Sanitisiert HTML und erzwingt für Mail-Variante `target="_blank"
- * rel="noopener noreferrer"` auf allen Links — verhindert Reverse-Tabnabbing.
+ * Hook-Setup einmalig beim Modul-Load. Ersetzt das ursprüngliche
+ * addHook/removeHook-around-sanitize-Pattern, das bei gleichzeitigen
+ * sanitize()-Aufrufen race-anfällig war (CodeRabbit/Codex Review #256).
+ *
+ * Der Hook ist global registriert — das ist OK, weil er einen einzigen,
+ * konservativen Effekt hat: Links bekommen `target="_blank"
+ * rel="noopener noreferrer"`. Das ist für JEDES sanitize-Profil sinnvoll;
+ * im UI-Profil sind <a>-Tags eh nicht erlaubt, der Hook ist dann no-op.
  */
-function sanitize(input: string, variant: SafeHtmlVariant): string {
-  const config = PROFILES[variant];
-  const dirty = String(input || "");
-  if (variant === "mail") {
-    DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-      if ((node as Element).tagName === "A") {
-        const a = node as HTMLAnchorElement;
-        a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener noreferrer");
-      }
-    });
-    try {
-      return DOMPurify.sanitize(dirty, config) as unknown as string;
-    } finally {
-      DOMPurify.removeHook("afterSanitizeAttributes");
+let _hookInstalled = false;
+function ensureGlobalHook(): void {
+  if (_hookInstalled) return;
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if ((node as Element).tagName === "A") {
+      const a = node as HTMLAnchorElement;
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
     }
-  }
-  return DOMPurify.sanitize(dirty, config) as unknown as string;
+  });
+  _hookInstalled = true;
+}
+
+function sanitize(input: string, variant: SafeHtmlVariant): string {
+  ensureGlobalHook();
+  return DOMPurify.sanitize(String(input || ""), PROFILES[variant]) as unknown as string;
 }
 
 export function SafeHtml({ html, variant = "ui", as, className }: SafeHtmlProps): ReactElement {
