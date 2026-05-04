@@ -20,6 +20,9 @@ const {
 const {
   makeWorkflowStatusMailHandler,
 } = require("../lib/outbox-handler-workflow-mail");
+const {
+  makeCalendarRescheduleHandler,
+} = require("../lib/outbox-handler-calendar-reschedule");
 
 /**
  * Globale Handler-Registry. Smoke-Handler wird beim Modul-Load
@@ -40,7 +43,7 @@ registry.register("noop_log", async (ctx) => {
 });
 
 function scheduleOutboxDispatcher(deps) {
-  const { db, getSetting, sendMailWithFallback } = deps;
+  const { db, getSetting, sendMailWithFallback, performAdminReschedule } = deps;
 
   // Reale Handler erst hier registrieren, weil sie Server-deps brauchen.
   // Idempotent: scheduleSafeCronJob laeuft beim Boot einmalig — eine
@@ -54,6 +57,17 @@ function scheduleOutboxDispatcher(deps) {
   } else {
     console.warn(
       "[outbox] sendMailWithFallback fehlt in deps — workflow_status_mail-Handler NICHT registriert",
+    );
+  }
+
+  if (typeof performAdminReschedule === "function") {
+    registry.register(
+      "calendar_reschedule",
+      makeCalendarRescheduleHandler({ performAdminReschedule }),
+    );
+  } else {
+    console.warn(
+      "[outbox] performAdminReschedule fehlt in deps — calendar_reschedule-Handler NICHT registriert",
     );
   }
 

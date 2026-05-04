@@ -8,7 +8,7 @@ import { leistungenFormSchema } from "@/lib/validators/orders/leistungen";
 import { getPackageByKey } from "@/lib/pricingCatalog";
 import { calculatePricing } from "@/lib/pricing";
 import { queryOne, withTransaction } from "@/lib/db";
-import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
+import { enqueueOutbox } from "@/lib/outbox";
 import type { BulkTxOptions } from "../_bulk-tx";
 
 type AddonRow = {
@@ -106,6 +106,21 @@ export async function saveLeistungen(
     schedPatch.durationMin = v.durationMinOverride;
   }
 
+  // Calendar-Reschedule wandert in die booking.order_outbox: Sync-
+  // Operation persistiert atomar mit dem Order-UPDATE, der Outbox-Worker
+  // dispatcht via performAdminReschedule (PR Phase 2b, Bug-Hunt T07).
+  // Ein Server-Crash zwischen DB-Commit und Calendar-API kann die
+  // Operation nicht mehr verlieren.
+  const prevDuration = Number((before.schedule as { durationMin?: number } | null)?.durationMin || 0);
+  const sched = before.schedule as { date?: string; time?: string } | null;
+  const durationChanged =
+    v.durationMinOverride != null && prevDuration !== v.durationMinOverride;
+  const shouldEnqueueReschedule =
+    durationChanged &&
+    !!sched?.date &&
+    !!sched?.time &&
+    String(before.status || "").toLowerCase() !== "cancelled";
+
   await withTransaction(async (c) => {
     await c.query(
       `UPDATE booking.orders SET
@@ -135,88 +150,15 @@ export async function saveLeistungen(
         c,
       );
     }
+
+    if (shouldEnqueueReschedule) {
+      await enqueueOutbox(c, v.orderNo, "calendar_reschedule", {
+        date: String(sched!.date),
+        time: String(sched!.time).slice(0, 5),
+        durationMin: v.durationMinOverride,
+      });
+    }
   }, tx);
-
-  // Side-Effects (HTTP) ab hier — duerfen NICHT in der Tx laufen, sonst
-  // bleibt die HTTP-Aktion bei einem Rollback haengen und die Welt
-  // driftet auseinander. Im Bulk-Save (postCommit gesetzt) sammeln, sonst
-  // direkt ausfuehren.
-  const prevDuration = Number((before.schedule as { durationMin?: number } | null)?.durationMin || 0);
-  const overrideApplies = v.durationMinOverride != null;
-  const durationFromOverride =
-    overrideApplies && prevDuration !== v.durationMinOverride
-      ? v.durationMinOverride
-      : null;
-  const sched = before.schedule as { date?: string; time?: string } | null;
-  const reschedTask =
-    durationFromOverride != null &&
-    sched?.date &&
-    sched?.time &&
-    String(before.status || "").toLowerCase() !== "cancelled"
-      ? async () => {
-          await requestAdminReschedule(v.orderNo, {
-            date: String(sched.date),
-            time: String(sched.time).slice(0, 5),
-            durationMin: durationFromOverride,
-          });
-        }
-      : null;
-
-  const calendarSyncTask =
-    v.durationMinOverride != null &&
-    Number((before.schedule as Record<string, unknown> | null)?.durationMin ?? 0) !== v.durationMinOverride &&
-    (before.schedule as Record<string, unknown> | null)?.date &&
-    (before.schedule as Record<string, unknown> | null)?.time
-      ? async () => {
-          try {
-            const { cookies } = await import("next/headers");
-            const token = (await cookies()).get("admin_session")?.value ?? "";
-            const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3001";
-            // 10 s Timeout via AbortSignal damit ein haengender Booking-
-            // Service nicht den ganzen Save-Flow blockiert (CodeRabbit
-            // Major #259).
-            const resp = await fetch(
-              `${apiBase}/api/admin/orders/${encodeURIComponent(String(v.orderNo))}/reschedule`,
-              {
-                method: "PATCH",
-                signal: AbortSignal.timeout(10_000),
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                  date: String((before.schedule as Record<string, unknown>).date),
-                  time: String((before.schedule as Record<string, unknown>).time),
-                  durationMin: v.durationMinOverride,
-                }),
-              },
-            );
-            if (!resp.ok) {
-              console.error(
-                "[saveLeistungen] 365 calendar sync HTTP error",
-                resp.status,
-                await resp.text().catch(() => ""),
-              );
-            }
-          } catch (err) {
-            console.error("[saveLeistungen] 365 calendar sync failed (non-critical)", err);
-          }
-        }
-      : null;
-
-  // tx ohne postCommit waere ein Vertragsbruch — Side-Effects wuerden
-  // mitten in der noch offenen Tx feuern (CodeRabbit Major #259).
-  if (tx && !postCommit) {
-    return { ok: false as const, error: "Interner Fehler: tx ohne postCommit ist nicht erlaubt" };
-  }
-
-  if (postCommit) {
-    if (reschedTask) postCommit.push(reschedTask);
-    if (calendarSyncTask) postCommit.push(calendarSyncTask);
-  } else {
-    if (reschedTask) await reschedTask();
-    if (calendarSyncTask) await calendarSyncTask();
-  }
 
   if (tx) return;
 
