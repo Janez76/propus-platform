@@ -151,7 +151,21 @@ router.get('/check-reset-token', async (req, res) => {
   }
 });
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+  // requirePortalSession akzeptiert Admin-Tokens sowohl als Bearer-Header
+  // als auch als admin_session-Cookie. Beide Pfade muessen revoziert
+  // werden, sonst kann der Caller mit dem gleichen Token sofort wieder
+  // eine Portal-Session aufbauen (CodeRabbit Major #257).
+  const cookieToken = portalAuth.readRawCookie(req, 'admin_session');
+  const bearerToken = String(req.headers.authorization || '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+  // Set entdupliziert falls Cookie + Bearer denselben Wert haben.
+  for (const token of new Set([cookieToken, bearerToken].filter(Boolean))) {
+    try { await portalAuth.revokeAdminSessionByToken(token); }
+    catch (e) { console.error('[portal-api/logout] revoke admin_session', e?.message || e); }
+  }
+  if (cookieToken) portalAuth.clearAdminSessionCookie(res);
   req.session.destroy(() => {
     res.clearCookie('propus_tours.sid');
     res.json({ ok: true });
@@ -190,10 +204,15 @@ function requirePortalSession(req, res, next) {
   const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
   const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
 
+  // Schema-Praefix `booking.` ist erforderlich: tours-search_path
+  // (tour_manager,core,public) wuerde sonst die alte public.admin_sessions
+  // ohne revoked_at-Spalte treffen (CodeRabbit Major #257).
   pool.query(
     `SELECT user_key, user_name, role
-     FROM admin_sessions
-     WHERE token_hash = $1 AND expires_at > NOW()
+     FROM booking.admin_sessions
+     WHERE token_hash = $1
+       AND expires_at > NOW()
+       AND revoked_at IS NULL
      LIMIT 1`,
     [tokenHash]
   ).then((result) => {

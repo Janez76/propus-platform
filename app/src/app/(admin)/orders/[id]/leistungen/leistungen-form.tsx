@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ListChecks, Plus, Receipt, Tag, Trash2 } from "lucide-react";
 import { leistungenFormSchema, type LeistungenFormValues } from "@/lib/validators/orders/leistungen";
 import { getAddonCatalog, PACKAGE_CATALOG } from "@/lib/pricingCatalog";
-import { calculatePricing, VAT_RATE } from "@/lib/pricing";
+import { calculatePricing } from "@/lib/pricing";
 import { saveLeistungen } from "./actions";
 import { ProductCatalogModal } from "@/components/handoff";
 import { Section, Empty, formatCHF } from "../_shared";
@@ -16,6 +16,7 @@ import { Section, Empty, formatCHF } from "../_shared";
 type Props = {
   order: {
     order_no: number;
+    created_at: string;
     discount_chf: number;
     package_key: string | null;
     package_label: string | null;
@@ -52,7 +53,7 @@ function defaults(p: Props["order"]): LeistungenFormValues {
   };
 }
 
-function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<LeistungenFormValues>>; discountChf: number }) {
+function PriceSidebar({ form, discountChf, effectiveDate }: { form: ReturnType<typeof useForm<LeistungenFormValues>>; discountChf: number; effectiveDate?: string | null }) {
   const w = useWatch({ control: form.control });
   const pkg = PACKAGE_CATALOG.find((x) => x.key === w?.packageKey);
   const packagePrice = pkg?.price ?? 0;
@@ -70,8 +71,13 @@ function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<L
       travelZonePrice: 0,
       keyPickupActive: false,
       discount,
+      effectiveDate: effectiveDate ?? null,
     });
-  }, [packagePrice, addons, discount]);
+  }, [packagePrice, addons, discount, effectiveDate]);
+  // calc.vatRate kommt aus dem History-Lookup (vatRateFor) und matched
+  // den auf dem Save-Pfad persistierten Satz; vermeidet Mismatch zwischen
+  // UI-Vorschau und Save bei Bestellungen vor 2024-01-01 (Codex P2 #257).
+  const vatPct = Math.round(calc.vatRate * 1000) / 10;
   return (
     <div className="mt-2 space-y-1 text-sm">
       <div className="flex justify-between text-[var(--ink-3)]">
@@ -79,7 +85,7 @@ function PriceSidebar({ form, discountChf }: { form: ReturnType<typeof useForm<L
         <span className="tabular-nums">{formatCHF(calc.subtotal)}</span>
       </div>
       <div className="flex justify-between text-[var(--ink-3)]">
-        <span>MwSt. ({Math.round(VAT_RATE * 1000) / 10} %)</span>
+        <span>MwSt. ({vatPct} %)</span>
         <span className="tabular-nums">{formatCHF(calc.vat)}</span>
       </div>
       <div className="flex justify-between font-semibold text-[var(--ink)]">
@@ -256,7 +262,7 @@ export function LeistungenForm({ order }: Props) {
         </Section>
 
         <Section title="Preisübersicht (live)" icon={<Receipt className="h-4 w-4" />}>
-          <PriceSidebar form={form} discountChf={order.discount_chf} />
+          <PriceSidebar form={form} discountChf={order.discount_chf} effectiveDate={order.created_at} />
         </Section>
         {saving && <p className="text-xs text-[var(--ink-3)]">Wird gespeichert…</p>}
         <ProductCatalogModal

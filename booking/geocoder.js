@@ -24,7 +24,13 @@ function resolveNominatimUrl(value) {
 const DEFAULT_NOMINATIM_URL = resolveNominatimUrl(process.env.NOMINATIM_URL);
 const HTTP_TIMEOUT_MS = parseInt(process.env.TRAVEL_HTTP_TIMEOUT_MS || "8000", 10);
 
-function makeCache(ttlMs) {
+function makeCache(ttlMs, maxEntries = 5000) {
+  // LRU-Cache mit Soft-TTL: ueberschreitet die Map maxEntries, wird der
+  // aelteste Eintrag entfernt. Map.set behandelt re-set als Reorder
+  // (insertion-order ist auch access-order da wir bei get keinen Reset
+  // machen — siehe touchOnGet-Pfad weiter unten).
+  // Bug-Hunt T07 MEDIUM: ohne Eviction wuchs der Geocoder-Cache bei
+  // vielen unique Adressen ueber Stunden zu mehreren GB.
   const map = new Map();
   return {
     get(key) {
@@ -34,15 +40,29 @@ function makeCache(ttlMs) {
         map.delete(key);
         return null;
       }
+      // touch: Eintrag ans Ende der Map verschieben (LRU-Recency)
+      map.delete(key);
+      map.set(key, hit);
       return hit.value;
     },
     set(key, value) {
+      // Wenn vorhanden, erst loeschen damit insertion-order = recency
+      if (map.has(key)) map.delete(key);
       map.set(key, { value, expiresAt: Date.now() + ttlMs });
+      // Eviction: aelteste Eintraege rauswerfen bis size <= maxEntries
+      while (map.size > maxEntries) {
+        const oldestKey = map.keys().next().value;
+        if (oldestKey === undefined) break;
+        map.delete(oldestKey);
+      }
+    },
+    size() {
+      return map.size;
     },
   };
 }
 
-const geocodeCache = makeCache(24 * 60 * 60 * 1000); // 1d
+const geocodeCache = makeCache(24 * 60 * 60 * 1000, 5000); // 1d TTL, 5k LRU
 
 async function fetchJson(url) {
   const ctrl = new AbortController();

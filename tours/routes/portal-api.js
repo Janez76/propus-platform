@@ -51,10 +51,15 @@ function requirePortalSession(req, res, next) {
   const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
   const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
 
+  // Schema-Praefix `booking.` ist erforderlich: tours-search_path
+  // (tour_manager,core,public) wuerde sonst die alte public.admin_sessions
+  // ohne revoked_at-Spalte treffen (CodeRabbit Major #257).
   pool.query(
     `SELECT user_key, user_name, role
-     FROM admin_sessions
-     WHERE token_hash = $1 AND expires_at > NOW()
+     FROM booking.admin_sessions
+     WHERE token_hash = $1
+       AND expires_at > NOW()
+       AND revoked_at IS NULL
      LIMIT 1`,
     [tokenHash]
   ).then((result) => {

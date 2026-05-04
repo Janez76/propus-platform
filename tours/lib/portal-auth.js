@@ -287,6 +287,62 @@ async function changePortalPassword(email, currentPassword, newPassword) {
   );
 }
 
+/**
+ * Liest ein Cookie aus dem Raw-Header (umgeht cookie-parser-Konfiguration).
+ * Geteilt zwischen portal.js und portal-api-mutations.js
+ * (CodeRabbit Nitpick #257).
+ *
+ * decodeURIComponent ist per try/catch abgesichert: ein malformed Cookie
+ * wie `admin_session=%E0%A4%A` wuerde sonst URIError werfen und Handler
+ * (insb. /logout) zu HTTP 500 machen statt sauber abzulaufen
+ * (Codex P2 #257). Fallback: roher Wert, damit Downstream-Logik
+ * (Token-Hash) deterministisch bleibt.
+ */
+function readRawCookie(req, name) {
+  const raw = String(req?.headers?.cookie || '');
+  if (!raw) return '';
+  const prefix = `${name}=`;
+  for (const part of raw.split(';')) {
+    const t = part.trim();
+    if (t.startsWith(prefix)) {
+      const value = t.substring(prefix.length).trim();
+      try { return decodeURIComponent(value); }
+      catch { return value; }
+    }
+  }
+  return '';
+}
+
+/**
+ * Revoziert eine admin_session per Token (Soft-Revocation: revoked_at = NOW()).
+ * Wird von den Portal-Logout-Endpoints aufgerufen, damit ein gebridgtes
+ * Admin-Cookie nach dem Logout ungueltig ist (CodeRabbit Major #257).
+ */
+async function revokeAdminSessionByToken(token) {
+  const raw = String(token || '').trim();
+  if (!raw) return;
+  const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+  await pool.query(
+    `UPDATE booking.admin_sessions
+       SET revoked_at = NOW()
+       WHERE token_hash = $1
+         AND revoked_at IS NULL`,
+    [tokenHash],
+  );
+}
+
+/**
+ * Loescht das admin_session-Cookie auf der Response. Path/Domain muessen mit
+ * der ursprunglichen Set-Cookie-Konfiguration im Booking-Service uebereinstimmen
+ * (siehe buildAdminSessionCookieOptions in booking/server.js).
+ */
+function clearAdminSessionCookie(res) {
+  if (!res?.clearCookie) return;
+  const domain = String(process.env.SESSION_COOKIE_DOMAIN || '').trim();
+  const options = { path: '/', ...(domain ? { domain } : {}) };
+  res.clearCookie('admin_session', options);
+}
+
 module.exports = {
   normalizeEmail,
   ensurePortalAuthSchema,
@@ -298,4 +354,7 @@ module.exports = {
   getResetTokenRow,
   consumePasswordReset,
   changePortalPassword,
+  readRawCookie,
+  revokeAdminSessionByToken,
+  clearAdminSessionCookie,
 };

@@ -1183,10 +1183,13 @@ async function createAdminSession({ tokenHash, role, userKey, userName, expiresA
 }
 
 async function getAdminSessionByTokenHash(tokenHash) {
+  // Soft-Revoke (Migration 056): revoked_at IS NULL filtert widerrufene Sessions.
   const { rows } = await query(
     `SELECT role, user_key, user_name, expires_at, impersonator_user_key, impersonator_started_at
      FROM admin_sessions
-     WHERE token_hash = $1 AND expires_at > NOW()`,
+     WHERE token_hash = $1
+       AND expires_at > NOW()
+       AND revoked_at IS NULL`,
     [tokenHash]
   );
   return rows[0] || null;

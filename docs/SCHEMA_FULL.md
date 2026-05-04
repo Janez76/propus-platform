@@ -700,6 +700,7 @@ auf `core.admin_users(id)`.
 | | `role` / `user_key` / `user_name` | TEXT |
 | | `expires_at` | TIMESTAMPTZ |
 | | `created_at` | TIMESTAMPTZ NOW() |
+| | `revoked_at` | TIMESTAMPTZ NULL — Soft-Revoke fuer expliziten Logout (Migration 056). NULL = aktiv. |
 | `booking.photographer_password_resets` | `token_hash` | TEXT PK |
 | | `photographer_key` | TEXT FK CASCADE → `booking.photographer_settings` |
 | | `expires_at` | TIMESTAMPTZ |
