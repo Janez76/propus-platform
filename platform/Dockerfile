@@ -76,6 +76,8 @@ RUN chmod +x /app/scripts/*.sh 2>/dev/null || true
 # ── Writable runtime data directories (owned by propus before USER switch) ──
 RUN mkdir -p /app/booking/data/photographer-portraits && \
     chown -R propus:nodejs /app/booking/data
+RUN mkdir -p /app/tours/uploads/gallery-thumbs && \
+    chown -R propus:nodejs /app/tours/uploads
 
 # ── Start-Script ──
 COPY scripts/start.sh ./start.sh
