@@ -10,21 +10,59 @@ type ChatRole = "user" | "assistant";
 type ChatMessage = {
   role: ChatRole;
   content: string;
+  initial?: boolean;
 };
 
 const INITIAL_MESSAGE: ChatMessage = {
   role: "assistant",
   content: "Grüezi! Ich bin der Propus-Chatbot. Wie kann ich Ihnen heute weiterhelfen?",
+  initial: true,
 };
 
 const MAX_API_MESSAGES = 20;
+const STORAGE_KEY = "propus_chat_history_v1";
+
+function loadStoredMessages(): ChatMessage[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed.filter(
+      (m): m is ChatMessage =>
+        m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string",
+    );
+  } catch {
+    return null;
+  }
+}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stored = loadStoredMessages();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- einmalige Hydration aus localStorage (Client-only)
+    if (stored && stored.length > 0) setMessages(stored);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || loading || typeof window === "undefined") return;
+    const persistable = messages.filter((m) => !m.initial && m.content.length > 0);
+    try {
+      if (persistable.length === 0) window.localStorage.removeItem(STORAGE_KEY);
+      else window.localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+    } catch {
+      // localStorage voll oder gesperrt – stillschweigend ignorieren
+    }
+  }, [messages, hydrated, loading]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -41,7 +79,8 @@ export default function ChatPage() {
 
     const userMsg: ChatMessage = { role: "user", content: trimmed };
     const apiMessages = [...messages, userMsg]
-      .filter((m) => m !== INITIAL_MESSAGE)
+      .filter((m) => !m.initial)
+      .map(({ role, content }) => ({ role, content }))
       .slice(-MAX_API_MESSAGES);
     while (apiMessages.length > 0 && apiMessages[0].role !== "user") {
       apiMessages.shift();
@@ -125,7 +164,7 @@ export default function ChatPage() {
             Propus Chatbot
           </h1>
           <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            Test-Chatbot — keine Daten werden gespeichert.
+            Test-Chatbot — Verlauf wird lokal im Browser gespeichert (nicht serverseitig).
           </p>
         </header>
 
@@ -150,7 +189,6 @@ export default function ChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Frage zu Propus stellen…"
-            disabled={loading}
             className="flex-1"
             autoFocus
           />
