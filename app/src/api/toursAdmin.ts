@@ -482,7 +482,7 @@ export function getToursByOrderNo(orderNo: number | string) {
 }
 
 export function getLinkMatterportBookingSearch(q: string) {
-  return toursAdminFetch<{ orders: { id: number; order_no: number; status: string; address: string; company: string; email: string; contactSalutation: string; contactFirstName: string; contactName: string; contactEmail: string; contactPhone: string; date: string | null; created_at: string; coreCustomerId: string | null; coreCompany: string; coreEmail: string; contacts: { name: string; email: string; tel: string }[] }[] }>(
+  return toursAdminFetch<{ orders: { id: number; order_no: number; status: string; address: string; company: string; email: string; contactSalutation: string; contactFirstName: string; contactName: string; contactEmail: string; contactPhone: string; date: string | null; created_at: string; objectType: string | null; objectTypeLabel: string | null; coreCustomerId: string | null; coreCompany: string; coreEmail: string; contacts: { name: string; email: string; tel: string }[] }[] }>(
     `/link-matterport/booking-search?q=${encodeURIComponent(q)}`,
   );
 }

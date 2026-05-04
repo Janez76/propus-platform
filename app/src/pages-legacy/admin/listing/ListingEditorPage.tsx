@@ -20,7 +20,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRe
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   adminGalleryFloorPlanUrl,
-  adminGalleryImageUrl,
+  adminGalleryImageThumbUrl,
   browseGalleryNas,
   createGallery,
   deleteFeedback,
@@ -125,6 +125,7 @@ function EditorDraftField({
   serverValue,
   draftRef,
   valueOverride,
+  valueOverrideVersion,
   inputId,
   type = "text",
   placeholder,
@@ -134,6 +135,13 @@ function EditorDraftField({
   serverValue: string;
   draftRef: MutableRefObject<string>;
   valueOverride?: string;
+  /**
+   * Optional: bei jeder Erhöhung wird `valueOverride` neu angewendet — auch
+   * wenn der String identisch zum vorherigen ist. Damit kann der Aufrufer
+   * einen "Override erneut anwenden"-Trigger erzwingen (z. B. wenn der User
+   * das Feld geleert hat und dieselbe Bestellung nochmals auswählt).
+   */
+  valueOverrideVersion?: number;
   inputId: string;
   type?: "text" | "url" | "email";
   placeholder?: string;
@@ -148,7 +156,7 @@ function EditorDraftField({
     if (valueOverride === undefined) return;
     setV(valueOverride);
     draftRef.current = valueOverride;
-  }, [valueOverride, draftRef]);
+  }, [valueOverride, valueOverrideVersion, draftRef]);
   return (
     <input
       id={inputId}
@@ -195,6 +203,7 @@ type GalleryOrderOption = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  objectTypeLabel: string | null;
   coreCustomerId: string | null;
   coreCompany: string;
   coreEmail: string;
@@ -284,6 +293,9 @@ function normalizeOrderOption(raw: unknown): GalleryOrderOption | null {
     contactName: String(r.contactName || ""),
     contactEmail: String(r.contactEmail || ""),
     contactPhone: String(r.contactPhone || ""),
+    objectTypeLabel: r.objectTypeLabel == null || String(r.objectTypeLabel).trim() === ""
+      ? null
+      : String(r.objectTypeLabel).trim(),
     coreCustomerId: r.coreCustomerId == null || String(r.coreCustomerId).trim() === "" ? null : String(r.coreCustomerId),
     coreCompany: String(r.coreCompany || ""),
     coreEmail: String(r.coreEmail || ""),
@@ -549,7 +561,10 @@ const SortableImageThumb = memo(function SortableImageThumb({
     opacity: isDragging ? 0.55 : undefined,
   };
 
-  const thumbUrl = img.source_type === "nas_local" ? adminGalleryImageUrl(img.gallery_id, img.id) : img.remote_src ?? "";
+  const thumbUrl =
+    img.source_type === "nas_local"
+      ? adminGalleryImageThumbUrl(img.gallery_id, img.id, 400)
+      : img.remote_src ?? "";
 
   const name = displayNameForGalleryImage(img);
 
@@ -568,6 +583,8 @@ const SortableImageThumb = memo(function SortableImageThumb({
             alt=""
             loading="lazy"
             decoding="async"
+            width={400}
+            height={400}
           />
         ) : (
           <div className="gal-edit-thumb__placeholder" aria-hidden="true" />
@@ -644,6 +661,8 @@ export function ListingEditorPage() {
   const cloudDraftRef = useRef("");
   const matterportDraftRef = useRef("");
   const lastSelectedOrderRef = useRef<GalleryOrderOption | null>(null);
+  const [titleInput, setTitleInput] = useState<string | undefined>(undefined);
+  const [titleInputVersion, setTitleInputVersion] = useState(0);
   const [addressInput, setAddressInput] = useState("");
   const [clientEmailInput, setClientEmailInput] = useState("");
   const [matterportInput, setMatterportInput] = useState("");
@@ -935,6 +954,27 @@ export function ListingEditorPage() {
       if (order.contactEmail.trim()) setClientEmailInput(order.contactEmail.trim());
       else if (order.email.trim()) setClientEmailInput(order.email.trim());
 
+      // Titel automatisch vorschlagen: "<Buchungstyp> <Adresse>" — aber nur,
+      // wenn der aktuelle Titel-Draft leer oder noch der Default „Ohne Titel" ist.
+      // Manuell getippte Titel werden nicht überschrieben.
+      // Den Ref nicht direkt mutieren: den Override im EditorDraftField via
+      // `valueOverride` + `valueOverrideVersion` anwenden, damit Anzeige und
+      // draftRef synchron bleiben (auch wenn derselbe Vorschlag erneut greift).
+      const currentTitleDraft = titleDraftRef.current.trim();
+      const titleIsBlank = !currentTitleDraft || currentTitleDraft.toLowerCase() === "ohne titel";
+      let titleAutofilled = false;
+      if (titleIsBlank) {
+        const suggestedTitle = [order.objectTypeLabel, order.address.trim()]
+          .filter((part): part is string => Boolean(part && part.trim()))
+          .join(" ")
+          .trim();
+        if (suggestedTitle) {
+          setTitleInput(suggestedTitle);
+          setTitleInputVersion((tick) => tick + 1);
+          titleAutofilled = true;
+        }
+      }
+
       const nextCustomerLabel =
         order.coreCompany.trim() || order.company.trim() || order.contactName.trim() || order.coreEmail.trim() || order.email.trim();
       let parsedCustomerId: number | null = null;
@@ -1008,7 +1048,9 @@ export function ListingEditorPage() {
         // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
       }
 
-      const autofillParts = ["Kunde", "Kontakt", "Adresse"];
+      const autofillParts = titleAutofilled
+        ? ["Titel", "Kunde", "Kontakt", "Adresse"]
+        : ["Kunde", "Kontakt", "Adresse"];
       if (id) {
         try {
           const context = await getGalleryNasContext(id, order.order_no);
@@ -1502,6 +1544,8 @@ export function ListingEditorPage() {
             <EditorDraftField
               syncKey={g.updated_at}
               serverValue={g.title}
+              valueOverride={titleInput}
+              valueOverrideVersion={titleInputVersion}
               draftRef={titleDraftRef}
               inputId="gal-edit-title"
               placeholder="z. B. EFH mit Ausblick"

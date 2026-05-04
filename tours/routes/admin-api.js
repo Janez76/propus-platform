@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { pool } = require('../lib/db');
 const magicBytes = require('../lib/magic-bytes');
+const { translateObjectType } = require('../lib/object-types');
 
 /**
  * Validiert nach multer.single() dass der Buffer wirklich CSV oder XML ist
@@ -3022,7 +3023,7 @@ router.get('/link-matterport/booking-search', async (req, res) => {
     let rows;
     if (isNumeric) {
       const r = await pool.query(
-        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.created_at
+        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.object, o.created_at
          FROM booking.orders o
          WHERE o.order_no = $1
          ORDER BY o.created_at DESC
@@ -3033,7 +3034,7 @@ router.get('/link-matterport/booking-search', async (req, res) => {
     } else {
       const like = `%${q.toLowerCase()}%`;
       const r = await pool.query(
-        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.created_at
+        `SELECT o.id, o.order_no, o.status, o.address, o.billing, o.services, o.schedule, o.object, o.created_at
          FROM booking.orders o
          WHERE LOWER(o.address) LIKE $1
            OR LOWER(COALESCE(o.billing->>'company', '')) LIKE $1
@@ -3086,6 +3087,7 @@ router.get('/link-matterport/booking-search', async (req, res) => {
     const orders = rows.map((r) => {
       const billingEmail = (r.billing?.email || '').toLowerCase();
       const cust = coreCustomerByEmail.get(billingEmail) || null;
+      const objectType = r.object?.type || null;
       return {
         id: r.id,
         order_no: r.order_no,
@@ -3100,6 +3102,8 @@ router.get('/link-matterport/booking-search', async (req, res) => {
         contactPhone: r.billing?.phone || '',
         date: r.schedule?.date || null,
         created_at: r.created_at,
+        objectType: objectType,
+        objectTypeLabel: translateObjectType(objectType),
         coreCustomerId: cust ? String(cust.id) : null,
         coreCompany: cust ? (cust.company || cust.name || '') : '',
         coreEmail: cust ? (cust.email || '') : '',

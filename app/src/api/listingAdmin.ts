@@ -182,6 +182,15 @@ export function adminGalleryImageUrl(galleryId: string, imageId: string) {
   return `${BASE}/${galleryId}/images/${imageId}/file`;
 }
 
+/** Server-seitig erzeugtes JPG-Thumbnail (mit Disk-Cache) für den Editor-Grid. */
+export function adminGalleryImageThumbUrl(
+  galleryId: string,
+  imageId: string,
+  width: 200 | 400 | 600 = 400,
+) {
+  return `${BASE}/${galleryId}/images/${imageId}/thumb?w=${width}`;
+}
+
 export function adminGalleryFloorPlanUrl(galleryId: string, index: number) {
   return `${BASE}/${galleryId}/floorplans/${index}/file`;
 }
