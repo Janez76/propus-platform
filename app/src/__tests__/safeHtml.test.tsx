@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeHtml } from "@/components/SafeHtml";
+import { render } from "@testing-library/react";
+import { sanitizeHtml, SafeHtml } from "@/components/SafeHtml";
 
 describe("sanitizeHtml", () => {
   describe("variant: ui (default)", () => {
@@ -69,6 +70,43 @@ describe("sanitizeHtml", () => {
     it("preserves typical RichTextEditor TextAlign output", () => {
       const out = sanitizeHtml('<p style="text-align: right">aligned</p>', "mail_styled");
       expect(out).toContain("text-align: right");
+    });
+  });
+
+  describe("class attribute (CodeRabbit Major #265)", () => {
+    it("strips class to prevent utility-class clickjacking bypass (mail_styled)", () => {
+      const out = sanitizeHtml('<div class="fixed top-0 inset-0 z-50">overlay</div>', "mail_styled");
+      expect(out).not.toContain("class");
+      expect(out).not.toContain("fixed");
+    });
+    it("strips class in mail variant too", () => {
+      const out = sanitizeHtml('<span class="bg-red-500 fixed">x</span>', "mail");
+      expect(out).not.toContain("class");
+    });
+  });
+
+  describe("wrapper tag (CodeRabbit Major #265)", () => {
+    it("forces div wrapper for variant=mail even when as='p' is requested", () => {
+      const { container } = render(
+        <SafeHtml html="<div>block</div>" variant="mail" as="p" />,
+      );
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+    });
+    it("forces div wrapper for variant=mail_styled", () => {
+      const { container } = render(
+        <SafeHtml html="<div>block</div>" variant="mail_styled" as="p" />,
+      );
+      expect(container.firstElementChild?.tagName).toBe("DIV");
+    });
+    it("respects `as` prop for variant=ui", () => {
+      const { container } = render(
+        <SafeHtml html="<b>x</b>" variant="ui" as="p" />,
+      );
+      expect(container.firstElementChild?.tagName).toBe("P");
+    });
+    it("defaults to span wrapper for variant=ui", () => {
+      const { container } = render(<SafeHtml html="<b>x</b>" />);
+      expect(container.firstElementChild?.tagName).toBe("SPAN");
     });
   });
 

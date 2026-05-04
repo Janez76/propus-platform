@@ -42,7 +42,11 @@ interface SafeHtmlProps {
    *   Mail-Vorschauen — Codex P2 #265).
    */
   variant?: SafeHtmlVariant;
-  /** HTML-Element-Type für den Wrapper (default `div` für mail, `span` für ui). */
+  /**
+   * Wrapper-Tag. Wirkt nur fuer variant="ui" (default: `span`).
+   * mail/mail_styled erzwingen `div` damit Block-Elemente im sanitisierten
+   * HTML keinen invalid <p>-Nesting-Reparent ausloesen.
+   */
   as?: WrapperTag;
   className?: string;
 }
@@ -54,8 +58,14 @@ const MAIL_TAGS = [
   "thead", "tr", "u", "ul",
 ];
 
+// `class` ist NICHT in der Allowlist — sonst koennten utility-Klassen
+// (z.B. Tailwind: `class="fixed top-0 inset-0 bg-red-500"`) den
+// SAFE_CSS_PROPS-Filter komplett umgehen und Clickjacking ueber Stylesheet
+// statt inline-style erzeugen (CodeRabbit Major #265). Wenn editor-
+// spezifische Klassen mal benoetigt werden, hier eine schmale Allowlist
+// einfuehren statt "class" pauschal zuzulassen.
 const MAIL_BASE_ATTRS = [
-  "href", "src", "alt", "title", "class", "width", "height",
+  "href", "src", "alt", "title", "width", "height",
   "colspan", "rowspan", "align",
 ];
 
@@ -168,7 +178,13 @@ export function SafeHtml({ html, variant = "ui", as, className }: SafeHtmlProps)
   // bereits gerenderte Mail-Body bei jedem Keystroke neu sanitisiert
   // (Codex P2: spuerbarer UI-Lag bei langen Threads).
   const safe = useMemo(() => sanitize(html ?? "", variant), [html, variant]);
-  const Tag: WrapperTag = as ?? (variant === "mail" ? "div" : "span");
+  // Wrapper-Tag: ui kann frei waehlen (default span), mail-Varianten
+  // werden hart auf `div` normalisiert — sonst entsteht invalides
+  // <p>-Nesting wenn das sanitisierte HTML Block-Elemente
+  // (div/ul/table) enthaelt; Browser repariert das per Reparenting,
+  // was Layout- und Hydration-Glitches ausloest (CodeRabbit Major #265).
+  const Tag: WrapperTag =
+    variant === "ui" ? (as ?? "span") : "div";
   if (Tag === "div") {
     return <div className={className} dangerouslySetInnerHTML={{ __html: safe }} />;
   }
