@@ -15,7 +15,15 @@ COPY core ./core
 # OpenAPI-Spec wird zur Laufzeit von booking/docs-routes.js (/api/docs) gelesen.
 COPY docs/openapi ./docs/openapi
 
+# Non-root user (Bug-Hunt T12 HIGH). Container darf bei Compromise nicht
+# als root am Mount-Volume schreiben oder /etc anpassen.
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 booking \
+    && chown -R booking:nodejs /app
+
 WORKDIR /app/booking
+
+USER booking
 
 EXPOSE 3000
 
