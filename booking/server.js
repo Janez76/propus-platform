@@ -155,7 +155,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
-const { authLimiter, confirmTokenLimiter, bookingLimiter } = require("./rate-limiters");
+const { authLimiter, confirmTokenLimiter, passwordResetLimiter, bookingLimiter } = require("./rate-limiters");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
 const geocoder = require("./geocoder");
@@ -3377,19 +3377,24 @@ app.post("/api/customer/logout", requireCustomer, async (req, res) => {
   }
 });
 
-app.get("/api/customer/verify-email", (_req, res) => {
+// Customer-Auth-Stubs ohne Implementierung — alle 501.
+// Trotzdem mit Rate-Limit vorgehaengt, damit (a) ein DoS via Massen-Aufrufe
+// dieser Endpoints abgewehrt wird und (b) eine spaetere Re-Aktivierung der
+// Implementation Mail-Bombing / Account-Enumeration nicht out-of-the-box
+// erlaubt — das Rate-Limit ist dann schon da (Bug-Hunt T14 HIGH).
+app.get("/api/customer/verify-email", confirmTokenLimiter, (_req, res) => {
   res.status(501).json({ error: "E-Mail-Verifizierung nicht aktiviert." });
 });
-app.post("/api/customer/email-status", (_req, res) => {
+app.post("/api/customer/email-status", passwordResetLimiter, (_req, res) => {
   res.status(501).json({ error: "Nicht verfuegbar." });
 });
-app.post("/api/customer/resend-verification", (_req, res) => {
+app.post("/api/customer/resend-verification", passwordResetLimiter, (_req, res) => {
   res.status(501).json({ error: "Nicht verfuegbar." });
 });
-app.post("/api/customer/forgot-password", (_req, res) => {
+app.post("/api/customer/forgot-password", passwordResetLimiter, (_req, res) => {
   res.status(501).json({ error: "Passwort-Reset noch nicht angebunden." });
 });
-app.post("/api/customer/reset-password", (_req, res) => {
+app.post("/api/customer/reset-password", confirmTokenLimiter, (_req, res) => {
   res.status(501).json({ error: "Passwort-Reset noch nicht angebunden." });
 });
 
