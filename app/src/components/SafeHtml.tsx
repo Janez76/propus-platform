@@ -52,8 +52,14 @@ const PROFILES: Record<SafeHtmlVariant, DOMPurifyConfig> = {
       "span", "strong", "sub", "sup", "table", "tbody", "td", "tfoot", "th",
       "thead", "tr", "u", "ul",
     ],
+    // `style` bewusst NICHT in der Allowlist: DOMPurify warnt vor CSS-/HTTP-
+    // Leak-Vektoren via inline-styles (z.B. background-image:url(...) als
+    // Tracking-Pixel, position-tricks fuer click-jacking). Wenn Mail-Layouts
+    // auffallen weil sie ohne styles unschoener wirken — Allowlist hier um
+    // konkrete Properties (color, font-weight, text-align) erweitern, NICHT
+    // pauschal style zulassen.
     ALLOWED_ATTR: [
-      "href", "src", "alt", "title", "class", "style", "width", "height",
+      "href", "src", "alt", "title", "class", "width", "height",
       "colspan", "rowspan", "align",
     ],
     ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:|data:image\/(?:png|jpeg|gif|webp);base64,)/i,
