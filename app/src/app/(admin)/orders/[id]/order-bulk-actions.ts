@@ -28,10 +28,13 @@ export type { BulkSaveInput, BulkSaveResult, BulkStep } from "./order-bulk-types
 export async function saveOrderAllSections(input: BulkSaveInput): Promise<BulkSaveResult> {
   await requireOrderEditor();
   const successfulSteps: BulkStep[] = [];
-  const n = String(input.orderNo);
-  if (!n) {
+  // String(input.orderNo) ist immer truthy (z.B. "undefined", "NaN") — der
+  // bisherige `if (!n)`-Check war effektiv dead code (Bug-Hunt T02 MEDIUM).
+  // Strikte Number.isInteger-Pruefung greift Tippfehler/Manipulationen ab.
+  if (!Number.isInteger(input.orderNo) || input.orderNo <= 0) {
     return { ok: false, step: "exception", error: "Ungültige Bestellnummer", successfulSteps };
   }
+  const n = String(input.orderNo);
 
   const postCommit = new PostCommitQueue();
   // Sub-Action-Fehler werden hier abgelegt, damit der Caller nach dem

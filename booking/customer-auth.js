@@ -24,11 +24,17 @@ async function scryptAsync(password, salt, keylen) {
  * Mindestlaenge 12 + mindestens 2 Zeichenklassen (Lowercase/Uppercase/
  * Digit/Symbol). 8 Zeichen waren NIST-Empfehlung von 2017 — heute
  * Brute-Force-fest erst ab 12+ mit Klassen.
+ *
+ * Wirft mit `err.code = 'PASSWORD_POLICY'` damit Routes den Fall vom
+ * generischen Internal-Error unterscheiden und 400 statt 500 antworten
+ * koennen (Codex P2 #272).
  */
 function validatePasswordPolicy(password) {
   const pw = String(password || "");
   if (pw.length < 12) {
-    throw new Error("Passwort muss mindestens 12 Zeichen lang sein");
+    const err = new Error("Passwort muss mindestens 12 Zeichen lang sein");
+    err.code = "PASSWORD_POLICY";
+    throw err;
   }
   let classes = 0;
   if (/[a-z]/.test(pw)) classes++;
@@ -36,7 +42,9 @@ function validatePasswordPolicy(password) {
   if (/\d/.test(pw)) classes++;
   if (/[^A-Za-z0-9]/.test(pw)) classes++;
   if (classes < 2) {
-    throw new Error("Passwort muss mindestens zwei Zeichen-Klassen enthalten (Gross/Klein, Ziffer, Sonderzeichen)");
+    const err = new Error("Passwort muss mindestens zwei Zeichen-Klassen enthalten (Gross/Klein, Ziffer, Sonderzeichen)");
+    err.code = "PASSWORD_POLICY";
+    throw err;
   }
 }
 

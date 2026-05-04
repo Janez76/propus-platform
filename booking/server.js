@@ -2937,8 +2937,16 @@ app.post("/api/admin/first-setup", async (req, res) => {
     const pw = String(password || process.env.ADMIN_PASS || "").trim();
     const rl = String(role || process.env.ADMIN_ROLE || "super_admin").trim();
 
-    if (!pw || pw.length < 8) {
-      return res.status(400).json({ error: "Passwort muss mindestens 8 Zeichen haben" });
+    if (!pw) {
+      return res.status(400).json({ error: "Passwort ist erforderlich" });
+    }
+    try {
+      customerAuth.validatePasswordPolicy(pw);
+    } catch (e) {
+      if (e?.code === "PASSWORD_POLICY") {
+        return res.status(400).json({ error: e.message });
+      }
+      throw e;
     }
 
     const hash = await customerAuth.hashPassword(pw);
@@ -9915,8 +9923,13 @@ app.post("/api/admin/me/change-password", requireAdmin, async (req, res) => {
     if (!oldPassword || !newPassword) {
       return res.status(400).json({ error: "Altes und neues Passwort sind erforderlich." });
     }
-    if (newPassword.length < 10) {
-      return res.status(400).json({ error: "Neues Passwort zu kurz (min. 10 Zeichen)." });
+    try {
+      customerAuth.validatePasswordPolicy(newPassword);
+    } catch (e) {
+      if (e?.code === "PASSWORD_POLICY") {
+        return res.status(400).json({ error: e.message });
+      }
+      throw e;
     }
     if (!adminUser.password_hash) {
       return res.status(400).json({ error: "Kein Passwort hinterlegt. Bitte wende dich an einen Administrator." });
@@ -9932,6 +9945,9 @@ app.post("/api/admin/me/change-password", requireAdmin, async (req, res) => {
     );
     return res.json({ ok: true });
   } catch (err) {
+    if (err?.code === "PASSWORD_POLICY") {
+      return res.status(400).json({ error: err.message });
+    }
     return res.status(500).json({ error: err?.message || "Passwort konnte nicht geaendert werden." });
   }
 });
@@ -12217,7 +12233,12 @@ app.patch("/api/admin/internal-users/:id/roles", requireAdmin, async (req, res) 
 app.post("/api/admin/internal-users", requireAdmin, async (req, res) => {
   const { name, email, username, password, roles = ['photographer'] } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
-  if (String(password).length < 8) return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
+  try {
+    customerAuth.validatePasswordPolicy(String(password));
+  } catch (e) {
+    if (e?.code === "PASSWORD_POLICY") return res.status(400).json({ error: e.message });
+    throw e;
+  }
   try {
     const passwordHash = await customerAuth.hashPassword(String(password));
     const allowed = (roles || []).filter(r => INTERNAL_ROLES.includes(r));
@@ -12270,8 +12291,14 @@ app.patch("/api/admin/internal-users/:id/suspend", requireAdmin, async (req, res
 app.post("/api/admin/internal-users/:id/reset-password", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const { password, sendMail = false } = req.body || {};
-  if (!password || String(password).length < 8) {
-    return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben' });
+  if (!password) {
+    return res.status(400).json({ error: 'Passwort ist erforderlich' });
+  }
+  try {
+    customerAuth.validatePasswordPolicy(String(password));
+  } catch (e) {
+    if (e?.code === "PASSWORD_POLICY") return res.status(400).json({ error: e.message });
+    throw e;
   }
   try {
     const passwordHash = await customerAuth.hashPassword(String(password));
@@ -12894,8 +12921,14 @@ app.post("/api/admin/photographers/:key/set-password", requireAdmin, async (req,
     const p = db.getPool ? db.getPool() : null;
     if (!p) return res.status(503).json({ error: "DB nicht verf\u00fcgbar" });
     const { newPassword } = req.body || {};
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: "Passwort muss mindestens 8 Zeichen haben" });
+    if (!newPassword) {
+      return res.status(400).json({ error: "Passwort ist erforderlich" });
+    }
+    try {
+      customerAuth.validatePasswordPolicy(newPassword);
+    } catch (e) {
+      if (e?.code === "PASSWORD_POLICY") return res.status(400).json({ error: e.message });
+      throw e;
     }
     const key = String(req.params.key || "").toLowerCase();
     const hash = await customerAuth.hashPassword(newPassword);
