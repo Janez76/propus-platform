@@ -23,23 +23,12 @@ const { pool } = require('../lib/db');
  * nicht durch ein einziges falsch eingegebenes Passwort eines Mitarbeiters
  * gesperrt wird. `standardHeaders: true` setzt RateLimit-* Response-Header.
  *
- * IPv6-Schluessel werden auf /64-Subnetz normalisiert, damit ein Angreifer
- * nicht durch Address-Rotation innerhalb seines delegierten Pools die
- * Limits umgeht (Codex P1 #258).
+ * IPv6-Schluessel werden auf /64-Subnetz normalisiert (`normalizeIpKey`
+ * expandiert `::` korrekt — siehe core/lib/ip-normalize.js), damit
+ * Angreifer mit delegiertem v6-Pool die Limits nicht durch Adress-
+ * Rotation umgehen (Codex P1 + P1-Folgefinding #258).
  */
-function normalizeIpKey(ip) {
-  const raw = String(ip || '').trim();
-  if (!raw) return 'unknown';
-  // IPv4-mapped IPv6 (::ffff:1.2.3.4) → IPv4 verwenden
-  const v4Mapped = raw.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (v4Mapped) return v4Mapped[1];
-  // IPv6 → erste 4 Hextets (= /64) als Bucket
-  if (raw.includes(':') && !raw.includes('.')) {
-    const hextets = raw.split(':').filter(Boolean).slice(0, 4);
-    return hextets.join(':') + '::/64';
-  }
-  return raw;
-}
+const { normalizeIpKey } = require('../../core/lib/ip-normalize');
 
 const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,

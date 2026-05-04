@@ -94,12 +94,16 @@ const { markDiscountUsed, validateDiscountCode } = require("./discount-codes");
  * ein generelles Rate-Limit auf den Endpoint die normalen Buchungs-Flows
  * stoeren wuerde.
  */
+const { normalizeIpKey: _normalizeIpKey } = require("../core/lib/ip-normalize");
 const _discountRateBuckets = new Map();
 const DISCOUNT_RATE_WINDOW_MS = 60_000;
 const DISCOUNT_RATE_MAX = 30;
 function discountRateAllow(ip) {
   const now = Date.now();
-  const key = String(ip || "unknown");
+  // IPv6 wird auf /64-Subnetz gebucketed, sonst kann ein Angreifer mit
+  // delegiertem v6-Pool den 30/min-Cap durch Adress-Rotation umgehen
+  // (Codex P2 #258).
+  const key = _normalizeIpKey(ip);
   const bucket = _discountRateBuckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
     _discountRateBuckets.set(key, { count: 1, resetAt: now + DISCOUNT_RATE_WINDOW_MS });
