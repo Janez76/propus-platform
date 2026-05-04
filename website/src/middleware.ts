@@ -3,6 +3,57 @@ import { ADMIN_COOKIE, verifySessionToken } from './lib/cms/auth';
 import { loadSeoRouteMapCached } from './lib/seo';
 import { normalizeSeoPath } from './lib/seo-config';
 
+/**
+ * Allow-Liste fuer CSRF-Origin-Checks. Astros eingebauter `checkOrigin`
+ * vergleicht Origin gegen den internen Host (localhost:4343 hinter dem
+ * Reverse-Proxy) — daher in astro.config.mjs deaktiviert. Die Pruefung
+ * laeuft hier mit der oeffentlichen Origin als Quelle der Wahrheit
+ * (Bug-Hunt T10 HIGH).
+ *
+ * Konfiguration via env `CSRF_ALLOWED_ORIGINS` (komma-separiert) oder
+ * Fallback auf den `site`-Wert in astro.config.mjs.
+ */
+function buildCsrfAllowedOrigins(): Set<string> {
+  const set = new Set<string>();
+  const envList = String(process.env.CSRF_ALLOWED_ORIGINS || '').trim();
+  if (envList) {
+    for (const o of envList.split(',')) {
+      const trimmed = o.trim().replace(/\/$/, '');
+      if (trimmed) set.add(trimmed);
+    }
+  }
+  // Default: Production-Site
+  set.add('https://www.propus.ch');
+  // Dev-Convenience (nur wenn explizit per env aktiviert)
+  if (String(process.env.CSRF_ALLOW_LOCALHOST || '').toLowerCase() === 'true') {
+    set.add('http://localhost:4343');
+    set.add('http://127.0.0.1:4343');
+  }
+  return set;
+}
+
+const CSRF_ALLOWED_ORIGINS = buildCsrfAllowedOrigins();
+
+const CSRF_PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function isCsrfBypassPath(pathname: string): boolean {
+  // Webhooks (signed by sender) duerfen nicht durch Origin-Check fallen.
+  return pathname.startsWith('/api/webhook/');
+}
+
+function checkCsrfOrigin(request: Request, url: URL): boolean {
+  if (!CSRF_PROTECTED_METHODS.has(request.method)) return true;
+  if (isCsrfBypassPath(url.pathname)) return true;
+
+  const origin = request.headers.get('origin') || '';
+  // Same-origin POSTs ohne Origin (sehr alte Browser, manche Curl-Calls)
+  // lehnen wir ab — ein moderner Browser sendet Origin auf jedem
+  // state-changing Request.
+  if (!origin) return false;
+  const normalized = origin.replace(/\/$/, '');
+  return CSRF_ALLOWED_ORIGINS.has(normalized);
+}
+
 function isAdminLoginPath(pathname: string): boolean {
 	return pathname === '/admin/login' || pathname === '/admin/login/';
 }
@@ -50,6 +101,16 @@ function wordpressLegacyRedirect(url: URL): string | null {
 
 export const onRequest = defineMiddleware(async (context, next) => {
 	const path = context.url.pathname;
+
+	// 0) CSRF-Origin-Check fuer state-changing Methoden. Ersatz fuer
+	//    Astros eingebauten `security.checkOrigin`, der hinter dem
+	//    Reverse-Proxy nicht greift (Bug-Hunt T10 HIGH).
+	if (!checkCsrfOrigin(context.request, context.url)) {
+		return new Response(JSON.stringify({ error: 'CSRF-Origin-Pruefung fehlgeschlagen' }), {
+			status: 403,
+			headers: { 'Content-Type': 'application/json; charset=utf-8' },
+		});
+	}
 
 	// 1) Legacy-WordPress-Redirects zuerst — laufen auch auf Admin-Paths
 	//    nicht los, weil sie anhand der alten URL-Struktur filtern.

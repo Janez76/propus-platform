@@ -17,10 +17,12 @@ export default defineConfig({
 	output: 'server',
 	adapter: node({ mode: 'standalone' }),
 	security: {
-		// Astro laeuft hinter einem Reverse-Proxy (Nginx). Der Origin-Header
-		// kommt als https://www.propus.ch an, der interne Server kennt aber nur
-		// http://localhost:4343 → CSRF-Pruefung schlaegt fehl. Auth erfolgt
-		// ueber signierte Session-Cookies in der Middleware.
+		// Astros eingebauter checkOrigin vergleicht Origin gegen den
+		// INTERNEN Request-Host (hinter dem Reverse-Proxy = localhost:4343)
+		// und schlaegt deshalb fehl. CSRF-Schutz laeuft daher in der
+		// Middleware (src/middleware.ts -> checkCsrfOrigin), die gegen
+		// eine konfigurierbare Allow-Liste oeffentlicher Origins prueft
+		// (Bug-Hunt T10 HIGH, env CSRF_ALLOWED_ORIGINS).
 		checkOrigin: false,
 	},
 	/* Fester Port: weniger Konflikte mit anderem Dev-Server, Cookies immer für dieselbe Origin */
