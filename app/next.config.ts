@@ -43,6 +43,15 @@ const nextConfig: NextConfig = {
           source: "/api/admin/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/api/admin/:path*`,
         },
+        // Tour-Manager + Listing-Galerie (u. a. Thumbnail-GETs für NAS-Bilder)
+        {
+          source: "/api/tours",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours`,
+        },
+        {
+          source: "/api/tours/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/:path*`,
+        },
         // Swagger UI + OpenAPI-Spec (booking/docs-routes.js).
         // /api/docs allein muss separat gelistet werden, sonst greift der
         // /:path*-Eintrag nicht (path ist hier optional/leer).
