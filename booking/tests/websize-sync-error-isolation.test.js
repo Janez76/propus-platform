@@ -25,6 +25,11 @@ Module._load = function (request, ...rest) {
 
 const { runWebsizeSync } = require("../jobs/websize-sync");
 
+// Loader sofort wieder restoren — der Stub wird nur fuers initiale require
+// gebraucht und darf nicht in andere Tests im selben Prozess leaken
+// (CodeRabbit Minor #269).
+Module._load = origLoad;
+
 /**
  * Bug-Hunt T09: ein einzelner Folder-Fehler (Permissions, broken Symlink,
  * verschwundener Mount) darf nicht den gesamten Batch killen. Diese Tests
@@ -63,9 +68,16 @@ test("runWebsizeSync verarbeitet weiter wenn einzelner Folder fehlerhaft ist", a
   const broken = path.join(tmp, "broken");
   fs.mkdirSync(path.join(broken, "Finale", "Bilder", "FULLSIZE"), { recursive: true });
   const brokenFullsize = path.join(broken, "Finale", "Bilder", "FULLSIZE");
+  const ok2Fullsize = path.join(ok2, "Finale", "Bilder", "FULLSIZE");
 
+  // Direktes Traversal-Tracking statt Indirektion ueber Logs: wenn der
+  // perFolder-Wrapper sauber isoliert, wird ok2's FULLSIZE-Dir auch nach
+  // dem broken-Throw noch via listFilesRecursive() gelesen (CodeRabbit
+  // Nitpick #269).
+  let sawOk2Traversal = false;
   const origReaddirSync = fs.readdirSync;
   fs.readdirSync = (p, opts) => {
+    if (p === ok2Fullsize) sawOk2Traversal = true;
     if (p === brokenFullsize) {
       const err = new Error("EACCES: permission denied (test stub)");
       err.code = "EACCES";
@@ -87,10 +99,9 @@ test("runWebsizeSync verarbeitet weiter wenn einzelner Folder fehlerhaft ist", a
     // Fehler isoliert + ctx.error geloggt; ok2 kommt dran.
     await runWebsizeSync(deps, ctx);
 
-    // Wir koennen "ok2 wurde verarbeitet" ueber den ctx.error-Log
-    // verifizieren: der Fehler-Log fuer den broken Folder muss da sein.
     const sawBrokenError = ctx._errors.some((line) => /broken|EACCES/i.test(line));
     assert.equal(sawBrokenError, true, "Per-folder-Fehler muss geloggt sein");
+    assert.equal(sawOk2Traversal, true, "Spaeterer Folder muss trotz Fehler weiter verarbeitet werden");
   } finally {
     fs.readdirSync = origReaddirSync;
     fs.rmSync(tmp, { recursive: true, force: true });
