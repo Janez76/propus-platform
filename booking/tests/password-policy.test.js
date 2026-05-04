@@ -27,3 +27,11 @@ test("validatePasswordPolicy: behandelt null/undefined sauber", () => {
   assert.throws(() => validatePasswordPolicy(undefined), /mindestens 12 Zeichen/);
   assert.throws(() => validatePasswordPolicy(""), /mindestens 12 Zeichen/);
 });
+
+test("validatePasswordPolicy: setzt err.code='PASSWORD_POLICY' (Codex P2 #272)", () => {
+  // Routes verlassen sich auf den Code um 4xx vs 5xx zu unterscheiden.
+  try { validatePasswordPolicy("short"); assert.fail("expected throw"); }
+  catch (e) { assert.equal(e.code, "PASSWORD_POLICY"); }
+  try { validatePasswordPolicy("aaaaaaaaaaaa"); assert.fail("expected throw"); }
+  catch (e) { assert.equal(e.code, "PASSWORD_POLICY"); }
+});
