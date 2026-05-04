@@ -7,17 +7,18 @@
  * rotiert. Wir bucketn IPv6 daher auf das /64-Subnetz — das ist die
  * kleinste sinnvolle Einheit fuer Endgeraete-Identitaet.
  *
- * Hintergrund: Codex P1 #258. Vorgaengerversion benutzte
- * `raw.split(':').filter(Boolean).slice(0, 4)` und brach an komprimierten
- * IPv6-Formen (`::` -> "" wird durch filter(Boolean) gestrippt) — siehe
- * Codex P1 Folgekommentar. Diese Implementierung expandiert `::` korrekt.
+ * Hintergrund: Codex P1 #258 (compressed `::`-Form), CodeRabbit Major #258
+ * (Validierung gegen malformed Input).
  */
 
 'use strict';
 
+const net = require('net');
+
 /**
  * @param {string|undefined|null} ip
- * @returns {string} Stabiler Bucket-Schluessel fuer die uebergebene IP.
+ * @returns {string} Stabiler Bucket-Schluessel oder `'unknown'` bei
+ *   ungueltiger/leerer Eingabe.
  */
 function normalizeIpKey(ip) {
   const raw = String(ip || '').trim();
@@ -26,18 +27,27 @@ function normalizeIpKey(ip) {
   // Zone-ID abschneiden ("fe80::1%eth0")
   const noZone = raw.split('%')[0];
 
-  // IPv4-mapped IPv6 (z. B. "::ffff:1.2.3.4") -> als IPv4 behandeln
+  // IPv4-mapped IPv6 (z. B. "::ffff:1.2.3.4") -> als IPv4 behandeln,
+  // aber nur wenn die eingebettete v4 wirklich gueltig ist.
   const v4Mapped = noZone.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
-  if (v4Mapped) return v4Mapped[1];
+  if (v4Mapped) {
+    return net.isIPv4(v4Mapped[1]) ? v4Mapped[1] : 'unknown';
+  }
 
-  // Plain IPv4 -> unveraendert
-  if (!noZone.includes(':')) return noZone;
+  // Strikte Validierung: net.isIP gibt 0 fuer ungueltig, 4 fuer IPv4,
+  // 6 fuer IPv6 zurueck.
+  const kind = net.isIP(noZone);
+  if (kind === 0) return 'unknown';
+  if (kind === 4) return noZone;
 
   // IPv6: `::` -> 8 Hextets expandieren
   const lower = noZone.toLowerCase();
   const dblIdx = lower.indexOf('::');
   let hextets;
   if (dblIdx >= 0) {
+    // Mehr als ein `::` ist ungueltig (net.isIP fangt das eigentlich
+    // schon ab; defensiv trotzdem pruefen).
+    if (lower.indexOf('::', dblIdx + 1) >= 0) return 'unknown';
     const leftStr = lower.slice(0, dblIdx);
     const rightStr = lower.slice(dblIdx + 2);
     const left = leftStr ? leftStr.split(':') : [];
@@ -48,9 +58,14 @@ function normalizeIpKey(ip) {
     hextets = lower.split(':');
   }
 
-  // Erste 4 Hextets = /64-Bucket; Hextets ohne fuehrende Nullen normieren,
+  // Defensive Post-Validierung: nach der Expansion muessen es genau 8
+  // Hextets sein, jeder im Hex-Bereich.
+  if (hextets.length !== 8) return 'unknown';
+  if (!hextets.every((h) => /^[0-9a-f]{1,4}$/.test(h))) return 'unknown';
+
+  // Erste 4 Hextets = /64-Bucket; ohne fuehrende Nullen normieren,
   // damit "2001:0db8::" und "2001:db8::" denselben Key liefern.
-  const bucket = hextets.slice(0, 4).map((h) => (h || '0').replace(/^0+(?=.)/, ''));
+  const bucket = hextets.slice(0, 4).map((h) => h.replace(/^0+(?=.)/, ''));
   return bucket.join(':') + '::/64';
 }
 
