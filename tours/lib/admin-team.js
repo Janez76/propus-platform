@@ -260,6 +260,50 @@ async function setAdminUserActive(email, isActive) {
   return result.rowCount > 0;
 }
 
+/**
+ * Revoked alle Remember-Tokens und loescht alle aktiven Express-Sessions
+ * fuer die uebergebenen Admin-E-Mails. Wird nach E-Mail- oder Passwort-
+ * Wechsel aufgerufen, damit kompromittierte/alte Credentials nicht weiter
+ * gueltig bleiben (Bug-Hunt T13 MEDIUM).
+ *
+ * Best-effort: einzelne SQL-Fehler werden geloggt, aber nicht propagiert,
+ * damit der Update selbst nicht zurueckgerollt wird.
+ */
+async function invalidateAdminAuthArtifacts(emails) {
+  const norm = Array.from(
+    new Set(
+      (Array.isArray(emails) ? emails : [emails])
+        .map((e) => normalizeEmail(e))
+        .filter(Boolean)
+    )
+  );
+  if (norm.length === 0) return;
+
+  await pool
+    .query(
+      `UPDATE tour_manager.admin_remember_tokens
+         SET revoked_at = NOW()
+       WHERE revoked_at IS NULL
+         AND LOWER(email) = ANY($1::text[])`,
+      [norm]
+    )
+    .catch((err) => {
+      console.warn('[admin-team] remember-token revoke failed', err?.message || err);
+    });
+
+  // Session-Store ist core.tours_sessions; Identitaet steckt im JSONB-Feld
+  // unter sess->'admin'->>'email' oder dem Legacy-Feld sess->>'adminEmail'.
+  await pool
+    .query(
+      `DELETE FROM core.tours_sessions
+       WHERE LOWER(COALESCE(sess->'admin'->>'email', sess->>'adminEmail', '')) = ANY($1::text[])`,
+      [norm]
+    )
+    .catch((err) => {
+      console.warn('[admin-team] session delete failed', err?.message || err);
+    });
+}
+
 async function updateAdminUserById(id, { email, name, password }) {
   await ensureAdminTeamSchema();
   const userId = parseInt(String(id), 10);
@@ -305,6 +349,16 @@ async function updateAdminUserById(id, { email, name, password }) {
        WHERE id = $1`,
       [userId, emailNorm, fullName, passwordHash]
     );
+
+    // E-Mail- oder Passwort-Wechsel macht alle alten Auth-Artefakte
+    // (Remember-Cookies, aktive Sessions) ungueltig. Bei reinem Namens-
+    // Update bleibt die Login-Identitaet unveraendert.
+    const emailChanged = emailNorm !== existingEmailNorm;
+    if (emailChanged || passwordHash) {
+      const targets = emailChanged ? [existingEmailNorm, emailNorm] : [existingEmailNorm];
+      await invalidateAdminAuthArtifacts(targets);
+    }
+
     return { ok: true, email: emailNorm, previousEmail: existingEmailNorm };
   } catch (err) {
     if (err?.code === '23505') {
