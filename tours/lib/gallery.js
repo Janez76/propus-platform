@@ -111,24 +111,43 @@ function dedupeByBasenamePreferWebsize(hrefs) {
 }
 
 /**
- * Dedupliziert Galerie-Image-Rows anhand des Basenames (Dateiname ohne Pfad).
- * Wenn websize- UND fullsize-Variante desselben Bildes in der DB liegen,
- * gewinnt die websize-Variante; fullsize-Eintrag wird ausgeblendet.
+ * Größen-Ordnernamen (FULLSIZE / WEB SIZE / Websize / Originals / Previews ...)
+ * im Pfad zu einem Platzhalter normalisieren. Dadurch ergeben Fullsize- und
+ * Websize-Varianten desselben Bildes denselben Pfad-Schlüssel — auch wenn
+ * der Dateiname identisch ist, aber nur der Ordner unterscheidet.
+ */
+function normalizeGallerySizeFolderInPath(rawPath) {
+  if (rawPath == null) return '';
+  return String(rawPath)
+    .toLowerCase()
+    .replace(/\/(?:web[\s_-]?size|websize|full[\s_-]?size|fullsize|originals?|previews?)(?=\/)/g, '/__size__');
+}
+
+/**
+ * Dedupliziert Galerie-Image-Rows. Strategie:
+ *   1. Pfad lowercased + Größen-Ordnername normalisiert (z. B. `/FULLSIZE/`
+ *      und `/WEB SIZE/` → `/__size__/`). Damit erkennen wir Paare
+ *      auch dann, wenn die Dateinamen identisch sind, aber die Ordner
+ *      unterschiedlich heißen.
+ *   2. Innerhalb einer Gruppe gewinnt die Variante mit dem höchsten
+ *      `pathScoreForGallery`-Score (Websize > Fullsize).
+ *   3. Rows ohne Pfad-Information werden über die ID eindeutig gehalten,
+ *      damit sie nicht zusammengefasst werden.
  * Die Originalreihenfolge bleibt erhalten.
  */
 function dedupeGalleryRowsPreferWebsize(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return rows || [];
-  const bestByBase = new Map();
+  const bestByKey = new Map();
   for (const row of rows) {
-    const pathForScore = row?.source_path || row?.remote_src || '';
-    const base = String(pathForScore).split('/').filter(Boolean).pop() || `__row_${row?.id || Math.random()}`;
-    const key = base.toLowerCase();
-    const current = bestByBase.get(key);
-    if (!current || pathScoreForGallery(pathForScore) > pathScoreForGallery(current.source_path || current.remote_src || '')) {
-      bestByBase.set(key, row);
+    const rawPath = row?.source_path || row?.remote_src || '';
+    const normalized = normalizeGallerySizeFolderInPath(rawPath);
+    const key = normalized || `__row_${row?.id || Math.random()}`;
+    const current = bestByKey.get(key);
+    if (!current || pathScoreForGallery(rawPath) > pathScoreForGallery(current.source_path || current.remote_src || '')) {
+      bestByKey.set(key, row);
     }
   }
-  const keep = new Set([...bestByBase.values()].map((r) => r.id));
+  const keep = new Set([...bestByKey.values()].map((r) => r.id));
   return rows.filter((r) => keep.has(r.id));
 }
 
@@ -536,10 +555,11 @@ async function listGalleries({ search, filter, sort } = {}) {
   if (sort === 'oldest') orderBy = 'ORDER BY g.updated_at ASC';
   else if (sort === 'alphabetical') orderBy = 'ORDER BY g.title ASC';
 
-  // image_count: zählt pro Basename höchstens einmal (deckt sich mit der
-  // Dedupe-Logik im Editor: Websize+Fullsize-Duplikate gelten als ein
-  // Bild). Rows ohne Pfad bekommen über die ID einen eindeutigen Schlüssel,
-  // damit sie nicht zusammengefasst werden.
+  // image_count: zählt pro normalisiertem Pfad höchstens einmal.
+  // Größen-Ordner (FULLSIZE / WEB SIZE / etc.) werden auf einen Platzhalter
+  // gemapped, sodass Duplikate desselben Bildes als eines zählen — analog
+  // zur Editor-Dedupe in dedupeGalleryRowsPreferWebsize. Rows ohne Pfad
+  // bekommen über die ID einen eindeutigen Schlüssel.
   const sql = `
     SELECT g.*,
       COALESCE(ic.cnt, 0)::int AS image_count,
@@ -547,13 +567,18 @@ async function listGalleries({ search, filter, sort } = {}) {
     FROM tour_manager.galleries g
     LEFT JOIN (
       SELECT gallery_id,
-        COUNT(DISTINCT LOWER(
-          COALESCE(
-            NULLIF(SUBSTRING(source_path FROM '[^/]+$'), ''),
-            NULLIF(SUBSTRING(remote_src FROM '[^/]+$'), ''),
-            '__row_' || id::text
+        COUNT(DISTINCT
+          REGEXP_REPLACE(
+            COALESCE(
+              NULLIF(LOWER(source_path), ''),
+              NULLIF(LOWER(remote_src), ''),
+              '__row_' || id::text
+            ),
+            '/(web[ _-]?size|websize|full[ _-]?size|fullsize|originals?|previews?)(?=/)',
+            '/__size__',
+            'g'
           )
-        )) AS cnt
+        ) AS cnt
       FROM tour_manager.gallery_images
       GROUP BY gallery_id
     ) ic ON ic.gallery_id = g.id
