@@ -54,7 +54,7 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || typeof window === "undefined") return;
+    if (!hydrated || loading || typeof window === "undefined") return;
     const persistable = messages.filter((m) => !m.initial && m.content.length > 0);
     try {
       if (persistable.length === 0) window.localStorage.removeItem(STORAGE_KEY);
@@ -62,7 +62,7 @@ export default function ChatPage() {
     } catch {
       // localStorage voll oder gesperrt – stillschweigend ignorieren
     }
-  }, [messages, hydrated]);
+  }, [messages, hydrated, loading]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -164,7 +164,7 @@ export default function ChatPage() {
             Propus Chatbot
           </h1>
           <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            Test-Chatbot — keine Daten werden gespeichert.
+            Test-Chatbot — Verlauf wird lokal im Browser gespeichert (nicht serverseitig).
           </p>
         </header>
 
