@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "Read"
+    ]
+  },
   "extraKnownMarketplaces": {
     "agent-toolkit": {
       "source": {
