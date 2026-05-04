@@ -3,6 +3,7 @@ import { GripVertical } from "lucide-react";
 import { t, type Lang } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { getAdminProfile } from "../../api/profile";
+import { SafeHtml } from "../SafeHtml";
 
 interface HeroGreetingProps {
   shootingsToday: number;
@@ -81,7 +82,10 @@ export function HeroGreeting({
       </button>
       <div className="eye">{formatDateEyebrow(now, lang)}</div>
       <h1>{greeting}, {displayName}.</h1>
-      <p dangerouslySetInnerHTML={{ __html: summary }} />
+      {/* Bug-Hunt T05 HIGH: summary kann via i18n-Templates oder Metric-Werte
+          HTML enthalten — SafeHtml sanitisiert vor dem Rendern (UI-Profil:
+          nur Inline-Formatierung wie <b> <em> <span>). */}
+      <SafeHtml html={summary} variant="ui" as="p" />
       <div className="pds-hero-today">
         <div className="t g">
           <strong>{shootingsToday}</strong>
