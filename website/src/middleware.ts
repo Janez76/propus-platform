@@ -1,4 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
+import { canonicalBase } from './config/seo';
 import { ADMIN_COOKIE, verifySessionToken } from './lib/cms/auth';
 import { loadSeoRouteMapCached } from './lib/seo';
 import { normalizeSeoPath } from './lib/seo-config';
@@ -10,8 +11,9 @@ import { normalizeSeoPath } from './lib/seo-config';
  * laeuft hier mit der oeffentlichen Origin als Quelle der Wahrheit
  * (Bug-Hunt T10 HIGH).
  *
- * Konfiguration via env `CSRF_ALLOWED_ORIGINS` (komma-separiert) oder
- * Fallback auf den `site`-Wert in astro.config.mjs.
+ * Konfiguration via env `CSRF_ALLOWED_ORIGINS` (komma-separiert) +
+ * Default-Fallback aus `canonicalBase` (config/seo.ts) — gleiche Quelle
+ * wie der `site`-Wert in astro.config.mjs.
  */
 function buildCsrfAllowedOrigins(): Set<string> {
   const set = new Set<string>();
@@ -22,8 +24,12 @@ function buildCsrfAllowedOrigins(): Set<string> {
       if (trimmed) set.add(trimmed);
     }
   }
-  // Default: Production-Site
-  set.add('https://www.propus.ch');
+  // Default: Production-Site aus zentraler Quelle
+  try {
+    set.add(new URL(canonicalBase).origin);
+  } catch {
+    /* canonicalBase kaputt → ignorieren, env muss greifen */
+  }
   // Dev-Convenience (nur wenn explizit per env aktiviert)
   if (String(process.env.CSRF_ALLOW_LOCALHOST || '').toLowerCase() === 'true') {
     set.add('http://localhost:4343');
@@ -41,17 +47,27 @@ function isCsrfBypassPath(pathname: string): boolean {
   return pathname.startsWith('/api/webhook/');
 }
 
+function originFromReferer(referer: string | null): string {
+  if (!referer) return '';
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return '';
+  }
+}
+
 function checkCsrfOrigin(request: Request, url: URL): boolean {
   if (!CSRF_PROTECTED_METHODS.has(request.method)) return true;
   if (isCsrfBypassPath(url.pathname)) return true;
 
-  const origin = request.headers.get('origin') || '';
-  // Same-origin POSTs ohne Origin (sehr alte Browser, manche Curl-Calls)
-  // lehnen wir ab — ein moderner Browser sendet Origin auf jedem
-  // state-changing Request.
-  if (!origin) return false;
-  const normalized = origin.replace(/\/$/, '');
-  return CSRF_ALLOWED_ORIGINS.has(normalized);
+  // Origin-Header bevorzugen, Referer als Fallback (manche Browser/Tools
+  // senden keinen Origin auf same-origin Requests; OWASP empfiehlt das
+  // Fallback-Pattern). Beide Quellen muessen aus der CSRF-Allowlist sein.
+  const originHeader = request.headers.get('origin');
+  const refererOrigin = originFromReferer(request.headers.get('referer'));
+  const candidate = (originHeader || refererOrigin || '').replace(/\/$/, '');
+  if (!candidate) return false;
+  return CSRF_ALLOWED_ORIGINS.has(candidate);
 }
 
 function isAdminLoginPath(pathname: string): boolean {
