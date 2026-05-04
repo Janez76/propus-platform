@@ -1097,14 +1097,20 @@ export function ListingEditorPage() {
         if (result.floorPlans > 0) parts.push(`${result.floorPlans} Grundriss(e)`);
         if (result.hasVideo) parts.push("1 Video");
         setNasMsg(`NAS-Import erfolgreich: ${parts.join(", ")}.`);
-        await load();
+        // Nur Bilder/Medien neu laden, Stammdaten-Formularfelder nicht überschreiben
+        const { gallery: row, images: ims, feedback: fb } = await getGallery(id);
+        if (row) {
+          setG(row);
+          setImages(ims);
+          setFeedback(fb);
+        }
       } catch (e) {
         setNasError(e instanceof Error ? e.message : "NAS-Import fehlgeschlagen.");
       } finally {
         setNasImporting(false);
       }
     },
-    [id, load],
+    [id],
   );
 
   /** `/admin/listing/new` → Galerie anlegen und zur echten ID weiterleiten */
