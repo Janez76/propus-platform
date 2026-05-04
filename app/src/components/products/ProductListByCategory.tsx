@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Camera, Copy, GripVertical, Plane, Search, Sparkles } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { SafeHtml } from "../SafeHtml";
 import { updateProduct, type Product } from "../../api/products";
 import type { ServiceCategory } from "../../api/serviceCategories";
 import { updateServiceCategory } from "../../api/serviceCategories";
@@ -464,10 +465,11 @@ function SortableCategorySection({
         </summary>
         <div className="space-y-2 border-t p-2 border-[var(--border-soft)]">
           {readOnly ? (
-            <div
+            <SafeHtml
+              html={descriptionDraft || "—"}
+              variant="mail"
+              as="div"
               className="prose prose-sm max-w-none text-xs text-[var(--text-subtle)]"
-              // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: descriptionDraft || "—" }}
             />
           ) : (
           <RichTextEditor

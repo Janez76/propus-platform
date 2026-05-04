@@ -22,6 +22,7 @@ import {
 } from "../../../api/toursAdmin";
 import { useQuery } from "../../../hooks/useQuery";
 import { toursAdminCleanupCandidatesQueryKey } from "../../../lib/queryKeys";
+import { SafeHtml } from "../../../components/SafeHtml";
 
 function formatDate(v: unknown) {
   if (v == null || v === "") return "—";
@@ -269,9 +270,11 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: number; onClose: () 
           </div>
           <div>
             <p className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide mb-1">Mail-Vorschau (HTML)</p>
-            <div
+            <SafeHtml
+              html={preview.mail.html}
+              variant="mail"
+              as="div"
               className="rounded border border-[var(--border-soft)] overflow-auto max-h-80 bg-white text-xs"
-              dangerouslySetInnerHTML={{ __html: preview.mail.html }}
             />
           </div>
         </div>

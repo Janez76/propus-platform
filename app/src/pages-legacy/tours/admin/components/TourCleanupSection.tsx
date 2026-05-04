@@ -7,6 +7,7 @@ import {
   type CleanupSandboxPreview,
 } from "../../../../api/toursAdmin";
 import { useQuery } from "../../../../hooks/useQuery";
+import { SafeHtml } from "../../../../components/SafeHtml";
 
 type Props = {
   tourId: string;
@@ -68,10 +69,11 @@ function SandboxPreviewPanel({ tourId, onClose }: { tourId: string; onClose: () 
           </div>
           <div>
             <p className="text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide mb-1">Mail-Vorschau (HTML)</p>
-            <div
+            <SafeHtml
+              html={preview.mail.html}
+              variant="mail"
+              as="div"
               className="rounded border border-[var(--border-soft)] overflow-auto max-h-80 bg-white text-xs"
-              // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: preview.mail.html }}
             />
           </div>
         </div>

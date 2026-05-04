@@ -5,6 +5,7 @@ import { computeTourPrice, formatCHF } from "../../lib/bookingPricing";
 import type { CatalogAddon, CatalogCategory } from "../../api/bookingPublic";
 import { t, type Lang } from "../../i18n";
 import { cn } from "../../lib/utils";
+import { SafeHtml } from "../../components/SafeHtml";
 
 function addonPrice(addon: CatalogAddon, area: number, floors: number): number {
   if (addon.pricingType === "byArea" || addon.pricingType === "per_area") {
@@ -46,9 +47,11 @@ function CategoryAccordion({ category, addons }: { category: CatalogCategory; ad
       {open && (
         <div className="space-y-1 bg-[var(--surface)] p-3">
           {category.description && (
-            <p
+            <SafeHtml
+              html={category.description}
+              variant="mail"
+              as="p"
               className="mb-2 px-1 text-xs text-[var(--text-subtle)]"
-              dangerouslySetInnerHTML={{ __html: category.description }}
             />
           )}
           {groupAddons.map((addon) => {
@@ -165,9 +168,11 @@ export function StepServices({ lang }: { lang: Lang }) {
                   <div className="mb-2 text-2xl">{HIGHLIGHT_ICONS[pkg.key] ?? "📦"}</div>
                   <div className="text-sm font-bold text-[var(--text-main)]">{pkg.label}</div>
                   {pkg.description && (
-                    <p
+                    <SafeHtml
+                      html={pkg.description}
+                      variant="mail"
+                      as="p"
                       className="mt-1 text-xs text-[var(--text-subtle)] line-clamp-3"
-                      dangerouslySetInnerHTML={{ __html: pkg.description }}
                     />
                   )}
                   <div className="mt-3 text-lg font-bold text-[var(--accent)]">{formatCHF(pkg.price)}</div>
