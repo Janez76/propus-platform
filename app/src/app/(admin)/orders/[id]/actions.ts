@@ -38,14 +38,15 @@ export async function updateOrderOverview(formData: FormData, options: UpdateOve
 
   // Bug-Hunt T02 LOW: `|| null` macht aus dem leeren String null und der
   // jsonb-Merge schreibt damit null in die DB. Wir wollen aber zwischen
-  // "Feld nicht angegeben" (null) und "Feld explizit geleert" ("")
-  // unterscheiden — beides bleibt erhalten.
-  const emptyToNull = (v: unknown) => (v == null || v === "" ? null : v);
-  const companyName = v.booking_type === "firma" ? emptyToNull(v.company_name) : null;
+  // "Feld nicht angegeben" (null/undefined) und "Feld explizit geleert"
+  // ("") unterscheiden — beides bleibt erhalten (CodeRabbit Major #275).
+  const nullishToNull = <T>(value: T): T | null => (value == null ? null : value);
+  const companyName =
+    v.booking_type === "firma" ? nullishToNull(v.company_name as string | null | undefined) : null;
 
   const billingPatch = {
     company: companyName,
-    order_ref: emptyToNull(v.order_reference),
+    order_ref: nullishToNull(v.order_reference as string | null | undefined),
     street: v.billing_street,
     zip: v.billing_zip,
     city: v.billing_city,
@@ -53,7 +54,7 @@ export async function updateOrderOverview(formData: FormData, options: UpdateOve
     first_name: first,
     name: last,
     email: v.contact_email,
-    phone: emptyToNull(v.contact_phone),
+    phone: nullishToNull(v.contact_phone as string | null | undefined),
   };
 
   await query(
