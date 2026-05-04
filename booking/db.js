@@ -2339,6 +2339,30 @@ async function getAllPhotographerSettings({ includeInactive = false } = {}) {
   return rows;
 }
 
+async function getPhotographerJobCounts({ weekStart, weekEnd, monthStart, monthEnd }) {
+  const rangeStart = weekStart < monthStart ? weekStart : monthStart;
+  const rangeEnd = weekEnd > monthEnd ? weekEnd : monthEnd;
+  const { rows } = await query(
+    `SELECT LOWER(photographer->>'key') AS key,
+            COUNT(*) FILTER (WHERE schedule->>'date' BETWEEN $1 AND $2) AS jobs_week,
+            COUNT(*) FILTER (WHERE schedule->>'date' BETWEEN $3 AND $4) AS jobs_month
+       FROM orders
+      WHERE COALESCE(photographer->>'key','') <> ''
+        AND status NOT IN ('cancelled','archived')
+        AND schedule->>'date' BETWEEN $5 AND $6
+      GROUP BY LOWER(photographer->>'key')`,
+    [weekStart, weekEnd, monthStart, monthEnd, rangeStart, rangeEnd]
+  );
+  const map = new Map();
+  for (const r of rows) {
+    map.set(r.key, {
+      jobs_week: Number(r.jobs_week) || 0,
+      jobs_month: Number(r.jobs_month) || 0,
+    });
+  }
+  return map;
+}
+
 async function upsertPhotographerSettings(key, settings) {
   const normKey = String(key || "").toLowerCase();
   const {
@@ -2674,6 +2698,7 @@ module.exports = {
   getPhotographerPhone,
   getPhotographerSettings,
   getAllPhotographerSettings,
+  getPhotographerJobCounts,
   upsertPhotographerSettings,
   upsertPhotographer,
   setPhotographerAdminFlag,

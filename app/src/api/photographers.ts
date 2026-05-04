@@ -15,6 +15,14 @@ export type Photographer = {
   /** Relativer Pfad (z.B. assets/photographers/Name.png) oder volle URL */
   photo_url?: string;
   skills?: Record<string, number>;
+  /** Aufträge in der laufenden Kalenderwoche (Mo–So). Vom Backend berechnet. */
+  jobs_week?: number;
+  /** Aufträge im laufenden Kalendermonat. Vom Backend berechnet. */
+  jobs_month?: number;
+  /** Auslastung der Woche als Anteil 0..1 (jobs_week / Arbeitstage). */
+  capacity?: number;
+  /** Durchschnitts-Rating 0..5 (noch nicht implementiert, optional). */
+  rating?: number | null;
 };
 
 export type WeekdayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
@@ -82,6 +90,10 @@ function normalizePhotographer(raw: unknown): Photographer {
     bookable: r.bookable == null ? true : Boolean(r.bookable),
     photo_url: String(r.photo_url || ""),
     skills: (r.skills && typeof r.skills === "object" ? (r.skills as Record<string, number>) : {}) || {},
+    jobs_week: typeof r.jobs_week === "number" ? r.jobs_week : undefined,
+    jobs_month: typeof r.jobs_month === "number" ? r.jobs_month : undefined,
+    capacity: typeof r.capacity === "number" ? r.capacity : undefined,
+    rating: typeof r.rating === "number" ? r.rating : null,
   };
 }
 

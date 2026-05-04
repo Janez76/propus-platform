@@ -12485,6 +12485,23 @@ app.get("/api/admin/photographers", requirePhotographerOrAdmin, async (req, res)
       skills: {},
     }));
 
+    let jobCounts = new Map();
+    if (process.env.DATABASE_URL && db.getPhotographerJobCounts) {
+      try {
+        jobCounts = await db.getPhotographerJobCounts(computeJobCountWindows());
+      } catch (_e) { /* orders-Tabelle evtl. nicht vorhanden / DB-Fehler -> leere Werte */ }
+    }
+    const applyMetrics = (item) => {
+      const m = jobCounts.get(String(item.key || "").toLowerCase()) || { jobs_week: 0, jobs_month: 0 };
+      const workdaysCount = Array.isArray(item.workdays) && item.workdays.length > 0 ? item.workdays.length : 5;
+      return {
+        ...item,
+        jobs_week: m.jobs_week,
+        jobs_month: m.jobs_month,
+        capacity: Math.min(1, m.jobs_week / Math.max(1, workdaysCount)),
+      };
+    };
+
     if (process.env.DATABASE_URL && db.getAllPhotographerSettings) {
       try {
         const rows = await db.getAllPhotographerSettings({ includeInactive: true });
@@ -12510,22 +12527,48 @@ app.get("/api/admin/photographers", requirePhotographerOrAdmin, async (req, res)
               event_color: row.event_color || undefined,
               home_address: row.home_address || "",
               max_radius_km: row.max_radius_km ?? null,
+              workdays: Array.isArray(row.workdays) ? row.workdays : undefined,
             };
           });
           const knownKeys = new Set(dbItems.map((item) => item.key));
           for (const item of base) {
             if (!knownKeys.has(item.key)) dbItems.push(item);
           }
-          return res.json({ photographers: dbItems });
+          return res.json({ photographers: dbItems.map(applyMetrics) });
         }
       } catch (_e) { /* Tabelle evtl. noch nicht vorhanden */ }
     }
 
-    res.json({ photographers: base });
+    res.json({ photographers: base.map(applyMetrics) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+function computeJobCountWindows(now = new Date()) {
+  const fmt = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // ISO-Woche: Mo–So
+  const dow = today.getDay(); // 0=So, 1=Mo, ...
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() + mondayOffset);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return {
+    weekStart: fmt(weekStart),
+    weekEnd: fmt(weekEnd),
+    monthStart: fmt(monthStart),
+    monthEnd: fmt(monthEnd),
+  };
+}
 
 // Einzel-Mitarbeiter abrufen
 app.get("/api/admin/photographers/:key", requirePhotographerOrAdmin, async (req, res) => {
