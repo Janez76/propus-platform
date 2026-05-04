@@ -291,6 +291,12 @@ async function changePortalPassword(email, currentPassword, newPassword) {
  * Liest ein Cookie aus dem Raw-Header (umgeht cookie-parser-Konfiguration).
  * Geteilt zwischen portal.js und portal-api-mutations.js
  * (CodeRabbit Nitpick #257).
+ *
+ * decodeURIComponent ist per try/catch abgesichert: ein malformed Cookie
+ * wie `admin_session=%E0%A4%A` wuerde sonst URIError werfen und Handler
+ * (insb. /logout) zu HTTP 500 machen statt sauber abzulaufen
+ * (Codex P2 #257). Fallback: roher Wert, damit Downstream-Logik
+ * (Token-Hash) deterministisch bleibt.
  */
 function readRawCookie(req, name) {
   const raw = String(req?.headers?.cookie || '');
@@ -299,7 +305,9 @@ function readRawCookie(req, name) {
   for (const part of raw.split(';')) {
     const t = part.trim();
     if (t.startsWith(prefix)) {
-      return decodeURIComponent(t.substring(prefix.length).trim());
+      const value = t.substring(prefix.length).trim();
+      try { return decodeURIComponent(value); }
+      catch { return value; }
     }
   }
   return '';
