@@ -8600,6 +8600,35 @@ app.post("/api/bot", requirePhotographerOrAdmin, async (req, res) => {
         ...result,
       });
     }
+    // - ACTION: validate_discount -
+    // Express matcht den ersten registrierten Handler — der zweite
+    // /api/bot-Handler weiter unten wird fuer authentifizierte Anfragen
+    // nie erreicht. Daher hier integriert. Rate-Limit (30/min/IP)
+    // verhindert Brute-Force-Enumeration valider Codes (Bug-Hunt T14
+    // MEDIUM, CodeRabbit Major).
+    if (action === "validate_discount") {
+      if (!discountRateAllow(req.ip)) {
+        return res.status(429).json({
+          action: "validate_discount",
+          valid: false,
+          reason: "rate_limited",
+          message: "Zu viele Versuche. Bitte spaeter erneut versuchen.",
+        });
+      }
+      const { code, customerEmail } = req.body;
+      if (!code) return res.json({ action: "validate_discount", valid: false, reason: "no_code" });
+      const result = await validateDiscountCode(code, { customerEmail });
+      if (!result?.ok) {
+        return res.json({ action: "validate_discount", valid: false, reason: result?.reason || "invalid_code" });
+      }
+      return res.json({
+        action: "validate_discount",
+        valid: true,
+        code: result.code,
+        kind: result.kind,
+        amount: result.amount,
+      });
+    }
     return res.status(400).json({ error: "Unbekannte action" });
   } catch (err) {
     res.status(500).json({ error: err.message || "Bot action fehlgeschlagen" });
@@ -13126,15 +13155,10 @@ app.post("/api/bot", async (req, res) => {
 
     // - ACTION: validate_discount -
     if (action === "validate_discount") {
-      // Rate-Limit: 30 Versuche/min/IP. Bei Ueberschreitung 429.
-      if (!discountRateAllow(req.ip)) {
-        return res.status(429).json({
-          action: "validate_discount",
-          valid: false,
-          reason: "rate_limited",
-          message: "Zu viele Versuche. Bitte spaeter erneut versuchen.",
-        });
-      }
+      // Hinweis: Express matcht zuerst den oben registrierten /api/bot-
+      // Handler, dieser Branch ist daher Dead Code. Validate_discount mit
+      // Rate-Limit ist im ersten Handler implementiert. Block bleibt aus
+      // historischen Gruenden — eigener Cleanup-PR konsolidiert die Routen.
       const { code, customerEmail } = req.body;
       if (!code) return res.json({ action:"validate_discount", valid:false, reason:"no_code" });
       const result = await validateDiscountCode(code, { customerEmail });
