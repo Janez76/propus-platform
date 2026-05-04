@@ -22,6 +22,7 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
   if (!o) notFound();
   const order = {
     order_no: o.order_no,
+    created_at: o.created_at,
     package_key: o.package_key,
     package_label: o.package_label,
     package_price: o.package_price,
@@ -41,6 +42,7 @@ export default async function LeistungenPage({ params, searchParams }: Props) {
         <LeistungenForm
           order={{
             order_no: order.order_no,
+            created_at: order.created_at,
             discount_chf: Number.isFinite(discount) ? discount : 0,
             package_key: order.package_key,
             package_label: order.package_label,

@@ -27,19 +27,25 @@ export const KEY_PICKUP_PRICE = 50;
  *   vatRateFor(new Date("2024-06-01"))  // 0.081
  *   vatRateFor()                        // 0.081 (heute)
  */
-function dateToUTCISO(d: Date): string {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+function dateToLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function vatRateFor(date?: Date | string | null): number {
-  // Vergleich erfolgt auf YYYY-MM-DD-Strings:
+  // Konvention: VAT-Boundaries sind Schweizer Kalender-Tage. Produktion laeuft
+  // in Europe/Zurich.
   //  - Strings die mit YYYY-MM-DD anfangen werden direkt benutzt
   //    (verhindert dass `new Date("2024-01-01")` in west-of-UTC TZ als
-  //    Vortag interpretiert wird → Codex P1 #257).
-  //  - Date-Objekte werden auf UTC-YYYY-MM-DD gemappt. Das matched, wie
-  //    Postgres TIMESTAMPTZ-Spalten zu Date konvertiert werden, und
-  //    verhindert dass `new Date("2024-01-01")` per Local-Getter in
-  //    UTC-negativen TZ zu 2023-12-31 wird (Codex P1 Folgefinding #257).
+  //    Vortag interpretiert wird — Codex P1 #257).
+  //  - Date-Objekte werden auf LOKALES YYYY-MM-DD gemappt. Damit gilt:
+  //      * Postgres TIMESTAMPTZ → Date (absoluter Moment) liefert auf
+  //        einem CH-Server den korrekten Schweizer Kalendertag — ein
+  //        Auftrag um 2024-01-01 00:30 CET (= 2023-12-31T23:30Z) bleibt
+  //        2024-01-01.
+  //      * Date-Picker-Werte (`new Date(2024, 0, 1)` = lokaler Tag)
+  //        werden ebenfalls korrekt interpretiert (Codex P1 Folgefinding).
+  //    Caller die kalendarische Date-only-Semantik wollen, sollen den
+  //    String-Overload nutzen (`"2024-01-01"`).
   let iso: string;
   if (typeof date === "string") {
     const m = /^(\d{4}-\d{2}-\d{2})/.exec(date.trim());
@@ -48,13 +54,13 @@ export function vatRateFor(date?: Date | string | null): number {
     } else {
       const t = new Date(date);
       if (Number.isNaN(t.getTime())) return VAT_RATE;
-      iso = dateToUTCISO(t);
+      iso = dateToLocalISO(t);
     }
   } else if (date instanceof Date) {
     if (Number.isNaN(date.getTime())) return VAT_RATE;
-    iso = dateToUTCISO(date);
+    iso = dateToLocalISO(date);
   } else {
-    iso = dateToUTCISO(new Date());
+    iso = dateToLocalISO(new Date());
   }
   // Eintrag mit groesstem effectiveFrom <= iso. Reihenfolge im Array egal.
   let best: (typeof VAT_RATE_HISTORY)[number] | null = null;

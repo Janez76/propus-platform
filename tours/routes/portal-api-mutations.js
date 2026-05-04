@@ -152,15 +152,20 @@ router.get('/check-reset-token', async (req, res) => {
 });
 
 router.post('/logout', async (req, res) => {
-  // Wenn die Session per admin_session-Bridge entstanden ist, muss das
-  // Admin-Cookie auch revoziert + geloescht werden — sonst akzeptiert
-  // requirePortalSession weiter dasselbe Token (CodeRabbit Major #257).
-  const adminToken = portalAuth.readRawCookie(req, 'admin_session');
-  if (adminToken) {
-    try { await portalAuth.revokeAdminSessionByToken(adminToken); }
+  // requirePortalSession akzeptiert Admin-Tokens sowohl als Bearer-Header
+  // als auch als admin_session-Cookie. Beide Pfade muessen revoziert
+  // werden, sonst kann der Caller mit dem gleichen Token sofort wieder
+  // eine Portal-Session aufbauen (CodeRabbit Major #257).
+  const cookieToken = portalAuth.readRawCookie(req, 'admin_session');
+  const bearerToken = String(req.headers.authorization || '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+  // Set entdupliziert falls Cookie + Bearer denselben Wert haben.
+  for (const token of new Set([cookieToken, bearerToken].filter(Boolean))) {
+    try { await portalAuth.revokeAdminSessionByToken(token); }
     catch (e) { console.error('[portal-api/logout] revoke admin_session', e?.message || e); }
-    portalAuth.clearAdminSessionCookie(res);
   }
+  if (cookieToken) portalAuth.clearAdminSessionCookie(res);
   req.session.destroy(() => {
     res.clearCookie('propus_tours.sid');
     res.json({ ok: true });
