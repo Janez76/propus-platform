@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, type Querier } from "@/lib/db";
 import type { AdminSession } from "@/lib/auth.server";
 import { sessionActorId } from "@/lib/auth.server";
 
@@ -25,6 +25,7 @@ export async function logOrderEvent(
   eventType: OrderEventType,
   diff: { old: unknown; new: unknown },
   actor: AdminSession | { actor_user: string; actor_role: string },
+  tx?: Querier,
 ): Promise<void> {
   const actor_user = "userKey" in actor ? sessionActorId(actor as AdminSession) : actor.actor_user;
   const actor_role = "role" in actor ? String((actor as AdminSession).role || "admin") : actor.actor_role;
@@ -41,18 +42,22 @@ export async function logOrderEvent(
       JSON.stringify(diff.new ?? null),
       JSON.stringify({ source: "admin_next" }),
     ],
+    tx,
   );
 }
 
-export async function logStatusAuditEntry(params: {
-  orderNo: number;
-  fromStatus: string;
-  toStatus: string;
-  source: string;
-  actorId: string | null;
-  calendarResult?: string;
-  errorMessage?: string | null;
-}): Promise<void> {
+export async function logStatusAuditEntry(
+  params: {
+    orderNo: number;
+    fromStatus: string;
+    toStatus: string;
+    source: string;
+    actorId: string | null;
+    calendarResult?: string;
+    errorMessage?: string | null;
+  },
+  tx?: Querier,
+): Promise<void> {
   await query(
     `INSERT INTO booking.order_status_audit
       (order_no, from_status, to_status, source, actor_id, calendar_result, error_message, force_slot, override_reason)
@@ -68,5 +73,6 @@ export async function logStatusAuditEntry(params: {
       false,
       null,
     ],
+    tx,
   );
 }

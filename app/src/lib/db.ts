@@ -44,33 +44,54 @@ export const pool: Pool =
     ? createPool()
     : (global._pgPool ?? (global._pgPool = createPool()));
 
-/** Execute a query and return rows */
+/**
+ * Querier ist alles, gegen das `.query(text, values)` aufgerufen werden kann
+ * — sowohl der Pool selbst (auto-acquire) als auch ein bereits acquirter
+ * PoolClient (laeuft innerhalb einer Transaktion).
+ *
+ * Dadurch koennen Repos und Server-Actions wahlweise im eigenen Verbindungs-
+ * pool laufen oder in eine vom Caller geoeffnete Transaktion eingehaengt
+ * werden — siehe withTransaction + saveOrderAllSections (Bug-Hunt T02 HIGH:
+ * Bulk-Save Multi-Step ohne Tx).
+ */
+export type Querier = Pool | import("pg").PoolClient;
+
+/** Execute a query and return rows. Optional `tx` haengt die Query in eine bestehende Transaktion ein. */
 export async function query<T = Record<string, unknown>>(
   text: string,
   values?: unknown[],
+  tx?: Querier,
 ): Promise<T[]> {
-  const client = await pool.connect();
-  try {
-    const result = await client.query(text, values);
-    return result.rows as T[];
-  } finally {
-    client.release();
-  }
+  const querier = tx ?? pool;
+  const result = await querier.query(text, values);
+  return result.rows as T[];
 }
 
-/** Execute a query and return the first row or null */
+/** Execute a query and return the first row or null. */
 export async function queryOne<T = Record<string, unknown>>(
   text: string,
   values?: unknown[],
+  tx?: Querier,
 ): Promise<T | null> {
-  const rows = await query<T>(text, values);
+  const rows = await query<T>(text, values, tx);
   return rows[0] ?? null;
 }
 
-/** Run multiple queries in a transaction */
+/**
+ * Run multiple queries in a transaction.
+ *
+ * - Wird `existing` uebergeben, laeuft `fn` ohne neue BEGIN/COMMIT direkt
+ *   gegen den vorhandenen Client. Damit lassen sich Repos und Sub-Actions
+ *   in eine outer-Transaktion einhaengen.
+ * - Ohne `existing` werden BEGIN/COMMIT/ROLLBACK selbst gemanaged.
+ */
 export async function withTransaction<T>(
   fn: (client: import("pg").PoolClient) => Promise<T>,
+  existing?: import("pg").PoolClient | null,
 ): Promise<T> {
+  if (existing) {
+    return fn(existing);
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

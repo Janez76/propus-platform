@@ -1,4 +1,4 @@
-import { query, queryOne, withTransaction } from "@/lib/db";
+import { query, queryOne, withTransaction, type Querier } from "@/lib/db";
 import type { OrderStatus } from "@/lib/validators/common";
 
 export type OrderRowSchedule = {
@@ -10,13 +10,14 @@ export type OrderRowSchedule = {
   photographer_key: string | null;
 };
 
-export async function getOrderForTerminEdit(orderNo: string | number): Promise<OrderRowSchedule | null> {
+export async function getOrderForTerminEdit(orderNo: string | number, tx?: Querier): Promise<OrderRowSchedule | null> {
   return queryOne<OrderRowSchedule>(
     `SELECT
         order_no, status, schedule_date, schedule_time, schedule, photographer_key
      FROM booking.orders
      WHERE order_no = $1`,
     [orderNo],
+    tx,
   );
 }
 
@@ -47,14 +48,17 @@ export async function buildPhotographerJson(
   };
 }
 
-export async function updateOrderTermin(params: {
-  orderNo: number;
-  scheduleDate: string;
-  scheduleTime: string;
-  durationMin: number;
-  status: OrderStatus;
-  photographerKey: string | null;
-}): Promise<void> {
+export async function updateOrderTermin(
+  params: {
+    orderNo: number;
+    scheduleDate: string;
+    scheduleTime: string;
+    durationMin: number;
+    status: OrderStatus;
+    photographerKey: string | null;
+  },
+  tx?: import("pg").PoolClient,
+): Promise<void> {
   await withTransaction(async (c) => {
     const photo = await buildPhotographerJson(c, params.photographerKey);
     const schedPatch = {
@@ -71,7 +75,7 @@ export async function updateOrderTermin(params: {
        WHERE order_no = $1`,
       [params.orderNo, JSON.stringify(schedPatch), params.status, JSON.stringify(photo)],
     );
-  });
+  }, tx);
 }
 
 export type PhotographerOption = { key: string; name: string | null; email: string | null };

@@ -2,21 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { requireOrderEditor } from "@/lib/auth.server";
-import { updateOrderOverview, type UpdateOverviewOptions } from "./actions";
-import { saveOrderObjekt, type SaveOrderObjektOptions } from "./objekt/actions";
-import { saveLeistungen, type SaveLeistungenOptions } from "./leistungen/actions";
-import { saveOrderTermin, type SaveOrderTerminOptions } from "./termin/actions";
+import { withTransaction } from "@/lib/db";
+import { updateOrderOverview } from "./actions";
+import { saveOrderObjekt } from "./objekt/actions";
+import { saveLeistungen } from "./leistungen/actions";
+import { saveOrderTermin } from "./termin/actions";
+import { PostCommitQueue } from "./_bulk-tx";
 import type { BulkSaveInput, BulkSaveResult, BulkStep } from "./order-bulk-types";
 
 export type { BulkSaveInput, BulkSaveResult, BulkStep } from "./order-bulk-types";
 
-const skip: UpdateOverviewOptions & SaveOrderObjektOptions & SaveLeistungenOptions & SaveOrderTerminOptions =
-  { skipRedirect: true };
-
 /**
- * Führt nacheinander Mehrfach-Updates auf einer Bestellung aus (ohne Redirects),
- * revalidiert am Ende einmal die Order-Pfade. Für Step 10 / Sammel-Speichern.
- * Termin: Konflikte & Mailversand unverändert; bei Fehler werden vorherige Schritte **nicht** automatisch rückgängig gemacht.
+ * Fuehrt mehrere Sub-Section-Updates auf einer Bestellung in EINER
+ * Datenbank-Transaktion aus (Bug-Hunt T02 HIGH: Multi-Step ohne Tx).
+ *
+ * - DB-Mutationen aller Sections + Audit-Inserts laufen gegen den
+ *   gleichen pg-Client. Faellt eine Section aus (Validierung/Constraint),
+ *   wird die ganze Tx zurueckgerollt — keine inkonsistenten Bestellungen.
+ * - HTTP-Side-Effects (Calendar-Sync, Workflow-Mails) werden ueber eine
+ *   PostCommitQueue gesammelt und erst NACH erfolgreichem Commit
+ *   ausgefuehrt; ein Mailfehler kann die DB-Mutationen nicht mehr
+ *   zurueckrollen, was sonst Mails ohne dazugehoerigen Status-Change
+ *   produziert haette.
  */
 export async function saveOrderAllSections(input: BulkSaveInput): Promise<BulkSaveResult> {
   await requireOrderEditor();
@@ -26,43 +33,79 @@ export async function saveOrderAllSections(input: BulkSaveInput): Promise<BulkSa
     return { ok: false, step: "exception", error: "Ungültige Bestellnummer", successfulSteps };
   }
 
+  const postCommit = new PostCommitQueue();
+  // Sub-Action-Fehler werden hier abgelegt, damit der Caller nach dem
+  // ROLLBACK den fachlichen Grund (Validierung/Konflikt) erfaehrt statt
+  // nur "Bulk Abort".
+  type EarlyResult = {
+    step: "overview" | "objekt" | "leistungen" | "termin";
+    error: string;
+    terminDetail?: import("./termin/actions").SaveTerminResult;
+  };
+  const earlyResultRef: { value: EarlyResult | null } = { value: null };
+
   try {
-    if (input.overviewFormData) {
-      await updateOrderOverview(input.overviewFormData, skip);
-      successfulSteps.push("overview");
-    }
+    await withTransaction(async (tx) => {
+      const opts = { skipRedirect: true, tx, postCommit } as const;
 
-    if (input.objekt !== undefined) {
-      const r = await saveOrderObjekt(input.objekt, skip);
-      if (r && "ok" in r && r.ok === false) {
-        return { ok: false, step: "objekt", error: r.error, successfulSteps };
+      if (input.overviewFormData) {
+        await updateOrderOverview(input.overviewFormData, opts);
+        successfulSteps.push("overview");
       }
-      successfulSteps.push("objekt");
-    }
 
-    if (input.leistungen !== undefined) {
-      const r = await saveLeistungen(input.leistungen, skip);
-      if (r && "ok" in r && r.ok === false) {
-        return { ok: false, step: "leistungen", error: r.error, successfulSteps };
+      if (input.objekt !== undefined) {
+        const r = await saveOrderObjekt(input.objekt, opts);
+        if (r && "ok" in r && r.ok === false) {
+          earlyResultRef.value = { step: "objekt", error: r.error };
+          throw new Error(`__BULK_ABORT__:${r.error}`);
+        }
+        successfulSteps.push("objekt");
       }
-      successfulSteps.push("leistungen");
-    }
 
-    if (input.termin !== undefined) {
-      const r = await saveOrderTermin(input.termin, skip);
-      if (!r.ok) {
-        return { ok: false, step: "termin", error: r.error, successfulSteps, terminDetail: r };
+      if (input.leistungen !== undefined) {
+        const r = await saveLeistungen(input.leistungen, opts);
+        if (r && "ok" in r && r.ok === false) {
+          earlyResultRef.value = { step: "leistungen", error: r.error };
+          throw new Error(`__BULK_ABORT__:${r.error}`);
+        }
+        successfulSteps.push("leistungen");
       }
-      successfulSteps.push("termin");
-    }
 
-    revalidatePath(`/orders/${n}`);
-    revalidatePath(`/orders/${n}/objekt`);
-    revalidatePath(`/orders/${n}/leistungen`);
-    revalidatePath(`/orders/${n}/termin`);
-    return { ok: true, successfulSteps };
+      if (input.termin !== undefined) {
+        const r = await saveOrderTermin(input.termin, opts);
+        if (!r.ok) {
+          earlyResultRef.value = { step: "termin", error: r.error, terminDetail: r };
+          throw new Error(`__BULK_ABORT__:${r.error}`);
+        }
+        successfulSteps.push("termin");
+      }
+    });
   } catch (e) {
+    const captured = earlyResultRef.value;
+    if (captured) {
+      // Validation/business-Fehler einer Sub-Action — Tx wurde gerollback.
+      // successfulSteps bezieht sich auf erfolgreich ausgefuehrte Sections,
+      // muss aber im Roll-Back-Fall geleert werden, damit der Caller nicht
+      // glaubt frühere Schritte seien bereits committed.
+      return {
+        ok: false,
+        step: captured.step,
+        error: captured.error,
+        successfulSteps: [],
+        terminDetail: captured.terminDetail,
+      };
+    }
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, step: "exception", error: msg, successfulSteps };
+    return { ok: false, step: "exception", error: msg, successfulSteps: [] };
   }
+
+  // Tx commited — Side-Effects ausfuehren. Fehler werden geloggt aber
+  // nicht mehr als Bulk-Fail behandelt (DB ist konsistent).
+  await postCommit.run("saveOrderAllSections");
+
+  revalidatePath(`/orders/${n}`);
+  revalidatePath(`/orders/${n}/objekt`);
+  revalidatePath(`/orders/${n}/leistungen`);
+  revalidatePath(`/orders/${n}/termin`);
+  return { ok: true, successfulSteps };
 }

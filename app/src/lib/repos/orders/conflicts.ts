@@ -1,4 +1,4 @@
-import { query } from "@/lib/db";
+import { query, type Querier } from "@/lib/db";
 import { DURATION_MIN_FROM_SCHEDULE } from "./durationFromScheduleSql";
 
 function timeToMinutes(t: string): number {
@@ -15,13 +15,16 @@ export type ScheduleConflict = {
 /**
  * Prüft ob für denselben Fotografen am selben Tag eine Überschneidung mit anderen Bestellungen besteht.
  */
-export async function findScheduleConflicts(params: {
-  orderNo: number;
-  photographerKey: string | null;
-  scheduleDate: string;
-  scheduleTime: string;
-  durationMin: number;
-}): Promise<ScheduleConflict[]> {
+export async function findScheduleConflicts(
+  params: {
+    orderNo: number;
+    photographerKey: string | null;
+    scheduleDate: string;
+    scheduleTime: string;
+    durationMin: number;
+  },
+  tx?: Querier,
+): Promise<ScheduleConflict[]> {
   if (!params.photographerKey) return [];
 
   const rows = await query<{
@@ -39,6 +42,7 @@ export async function findScheduleConflicts(params: {
        AND schedule_date = $3
        AND status NOT IN ('cancelled', 'archived')`,
     [params.orderNo, params.photographerKey, params.scheduleDate],
+    tx,
   );
 
   const s1 = timeToMinutes(params.scheduleTime);
