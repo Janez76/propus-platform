@@ -7485,6 +7485,22 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
     err.code = "BAD_REQUEST";
     throw err;
   }
+  // Strenge Format-Validierung: ohne Regex koennte ein kaputter Outbox-
+  // Payload (oder veralteter Client) einen ungueltigen Termin via
+  // db.updateOrderFields dauerhaft in die DB schreiben — auch wenn der
+  // Calendar-Call dann fehlschlaegt (CodeRabbit Major #262).
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date)) || !/^\d{2}:\d{2}(?::\d{2})?$/.test(String(time))) {
+    const err = new Error("Datum (YYYY-MM-DD) bzw. Uhrzeit (HH:MM) im falschen Format");
+    err.code = "BAD_REQUEST";
+    throw err;
+  }
+  const timeForParse = /^\d{2}:\d{2}$/.test(String(time)) ? `${time}:00` : String(time);
+  const parsedDate = new Date(`${String(date)}T${timeForParse}`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    const err = new Error("Datum/Uhrzeit ergibt keinen gueltigen Zeitstempel");
+    err.code = "BAD_REQUEST";
+    throw err;
+  }
   const orders = await loadOrders();
   const order = orders.find(o => o.orderNo === orderNo);
   if (!order) {
@@ -7521,19 +7537,32 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
 
   console.log("[reschedule] start", { orderNo, oldDate, oldTime, newDate: date, newTime: time, durationMin, timingChanged });
 
-  // 1) Alte Kalender-Events loeschen
+  // 1) Alte Kalender-Events loeschen.
+  // 404 (Event ist schon weg) wird toleriert — sonst werfen, damit der
+  // Outbox-Handler retryen kann statt einen halben Sync still zu
+  // verbuchen (CodeRabbit Major #262).
+  const isGraphNotFound = (err) =>
+    err?.statusCode === 404 ||
+    err?.status === 404 ||
+    err?.code === "ErrorItemNotFound";
   if(graphClient){
     if(order.photographerEventId && deleteMailbox){
       try {
         await graphClient.api(`/users/${deleteMailbox}/events/${order.photographerEventId}`).delete();
         console.log("[reschedule] old photographer event deleted");
-      } catch(err){ console.error("[reschedule] old photographer event delete failed", err?.message); }
+      } catch (err) {
+        console.error("[reschedule] old photographer event delete failed", err?.message);
+        if (!isGraphNotFound(err)) throw err;
+      }
     }
     if(order.officeEventId && OFFICE_EMAIL){
       try {
         await graphClient.api(`/users/${OFFICE_EMAIL}/events/${order.officeEventId}`).delete();
         console.log("[reschedule] old office event deleted");
-      } catch(err){ console.error("[reschedule] old office event delete failed", err?.message); }
+      } catch (err) {
+        console.error("[reschedule] old office event delete failed", err?.message);
+        if (!isGraphNotFound(err)) throw err;
+      }
     }
   }
 
@@ -7628,7 +7657,10 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
 
   // 4) Mails nur senden, wenn sich Datum/Uhrzeit geaendert haben.
   // Reine Daueranpassungen aktualisieren den Kalender stillschweigend.
-  if(graphClient && timingChanged){
+  // Kein graphClient-Guard: sendMailWithFallback kann auch SMTP-only
+  // (CodeRabbit Major #262); Calendar-Sync und Mail-Versand sind
+  // unabhaengig.
+  if (timingChanged) {
     const rsPhotogPhone = PHOTOG_PHONES[order.photographer?.key] || "-";
     try {
       const officeLang = process.env.OFFICE_LANG || "de";
@@ -15066,7 +15098,13 @@ async function startServer() {
       createPortalMagicLink: createCustomerPortalMagicLink,
     });
   } catch (jobErr) {
-    console.error("[boot] Jobs konnten nicht gestartet werden:", jobErr && jobErr.message);
+    // Fail-fast: seit calendar_reschedule + workflow_status_mail nur noch
+    // ueber den Outbox-Worker laufen, ist startJobs nicht mehr optional.
+    // Ein nicht startender Worker wuerde Outbox-Rows still aufstauen,
+    // waehrend der Server gesund wirkt — Drift zwischen DB und
+    // Outlook/Mail-State (CodeRabbit Major #262).
+    console.error("[boot] Jobs konnten nicht gestartet werden:", jobErr);
+    throw jobErr;
   }
 }
 
