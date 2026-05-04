@@ -27,16 +27,33 @@ export const KEY_PICKUP_PRICE = 50;
  *   vatRateFor(new Date("2024-06-01"))  // 0.081
  *   vatRateFor()                        // 0.081 (heute)
  */
+function dateToLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function vatRateFor(date?: Date | string | null): number {
-  const target = date instanceof Date ? date : date ? new Date(date) : new Date();
-  if (Number.isNaN(target.getTime())) return VAT_RATE;
-  // Vergleich auf LOKALEM YYYY-MM-DD, nicht UTC. Sonst shiftet ein
-  // Date(2024, 0, 1) (lokal) in einer Timezone east of UTC (z.B. CH) auf
-  // UTC 2023-12-31 → falscher VAT-Satz an der Tages-Grenze (Codex P2).
-  const yyyy = target.getFullYear();
-  const mm = String(target.getMonth() + 1).padStart(2, "0");
-  const dd = String(target.getDate()).padStart(2, "0");
-  const iso = `${yyyy}-${mm}-${dd}`;
+  // Vergleich erfolgt auf YYYY-MM-DD-Strings ohne Timezone-Roundtrip:
+  //  - Strings die mit YYYY-MM-DD anfangen werden direkt benutzt
+  //    (verhindert dass `new Date("2024-01-01")` als UTC geparsed +
+  //    in Tz west of UTC zu lokal 2023-12-31 wird → Codex P1).
+  //  - Date-Objekte und andere String-Formate werden auf LOKALES
+  //    YYYY-MM-DD gemappt (verhindert UTC-Shift in Tz east of UTC).
+  let iso: string;
+  if (typeof date === "string") {
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(date.trim());
+    if (m) {
+      iso = m[1];
+    } else {
+      const t = new Date(date);
+      if (Number.isNaN(t.getTime())) return VAT_RATE;
+      iso = dateToLocalISO(t);
+    }
+  } else if (date instanceof Date) {
+    if (Number.isNaN(date.getTime())) return VAT_RATE;
+    iso = dateToLocalISO(date);
+  } else {
+    iso = dateToLocalISO(new Date());
+  }
   for (const entry of VAT_RATE_HISTORY) {
     if (iso >= entry.effectiveFrom) return entry.rate;
   }

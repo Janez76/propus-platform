@@ -54,7 +54,9 @@ function requirePortalSession(req, res, next) {
   pool.query(
     `SELECT user_key, user_name, role
      FROM admin_sessions
-     WHERE token_hash = $1 AND expires_at > NOW()
+     WHERE token_hash = $1
+       AND expires_at > NOW()
+       AND revoked_at IS NULL
      LIMIT 1`,
     [tokenHash]
   ).then((result) => {

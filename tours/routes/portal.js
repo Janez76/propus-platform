@@ -96,7 +96,9 @@ router.get('/admin-bridge', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT role, user_key, user_name, expires_at, impersonator_user_key
        FROM booking.admin_sessions
-       WHERE token_hash = $1 AND expires_at > NOW()`,
+       WHERE token_hash = $1
+         AND expires_at > NOW()
+         AND revoked_at IS NULL`,
       [tokenHash],
     );
     const row = rows[0];

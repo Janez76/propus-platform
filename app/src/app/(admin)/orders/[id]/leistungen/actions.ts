@@ -6,7 +6,7 @@ import { requireOrderEditor } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { leistungenFormSchema } from "@/lib/validators/orders/leistungen";
 import { getPackageByKey } from "@/lib/pricingCatalog";
-import { calculatePricing, VAT_RATE } from "@/lib/pricing";
+import { calculatePricing } from "@/lib/pricing";
 import { queryOne, withTransaction } from "@/lib/db";
 import { requestAdminReschedule } from "@/lib/booking-calendar-sync.server";
 
@@ -38,7 +38,8 @@ export async function saveLeistungen(
     pricing: Record<string, unknown> | null;
     schedule: Record<string, unknown> | null;
     status: string | null;
-  }>(`SELECT services, pricing, schedule, status FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
+    created_at: string | null;
+  }>(`SELECT services, pricing, schedule, status, created_at::text AS created_at FROM booking.orders WHERE order_no = $1`, [v.orderNo]);
   if (!before) {
     return { ok: false as const, error: "Bestellung nicht gefunden" };
   }
@@ -78,19 +79,23 @@ export async function saveLeistungen(
   const discount = Number(
     (before.pricing as { discount?: string } | null)?.discount ?? 0
   ) || 0;
+  // VAT-Historie: orderdate-basiert (created_at) statt heutigem Default-Satz
+  // (CodeRabbit Major). vatRate aus calc-Result persistieren statt
+  // hardcoded VAT_RATE — sonst Fehler bei Re-Berechnung alter Bestellungen.
   const calc = calculatePricing({
     packagePrice: packageNum,
     addons: pricedAddons,
     travelZonePrice: 0,
     keyPickupActive: false,
     discount: Number.isFinite(discount) ? discount : 0,
+    effectiveDate: before.created_at,
   });
   const pricingPatch = {
     subtotal: String(calc.subtotal),
     discount: String(calc.discount),
     vat: String(calc.vat),
     total: String(calc.total),
-    vatRate: String(VAT_RATE),
+    vatRate: String(calc.vatRate),
   };
 
   const schedPatch: Record<string, unknown> = {

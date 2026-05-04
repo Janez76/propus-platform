@@ -21,25 +21,26 @@
  * des Files. Mehrere Signaturen pro Kind sind moeglich (z.B. JPEG hat
  * mehrere SOI-Marker je nach Encoder).
  */
-const SIGNATURES = {
-  png:  [Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])],
-  jpeg: [Buffer.from([0xFF, 0xD8, 0xFF])],
-  gif:  [Buffer.from("GIF87a"), Buffer.from("GIF89a")],
-  webp: [
+// Object.freeze (tief): schuetzt vor versehentlichem Ueberschreiben durch
+// fremden Code, der die Allowlist abschwaechen koennte (CodeRabbit Nitpick).
+const SIGNATURES = Object.freeze({
+  png:  Object.freeze([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])]),
+  jpeg: Object.freeze([Buffer.from([0xFF, 0xD8, 0xFF])]),
+  gif:  Object.freeze([Buffer.from("GIF87a"), Buffer.from("GIF89a")]),
+  webp: Object.freeze([
     // RIFF....WEBP — Bytes 0-3 = "RIFF", 8-11 = "WEBP"
     // hier wird nur das RIFF-Prefix geprueft; voller Check via offset=8
     Buffer.from("RIFF"),
-  ],
-  pdf:  [Buffer.from("%PDF-")],
+  ]),
+  pdf:  Object.freeze([Buffer.from("%PDF-")]),
   // CSV/XML/JSON sind Text — kein einheitlicher Magic-Bytes-Check moeglich.
-  // Stattdessen: erste ~1KB UTF-8-decodieren und auf erwartete Patterns
-  // testen.
-};
+  // Stattdessen: erste ~1KB UTF-8-decodieren und auf erwartete Patterns testen.
+});
 
-const KIND_GROUPS = {
-  image: ["png", "jpeg", "gif", "webp"],
-  pdf:   ["pdf"],
-};
+const KIND_GROUPS = Object.freeze({
+  image: Object.freeze(["png", "jpeg", "gif", "webp"]),
+  pdf:   Object.freeze(["pdf"]),
+});
 
 /**
  * Prueft ob der Buffer mit einer der angegebenen Signaturen beginnt.
@@ -54,10 +55,12 @@ function matchesSignature(buffer, sig) {
 
 /** Prueft ob der Buffer einer bestimmten Datei-Art entspricht. */
 function matchesType(buffer, type) {
+  // Buffer-Guard ZUERST: matchesType wird auch von matchesKind() mit
+  // potenziell undefined buffer aufgerufen (CodeRabbit Critical).
+  if (!Buffer.isBuffer(buffer)) return false;
   const sigs = SIGNATURES[type];
   if (!sigs) return false;
   if (type === "webp") {
-    // RIFF....WEBP — Header-Layout
     if (buffer.length < 12) return false;
     if (!matchesSignature(buffer, SIGNATURES.webp[0])) return false;
     return buffer.slice(8, 12).toString("ascii") === "WEBP";
