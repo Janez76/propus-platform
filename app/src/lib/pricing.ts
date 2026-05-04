@@ -30,7 +30,13 @@ export const KEY_PICKUP_PRICE = 50;
 export function vatRateFor(date?: Date | string | null): number {
   const target = date instanceof Date ? date : date ? new Date(date) : new Date();
   if (Number.isNaN(target.getTime())) return VAT_RATE;
-  const iso = target.toISOString().slice(0, 10); // YYYY-MM-DD
+  // Vergleich auf LOKALEM YYYY-MM-DD, nicht UTC. Sonst shiftet ein
+  // Date(2024, 0, 1) (lokal) in einer Timezone east of UTC (z.B. CH) auf
+  // UTC 2023-12-31 → falscher VAT-Satz an der Tages-Grenze (Codex P2).
+  const yyyy = target.getFullYear();
+  const mm = String(target.getMonth() + 1).padStart(2, "0");
+  const dd = String(target.getDate()).padStart(2, "0");
+  const iso = `${yyyy}-${mm}-${dd}`;
   for (const entry of VAT_RATE_HISTORY) {
     if (iso >= entry.effectiveFrom) return entry.rate;
   }

@@ -20,9 +20,15 @@
 ALTER TABLE booking.admin_sessions
   ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ NULL;
 
+-- Partial-Index nur auf revoked_at IS NULL: Postgres erlaubt in
+-- Index-Predicates ausschliesslich IMMUTABLE-Funktionen, NOW() ist
+-- STABLE -> CREATE INDEX wuerde mit "functions in index predicate
+-- must be marked IMMUTABLE" failen (Codex P1).
+-- Die expires_at-Pruefung laeuft weiterhin im WHERE der Auth-Query;
+-- der Index gibt uns kompakte active-rows ueber (token_hash, expires_at).
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_active
-  ON booking.admin_sessions (token_hash)
-  WHERE revoked_at IS NULL AND expires_at > NOW();
+  ON booking.admin_sessions (token_hash, expires_at)
+  WHERE revoked_at IS NULL;
 
 COMMENT ON COLUMN booking.admin_sessions.revoked_at IS
   'Soft-Revoke-Marker fuer expliziten Logout. NULL = aktive Session, sonst der Zeitpunkt der Revocation. Auth-Queries muessen revoked_at IS NULL pruefen.';
