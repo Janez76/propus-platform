@@ -20,7 +20,7 @@
 
 import DOMPurify from "isomorphic-dompurify";
 import type { Config as DOMPurifyConfig } from "dompurify";
-import type { ReactElement } from "react";
+import { useMemo, type ReactElement } from "react";
 
 export type SafeHtmlVariant = "ui" | "mail";
 
@@ -97,7 +97,12 @@ function sanitize(input: string, variant: SafeHtmlVariant): string {
 }
 
 export function SafeHtml({ html, variant = "ui", as, className }: SafeHtmlProps): ReactElement {
-  const safe = sanitize(html ?? "", variant);
+  // useMemo verhindert dass `DOMPurify.sanitize` bei jedem Re-Render des
+  // Parent-Trees neu lauft. PosteingangPage re-rendert die ganze Mail-Liste
+  // bei jedem Tastendruck im Reply-Composer — ohne Memo wuerde jeder
+  // bereits gerenderte Mail-Body bei jedem Keystroke neu sanitisiert
+  // (Codex P2: spuerbarer UI-Lag bei langen Threads).
+  const safe = useMemo(() => sanitize(html ?? "", variant), [html, variant]);
   const Tag: WrapperTag = as ?? (variant === "mail" ? "div" : "span");
   if (Tag === "div") {
     return <div className={className} dangerouslySetInnerHTML={{ __html: safe }} />;
