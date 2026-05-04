@@ -82,11 +82,17 @@ async function processOutboxBatch({ pool, registry, batchSize = 25, log = consol
     let row = null;
     try {
       await client.query("BEGIN");
+      // Picken: faellige pending-Rows ODER stale in_progress-Rows
+      // (Reclaim). Wenn ein Worker zwischen "in_progress markieren" und
+      // dem finalen done/pending-Update crasht, wuerde die Row sonst
+      // permanent stecken bleiben — was den Crash-Safety-Sinn der Outbox
+      // unterlaeuft (Codex P1 #260). 10 min ist > als der typische
+      // Handler-Lauf, aber kurz genug fuer akzeptables Recovery.
       const lockResult = await client.query(
         `SELECT id, order_no, kind, payload, attempts, max_attempts
            FROM booking.order_outbox
-          WHERE status = 'pending'
-            AND next_attempt_at <= NOW()
+          WHERE (status = 'pending' AND next_attempt_at <= NOW())
+             OR (status = 'in_progress' AND updated_at < NOW() - INTERVAL '10 minutes')
           ORDER BY next_attempt_at ASC
           FOR UPDATE SKIP LOCKED
           LIMIT 1`,
@@ -171,7 +177,10 @@ async function processOutboxBatch({ pool, registry, batchSize = 25, log = consol
         failed += 1;
         log.error?.(`[outbox] kind=${row.kind} id=${row.id} endgueltig fehlgeschlagen`, errMsg);
       } else {
-        const ms = backoffMs(attempts);
+        // backoffMs ist 0-indexiert (erster Eintrag = 10 s). attempts wurde
+        // hier schon inkrementiert, deshalb -1 fuer die richtige Stufe
+        // (Codex P2 #260: vorher wartete der erste Retry 60 s statt 10 s).
+        const ms = backoffMs(attempts - 1);
         await pool.query(
           `UPDATE booking.order_outbox
               SET status = 'pending',

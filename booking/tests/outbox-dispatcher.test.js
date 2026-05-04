@@ -37,15 +37,23 @@ function createMockPool(initialRows = []) {
     if (norm === "ROLLBACK") { inTx = false; return { rows: [] }; }
     if (norm.startsWith("SELECT id, order_no, kind, payload, attempts, max_attempts FROM booking.order_outbox")) {
       const now = Date.now();
+      const staleMs = 10 * 60_000;
       const due = rows
-        .filter((r) => r.status === "pending" && new Date(r.next_attempt_at).getTime() <= now)
+        .filter((r) => {
+          if (r.status === "pending" && new Date(r.next_attempt_at).getTime() <= now) return true;
+          if (r.status === "in_progress" && r.updated_at && now - new Date(r.updated_at).getTime() > staleMs) return true;
+          return false;
+        })
         .sort((a, b) => new Date(a.next_attempt_at) - new Date(b.next_attempt_at));
       return { rows: due.slice(0, 1) };
     }
     if (norm.includes("UPDATE booking.order_outbox") && norm.includes("SET status = 'in_progress'")) {
       const id = params[0];
       const r = rows.find((x) => x.id === id);
-      if (r) r.status = "in_progress";
+      if (r) {
+        r.status = "in_progress";
+        r.updated_at = new Date();
+      }
       return { rows: [] };
     }
     if (norm.includes("SET status = 'done'")) {
@@ -229,4 +237,70 @@ test("backoffMs is monotonically non-decreasing and capped", () => {
 test("registry rejects non-function handlers", () => {
   const r = createRegistry();
   assert.throws(() => r.register("x", "not a function"), TypeError);
+});
+
+test("first retry waits ~10s, not 60s (Codex P2 #260)", async () => {
+  const pool = createMockPool([
+    { id: 1, kind: "flaky", attempts: 0, max_attempts: 5 },
+  ]);
+  const registry = createRegistry();
+  registry.register("flaky", async () => {
+    throw new Error("boom");
+  });
+
+  const before = Date.now();
+  await processOutboxBatch({ pool, registry, batchSize: 1, log: silentLog });
+
+  const r = pool.rows[0];
+  assert.equal(r.status, "pending");
+  assert.equal(r.attempts, 1);
+  const delay = new Date(r.next_attempt_at).getTime() - before;
+  // Erste Stufe = 10 s, kleine Toleranz fuer Test-Latency.
+  assert.ok(delay >= 9_000 && delay < 30_000, `expected ~10s, got ${delay}ms`);
+});
+
+test("reclaims stale in_progress rows (Codex P1 #260)", async () => {
+  // Row wurde vor 11 min als in_progress markiert (Worker-Crash Szenario)
+  const eleven = new Date(Date.now() - 11 * 60_000);
+  const pool = createMockPool([
+    {
+      id: 1,
+      kind: "noop",
+      status: "in_progress",
+      next_attempt_at: eleven,
+    },
+  ]);
+  pool.rows[0].updated_at = eleven;
+  const seen = [];
+  const registry = createRegistry();
+  registry.register("noop", async (ctx) => {
+    seen.push(ctx.id);
+  });
+
+  const stats = await processOutboxBatch({ pool, registry, batchSize: 5, log: silentLog });
+
+  assert.equal(stats.processed, 1);
+  assert.equal(stats.succeeded, 1);
+  assert.equal(seen[0], 1);
+  assert.equal(pool.rows[0].status, "done");
+});
+
+test("does NOT reclaim recent in_progress rows", async () => {
+  const recent = new Date(Date.now() - 30_000); // 30 s alt
+  const pool = createMockPool([
+    {
+      id: 1,
+      kind: "noop",
+      status: "in_progress",
+      next_attempt_at: recent,
+    },
+  ]);
+  pool.rows[0].updated_at = recent;
+  const registry = createRegistry();
+  registry.register("noop", async () => {});
+
+  const stats = await processOutboxBatch({ pool, registry, batchSize: 5, log: silentLog });
+
+  assert.equal(stats.processed, 0);
+  assert.equal(pool.rows[0].status, "in_progress");
 });
