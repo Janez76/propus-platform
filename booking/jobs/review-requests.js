@@ -125,14 +125,29 @@ function scheduleReviewRequests(deps) {
               mailSent = true;
               mailReason = "sent";
             } else if (!result.sent && result.reason === "template_not_found") {
+              // Bug-Hunt T07 MEDIUM: r.billing.name + companyName + Links
+              // werden hier in eine HTML-String-Konkatenation gegossen.
+              // Auch wenn die Quellen i.d.R. admin- oder kunden-controlled
+              // sind: defensives HTML-Escape verhindert injection-Bugs
+              // aus DB-Korruption oder Copy-Paste-Tricks.
+              const esc = (s) => String(s == null ? "" : s)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+              const safeName = esc(r.billing.name || "");
+              const safeCompany = esc(companyName);
+              const safeReviewLink = esc(reviewLink);
+              const safeGoogleLink = esc(googleReviewLink);
               const subject = isReminder
                 ? "Haben Sie uns auf Google bewertet? Wir wuerden uns freuen!"
                 : "Wie hat Ihnen Ihr Shooting bei " + companyName + " gefallen?";
-              const html = "<p>Guten Tag " + (r.billing.name || "") + ",</p>"
+              const html = "<p>Guten Tag " + safeName + ",</p>"
                 + "<p>Ihr Feedback ist uns sehr wichtig. Wir wuerden uns freuen, wenn Sie kurz eine Bewertung hinterlassen:</p>"
-                + "<p><a href=\"" + reviewLink + "\">Jetzt bewerten (1–5 Sterne)</a></p>"
-                + "<p><a href=\"" + googleReviewLink + "\">Auf Google bewerten</a></p>"
-                + "<p>Herzliche Gruesse<br>Ihr " + companyName + "-Team</p>";
+                + "<p><a href=\"" + safeReviewLink + "\">Jetzt bewerten (1–5 Sterne)</a></p>"
+                + "<p><a href=\"" + safeGoogleLink + "\">Auf Google bewerten</a></p>"
+                + "<p>Herzliche Gruesse<br>Ihr " + safeCompany + "-Team</p>";
               const text = "Jetzt bewerten: " + reviewLink + "\nAuf Google bewerten: " + googleReviewLink;
               const fallbackResult = normalizeMailSendResult(await sendMail(r.billing.email, subject, html, text));
               if (fallbackResult.sent) {

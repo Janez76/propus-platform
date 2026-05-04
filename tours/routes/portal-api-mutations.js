@@ -183,7 +183,15 @@ router.post('/reset-password', async (req, res) => {
     const token = String(req.body?.token || '').trim();
     const password = String(req.body?.password || '');
     if (!token) return res.status(400).json({ ok: false, error: 'Token fehlt.' });
-    if (password.length < 8) return res.status(400).json({ ok: false, error: 'Passwort muss mindestens 8 Zeichen lang sein.' });
+    // Policy-Check vorgelagert damit der User-feedback statt generischem
+    // Token-Error bekommt. consumePasswordReset() validiert nochmal —
+    // single source of truth in portal-auth.validatePasswordPolicy
+    // (Bug-Hunt T03 MEDIUM).
+    try {
+      portalAuth.validatePasswordPolicy(password);
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: String(e?.message || 'Passwort ungueltig') });
+    }
     const result = await portalAuth.consumePasswordReset(token, password).catch(() => null);
     if (!result) return res.status(400).json({ ok: false, error: 'Token ungültig oder abgelaufen.' });
     return res.json({ ok: true });
