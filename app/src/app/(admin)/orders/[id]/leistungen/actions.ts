@@ -99,12 +99,10 @@ export async function saveLeistungen(
     vatRate: String(calc.vatRate),
   };
 
-  const schedPatch: Record<string, unknown> = {
-    ...((before.schedule as object) || {}),
-  };
-  if (v.durationMinOverride != null) {
-    schedPatch.durationMin = v.durationMinOverride;
-  }
+  // schedPatch wird INSIDE der withTransaction aus locked.schedule
+  // gebaut (siehe unten) — nicht aus before.schedule ausserhalb der Tx,
+  // sonst kann ein paralleles UPDATE den neueren Slot mit unserem alten
+  // Snapshot ueberschreiben (CodeRabbit Major #262 Round 4).
 
   // Calendar-Reschedule wandert in die booking.order_outbox: Sync-
   // Operation persistiert atomar mit dem Order-UPDATE, der Outbox-Worker
@@ -125,6 +123,15 @@ export async function saveLeistungen(
       [v.orderNo],
       c,
     );
+
+    // schedPatch erst HIER aus dem gelockten Schedule bauen, damit
+    // paralleles Datum/Uhrzeit-UPDATE nicht ueberschrieben wird.
+    const schedPatch: Record<string, unknown> = {
+      ...((locked?.schedule as Record<string, unknown> | null) || {}),
+    };
+    if (v.durationMinOverride != null) {
+      schedPatch.durationMin = v.durationMinOverride;
+    }
 
     await c.query(
       `UPDATE booking.orders SET
