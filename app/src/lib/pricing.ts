@@ -6,12 +6,12 @@
  * Wichtig fuer Re-Berechnungen alter Bestellungen, Stornorechnungen,
  * Korrekturbuchungen — sonst kommt die heutige Rate auf alte Daten.
  *
- * Erweiterung: weitere Saetze einfach am Ende der Tabelle anhaengen
- * (sortiert nach effective_from).
+ * Reihenfolge der Eintraege ist egal: vatRateFor() sucht den Eintrag
+ * mit dem groessten `effectiveFrom <= target` (CodeRabbit Major #257).
  */
 const VAT_RATE_HISTORY: ReadonlyArray<{ effectiveFrom: string; rate: number }> = [
-  { effectiveFrom: "2024-01-01", rate: 0.081 },
   { effectiveFrom: "1970-01-01", rate: 0.077 },
+  { effectiveFrom: "2024-01-01", rate: 0.081 },
 ];
 
 /** Aktueller Standard-Satz (Heute). Bewahrt Kompat mit altem Import. */
@@ -54,10 +54,13 @@ export function vatRateFor(date?: Date | string | null): number {
   } else {
     iso = dateToLocalISO(new Date());
   }
+  // Eintrag mit groesstem effectiveFrom <= iso. Reihenfolge im Array egal.
+  let best: (typeof VAT_RATE_HISTORY)[number] | null = null;
   for (const entry of VAT_RATE_HISTORY) {
-    if (iso >= entry.effectiveFrom) return entry.rate;
+    if (iso < entry.effectiveFrom) continue;
+    if (!best || entry.effectiveFrom > best.effectiveFrom) best = entry;
   }
-  return VAT_RATE;
+  return best ? best.rate : VAT_RATE;
 }
 
 export type PricingAddon = { price: number; qty?: number };

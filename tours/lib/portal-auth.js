@@ -287,6 +287,36 @@ async function changePortalPassword(email, currentPassword, newPassword) {
   );
 }
 
+/**
+ * Revoziert eine admin_session per Token (Soft-Revocation: revoked_at = NOW()).
+ * Wird von den Portal-Logout-Endpoints aufgerufen, damit ein gebridgtes
+ * Admin-Cookie nach dem Logout ungueltig ist (CodeRabbit Major #257).
+ */
+async function revokeAdminSessionByToken(token) {
+  const raw = String(token || '').trim();
+  if (!raw) return;
+  const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+  await pool.query(
+    `UPDATE booking.admin_sessions
+       SET revoked_at = NOW()
+       WHERE token_hash = $1
+         AND revoked_at IS NULL`,
+    [tokenHash],
+  );
+}
+
+/**
+ * Loescht das admin_session-Cookie auf der Response. Path/Domain muessen mit
+ * der ursprunglichen Set-Cookie-Konfiguration im Booking-Service uebereinstimmen
+ * (siehe buildAdminSessionCookieOptions in booking/server.js).
+ */
+function clearAdminSessionCookie(res) {
+  if (!res?.clearCookie) return;
+  const domain = String(process.env.SESSION_COOKIE_DOMAIN || '').trim();
+  const options = { path: '/', ...(domain ? { domain } : {}) };
+  res.clearCookie('admin_session', options);
+}
+
 module.exports = {
   normalizeEmail,
   ensurePortalAuthSchema,
@@ -298,4 +328,6 @@ module.exports = {
   getResetTokenRow,
   consumePasswordReset,
   changePortalPassword,
+  revokeAdminSessionByToken,
+  clearAdminSessionCookie,
 };

@@ -554,6 +554,16 @@ router.post('/profile/password', requirePortalAuth, async (req, res) => {
 
 router.get('/logout', async (req, res) => {
   const bp = typeof res.locals.basePath === 'string' ? res.locals.basePath : '';
+  // Falls die Portal-Session per admin_session-Bridge erstellt wurde, muss
+  // das Admin-Cookie auch revoziert + geloescht werden — sonst akzeptiert
+  // requirePortalSession beim naechsten Request weiter dasselbe Token
+  // (CodeRabbit Major #257).
+  const adminToken = readRawCookie(req, 'admin_session');
+  if (adminToken) {
+    try { await portalAuth.revokeAdminSessionByToken(adminToken); }
+    catch (e) { console.error('[portal/logout] revoke admin_session', e?.message || e); }
+    portalAuth.clearAdminSessionCookie(res);
+  }
   req.session.destroy(() => res.redirect(`${bp}/portal/login`));
 });
 
