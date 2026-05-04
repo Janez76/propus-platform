@@ -75,18 +75,7 @@ function requirePortalAuth(req, res, next) {
  */
 const crypto = require('crypto');
 const PORTAL_IMPERSONATION_ROLES = new Set(['customer_admin', 'customer_user']);
-
-function readRawCookie(req, name) {
-  const raw = String(req?.headers?.cookie || '');
-  if (!raw) return '';
-  for (const part of raw.split(';')) {
-    const t = part.trim();
-    if (t.startsWith(`${name}=`)) {
-      return decodeURIComponent(t.substring(name.length + 1).trim());
-    }
-  }
-  return '';
-}
+const { readRawCookie } = portalAuth;
 
 router.get('/admin-bridge', async (req, res) => {
   try {

@@ -151,27 +151,11 @@ router.get('/check-reset-token', async (req, res) => {
   }
 });
 
-/**
- * Liest das admin_session-Cookie aus dem Raw-Header (umgeht
- * cookie-parser-Konfiguration). Identisch zur Logik in portal.js.
- */
-function readRawAdminSessionCookie(req) {
-  const raw = String(req?.headers?.cookie || '');
-  if (!raw) return '';
-  for (const part of raw.split(';')) {
-    const t = part.trim();
-    if (t.startsWith('admin_session=')) {
-      return decodeURIComponent(t.substring('admin_session='.length).trim());
-    }
-  }
-  return '';
-}
-
 router.post('/logout', async (req, res) => {
   // Wenn die Session per admin_session-Bridge entstanden ist, muss das
   // Admin-Cookie auch revoziert + geloescht werden — sonst akzeptiert
   // requirePortalSession weiter dasselbe Token (CodeRabbit Major #257).
-  const adminToken = readRawAdminSessionCookie(req);
+  const adminToken = portalAuth.readRawCookie(req, 'admin_session');
   if (adminToken) {
     try { await portalAuth.revokeAdminSessionByToken(adminToken); }
     catch (e) { console.error('[portal-api/logout] revoke admin_session', e?.message || e); }
@@ -215,9 +199,12 @@ function requirePortalSession(req, res, next) {
   const tokenHash = crypto.createHash('sha256').update(adminToken).digest('hex');
   const CUSTOMER_ROLES = ['customer_user', 'customer_admin', 'tour_manager'];
 
+  // Schema-Praefix `booking.` ist erforderlich: tours-search_path
+  // (tour_manager,core,public) wuerde sonst die alte public.admin_sessions
+  // ohne revoked_at-Spalte treffen (CodeRabbit Major #257).
   pool.query(
     `SELECT user_key, user_name, role
-     FROM admin_sessions
+     FROM booking.admin_sessions
      WHERE token_hash = $1
        AND expires_at > NOW()
        AND revoked_at IS NULL

@@ -288,6 +288,24 @@ async function changePortalPassword(email, currentPassword, newPassword) {
 }
 
 /**
+ * Liest ein Cookie aus dem Raw-Header (umgeht cookie-parser-Konfiguration).
+ * Geteilt zwischen portal.js und portal-api-mutations.js
+ * (CodeRabbit Nitpick #257).
+ */
+function readRawCookie(req, name) {
+  const raw = String(req?.headers?.cookie || '');
+  if (!raw) return '';
+  const prefix = `${name}=`;
+  for (const part of raw.split(';')) {
+    const t = part.trim();
+    if (t.startsWith(prefix)) {
+      return decodeURIComponent(t.substring(prefix.length).trim());
+    }
+  }
+  return '';
+}
+
+/**
  * Revoziert eine admin_session per Token (Soft-Revocation: revoked_at = NOW()).
  * Wird von den Portal-Logout-Endpoints aufgerufen, damit ein gebridgtes
  * Admin-Cookie nach dem Logout ungueltig ist (CodeRabbit Major #257).
@@ -328,6 +346,7 @@ module.exports = {
   getResetTokenRow,
   consumePasswordReset,
   changePortalPassword,
+  readRawCookie,
   revokeAdminSessionByToken,
   clearAdminSessionCookie,
 };

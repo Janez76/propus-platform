@@ -27,17 +27,19 @@ export const KEY_PICKUP_PRICE = 50;
  *   vatRateFor(new Date("2024-06-01"))  // 0.081
  *   vatRateFor()                        // 0.081 (heute)
  */
-function dateToLocalISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function dateToUTCISO(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
 export function vatRateFor(date?: Date | string | null): number {
-  // Vergleich erfolgt auf YYYY-MM-DD-Strings ohne Timezone-Roundtrip:
+  // Vergleich erfolgt auf YYYY-MM-DD-Strings:
   //  - Strings die mit YYYY-MM-DD anfangen werden direkt benutzt
-  //    (verhindert dass `new Date("2024-01-01")` als UTC geparsed +
-  //    in Tz west of UTC zu lokal 2023-12-31 wird → Codex P1).
-  //  - Date-Objekte und andere String-Formate werden auf LOKALES
-  //    YYYY-MM-DD gemappt (verhindert UTC-Shift in Tz east of UTC).
+  //    (verhindert dass `new Date("2024-01-01")` in west-of-UTC TZ als
+  //    Vortag interpretiert wird → Codex P1 #257).
+  //  - Date-Objekte werden auf UTC-YYYY-MM-DD gemappt. Das matched, wie
+  //    Postgres TIMESTAMPTZ-Spalten zu Date konvertiert werden, und
+  //    verhindert dass `new Date("2024-01-01")` per Local-Getter in
+  //    UTC-negativen TZ zu 2023-12-31 wird (Codex P1 Folgefinding #257).
   let iso: string;
   if (typeof date === "string") {
     const m = /^(\d{4}-\d{2}-\d{2})/.exec(date.trim());
@@ -46,13 +48,13 @@ export function vatRateFor(date?: Date | string | null): number {
     } else {
       const t = new Date(date);
       if (Number.isNaN(t.getTime())) return VAT_RATE;
-      iso = dateToLocalISO(t);
+      iso = dateToUTCISO(t);
     }
   } else if (date instanceof Date) {
     if (Number.isNaN(date.getTime())) return VAT_RATE;
-    iso = dateToLocalISO(date);
+    iso = dateToUTCISO(date);
   } else {
-    iso = dateToLocalISO(new Date());
+    iso = dateToUTCISO(new Date());
   }
   // Eintrag mit groesstem effectiveFrom <= iso. Reihenfolge im Array egal.
   let best: (typeof VAT_RATE_HISTORY)[number] | null = null;
