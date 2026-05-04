@@ -225,13 +225,16 @@ test("does not pick rows with future next_attempt_at", async () => {
   assert.equal(pool.rows[0].status, "pending");
 });
 
-test("backoffMs is monotonically non-decreasing and capped", () => {
-  const a = backoffMs(0);
-  const b = backoffMs(1);
-  const c = backoffMs(2);
-  const d = backoffMs(99);
-  assert.ok(a <= b && b <= c);
-  assert.equal(d, backoffMs(4));
+test("backoffMs schedule matches docs (10s, 1m, 5m, 30m, 2h cap)", () => {
+  // Konkrete Werte — entdeckt Off-by-one-Verschiebungen sofort
+  // (CodeRabbit Nitpick #260).
+  assert.equal(backoffMs(0), 10_000);
+  assert.equal(backoffMs(1), 60_000);
+  assert.equal(backoffMs(2), 5 * 60_000);
+  assert.equal(backoffMs(3), 30 * 60_000);
+  assert.equal(backoffMs(4), 2 * 60 * 60_000);
+  // Cap: alles ab Index 4 bleibt bei 2 h
+  assert.equal(backoffMs(99), backoffMs(4));
 });
 
 test("registry rejects non-function handlers", () => {

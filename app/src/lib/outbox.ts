@@ -1,4 +1,5 @@
-import { query, type Querier } from "./db";
+import type { PoolClient } from "pg";
+import { query } from "./db";
 
 /**
  * Outbox-Pattern: Side-Effects (Mails, Calendar-Sync) werden in derselben
@@ -17,9 +18,12 @@ export type OutboxKind =
   | "calendar_reschedule";
 
 /**
- * Schreibt eine Outbox-Row. MUSS mit derselben `tx` aufgerufen werden,
- * gegen die auch das Order-UPDATE laeuft, damit beide zusammen
- * committet/zurueckgerollt werden.
+ * Schreibt eine Outbox-Row. Erwartet einen `PoolClient` (laufende
+ * Transaktion) statt eines beliebigen Queriers — der Vertrag verlangt
+ * dieselbe Tx wie das Order-UPDATE, damit beide zusammen committet/
+ * zurueckgerollt werden. Wird der Pool durchgereicht, wuerde die Outbox-
+ * Row sofort committen — DB liegt dann inkonsistent (CodeRabbit Major
+ * #260).
  *
  * Der Worker dispatcht at-least-once: Handler MUESSEN idempotent sein
  * (z. B. via Outbox-Row-ID als Idempotency-Key). Mailversand sollte
@@ -27,13 +31,19 @@ export type OutboxKind =
  * booking/lib/outbox-handlers.js.
  */
 export async function enqueueOutbox(
-  tx: Querier,
+  tx: PoolClient,
   orderNo: number,
   kind: OutboxKind,
   payload: Record<string, unknown>,
   options: { maxAttempts?: number } = {},
 ): Promise<{ id: number }> {
-  const maxAttempts = Number.isFinite(options.maxAttempts) ? options.maxAttempts : 5;
+  // maxAttempts MUSS positiv und ganzzahlig sein, sonst bricht die
+  // CHECK-Constraint in 057_order_outbox.sql. Float/0/negativ → Default
+  // (CodeRabbit Major #260).
+  const maxAttempts =
+    Number.isInteger(options.maxAttempts) && (options.maxAttempts as number) > 0
+      ? (options.maxAttempts as number)
+      : 5;
   const rows = await query<{ id: number }>(
     `INSERT INTO booking.order_outbox (order_no, kind, payload, max_attempts)
      VALUES ($1, $2, $3::jsonb, $4)
@@ -41,5 +51,10 @@ export async function enqueueOutbox(
     [orderNo, kind, JSON.stringify(payload), maxAttempts],
     tx,
   );
-  return { id: Number(rows[0]?.id) };
+  const rawId = rows[0]?.id;
+  const id = Number(rawId);
+  if (!Number.isFinite(id) || id <= 0) {
+    throw new Error("enqueueOutbox: INSERT lieferte keine gueltige id");
+  }
+  return { id };
 }

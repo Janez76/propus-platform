@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS booking.order_outbox (
   payload           JSONB NOT NULL DEFAULT '{}'::jsonb,
   status            TEXT NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending', 'in_progress', 'done', 'failed')),
-  attempts          INT NOT NULL DEFAULT 0,
-  max_attempts      INT NOT NULL DEFAULT 5,
+  attempts          INT NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  max_attempts      INT NOT NULL DEFAULT 5 CHECK (max_attempts > 0),
   last_error        TEXT,
   next_attempt_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   processed_at      TIMESTAMPTZ,
