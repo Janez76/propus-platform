@@ -71,6 +71,14 @@ export function HandoffGalleryCards({
           ? `/api/tours/admin/galleries/${g.id}/images/${g.cover_image_id}/thumb?w=600`
           : null;
         const folderName = folderTail(g.storage_relative_path);
+        const titleText = g.title?.trim() || "";
+        const addressText = g.address?.trim() || "";
+        const customerText = g.client_name?.trim() || "";
+        // Wenn der Titel leer ist, zeigen wir die Adresse als Titel-Ersatz —
+        // sonst "Ohne Titel" als dezenter Platzhalter.
+        const displayTitle = titleText || addressText || "Ohne Titel";
+        const showSeparateAddress = Boolean(titleText && addressText);
+        const titleIsPlaceholder = !titleText && !addressText;
         return (
           <article
             key={g.id}
@@ -177,14 +185,19 @@ export function HandoffGalleryCards({
               ) : null}
             </div>
 
-            <div className="gal-body" style={{ minHeight: 132 }}>
-              <Link to={buildEditHref(g.id)} className="gal-title hover:underline">
-                {g.title}
+            <div className="gal-body" style={{ minHeight: 132, display: "flex", flexDirection: "column" }}>
+              <Link
+                to={buildEditHref(g.id)}
+                className="gal-title hover:underline"
+                style={titleIsPlaceholder ? { color: "var(--fg-3)", fontStyle: "italic" } : undefined}
+                title={displayTitle}
+              >
+                {displayTitle}
               </Link>
-              {g.address?.trim() ? (
-                <div className="text-xs text-[var(--fg-3)] line-clamp-2">{g.address.trim()}</div>
+              {showSeparateAddress ? (
+                <div className="text-xs text-[var(--fg-3)] line-clamp-2">{addressText}</div>
               ) : null}
-              <p className="gal-customer">{g.client_name || "—"}</p>
+              {customerText ? <p className="gal-customer">{customerText}</p> : null}
               <div
                 className="gal-meta"
                 style={{ flexWrap: "wrap", gap: 6, marginTop: 6 }}
@@ -221,10 +234,24 @@ export function HandoffGalleryCards({
                 </div>
               ) : (
                 <div className="gal-meta text-xs">
-                  {g.image_count} Bilder · {g.feedback_count ?? 0} offene Rev.
+                  {g.image_count > 0 ? (
+                    <>
+                      {g.image_count} Bild{g.image_count === 1 ? "" : "er"}
+                    </>
+                  ) : (
+                    <span className="text-[var(--fg-3)] italic">Noch keine Bilder</span>
+                  )}
+                  {(g.feedback_count ?? 0) > 0 ? (
+                    <>
+                      {" · "}
+                      <span className="text-[var(--warn)]">
+                        {g.feedback_count} offene Rev.
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               )}
-              <div className="gal-foot">
+              <div className="gal-foot" style={{ marginTop: "auto" }}>
                 <span className="gal-expires">Aktual. {fmtDateShort(g.updated_at)}</span>
               </div>
             </div>
