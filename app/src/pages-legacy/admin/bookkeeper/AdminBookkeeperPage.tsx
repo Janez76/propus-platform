@@ -379,19 +379,19 @@ export function AdminBookkeeperPage() {
   const TabIcon = desc.icon;
 
   return (
-    <div className="p-6 max-w-7xl">
+    <div className="p-3 sm:p-6 max-w-7xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <BookOpenCheck className="w-7 h-7 text-amber-700" />
-          <div>
-            <h1 className="text-2xl font-semibold">Buchhaltung — KI-Cascade</h1>
-            <p className="text-sm text-neutral-500 mt-1">
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <BookOpenCheck className="w-6 h-6 sm:w-7 sm:h-7 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-semibold leading-tight">Buchhaltung — KI-Cascade</h1>
+            <p className="text-xs sm:text-sm text-neutral-500 mt-1">
               Sonnet 4.6 → Opus 4.7 (Eskalation ab confidence&lt;95) · Vision-Cross-Check · Container auf NAS
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {desc.status && desc.status !== "pending" && (
             <button onClick={recascade} disabled={busyAction !== null}
               className="text-sm px-3 py-1.5 border rounded-md hover:bg-amber-50 disabled:opacity-50">
@@ -428,15 +428,15 @@ export function AdminBookkeeperPage() {
       </div>
 
       {/* Help-Banner */}
-      <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-md mb-4">
-        <TabIcon className="w-5 h-5 text-amber-700 mt-0.5" />
-        <div className="flex-1">
+      <div className="flex items-start gap-3 p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-md mb-4">
+        <TabIcon className="w-5 h-5 text-amber-700 mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
           <div className="font-medium text-amber-900">{desc.title}</div>
           <p className="text-sm text-amber-800 mt-1">{desc.help}</p>
         </div>
         <a href={PAPERLESS_VIEW_LINKS[activeTab]} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1 text-sm text-amber-800 hover:underline">
-          <ExternalLink className="w-4 h-4" /> Paperless
+          className="flex items-center gap-1 text-sm text-amber-800 hover:underline flex-shrink-0 whitespace-nowrap">
+          <ExternalLink className="w-4 h-4" /> <span className="hidden sm:inline">Paperless</span>
         </a>
       </div>
 
@@ -470,7 +470,7 @@ export function AdminBookkeeperPage() {
       {desc.status && (
         <>
           {selected.size > 0 && (
-            <div className="flex items-center gap-2 p-3 bg-amber-100 border border-amber-300 rounded-md mb-3 sticky top-0 z-10">
+            <div className="flex items-center gap-2 flex-wrap p-3 bg-amber-100 border border-amber-300 rounded-md mb-3 sticky top-0 z-10">
               <span className="text-sm font-medium">{selected.size} ausgewählt</span>
               <button onClick={bulkApprove} disabled={busyAction !== null}
                 className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
@@ -486,8 +486,8 @@ export function AdminBookkeeperPage() {
             </div>
           )}
 
-          <div className="bg-white border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="bg-white border rounded-md overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
               <thead className="bg-neutral-50 text-neutral-600">
                 <tr>
                   <th className="p-2 w-8">
@@ -526,9 +526,9 @@ export function AdminBookkeeperPage() {
                           <a href={`${PAPERLESS_BASE}/documents/${d.id}/details`} target="_blank" rel="noopener noreferrer"
                             className="text-amber-700 hover:underline">#{d.id}</a>
                         </td>
-                        <td className="p-2">{(cf[3] as string) || "—"}</td>
-                        <td className="p-2 truncate max-w-xs" title={(cf[5] as string) || ""}>{(cf[5] as string) || "—"}</td>
-                        <td className="p-2 text-right tabular-nums">
+                        <td className="p-2 whitespace-nowrap">{(cf[3] as string) || "—"}</td>
+                        <td className="p-2 truncate max-w-[200px] sm:max-w-xs" title={(cf[5] as string) || ""}>{(cf[5] as string) || "—"}</td>
+                        <td className="p-2 text-right tabular-nums whitespace-nowrap">
                           {cf[6] != null ? `${String(cf[6])} ${String(cf[7] ?? "")}` : "—"}
                         </td>
                         <td className="p-2 text-xs font-mono">{String(cf[10] ?? "?")} / {String(cf[11] ?? "?")}</td>
@@ -541,7 +541,7 @@ export function AdminBookkeeperPage() {
                           }>{String(cf[13] ?? "?")}</span>
                         </td>
                         <td className="p-2">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex justify-end gap-1 flex-nowrap">
                             {!isEditing && (
                               <>
                                 <button onClick={() => startEdit(d)} title="Edit"
@@ -749,13 +749,14 @@ export function AdminBookkeeperPage() {
 
       {/* Training-Tab */}
       {activeTab === "training" && (
-        <div className="bg-white border rounded-md p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white border rounded-md p-3 sm:p-6">
+          <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-medium">User-Korrekturen ({feedback.length})</h3>
             <p className="text-sm text-neutral-500">Werden vom Few-Shot-Generator zu Beispielen im Cascade-Prompt eingewoben.</p>
           </div>
           {feedback.length === 0 && <p className="text-neutral-500 text-sm">Noch keine Korrekturen erfasst.</p>}
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-neutral-50">
               <tr>
                 <th className="p-2 text-left">Doc</th>
@@ -779,6 +780,7 @@ export function AdminBookkeeperPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
