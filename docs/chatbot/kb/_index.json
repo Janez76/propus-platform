@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "default_locale": "de-CH",
+  "locales": ["de-CH", "en"],
+  "summary_topics": [
+    "company.about",
+    "company.team",
+    "services.photography",
+    "services.matterport",
+    "services.drone",
+    "services.video",
+    "services.floor-plans",
+    "operations.travel-zones",
+    "operations.delivery-times"
+  ],
+  "topics": {
+    "company.about": {
+      "files": { "de-CH": "company/about.de.md", "en": "company/about.en.md" }
+    },
+    "company.team": {
+      "files": { "de-CH": "company/team.de.md", "en": "company/team.en.md" }
+    },
+    "services.photography": {
+      "files": { "de-CH": "services/photography.de.md", "en": "services/photography.en.md" }
+    },
+    "services.matterport": {
+      "files": { "de-CH": "services/matterport.de.md", "en": "services/matterport.en.md" }
+    },
+    "services.drone": {
+      "files": { "de-CH": "services/drone.de.md", "en": "services/drone.en.md" }
+    },
+    "services.video": {
+      "files": { "de-CH": "services/video.de.md", "en": "services/video.en.md" }
+    },
+    "services.floor-plans": {
+      "files": { "de-CH": "services/floor-plans.de.md", "en": "services/floor-plans.en.md" }
+    },
+    "operations.travel-zones": {
+      "files": { "de-CH": "operations/travel-zones.de.md", "en": "operations/travel-zones.en.md" }
+    },
+    "operations.delivery-times": {
+      "files": { "de-CH": "operations/delivery-times.de.md", "en": "operations/delivery-times.en.md" }
+    },
+    "operations.weather": {
+      "files": { "de-CH": "operations/weather.de.md", "en": "operations/weather.en.md" }
+    },
+    "operations.rebooking": {
+      "files": { "de-CH": "operations/rebooking.de.md", "en": "operations/rebooking.en.md" }
+    },
+    "matterport.lifecycle": {
+      "files": { "de-CH": "matterport-lifecycle/lifecycle.de.md", "en": "matterport-lifecycle/lifecycle.en.md" }
+    },
+    "billing.invoicing": {
+      "files": { "de-CH": "billing/invoicing.de.md", "en": "billing/invoicing.en.md" }
+    },
+    "billing.usage-rights": {
+      "files": { "de-CH": "billing/usage-rights.de.md", "en": "billing/usage-rights.en.md" }
+    }
+  },
+  "qa_patterns": {
+    "de-CH": "qa-patterns/patterns.de.json",
+    "en": "qa-patterns/patterns.en.json"
+  }
+}

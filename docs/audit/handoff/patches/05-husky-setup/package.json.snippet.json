@@ -1,0 +1,27 @@
+{
+  "_comment": "Diese Abschnitte in die Root-package.json einfügen (mergen, nicht überschreiben).",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "cd app && npx eslint . --ext .ts,.tsx --max-warnings=0",
+    "typecheck": "cd app && npx tsc --noEmit",
+    "test": "cd booking && npm test && cd ../tours && npm test",
+    "audit:high": "for m in app booking tours platform; do (cd $m && npm audit --omit=dev --audit-level=high) || exit 1; done"
+  },
+  "lint-staged": {
+    "app/**/*.{ts,tsx}": [
+      "bash -c 'cd app && npx eslint --fix --max-warnings=0 $(printf \"%s \" \"${@#app/}\")' --"
+    ],
+    "app/**/*.{js,json,md}": [
+      "prettier --write"
+    ],
+    "booking/**/*.js": [
+      "bash -c 'cd booking && npx eslint --fix $(printf \"%s \" \"${@#booking/}\")' --"
+    ],
+    "tours/**/*.js": [
+      "bash -c 'cd tours && npx eslint --fix $(printf \"%s \" \"${@#tours/}\")' --"
+    ],
+    "*.{md,yml,yaml,json}": [
+      "prettier --write"
+    ]
+  }
+}

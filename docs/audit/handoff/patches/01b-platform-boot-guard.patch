@@ -1,0 +1,51 @@
+diff --git a/platform/server.js b/platform/server.js
+--- a/platform/server.js
++++ b/platform/server.js
+@@ -17,6 +17,20 @@ function loadOptionalEnvFile(envPath) {
+ ].forEach(loadOptionalEnvFile);
+ dotenv.config({ override: true });
+
++// --- Boot-Guard: erforderliche Umgebungsvariablen müssen gesetzt sein ---
++// Ohne diese Werte würden Fallbacks (hartkodierte Strings, Trust-Domain-Wechsel)
++// eingreifen. Hart abbrechen, nicht leise degradieren.
++const REQUIRED_ENV = [
++  'SESSION_SECRET',
++  'TOURS_SESSION_SECRET',
++  'DATABASE_URL',
++  'CRON_SECRET',
++  'PAYREXX_WEBHOOK_SECRET',
++];
++const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k] || !String(process.env[k]).trim());
++if (missingEnv.length) {
++  console.error(`[platform] FATAL: missing/empty env vars: ${missingEnv.join(', ')}`);
++  process.exit(1);
++}
++
+ process.env.PROPUS_PLATFORM_MERGED = "1";
+ if (!process.env.TOURS_MOUNT_PATH) process.env.TOURS_MOUNT_PATH = "/tour-manager";
+@@ -65,7 +79,7 @@ const toursSessionMiddleware = session({
+   resave: false,
+   saveUninitialized: false,
+   store: toursSessionStore,
+   cookie: {
+-    secure: "auto",
++    secure: process.env.NODE_ENV === 'production' ? true : 'auto',
+     sameSite: "lax",
+     httpOnly: true,
+     maxAge: 24 * 60 * 60 * 1000,
+@@ -141,6 +155,15 @@ const PORT = parseInt(process.env.PORT || "3100", 10);
+
+ (async () => {
+   try {
++    // Process-Level Error-Handler: silent crashes vermeiden (BUG-16)
++    process.on('unhandledRejection', (reason) => {
++      console.error('[platform] unhandledRejection:', reason);
++    });
++    process.on('uncaughtException', (err) => {
++      console.error('[platform] uncaughtException:', err);
++      // Hart ausgehen — Prozess-Manager (systemd/docker) startet neu mit frischem State.
++      process.exit(1);
++    });
+     await booking.startServer();
+     main.listen(PORT, "0.0.0.0", () => {
+       console.log(`[propus-platform] listening on http://0.0.0.0:${PORT}`);
