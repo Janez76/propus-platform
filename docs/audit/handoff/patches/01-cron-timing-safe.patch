@@ -1,0 +1,40 @@
+diff --git a/tours/routes/cron-api.js b/tours/routes/cron-api.js
+--- a/tours/routes/cron-api.js
++++ b/tours/routes/cron-api.js
+@@ -11,6 +11,7 @@
+ 'use strict';
+
+ const express = require('express');
++const crypto = require('crypto');
+ const router = express.Router();
+ const phase3 = require('../lib/admin-phase3');
+
+@@ -17,13 +18,24 @@ const phase3 = require('../lib/admin-phase3');
+ function requireCron(req, res, next) {
+   const secret = String(process.env.CRON_SECRET || '').trim();
+   if (!secret) {
+-    console.warn('[cron-api] CRON_SECRET nicht gesetzt — Zugriff verweigert');
+-    return res.status(403).json({ ok: false, error: 'CRON_SECRET nicht konfiguriert' });
++    // Boot-Guard in platform/server.js sollte das vorher abfangen.
++    // Hier hard-fail für Defense-in-Depth.
++    console.error('[cron-api] CRON_SECRET nicht gesetzt — sollte beim Boot abgelehnt werden');
++    return res.status(500).json({ ok: false, error: 'Server-Misconfiguration' });
+   }
+-  const provided = String(req.headers['x-cron-secret'] || '').trim();
+-  if (!provided || provided !== secret) {
++
++  // NUR Header akzeptieren, kein Query-Fallback (verhindert Leaks in Access-Logs/Referer).
++  const provided = String(req.headers['x-cron-secret'] || '').trim();
++  if (!provided) {
++    return res.status(403).json({ ok: false, error: 'Ungültiges Cron-Secret' });
++  }
++
++  const expected = Buffer.from(secret, 'utf8');
++  const got = Buffer.from(provided, 'utf8');
++  if (expected.length !== got.length || !crypto.timingSafeEqual(expected, got)) {
+     return res.status(403).json({ ok: false, error: 'Ungültiges Cron-Secret' });
+   }
++
+   return next();
+ }
+

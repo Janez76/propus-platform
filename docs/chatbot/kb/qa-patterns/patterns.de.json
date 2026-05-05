@@ -1,0 +1,142 @@
+[
+  {
+    "id": "delivery_speed",
+    "intent": "Wie schnell bekomme ich das Material?",
+    "triggers": ["wie schnell", "wann bekomme ich", "lieferzeit", "wie lange dauert", "wann fertig"],
+    "answer_de": "Standardlieferung 24–48 Stunden nach Shooting für Foto und Matterport, 3–7 Werktage für Video, 3–5 Werktage für Grundriss. Express ist möglich, gegen Aufpreis und sofern Kapazität da ist. Für die genaue Zusage frage ich kurz die nächsten Slots ab.",
+    "next_action": "check_availability"
+  },
+  {
+    "id": "price_question",
+    "intent": "Was kostet das?",
+    "triggers": ["was kostet", "preis", "kosten", "wie teuer", "tarif"],
+    "answer_de": "Preis hängt von Liegenschaftsgrösse und gewünschten Leistungen ab. Wenn Sie mir kurz Adresse, Wohnungsgrösse (Zimmerzahl reicht) und welche Leistungen Sie brauchen geben, rechne ich es Ihnen verbindlich aus — Reisezone inklusive.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "drone_capability",
+    "intent": "Macht ihr Drohnenaufnahmen?",
+    "triggers": ["drohne", "luftaufnahmen", "von oben"],
+    "answer_de": "Ja, Foto und 4K-Video aus der Luft. Bei Liegenschaften nahe Flughäfen (Zürich, Genf, Basel, Bern, Sion, Lugano) oder in CTR-Zonen brauchen wir 1–2 Wochen Vorlauf für die BAZL-Bewilligung. Für andere Standorte ist kurzfristige Buchung möglich. Die Adresse genügt mir, ich prüfe das.",
+    "next_action": "lookup_kb:services.drone"
+  },
+  {
+    "id": "empty_property_value",
+    "intent": "Lohnt Fotografie bei leerem Objekt?",
+    "triggers": ["leer", "unmöbliert", "ohne möbel", "nicht eingerichtet"],
+    "answer_de": "Bei leeren Räumen wirkt eine Matterport-Tour oft sogar überzeugender, weil Interessenten das Volumen besser einschätzen können. Foto-Aufnahmen von leeren Räumen wirken professionell, wenn das Licht stimmt und die Räume sauber sind. Was ich oft kombiniere: Fotos für die Inserats-Hero-Bilder, Matterport für die Begehung, Grundriss für die Vermassung.",
+    "next_action": null
+  },
+  {
+    "id": "next_slot",
+    "intent": "Wann ist der nächste freie Slot?",
+    "triggers": ["nächster termin", "nächste woche", "freier slot", "verfügbar"],
+    "answer_de": "Ich prüfe die nächsten Slots. Welche Leistungen brauchen Sie und in welchem Zeitfenster? Ich gebe Ihnen die freien Termine zurück.",
+    "next_action": "check_availability"
+  },
+  {
+    "id": "regional_coverage",
+    "intent": "Arbeitet ihr in meinem Kanton?",
+    "triggers": ["kanton", "region", "bei uns", "weit weg", "fahrt"],
+    "answer_de": "Wir arbeiten schweizweit. Anfahrt fliesst über das Reisezonen-System in den Preis ein, automatisch aus der Adresse berechnet. Geben Sie mir die Adresse, dann sehen wir die genaue Zone und den Aufschlag.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "matterport_concept",
+    "intent": "Wie funktioniert eine Matterport-Tour?",
+    "triggers": ["matterport", "3d tour", "virtuelle tour", "begehung"],
+    "answer_de": "Eine Matterport-Tour ist eine begehbare 3D-Aufnahme der Liegenschaft. Interessenten bewegen sich frei durch alle Räume, können Distanzen messen und einen automatischen Grundriss einsehen. Die Tour liegt auf einem privaten Link, den Sie in Ihre Inserate und Website einbetten können. Aufnahme dauert etwa 30 Minuten pro 100 m².",
+    "next_action": "lookup_kb:services.matterport"
+  },
+  {
+    "id": "renewal_price",
+    "intent": "Was kostet eine Verlängerung der Matterport-Tour?",
+    "triggers": ["verlängerung", "weiter online", "renewal", "verlängern"],
+    "answer_de": "Verlängerung der Matterport-Tour kostet CHF 59. Tour bleibt unverändert, gleicher Link, eingebettete Iframes funktionieren weiter. Eine reaktivierte (vorher archivierte) Tour kostet CHF 74.",
+    "next_action": null
+  },
+  {
+    "id": "tour_duration",
+    "intent": "Wie lange ist die Tour online?",
+    "triggers": ["wie lange online", "hosting dauer", "ablauf"],
+    "answer_de": "Eine neu erstellte Matterport-Tour ist standardmässig für eine Vermarktungsphase bezahlt. Vor Ablauf bekommen Sie eine Erinnerung mit den Optionen Verlängerung (CHF 59) oder Archivierung (kostenfrei).",
+    "next_action": null
+  },
+  {
+    "id": "weather_handling",
+    "intent": "Was passiert bei schlechtem Wetter?",
+    "triggers": ["wetter", "regen", "bewölkt", "wind", "schnee"],
+    "answer_de": "Bei wetterbedingt schlechten Bedingungen verschieben wir kostenfrei — Drohne braucht Wind unter 10 m/s und keine durchgängige Niederschlagslage, Aussenfoto braucht ausreichend Tageslicht. Innenaufnahmen, Matterport und Grundriss laufen bei jedem Wetter. Die Wetterentscheidung trifft der Fotograf am Vorabend oder am Morgen, wir melden uns proaktiv.",
+    "next_action": null
+  },
+  {
+    "id": "reschedule_rules",
+    "intent": "Können wir den Termin verschieben?",
+    "triggers": ["verschieben", "umterminieren", "anderer termin"],
+    "answer_de": "Ja. Mehr als 48 Stunden vor Termin kostenfrei. 24–48 Stunden vorher 50 % Aufschlag auf den Reise-Anteil. Weniger als 24 Stunden vorher wird der Reise-Anteil voll fällig, das Shooting selbst kann auf einen späteren Termin gelegt werden. Wetterbedingte Verschiebungen durch Propus sind immer kostenfrei.",
+    "next_action": null
+  },
+  {
+    "id": "cancellation_rules",
+    "intent": "Stornogebühren?",
+    "triggers": ["storno", "stornieren", "absagen", "stornogebühr"],
+    "answer_de": "Mehr als 48 Stunden vor Termin kostenfrei. 24–48 Stunden vorher 50 % des Auftragswerts. Weniger als 24 Stunden vorher voller Auftragswert.",
+    "next_action": null
+  },
+  {
+    "id": "payment_methods",
+    "intent": "Welche Zahlungsarten?",
+    "triggers": ["zahlung", "bezahlen", "rechnung", "twint", "kreditkarte"],
+    "answer_de": "Wir stellen die Rechnung nach der Lieferung als QR-Rechnung. Standard sind 30 Tage netto. Zahlung via Bank-Überweisung (IBAN auf der Rechnung) oder TWINT für Beträge unter CHF 500. Kreditkarten direkt nicht, aber bei Bedarf richten wir einen Stripe-Link ein.",
+    "next_action": null
+  },
+  {
+    "id": "raw_files",
+    "intent": "Bekomme ich die Rohdaten?",
+    "triggers": ["rohdaten", "raw files", "originale", "unbearbeitet"],
+    "answer_de": "Standardlieferung sind retuschierte, web- und druckfertige Bilder. Rohdaten geben wir nicht heraus — die Postproduktion ist Teil unseres Qualitätsversprechens. Wenn Sie spezielle Bearbeitungsanforderungen haben, übernehmen wir die in der Postproduktion.",
+    "next_action": null
+  },
+  {
+    "id": "copyright",
+    "intent": "Wer hat das Urheberrecht?",
+    "triggers": ["urheberrecht", "copyright", "rechte"],
+    "answer_de": "Das Urheberrecht bleibt beim Fotografen, das ist Schweizer Standard. Sie als Auftraggeber erhalten ein unbefristetes, geografisch unbeschränktes Nutzungsrecht für Vermarktung und Präsentation der genannten Liegenschaft. Weiterverkauf der Bilder oder Nutzung für andere Liegenschaften ist nicht abgedeckt.",
+    "next_action": "lookup_kb:billing.usage-rights"
+  },
+  {
+    "id": "twilight_shoot",
+    "intent": "Twilight-Aufnahmen möglich?",
+    "triggers": ["twilight", "blue hour", "abendaufnahme", "dämmerung"],
+    "answer_de": "Ja. Twilight-Aufnahmen brauchen einen separaten Termin kurz vor Sonnenuntergang, weil das Zeitfenster nur etwa 30 Minuten lang ist. Wir buchen das gerne als zusätzlichen Slot zum Tagestermin.",
+    "next_action": null
+  },
+  {
+    "id": "portfolio_shoot",
+    "intent": "Mehrere Liegenschaften auf einmal?",
+    "triggers": ["portfolio", "mehrere objekte", "mehrere wohnungen", "sammelauftrag"],
+    "answer_de": "Bei Sammelaufträgen am selben Tag in derselben Region rechnen wir die Reisezone nur einmal, plus einen kleinen Wechselaufschlag pro zusätzlicher Adresse. Das ist deutlich günstiger als Einzelbuchungen. Geben Sie mir die Adressen, ich rechne es zusammen.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "photo_vs_matterport",
+    "intent": "Was bringt Matterport gegenüber nur Fotos?",
+    "triggers": ["unterschied foto matterport", "warum matterport", "was bringt 3d"],
+    "answer_de": "Fotos sind kuratiert — die besten Perspektiven, beste Aufmacher für Inserate und Website. Matterport ist begehbar — Interessenten erleben die Räume in Beziehung zueinander, sehen den Schnitt, messen Distanzen. In der Vorqualifikation senkt das die Anzahl unnötiger Besichtigungen deutlich. In der Praxis kombiniert man beides plus Grundriss.",
+    "next_action": null
+  },
+  {
+    "id": "shoot_duration",
+    "intent": "Wie lange dauert das Shooting vor Ort?",
+    "triggers": ["wie lange vor ort", "dauer shooting", "wie lange brauchst du"],
+    "answer_de": "Faustregel: 30 Minuten Foto pro 100 m², 30 Minuten Matterport pro 100 m², 30 Minuten Grundriss-Vermessung pro 100 m². Drohne und Video je nach Umfang 30–90 Minuten zusätzlich. Wenn alles kombiniert ist, planen wir typischerweise 2–4 Stunden für eine durchschnittliche Wohnung ein.",
+    "next_action": null
+  },
+  {
+    "id": "urgency",
+    "intent": "Wir brauchen das sehr schnell, geht das?",
+    "triggers": ["schnell", "asap", "dringend", "morgen", "heute"],
+    "answer_de": "Express ist meistens machbar, gegen Aufpreis und sofern Kapazität da ist. Sagen Sie mir, bis wann das Material bei Ihnen sein muss, und welche Leistungen Sie brauchen — ich prüfe die Slots in der laufenden Woche.",
+    "next_action": "check_availability"
+  }
+]

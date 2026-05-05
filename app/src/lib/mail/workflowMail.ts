@@ -41,6 +41,7 @@ const EFFECT_ROLES: Record<string, (keyof MailTargets)[] | "cancel_special"> = {
   "email.confirmed_office": ["office"],
   "email.confirmed_photographer": ["photographer"],
   "email.provisional_created": ["customer"],
+  "email.provisional_office": ["office"],
   "email.paused_customer": ["customer"],
   "email.paused_office": ["office"],
   "email.paused_photographer": ["photographer"],

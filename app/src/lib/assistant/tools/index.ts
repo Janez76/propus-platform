@@ -4,6 +4,7 @@ import { designsHandlers, designsTools } from "./designs";
 import { emailHandlers, emailTools } from "./email";
 import { invoicesHandlers, invoicesTools } from "./invoices";
 import { mapsHandlers, mapsTools } from "./maps";
+import { matterportHandlers, matterportTools } from "./matterport";
 import { memoriesHandlers, memoriesTools } from "./memories";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
@@ -47,6 +48,7 @@ export const allTools: ToolDefinition[] = [
   ...databaseTools,
   ...weatherTools,
   ...mapsTools,
+  ...matterportTools,
   ...writeTools,
 ];
 
@@ -62,6 +64,7 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...databaseHandlers,
   ...weatherHandlers,
   ...mapsHandlers,
+  ...matterportHandlers,
   ...writeHandlers,
 };
 

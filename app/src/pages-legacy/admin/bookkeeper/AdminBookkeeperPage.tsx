@@ -296,6 +296,23 @@ export function AdminBookkeeperPage() {
       }
     });
   };
+  const bulkRecascade = () => {
+    if (selected.size === 0) return;
+    if (!window.confirm(`${selected.size} ausgewählte Belege zurück in Cascade-Queue?`)) return;
+    return action("bulk-recascade", async () => {
+      const r = await fetch(`/api/admin/bookkeeper/recascade-bulk`, {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doc_ids: Array.from(selected) }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json().catch(() => ({}));
+      if (Array.isArray(data.failed) && data.failed.length > 0) {
+        const ids = data.failed.map((f: { id: number }) => f.id).join(", ");
+        throw new Error(`${data.migrated}/${selected.size} migriert. Fehler bei IDs: ${ids}`);
+      }
+    });
+  };
   const recascade = () => {
     const desc = TAB_DESC[activeTab]; if (!desc.status) return;
     if (!window.confirm(`Alle ${desc.title}-Belege zurück in Cascade-Queue?`)) return;
@@ -458,6 +475,11 @@ export function AdminBookkeeperPage() {
               <button onClick={bulkApprove} disabled={busyAction !== null}
                 className="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
                 <CheckCircle className="inline w-4 h-4 mr-1" /> Bulk-Approve
+              </button>
+              <button onClick={bulkRecascade} disabled={busyAction !== null}
+                className="text-sm px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
+                title="Ausgewählte Belege zurück in die Cascade-Queue (pending)">
+                <RefreshCw className="inline w-4 h-4 mr-1" /> Bulk-Re-Cascade
               </button>
               <button onClick={() => setSelected(new Set())}
                 className="text-sm px-3 py-1 border rounded hover:bg-neutral-50">Auswahl aufheben</button>

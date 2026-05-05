@@ -696,8 +696,10 @@ describe("assistant create_order write tool", () => {
       .mockResolvedValueOnce({ id: 5, name: "Muster AG", email: "info@muster.ch", company: "Muster AG" })
       .mockResolvedValueOnce({ key: "janez" })
       .mockResolvedValueOnce({ order_no: 142 });
+    const withTransaction = async <T,>(fn: (tx: never) => Promise<T>) => fn({} as never);
+    const enqueueOutbox = vi.fn().mockResolvedValue({ id: 1 });
 
-    const handlers = createWriteHandlers({ query, queryOne });
+    const handlers = createWriteHandlers({ query, queryOne, withTransaction, enqueueOutbox });
     const result = await handlers.create_order({
       customer_id: 5,
       address: "Bahnhofstrasse 1, Zürich",
@@ -764,8 +766,10 @@ describe("assistant create_order write tool", () => {
     const queryOne = vi.fn()
       .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" })
       .mockResolvedValueOnce({ order_no: 143 });
+    const withTransaction = async <T,>(fn: (tx: never) => Promise<T>) => fn({} as never);
+    const enqueueOutbox = vi.fn().mockResolvedValue({ id: 1 });
 
-    const handlers = createWriteHandlers({ query, queryOne });
+    const handlers = createWriteHandlers({ query, queryOne, withTransaction, enqueueOutbox });
     const result = await handlers.create_order({
       customer_id: 3,
       address: "Seestrasse 10, Luzern",
