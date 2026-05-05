@@ -3,21 +3,86 @@ export const prerender = false;
 
 import GuidelineLayout from '../../layouts/GuidelineLayout.astro';
 import { GUIDELINE_DOWNLOADS, GUIDELINE_PAGES } from '../../lib/guideline-static';
+import { GUIDELINE_MANUALS } from '../../data/guideline-manuals';
+
+const manualDownloadIds = new Set(
+	GUIDELINE_MANUALS.flatMap((m) => [m.pdfDownloadId, m.docxDownloadId]),
+);
+const extraDownloads = GUIDELINE_DOWNLOADS.filter((d) => !manualDownloadIds.has(d.id));
+
+const downloadHref = (id: string) =>
+	`/api/guideline/download?id=${encodeURIComponent(id)}`;
 ---
 
-<GuidelineLayout title="Übersicht">
+<GuidelineLayout title="Anleitungen">
 	<button
 		slot="actions"
 		type="button"
 		class="guideline-btn guideline-btn--ghost"
 		id="guideline-logout">Abmelden</button>
 
-	<section>
-		<h2 class="guideline-section-title">Anleitungen</h2>
+	<p class="guideline-lede">
+		Alle Propus-Anleitungen — direkt im Browser lesbar. Vollständiger Inhalt sichtbar,
+		PDF oder Word nur, falls du offline arbeiten willst.
+	</p>
+
+	<section class="guideline-cards" aria-label="Anleitungen">
 		{
-			GUIDELINE_PAGES.length === 0 ? (
-				<p class="guideline-empty">Noch keine Einträge in guideline-static.ts.</p>
-			) : (
+			GUIDELINE_MANUALS.map((m) => {
+				const isEn = m.lang === 'en';
+				const readLabel = isEn ? 'Online lesen' : 'Online lesen';
+				const sectionsLabel = isEn
+					? `${m.sections.length} sections`
+					: `${m.sections.length} Abschnitte`;
+				return (
+					<article class="guideline-card">
+						<div class="guideline-card__badges">
+							<span class="guideline-badge guideline-badge--cat">
+								{m.category}
+							</span>
+							<span class="guideline-badge guideline-badge--lang">
+								{m.lang.toUpperCase()}
+							</span>
+						</div>
+						<h2 class="guideline-card__title">
+							<a href={`/guideline/anleitung/${m.slug}/`}>{m.listTitle}</a>
+						</h2>
+						<p class="guideline-card__teaser">{m.teaser}</p>
+						<p class="guideline-card__meta">
+							{sectionsLabel} · Volltext im Browser
+						</p>
+						<div class="guideline-card__actions">
+							<a
+								href={`/guideline/anleitung/${m.slug}/`}
+								class="guideline-btn guideline-btn--primary"
+							>
+								{readLabel}
+							</a>
+							<a
+								href={downloadHref(m.pdfDownloadId)}
+								class="guideline-btn"
+								aria-label={`${m.listTitle} als PDF herunterladen`}
+							>
+								PDF
+							</a>
+							<a
+								href={downloadHref(m.docxDownloadId)}
+								class="guideline-btn"
+								aria-label={`${m.listTitle} als Word-Datei herunterladen`}
+							>
+								Word
+							</a>
+						</div>
+					</article>
+				);
+			})
+		}
+	</section>
+
+	{
+		GUIDELINE_PAGES.length > 0 && (
+			<section class="guideline-extra">
+				<h2 class="guideline-section-title">Weitere Seiten</h2>
 				<ul class="guideline-list">
 					{GUIDELINE_PAGES.map((p) => (
 						<li>
@@ -26,32 +91,25 @@ import { GUIDELINE_DOWNLOADS, GUIDELINE_PAGES } from '../../lib/guideline-static
 						</li>
 					))}
 				</ul>
-			)
-		}
-	</section>
+			</section>
+		)
+	}
 
-	<section>
-		<h2 class="guideline-section-title">Downloads</h2>
-		{
-			GUIDELINE_DOWNLOADS.length === 0 ? (
-				<p class="guideline-empty">
-					Keine Downloads eingetragen — in{' '}
-					<code>website/src/lib/guideline-static.ts</code> ergänzen.
-				</p>
-			) : (
+	{
+		extraDownloads.length > 0 && (
+			<section class="guideline-extra">
+				<h2 class="guideline-section-title">Weitere Downloads</h2>
 				<ul class="guideline-list">
-					{GUIDELINE_DOWNLOADS.map((f) => (
+					{extraDownloads.map((f) => (
 						<li>
-							<a href={`/api/guideline/download?id=${encodeURIComponent(f.id)}`}>
-								{f.title}
-							</a>
+							<a href={downloadHref(f.id)}>{f.title}</a>
 							<span class="guideline-meta">({f.id})</span>
 						</li>
 					))}
 				</ul>
-			)
-		}
-	</section>
+			</section>
+		)
+	}
 
 	<script>
 		document.getElementById('guideline-logout')?.addEventListener('click', async () => {
