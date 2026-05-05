@@ -162,6 +162,7 @@ export function Lightbox(props: LightboxProps) {
                       <LightboxFloorPlanCanvas
                         key={`${floorItem.url}-${safeIndex}`}
                         remotePdfUrl={floorItem.url}
+                        thumbUrl={floorItem.thumb_url}
                         label={floorItem.title?.trim() || `Grundriss ${safeIndex + 1}`}
                       />
                     </div>
