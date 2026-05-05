@@ -468,6 +468,36 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
     }
   });
 
+  // ─── Re-Cascade Bulk (nur ausgewählte doc_ids zurück auf pending) ─────
+  // Body: { doc_ids: number[] } — taggt nur diese Belege, nicht alle
+  // eines Status. Sequentiell um Paperless nicht zu hammern. Sammelt
+  // Fehler statt mittendrin abzubrechen.
+  app.post("/api/admin/bookkeeper/recascade-bulk", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const raw = req.body && Array.isArray(req.body.doc_ids) ? req.body.doc_ids : null;
+    if (!raw) return res.status(400).json({ error: "doc_ids muss ein Array sein" });
+    const docIds = Array.from(new Set(raw.map((v) => parseInt(v, 10)).filter((n) => Number.isFinite(n) && n > 0)));
+    if (docIds.length === 0) return res.status(400).json({ error: "doc_ids ist leer oder enthaelt keine gueltigen IDs" });
+    if (docIds.length > 200) return res.status(400).json({ error: "doc_ids: maximal 200 pro Aufruf" });
+    const failed = [];
+    let migrated = 0;
+    for (const id of docIds) {
+      try {
+        const doc = await plFetch(`/api/documents/${id}/`);
+        const newTags = (doc.tags || []).filter((t) => !STATUS_TAGS.has(t));
+        newTags.push(T.pending);
+        await plFetch(`/api/documents/${id}/`, {
+          method: "PATCH",
+          body: JSON.stringify({ tags: newTags }),
+        });
+        migrated++;
+      } catch (e) {
+        failed.push({ id, error: e.message || String(e) });
+      }
+    }
+    res.json({ ok: failed.length === 0, migrated, failed });
+  });
+
   // ─── Re-Cascade (alle vorgeschlagenen zurück auf pending) ──────────────
   app.post("/api/admin/bookkeeper/recascade", requireAdmin, async (req, res) => {
     if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
