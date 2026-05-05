@@ -136,9 +136,9 @@ services:
       NEXTCLOUD_USER: ${NEXTCLOUD_USER:-}
       NEXTCLOUD_PASS: ${NEXTCLOUD_PASS:-}
       NEXTCLOUD_CUSTOMER_FOLDER_PATH: ${NEXTCLOUD_CUSTOMER_FOLDER_PATH:-/Immobilien Fotografie Propusimmo/Kunden}
-      # ─── Bookkeeper / Paperless-Proxy (Backend für Admin-Buchhaltungs-Page) ───
-      PAPERLESS_BOOKKEEPER_URL: ${PAPERLESS_BOOKKEEPER_URL:-https://paperless.propus.ch}
-      PAPERLESS_BOOKKEEPER_TOKEN: ${PAPERLESS_BOOKKEEPER_TOKEN:-}
+      # PAPERLESS_BOOKKEEPER_URL/TOKEN kommen aus .env.vps.secrets via env_file —
+      # NICHT hier deklarieren, sonst überschreibt eine leere ${...:-}-Substitution
+      # den env_file-Wert.
     depends_on:
       postgres:
         condition: service_healthy
