@@ -666,6 +666,8 @@ export function ListingEditorPage() {
   const [addressInput, setAddressInput] = useState("");
   const [clientEmailInput, setClientEmailInput] = useState("");
   const [matterportInput, setMatterportInput] = useState("");
+  const [matterportInputVersion, setMatterportInputVersion] = useState(0);
+  const [matterportSuggestion, setMatterportSuggestion] = useState<string | null>(null);
   const [cloudInput, setCloudInput] = useState<string | undefined>(undefined);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerContactId, setCustomerContactId] = useState<number | null>(null);
@@ -1042,7 +1044,19 @@ export function ListingEditorPage() {
         );
         if (tourWithMatterport) {
           const nextMatterport = String(tourWithMatterport.tourUrl || "").trim() || String(tourWithMatterport.matterportSpaceId || "").trim();
-          if (nextMatterport) setMatterportInput(nextMatterport);
+          if (nextMatterport) {
+            const currentMatterport = (matterportDraftRef.current || matterportInput || "").trim();
+            if (!currentMatterport) {
+              // Feld ist leer → direkt uebernehmen.
+              setMatterportInput(nextMatterport);
+              setMatterportSuggestion(null);
+            } else if (currentMatterport === nextMatterport) {
+              setMatterportSuggestion(null);
+            } else {
+              // Existierender Wert bleibt — Vorschlag als Chip anzeigen.
+              setMatterportSuggestion(nextMatterport);
+            }
+          }
         }
       } catch {
         // Matterport-Autofill ist optional; Bestellungswahl soll trotzdem funktionieren.
@@ -1632,10 +1646,43 @@ export function ListingEditorPage() {
                 syncKey={g.updated_at}
                 serverValue={g.matterport_input ?? ""}
                 valueOverride={matterportInput}
+                valueOverrideVersion={matterportInputVersion}
                 draftRef={matterportDraftRef}
                 inputId="gal-edit-mp"
                 placeholder="https://my.matterport.com/show/?m=…"
               />
+              {matterportSuggestion ? (
+                <button
+                  type="button"
+                  className="gbe-suggestion-chip"
+                  onClick={() => {
+                    setMatterportInput(matterportSuggestion);
+                    setMatterportInputVersion((v) => v + 1);
+                    setMatterportSuggestion(null);
+                  }}
+                  title="Vorschlag aus Bestellung uebernehmen"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 6,
+                    padding: "4px 10px",
+                    fontSize: 12,
+                    border: "1px dashed var(--gold-500, #b8860b)",
+                    background: "rgba(184,142,32,0.08)",
+                    color: "var(--ink)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <i className="fa-solid fa-cube" aria-hidden style={{ color: "var(--gold-600, #b8860b)" }} />
+                  <span>Aus Bestellung uebernehmen: {matterportSuggestion}</span>
+                </button>
+              ) : null}
               <p className="gbe-field-hint">Erscheint auf der Kunden-Galerie.</p>
             </div>
           </div>

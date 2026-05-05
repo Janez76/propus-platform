@@ -1,6 +1,6 @@
 import type { GalleryItem } from "../data";
 
-export type FloorPlanItem = { title: string; url: string };
+export type FloorPlanItem = { title: string; url: string; thumb_url?: string };
 
 export const DEMO_STORAGE_KEY = "propus-demo-config-v1";
 

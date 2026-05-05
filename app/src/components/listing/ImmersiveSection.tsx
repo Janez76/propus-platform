@@ -1,11 +1,14 @@
 import { memo, useMemo } from "react";
 import type { FloorPlanItem } from "./demo/demoTypes";
 import { isMp4VideoUrl, resolvePlayableMp4Url } from "./demo/parsing";
+import type { GalleryVideo } from "./types";
 import { FloorPlanPdfThumb } from "./FloorPlanPdfThumb";
 
 type ImmersiveSectionProps = {
   matterportSrc: string;
   videoUrl: string;
+  /** Optional: mehrere Videos. Wenn nicht-leer, gewinnt es ueber `videoUrl`. */
+  videos?: GalleryVideo[];
   floorPlans: FloorPlanItem[];
   /** Magic-Link: Hinweistext auf der Karte */
   listingFeedback?: { galleryId: string; gallerySlug: string } | null;
@@ -67,13 +70,23 @@ function copyBlock(showMp: boolean, showVid: boolean, showFp: boolean) {
 export const ImmersiveSection = memo(function ImmersiveSection({
   matterportSrc,
   videoUrl,
+  videos,
   floorPlans,
   listingFeedback = null,
   onFloorPlanOpen,
 }: ImmersiveSectionProps) {
   const showMp = Boolean(matterportSrc?.trim());
-  const showVid = isMp4VideoUrl(videoUrl);
-  const mp4Src = resolvePlayableMp4Url(videoUrl);
+  const playableVideos = useMemo(() => {
+    const list = (videos ?? []).filter((v) => v?.url && isMp4VideoUrl(v.url));
+    if (list.length > 0) {
+      return list.map((v) => ({ title: v.title, src: resolvePlayableMp4Url(v.url) }));
+    }
+    if (isMp4VideoUrl(videoUrl)) {
+      return [{ title: "Video", src: resolvePlayableMp4Url(videoUrl) }];
+    }
+    return [];
+  }, [videos, videoUrl]);
+  const showVid = playableVideos.length > 0;
   const showFp = floorPlans.length > 0;
 
   const visible = showMp || showVid || showFp;
@@ -121,12 +134,29 @@ export const ImmersiveSection = memo(function ImmersiveSection({
               ) : null}
               {showVid ? (
                 <div className="immersive-col immersive-col--video">
-                  <h3 className="immersive-col__label">Video</h3>
-                  <div className="video-wrap video-wrap--side">
-                    <video key={mp4Src} controls playsInline preload="metadata" autoPlay muted>
-                      <source src={mp4Src} type="video/mp4" />
-                      Dieses Video kann in Ihrem Browser nicht abgespielt werden.
-                    </video>
+                  <h3 className="immersive-col__label">
+                    {playableVideos.length === 1 ? "Video" : `Videos (${playableVideos.length})`}
+                  </h3>
+                  <div
+                    className="video-stack"
+                    style={{ display: "flex", flexDirection: "column", gap: 12 }}
+                  >
+                    {playableVideos.map((vid, idx) => (
+                      <div key={`${vid.src}-${idx}`} className="video-wrap video-wrap--side">
+                        {playableVideos.length > 1 ? (
+                          <div
+                            className="video-wrap__title"
+                            style={{ fontSize: 13, color: "var(--fg-2, #555)", marginBottom: 4 }}
+                          >
+                            {vid.title}
+                          </div>
+                        ) : null}
+                        <video key={vid.src} controls playsInline preload="metadata" muted>
+                          <source src={vid.src} type="video/mp4" />
+                          Dieses Video kann in Ihrem Browser nicht abgespielt werden.
+                        </video>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : null}
@@ -159,7 +189,11 @@ export const ImmersiveSection = memo(function ImmersiveSection({
                         className="floorplan-card__hit"
                         onClick={() => onFloorPlanOpen(index)}
                       >
-                        <FloorPlanPdfThumb remotePdfUrl={fp.url} label={`Vorschau ${shortLabel}`} />
+                        <FloorPlanPdfThumb
+                          remotePdfUrl={fp.url}
+                          thumbUrl={fp.thumb_url}
+                          label={`Vorschau ${shortLabel}`}
+                        />
                         {listingFeedback ? null : (
                           <span className="floorplan-card__hint">Grössere Ansicht</span>
                         )}
