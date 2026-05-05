@@ -20,6 +20,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRe
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   adminGalleryFloorPlanUrl,
+  adminGalleryFloorPlanThumbUrl,
   adminGalleryImageThumbUrl,
   browseGalleryNas,
   createGallery,
@@ -1693,76 +1694,136 @@ export function ListingEditorPage() {
         <section className="gbe-card">
           <div className="gbe-section-head">
             <h2 className="gbe-card-label">NAS-Import</h2>
-            <span className="gbe-section-meta">
+            <span
+              className={
+                "gbe-section-meta " +
+                (g?.storage_source_type
+                  ? "gbe-section-meta--active"
+                  : "")
+              }
+            >
               {g?.storage_source_type === "order_folder"
-                ? "Aktive Quelle: Bestellordner"
+                ? "Aktiv: Bestellordner"
                 : g?.storage_source_type === "nas_browser"
-                  ? "Aktive Quelle: NAS-Browser"
-                  : "Noch keine NAS-Quelle aktiv"}
+                  ? "Aktiv: NAS-Browser"
+                  : "Keine Quelle aktiv"}
             </span>
           </div>
 
-          <div className="gbe-field">
-            <label>VPS-Storage-Health</label>
-            <div className="flex flex-wrap gap-2">
-              {nasHealth.filter((entry) => entry.key !== "stagingRoot").map((entry) => (
-                <div
-                  key={entry.key}
-                  className={`rounded-[12px] border px-3 py-2 text-xs ${
-                    entry.ok ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-rose-300 bg-rose-50 text-rose-700"
-                  }`}
-                  title={entry.error || entry.path}
-                >
-                  <div className="font-semibold">{entry.key}</div>
-                  <div>{entry.ok ? "bereit" : "fehlt"}</div>
-                  <div>{entry.mounted == null ? "Mount: n/a" : entry.mounted ? "Mount: ja" : "Mount: nein"}</div>
+          {(() => {
+            const failingRoots = nasHealth.filter(
+              (entry) => entry.key !== "stagingRoot" && !entry.ok,
+            );
+            if (failingRoots.length === 0) return null;
+            return (
+              <div
+                className="mb-4 rounded-[12px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+                role="alert"
+              >
+                <div className="flex items-start gap-2">
+                  <i className="fa-solid fa-triangle-exclamation mt-0.5 text-rose-500" aria-hidden />
+                  <div className="flex-1">
+                    <div className="font-semibold">NAS-Verbindung fehlgeschlagen</div>
+                    <div className="mt-1 text-xs text-rose-700">
+                      {failingRoots
+                        .map((r) => `${r.key === "rawRoot" ? "Raw-Root" : "Kunden-Root"} fehlt${r.error ? ` (${r.error})` : ""}`)
+                        .join(" · ")}
+                    </div>
+                    <div className="mt-1 text-xs text-rose-600">
+                      Bitte VPS-Mounts und Umgebungsvariablen <code>BOOKING_UPLOAD_CUSTOMER_ROOT</code> /{" "}
+                      <code>BOOKING_UPLOAD_RAW_ROOT</code> pruefen.
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="gbe-divider" />
+              </div>
+            );
+          })()}
 
           <div className="gbe-field">
-            <label>Bestellordner-Vorschläge</label>
+            <div className="flex items-center justify-between">
+              <label className="!mb-0">Vorgeschlagene Ordner</label>
+              <span className="text-xs text-[var(--text-subtle)]">
+                <i className="fa-solid fa-bolt mr-1 text-[var(--accent)]" aria-hidden />
+                Schnellster Weg
+              </span>
+            </div>
             {(() => {
               const visibleNasSuggestions = nasSuggestions.filter((item) => item.folderType !== "raw_material");
               if (bookingOrderNo == null) {
                 return (
-                  <p className="gbe-field-hint">Nach dem Speichern einer verknüpften Bestellung erscheinen hier die vorgeschlagenen NAS-Ordner.</p>
+                  <p className="gbe-field-hint mt-2">
+                    Nach dem Verknuepfen einer Bestellung erscheinen hier passende NAS-Ordner.
+                  </p>
                 );
               }
               if (visibleNasSuggestions.length === 0) {
                 return (
-                  <p className="gbe-field-hint">Für diese Bestellung wurden noch keine NAS-Vorschläge gefunden.</p>
+                  <p className="gbe-field-hint mt-2">Keine passenden Ordner fuer diese Bestellung gefunden.</p>
                 );
               }
               return (
-                <div className="space-y-3">
-                  {visibleNasSuggestions.map((item) => (
-                    <div key={`${item.folderType}:${item.relativePath}`} className="rounded-[16px] border border-[var(--line)] p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-[var(--text-main)]">{item.displayName}</div>
-                          <div className="text-xs text-[var(--text-subtle)]">
-                            Kundenordner · {item.relativePath}
+                <div className="mt-2 space-y-2">
+                  {visibleNasSuggestions.map((item) => {
+                    const total =
+                      item.mediaSummary.images +
+                      item.mediaSummary.floorPlans +
+                      (item.mediaSummary.hasVideo ? 1 : 0);
+                    return (
+                      <div
+                        key={`${item.folderType}:${item.relativePath}`}
+                        className="group flex items-center gap-3 rounded-[12px] border border-[var(--line)] bg-white px-4 py-3 transition hover:border-[var(--accent)]/40 hover:shadow-sm"
+                      >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-raised)] text-[var(--accent)]">
+                          <i className="fa-solid fa-folder-open" aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-semibold text-[var(--text-main)]">{item.displayName}</div>
+                          <div className="truncate text-xs text-[var(--text-subtle)]" title={item.relativePath}>
+                            {item.relativePath}
                           </div>
-                          <div className="mt-1 text-xs text-[var(--text-subtle)]">
-                            {item.mediaSummary.images} Bilder · {item.mediaSummary.floorPlans} Grundrisse ·{" "}
-                            {item.mediaSummary.hasVideo ? "mit Video" : "ohne Video"}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--text-subtle)]">
+                            {item.mediaSummary.images > 0 ? (
+                              <span>
+                                <i className="fa-regular fa-image mr-1" aria-hidden />
+                                {item.mediaSummary.images}
+                              </span>
+                            ) : null}
+                            {item.mediaSummary.floorPlans > 0 ? (
+                              <span>
+                                <i className="fa-regular fa-file-pdf mr-1" aria-hidden />
+                                {item.mediaSummary.floorPlans}
+                              </span>
+                            ) : null}
+                            {item.mediaSummary.hasVideo ? (
+                              <span>
+                                <i className="fa-solid fa-video mr-1" aria-hidden />
+                                Video
+                              </span>
+                            ) : null}
+                            {total === 0 ? <span className="italic">leer</span> : null}
                           </div>
                         </div>
                         <button
                           type="button"
-                          className="admin-btn admin-btn--outline"
+                          className="admin-btn admin-btn--outline shrink-0"
                           disabled={!item.exists || nasImporting}
                           onClick={() => void importNasSelection(item.rootKind, item.relativePath, "order_folder")}
                         >
-                          {nasImporting ? "Import läuft …" : "Diesen Ordner importieren"}
+                          {nasImporting ? (
+                            <>
+                              <i className="fa-solid fa-spinner fa-spin mr-1.5" aria-hidden />
+                              Import …
+                            </>
+                          ) : (
+                            <>
+                              <i className="fa-solid fa-file-import mr-1.5" aria-hidden />
+                              Importieren
+                            </>
+                          )}
                         </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -1771,15 +1832,9 @@ export function ListingEditorPage() {
           {(() => {
             const anyRootOk = nasHealth.some((h) => h.key !== "stagingRoot" && h.ok);
             const selectedRootOk = nasHealth.find((h) => h.key === (nasRootKind === "raw" ? "rawRoot" : "customerRoot"))?.ok === true;
-            if (nasHealth.length > 0 && !anyRootOk) {
-              return (
-                <p className="mt-2 text-sm text-amber-700">
-                  Kein NAS-Root verfügbar. Bitte auf der VPS die Umgebungsvariablen{" "}
-                  <code>BOOKING_UPLOAD_CUSTOMER_ROOT</code> und <code>BOOKING_UPLOAD_RAW_ROOT</code> prüfen und
-                  sicherstellen, dass die NAS-Mounts aktiv sind.
-                </p>
-              );
-            }
+            // Wenn kein NAS-Root verfuegbar ist, blenden wir den Browser komplett
+            // aus — die Fehler-Hinweis-Box steht oben (Verbindungsstatus).
+            if (nasHealth.length > 0 && !anyRootOk) return null;
 
             // Breadcrumb-Segmente aus dem aktuellen Pfad
             const pathSegments = nasRelativePath
@@ -1794,7 +1849,9 @@ export function ListingEditorPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   {/* Root-Auswahl */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-[var(--text-subtle)] uppercase tracking-wide">Root:</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
+                      Manuell durchsuchen
+                    </span>
                     <div className="flex gap-1">
                       {(["customer", "raw"] as const).map((kind) => {
                         const hKey = kind === "raw" ? "rawRoot" : "customerRoot";
@@ -1808,15 +1865,21 @@ export function ListingEditorPage() {
                               if (ok) void loadNasBrowser(kind, "");
                               else { setNasRootKind(kind); setNasEntries([]); }
                             }}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                               nasRootKind === kind
                                 ? "bg-[var(--accent)] text-white"
                                 : ok
                                   ? "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:bg-[var(--line)]"
-                                  : "cursor-not-allowed opacity-40 bg-[var(--surface-raised)] text-[var(--text-subtle)]"
+                                  : "cursor-not-allowed bg-[var(--surface-raised)] text-[var(--text-subtle)] opacity-40"
                             }`}
                           >
-                            {kind === "customer" ? "📁 Kunden" : "📂 Raw"}{!ok ? " ✗" : ""}
+                            <i
+                              className={
+                                kind === "customer" ? "fa-solid fa-folder" : "fa-solid fa-folder-tree"
+                              }
+                              aria-hidden
+                            />
+                            {kind === "customer" ? "Kunden" : "Raw"}
                           </button>
                         );
                       })}
@@ -1962,7 +2025,11 @@ export function ListingEditorPage() {
                       title={`${fp.title} in neuem Tab öffnen`}
                     >
                       <div className="aspect-[4/3] bg-white">
-                        <LightboxFloorPlanCanvas remotePdfUrl={url} label={fp.title} />
+                        <LightboxFloorPlanCanvas
+                          remotePdfUrl={url}
+                          thumbUrl={adminGalleryFloorPlanThumbUrl(id, idx, 600)}
+                          label={fp.title}
+                        />
                       </div>
                       <div className="px-3 py-2 text-xs text-[var(--text-subtle)] truncate">
                         <i className="fa-regular fa-file-pdf mr-1.5" />
