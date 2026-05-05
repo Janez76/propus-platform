@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE } from "../../api/client";
 import {
   getChatMessages,
@@ -58,8 +58,21 @@ function deriveAvailabilityFromOrder(order: Order, actorRole: "admin" | "photogr
   return { readable: true, writable: Date.now() < doneTs + FEEDBACK_WINDOW_MS, feedbackUntil };
 }
 
+function focusChatField(el: HTMLInputElement | null) {
+  if (!el) return;
+  queueMicrotask(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!el.isConnected || el.disabled) return;
+        el.focus({ preventScroll: true });
+      });
+    });
+  });
+}
+
 export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props) {
   const language = useAuthStore((s) => s.language);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<OrderChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [err, setErr] = useState("");
@@ -111,6 +124,12 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
     return () => es.close();
   }, [token, orderNo, effectiveAvailability.readable]);
 
+  const refocusInput = useCallback(() => focusChatField(inputRef.current), []);
+
+  useEffect(() => {
+    if (effectiveAvailability.readable && effectiveAvailability.writable) refocusInput();
+  }, [effectiveAvailability.readable, effectiveAvailability.writable, refocusInput]);
+
   async function submit() {
     const text = message.trim();
     if (!text || busy || !effectiveAvailability.writable) return;
@@ -131,6 +150,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
       setErr(e instanceof Error ? e.message : "Nachricht konnte nicht gesendet werden");
     } finally {
       setBusy(false);
+      refocusInput();
     }
   }
 
@@ -187,6 +207,7 @@ export function OrderChat({ token, orderNo, order, actorRole = "admin" }: Props)
 
           <div className="mt-3 flex gap-2">
             <input
+              ref={inputRef}
               data-testid="chat-input"
               className="ui-input flex-1"
               placeholder={t(language, "chat.placeholder")}

@@ -125,7 +125,6 @@ export function createInvoicesHandlers(deps: InvoicesDeps): Record<string, ToolH
          JOIN tour_manager.tours t ON t.id = ri.tour_id
          WHERE ri.invoice_status NOT IN ('paid', 'cancelled', 'archived')
            AND ri.due_at < NOW()
-           AND ri.deleted_at IS NULL
          ORDER BY ri.due_at ASC
          LIMIT $1`,
         [limit],
@@ -150,7 +149,6 @@ export function createInvoicesHandlers(deps: InvoicesDeps): Record<string, ToolH
       const renewalStats = await runQuery<{ status: string; cnt: string }>(
         `SELECT COALESCE(invoice_status, 'unknown') AS status, COUNT(*) AS cnt
          FROM tour_manager.renewal_invoices
-         WHERE deleted_at IS NULL
          GROUP BY COALESCE(invoice_status, 'unknown')
          ORDER BY cnt DESC`,
       );
@@ -159,14 +157,12 @@ export function createInvoicesHandlers(deps: InvoicesDeps): Record<string, ToolH
         `SELECT COUNT(*) AS cnt
          FROM tour_manager.renewal_invoices
          WHERE invoice_status NOT IN ('paid', 'cancelled', 'archived')
-           AND due_at < NOW()
-           AND deleted_at IS NULL`,
+           AND due_at < NOW()`,
       );
 
       const exxasStats = await runQuery<{ status: string; cnt: string }>(
         `SELECT COALESCE(exxas_status, 'unknown') AS status, COUNT(*) AS cnt
          FROM tour_manager.exxas_invoices
-         WHERE deleted_at IS NULL
          GROUP BY COALESCE(exxas_status, 'unknown')
          ORDER BY cnt DESC`,
       );

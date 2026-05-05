@@ -54,10 +54,12 @@ function getGraphConfig() {
       ? [singleMailbox.trim().toLowerCase()]
       : ['office@propus.ch', 'js@propus.ch']);
 
+  // Keys: bevorzugt M365_* (Code/Legacy), dann MS_GRAPH_* (.env.vps + docker-compose.vps),
+  // dann TENANT_ID / CLIENT_ID / CLIENT_SECRET (Legacy-Alias in .env.vps.example).
   return {
-    tenantId: getEnvValue('M365_TENANT_ID', 'TENANT_ID'),
-    clientId: getEnvValue('M365_CLIENT_ID', 'CLIENT_ID'),
-    clientSecret: getEnvValue('M365_CLIENT_SECRET', 'CLIENT_SECRET'),
+    tenantId: getEnvValue('M365_TENANT_ID', 'MS_GRAPH_TENANT_ID', 'TENANT_ID'),
+    clientId: getEnvValue('M365_CLIENT_ID', 'MS_GRAPH_CLIENT_ID', 'CLIENT_ID'),
+    clientSecret: getEnvValue('M365_CLIENT_SECRET', 'MS_GRAPH_CLIENT_SECRET', 'CLIENT_SECRET'),
     mailboxUpn: mailboxUpns[0] || 'office@propus.ch',
     mailboxUpns,
     lookbackMonths: Math.max(1, parseInt(getEnvValue('M365_LOOKBACK_MONTHS') || '6', 10) || 6),

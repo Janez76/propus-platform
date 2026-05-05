@@ -1,15 +1,32 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { sendOrderMessage } from "./actions";
 import { Button } from "@/components/ui/button";
 
+function focusComposerTextarea(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  queueMicrotask(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!el.isConnected || el.disabled) return;
+        el.focus({ preventScroll: true });
+      });
+    });
+  });
+}
+
 export function KommunikationComposer({ orderNo }: { orderNo: number }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [message, setMessage] = useState("");
   const [recipient, setRecipient] = useState<"customer" | "photographer" | "internal">("customer");
   const [isInternal, setIsInternal] = useState(false);
   const [err, setErr] = useState("");
   const [pend, tr] = useTransition();
+
+  useEffect(() => {
+    focusComposerTextarea(textareaRef.current);
+  }, []);
 
   function submit() {
     setErr("");
@@ -27,6 +44,7 @@ export function KommunikationComposer({ orderNo }: { orderNo: number }) {
       }
       if (r && "ok" in r && r.ok === false) {
         setErr(r.error);
+        focusComposerTextarea(textareaRef.current);
       }
     });
   }
@@ -59,6 +77,7 @@ export function KommunikationComposer({ orderNo }: { orderNo: number }) {
         </label>
       </div>
       <textarea
+        ref={textareaRef}
         className="mb-2 w-full min-h-24 rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
         placeholder="Nachrichtentext…"
         value={message}

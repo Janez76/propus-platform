@@ -284,7 +284,7 @@ export function createToursHandlers(deps: ToursDeps): Record<string, ToolHandler
       const renewalInvoices = await runQuery<{ invoice_number: string | null; invoice_status: string | null; amount_chf: number | null; due_at: string | Date | null }>(
         `SELECT invoice_number, invoice_status, amount_chf, due_at
          FROM tour_manager.renewal_invoices
-         WHERE tour_id = $1 AND deleted_at IS NULL
+         WHERE tour_id = $1
          ORDER BY due_at DESC NULLS LAST
          LIMIT 5`,
         [tourId],
@@ -293,7 +293,7 @@ export function createToursHandlers(deps: ToursDeps): Record<string, ToolHandler
       const exxasInvoices = await runQuery<{ nummer: string | null; exxas_status: string | null; preis_brutto: number | null }>(
         `SELECT nummer, exxas_status, preis_brutto
          FROM tour_manager.exxas_invoices
-         WHERE tour_id = $1 AND deleted_at IS NULL
+         WHERE tour_id = $1
          ORDER BY id DESC
          LIMIT 3`,
         [tourId],
