@@ -1,0 +1,16 @@
+{
+  "name": "matterport-grundriss-ki",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokales Tool: Matterport-Modelle listen, KI erzeugt einfache SVG-Grundrisse pro Etage.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  }
+}
