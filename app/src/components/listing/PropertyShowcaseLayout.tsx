@@ -3,7 +3,7 @@ import { nextcloudPublicShareFolderZipUrl } from "./demo/nextcloudShare";
 import { isMp4VideoUrl } from "./demo/parsing";
 import type { FloorPlanItem } from "./demo/demoTypes";
 import type { GalleryItem } from "./data";
-import type { GalleryMediaSummary } from "./types";
+import type { GalleryMediaSummary, GalleryVideo } from "./types";
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
@@ -32,6 +32,8 @@ export type PropertyShowcaseLayoutProps = {
   standDisplay: string;
   matterportSrc: string;
   videoUrl: string;
+  /** Optional: alle Videos. Wenn vorhanden, gewinnt es ueber `videoUrl`. */
+  videos?: GalleryVideo[];
   gallery: GalleryItem[];
   heroSlides: string[];
   photoCount: number;
@@ -68,6 +70,7 @@ export function PropertyShowcaseLayout({
   standDisplay,
   matterportSrc,
   videoUrl,
+  videos,
   gallery,
   heroSlides,
   photoCount,
@@ -244,6 +247,7 @@ export function PropertyShowcaseLayout({
         <ImmersiveSection
           matterportSrc={matterportSrc}
           videoUrl={videoUrl}
+          videos={videos}
           floorPlans={floorPlans}
           listingFeedback={listingFeedback}
           onFloorPlanOpen={(index) => openFloorLightbox(index)}

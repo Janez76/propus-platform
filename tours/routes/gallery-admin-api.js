@@ -267,6 +267,26 @@ router.get('/:id/images/:imgId/thumb', async (req, res) => {
   }
 });
 
+// GET /:id/floorplans/:index/thumb?w=200|400|600|1200 — JPG-Thumbnail Seite 1.
+router.get('/:id/floorplans/:index/thumb', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const index = Number.parseInt(String(req.params.index || ''), 10);
+    if (!Number.isFinite(index) || index < 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Grundriss-Index.' });
+    }
+    const width = gallery.parseFloorPlanThumbWidth(req.query.w);
+    const cachePath = await gallery.ensureFloorPlanThumbForGallery(g, index, width);
+    res.set('Cache-Control', 'private, max-age=86400, immutable');
+    res.type('jpg');
+    return res.sendFile(cachePath);
+  } catch (e) {
+    if (e?.code === 'NOT_FOUND') return res.status(404).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // GET /:id/floorplans/:index/file — Admin-Vorschau fuer Grundriss-PDF
 router.get('/:id/floorplans/:index/file', async (req, res) => {
   try {

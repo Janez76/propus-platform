@@ -3,7 +3,10 @@
  * Alle Queries laufen gegen tour_manager.galleries / gallery_images / gallery_feedback / gallery_email_templates.
  */
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const { spawn } = require('child_process');
+const sharp = require('sharp');
 const { pool } = require('./db');
 const crypto = require('crypto');
 const orderStorage = require(path.join(__dirname, '..', '..', 'booking', 'order-storage'));
@@ -291,6 +294,38 @@ function parseStoredFloorPlans(raw) {
   }
 }
 
+function parseStoredVideos(raw) {
+  if (!raw || !String(raw).trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item, index) => ({
+        title: String(item.title || `Video ${index + 1}`).trim() || `Video ${index + 1}`,
+        url: item.url ? String(item.url).trim() : null,
+        source_type: item.source_type ? String(item.source_type).trim() : null,
+        source_root_kind: item.source_root_kind ? String(item.source_root_kind).trim() : null,
+        source_path: item.source_path ? String(item.source_path).trim() : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function buildGalleryVideoItems(videos) {
+  if (!Array.isArray(videos)) return [];
+  return videos
+    .map((item, index) => ({
+      title: String(item.title || `Video ${index + 1}`).trim() || `Video ${index + 1}`,
+      url: item.url ? String(item.url).trim() : null,
+      source_type: item.source_type || null,
+      source_root_kind: item.source_root_kind || null,
+      source_path: item.source_path || null,
+    }))
+    .filter((item) => item.url || item.source_path);
+}
+
 function buildNasMediaSummary(scan) {
   return {
     images: scan.images.length,
@@ -338,19 +373,30 @@ function scanNasMediaFromDirectory(rootKind, absoluteDir) {
       };
     });
 
-  const bestVideoRelative = dedupeByBasenameWithScore(mp4Paths, pathScoreForVideo)
-    .sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a))[0] || null;
+  const videosSorted = dedupeByBasenameWithScore(mp4Paths, pathScoreForVideo)
+    .sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a));
 
-  const video = bestVideoRelative
+  const videos = videosSorted.map((relativePath, index) => {
+    const rawName = fileNameFromUrl(relativePath).replace(MP4_EXT, '').replace(/_/g, ' ').trim();
+    return {
+      title: rawName || `Video ${index + 1}`,
+      source_type: 'nas_local',
+      source_root_kind: rootKind,
+      source_path: relativePath,
+      url: null,
+    };
+  });
+
+  const video = videos[0]
     ? {
         source_type: 'nas_local',
         source_root_kind: rootKind,
-        source_path: bestVideoRelative,
+        source_path: videos[0].source_path,
         url: null,
       }
     : null;
 
-  return { images, floorPlans, video };
+  return { images, floorPlans, video, videos };
 }
 
 function listNasDirectoryEntries(rootKind, relativePath = '') {
@@ -537,13 +583,24 @@ async function listMediaFromNextcloudPublicShare(sharePageUrl) {
     })
     .filter(Boolean);
 
-  const bestVideoHref = [...new Set(mp4Hrefs)].sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a))[0] || null;
-  const videoUrl = bestVideoHref ? nextcloudHrefToPublicFileUrl(bestVideoHref, parsed.origin, parsed.token) : null;
+  const sortedVideoHrefs = [...new Set(mp4Hrefs)].sort((a, b) => pathScoreForVideo(b) - pathScoreForVideo(a));
+  const videos = sortedVideoHrefs
+    .map((href, index) => {
+      const publicUrl = nextcloudHrefToPublicFileUrl(href, parsed.origin, parsed.token);
+      if (!publicUrl) return null;
+      const rawName = fileNameFromUrl(href).replace(MP4_EXT, '').replace(/_/g, ' ').trim();
+      return {
+        url: publicUrl,
+        title: rawName || `Video ${index + 1}`,
+      };
+    })
+    .filter(Boolean);
 
   return {
     images: pickedImages,
     floorPlans,
-    videoUrl: videoUrl || null,
+    videoUrl: videos[0]?.url || null,
+    videos,
   };
 }
 
@@ -732,9 +789,10 @@ async function createGallery(data = {}) {
        slug, friendly_slug, title, address, customer_id, customer_contact_id, booking_order_no,
        client_name, client_contact, client_email, status, matterport_input, cloud_share_url,
        storage_source_type, storage_root_kind, storage_relative_path,
-       video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json
+       video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json,
+       videos_json
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
      RETURNING *`,
     [
       slug,
@@ -758,6 +816,7 @@ async function createGallery(data = {}) {
       data.video_source_path || null,
       data.video_url || null,
       data.floor_plans_json || null,
+      data.videos_json || null,
     ]
   );
   return rows[0];
@@ -773,6 +832,7 @@ async function updateGallery(id, patch) {
     'status', 'matterport_input', 'cloud_share_url',
     'storage_source_type', 'storage_root_kind', 'storage_relative_path',
     'video_source_type', 'video_source_root_kind', 'video_source_path', 'video_url', 'floor_plans_json',
+    'videos_json',
   ];
   const sets = [];
   const params = [];
@@ -827,8 +887,8 @@ async function duplicateGallery(id) {
     `INSERT INTO tour_manager.galleries
        (slug, title, address, customer_id, customer_contact_id, booking_order_no, client_name, client_contact, client_email, status,
         matterport_input, cloud_share_url, storage_source_type, storage_root_kind, storage_relative_path,
-        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inactive', $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json, videos_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inactive', $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
      RETURNING *`,
     [
       newSlug,
@@ -850,6 +910,7 @@ async function duplicateGallery(id) {
       src.video_source_path,
       src.video_url,
       src.floor_plans_json,
+      src.videos_json,
     ]
   );
   const newGallery = rows[0];
@@ -972,6 +1033,8 @@ async function replaceGalleryMedia(client, galleryId, payload) {
   const images = Array.isArray(payload.images) ? payload.images : [];
   const floorPlans = Array.isArray(payload.floorPlans) ? payload.floorPlans : [];
   const video = payload.video || null;
+  const videos = Array.isArray(payload.videos) ? payload.videos : [];
+  const videoItems = buildGalleryVideoItems(videos);
   const storageSourceType = payload.storage_source_type || null;
   const storageRootKind = payload.storage_root_kind || null;
   const storageRelativePath = payload.storage_relative_path || null;
@@ -1009,8 +1072,9 @@ async function replaceGalleryMedia(client, galleryId, payload) {
          video_source_path = $6,
          video_url = $7,
          floor_plans_json = $8,
+         videos_json = $9,
          updated_at = NOW()
-     WHERE id = $9`,
+     WHERE id = $10`,
     [
       storageSourceType,
       storageRootKind,
@@ -1020,6 +1084,7 @@ async function replaceGalleryMedia(client, galleryId, payload) {
       video?.source_path || null,
       video?.url || null,
       floorPlans.length ? JSON.stringify(buildGalleryFloorPlanItems(floorPlans)) : null,
+      videoItems.length ? JSON.stringify(videoItems) : null,
       galleryId,
     ]
   );
@@ -1060,6 +1125,13 @@ async function importImagesFromShare(galleryId, urls) {
               url: media.videoUrl,
             }
           : null,
+        videos: (media.videos || []).map((v) => ({
+          title: v.title,
+          url: v.url,
+          source_type: 'url',
+          source_root_kind: null,
+          source_path: null,
+        })),
         storage_source_type: 'share_link',
         storage_root_kind: null,
         storage_relative_path: null,
@@ -1068,6 +1140,7 @@ async function importImagesFromShare(galleryId, urls) {
       return {
         added: media.images.length,
         floorPlans: media.floorPlans.length,
+        videos: (media.videos || []).length,
         hasVideo: Boolean(media.videoUrl),
       };
     } catch (e) {
@@ -1114,6 +1187,7 @@ async function importGalleryFromNas(galleryId, source) {
       images: media.images,
       floorPlans: media.floorPlans,
       video: media.video,
+      videos: media.videos || [],
       storage_source_type: storageSourceType,
       storage_root_kind: rootKind,
       storage_relative_path: relativePath,
@@ -1122,6 +1196,7 @@ async function importGalleryFromNas(galleryId, source) {
     return {
       added: media.images.length,
       floorPlans: media.floorPlans.length,
+      videos: (media.videos || []).length,
       hasVideo: Boolean(media.video),
     };
   } catch (e) {
@@ -1199,6 +1274,15 @@ function resolveGalleryVideoFile(gallery) {
   return resolveGalleryAbsolutePath(gallery.video_source_root_kind, gallery.video_source_path, { expectDirectory: false }).absolutePath;
 }
 
+function resolveGalleryVideoFileByIndex(gallery, index) {
+  const items = parseStoredVideos(gallery?.videos_json);
+  const item = items[index];
+  if (!item || item.source_type !== 'nas_local' || !item.source_root_kind || !item.source_path) {
+    return null;
+  }
+  return resolveGalleryAbsolutePath(item.source_root_kind, item.source_path, { expectDirectory: false }).absolutePath;
+}
+
 function resolveGalleryFloorPlanFile(gallery, index) {
   const items = parseStoredFloorPlans(gallery?.floor_plans_json);
   const item = items[index];
@@ -1206,6 +1290,144 @@ function resolveGalleryFloorPlanFile(gallery, index) {
     return null;
   }
   return resolveGalleryAbsolutePath(item.source_root_kind, item.source_path, { expectDirectory: false }).absolutePath;
+}
+
+// ── Floor-Plan-Thumb-Cache (server-rendered JPG, geteilt zwischen Admin- und
+//    Public-API). Cache: <FLOORPLAN_THUMB_CACHE_DIR>/<gallery_id>/<index>_<w>_<key>.jpg
+const FLOORPLAN_THUMB_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'gallery-floorplan-thumbs');
+const ALLOWED_FLOORPLAN_THUMB_WIDTHS = new Set([200, 400, 600, 1200]);
+const floorPlanThumbInflight = new Map();
+
+function parseFloorPlanThumbWidth(raw) {
+  const w = Number.parseInt(String(raw || '600'), 10);
+  return ALLOWED_FLOORPLAN_THUMB_WIDTHS.has(w) ? w : 600;
+}
+
+async function downloadRemotePdfToTemp(remoteUrl) {
+  const res = await fetch(remoteUrl, { redirect: 'follow' });
+  if (!res.ok) throw new Error(`PDF-Download HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  const tmpPath = path.join(os.tmpdir(), `floorplan-remote-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`);
+  await fs.promises.writeFile(tmpPath, buf);
+  return tmpPath;
+}
+
+async function renderFloorPlanThumb(srcPdfPath, galleryId, index, width, cacheKey) {
+  const cacheDir = path.join(FLOORPLAN_THUMB_CACHE_DIR, String(galleryId));
+  const cachePath = path.join(cacheDir, `${index}_${width}_${cacheKey}.jpg`);
+  try {
+    const stat = await fs.promises.stat(cachePath);
+    if (stat.isFile() && stat.size > 0) return cachePath;
+  } catch { /* miss */ }
+
+  if (floorPlanThumbInflight.has(cachePath)) {
+    await floorPlanThumbInflight.get(cachePath);
+    return cachePath;
+  }
+
+  const promise = (async () => {
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    try {
+      const entries = await fs.promises.readdir(cacheDir);
+      const prefix = `${index}_${width}_`;
+      for (const entry of entries) {
+        if (entry.startsWith(prefix) && entry !== path.basename(cachePath)) {
+          await fs.promises.unlink(path.join(cacheDir, entry)).catch(() => {});
+        }
+      }
+    } catch { /* ignore */ }
+
+    const tmpBase = path.join(os.tmpdir(), `floorplan-${galleryId}-${index}-${process.pid}-${Date.now()}`);
+    const tmpPng = `${tmpBase}-1.png`;
+    try {
+      await new Promise((resolve, reject) => {
+        const proc = spawn('pdftoppm', [
+          '-f', '1',
+          '-l', '1',
+          '-r', '150',
+          '-png',
+          srcPdfPath,
+          tmpBase,
+        ], { stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderr = '';
+        proc.stderr.on('data', (chunk) => { stderr += chunk.toString('utf8'); });
+        proc.on('error', (err) => reject(err));
+        proc.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`pdftoppm exited ${code}: ${stderr.slice(0, 200)}`));
+        });
+      });
+      const tmpJpg = `${cachePath}.${process.pid}.tmp`;
+      await sharp(tmpPng, { failOn: 'none' })
+        .resize({ width, withoutEnlargement: true, fit: 'inside' })
+        .jpeg({ quality: 78, mozjpeg: true })
+        .toFile(tmpJpg);
+      await fs.promises.rename(tmpJpg, cachePath);
+    } finally {
+      await fs.promises.unlink(tmpPng).catch(() => {});
+    }
+  })();
+
+  floorPlanThumbInflight.set(cachePath, promise);
+  try {
+    await promise;
+  } finally {
+    floorPlanThumbInflight.delete(cachePath);
+  }
+  return cachePath;
+}
+
+async function ensureFloorPlanThumbForGallery(gallery, index, width) {
+  const items = parseStoredFloorPlans(gallery?.floor_plans_json);
+  const item = items[index];
+  if (!item) {
+    const e = new Error('Grundriss nicht gefunden.');
+    e.code = 'NOT_FOUND';
+    throw e;
+  }
+
+  let srcPdfPath = null;
+  let cacheKey = null;
+  let cleanupTmp = null;
+
+  try {
+    if (item.source_type === 'nas_local') {
+      srcPdfPath = resolveGalleryFloorPlanFile(gallery, index);
+      if (!srcPdfPath) {
+        const e = new Error('Grundriss-Pfad nicht gefunden.');
+        e.code = 'NOT_FOUND';
+        throw e;
+      }
+      try {
+        const stat = await fs.promises.stat(srcPdfPath);
+        cacheKey = String(Math.floor(stat.mtimeMs));
+      } catch {
+        const e = new Error('Grundriss-Datei nicht gefunden.');
+        e.code = 'NOT_FOUND';
+        throw e;
+      }
+    } else if (item.url) {
+      cacheKey = crypto.createHash('sha256').update(item.url).digest('hex').slice(0, 16);
+      const cacheDir = path.join(FLOORPLAN_THUMB_CACHE_DIR, String(gallery.id));
+      const cachePath = path.join(cacheDir, `${index}_${width}_${cacheKey}.jpg`);
+      try {
+        const stat = await fs.promises.stat(cachePath);
+        if (stat.isFile() && stat.size > 0) return cachePath;
+      } catch { /* miss → herunterladen */ }
+      srcPdfPath = await downloadRemotePdfToTemp(item.url);
+      cleanupTmp = srcPdfPath;
+    } else {
+      const e = new Error('Grundriss nicht verfuegbar.');
+      e.code = 'NOT_FOUND';
+      throw e;
+    }
+
+    return await renderFloorPlanThumb(srcPdfPath, gallery.id, index, width, cacheKey);
+  } finally {
+    if (cleanupTmp) {
+      fs.promises.unlink(cleanupTmp).catch(() => {});
+    }
+  }
 }
 
 function getGalleryDownloadSource(gallery, variant = 'all') {
@@ -1452,10 +1674,14 @@ module.exports = {
   importImagesFromShare,
   importGalleryFromNas,
   parseStoredFloorPlans,
+  parseStoredVideos,
   resolveGalleryImageFile,
   resolvePreferredImageFile,
   resolveGalleryVideoFile,
+  resolveGalleryVideoFileByIndex,
   resolveGalleryFloorPlanFile,
+  ensureFloorPlanThumbForGallery,
+  parseFloorPlanThumbWidth,
   getGalleryDownloadSource,
   getGalleryMediaSummary,
   dedupeGalleryRowsPreferWebsize,

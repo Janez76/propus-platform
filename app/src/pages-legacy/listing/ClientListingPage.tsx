@@ -138,6 +138,7 @@ export function ClientListingPage() {
       standDisplay={standDisplay}
       matterportSrc={data.matterport_src}
       videoUrl={data.video_url}
+      videos={data.videos ?? []}
       gallery={galleryItems}
       heroSlides={heroSlides}
       photoCount={galleryItems.length}

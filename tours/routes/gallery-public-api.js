@@ -30,7 +30,18 @@ function parseFloorPlansJson(raw) {
     url: item.source_type === 'nas_local'
       ? `/api/listing/__SLUG__/floorplans/${index}`
       : (item.url || ''),
+    thumb_url: `/api/listing/__SLUG__/floorplans/${index}/thumb?w=600`,
     title: item.title || 'Grundriss',
+  }));
+}
+
+function parseVideosJson(raw) {
+  const items = gallery.parseStoredVideos(raw);
+  return items.map((item, index) => ({
+    url: item.source_type === 'nas_local'
+      ? `/api/listing/__SLUG__/videos/${index}`
+      : (item.url || ''),
+    title: item.title || `Video ${index + 1}`,
   }));
 }
 
@@ -72,9 +83,14 @@ router.get('/:slug', async (req, res) => {
       video_url: g.video_source_type === 'nas_local'
         ? `/api/listing/${encodeURIComponent(g.slug)}/video`
         : (g.video_url || '').trim(),
+      videos: parseVideosJson(g.videos_json).map((item) => ({
+        ...item,
+        url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
+      })),
       floor_plans: parseFloorPlansJson(g.floor_plans_json).map((item) => ({
         ...item,
         url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
+        thumb_url: item.thumb_url.replace('__SLUG__', encodeURIComponent(g.slug)),
       })),
       images: visible.map(i => ({
         id: i.id,
@@ -111,7 +127,7 @@ router.get('/:slug/images/:imgId', async (req, res) => {
   }
 });
 
-// GET /:slug/video — Video aus NAS oder gespeicherter URL
+// GET /:slug/video — Video aus NAS oder gespeicherter URL (Legacy: erstes Video)
 router.get('/:slug/video', async (req, res) => {
   try {
     const g = await gallery.getGalleryBySlug(req.params.slug);
@@ -120,6 +136,50 @@ router.get('/:slug/video', async (req, res) => {
     if (!filePath) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
     return res.sendFile(filePath);
   } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:slug/videos/:index — Video nach Index aus videos_json
+router.get('/:slug/videos/:index', async (req, res) => {
+  try {
+    const g = await gallery.getGalleryBySlug(req.params.slug);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+    const index = Number.parseInt(String(req.params.index || ''), 10);
+    if (!Number.isFinite(index) || index < 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Video-Index.' });
+    }
+    const items = gallery.parseStoredVideos(g.videos_json);
+    const item = items[index];
+    if (!item) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
+    if (item.source_type === 'nas_local') {
+      const filePath = gallery.resolveGalleryVideoFileByIndex(g, index);
+      if (!filePath) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
+      return res.sendFile(filePath);
+    }
+    if (!item.url) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
+    return res.redirect(item.url);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// GET /:slug/floorplans/:index/thumb?w=… — JPG-Thumbnail Seite 1
+router.get('/:slug/floorplans/:index/thumb', async (req, res) => {
+  try {
+    const g = await gallery.getGalleryBySlug(req.params.slug);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+    const index = Number.parseInt(String(req.params.index || ''), 10);
+    if (!Number.isFinite(index) || index < 0) {
+      return res.status(400).json({ ok: false, error: 'Ungültiger Grundriss-Index.' });
+    }
+    const width = gallery.parseFloorPlanThumbWidth(req.query.w);
+    const cachePath = await gallery.ensureFloorPlanThumbForGallery(g, index, width);
+    res.set('Cache-Control', 'public, max-age=86400, immutable');
+    res.type('jpg');
+    return res.sendFile(cachePath);
+  } catch (e) {
+    if (e?.code === 'NOT_FOUND') return res.status(404).json({ ok: false, error: e.message });
     res.status(500).json({ ok: false, error: e.message });
   }
 });

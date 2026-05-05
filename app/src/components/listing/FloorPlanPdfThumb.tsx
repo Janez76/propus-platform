@@ -10,15 +10,24 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 type Props = {
   remotePdfUrl: string;
   label: string;
+  /**
+   * Server-rendered JPG-Thumbnail (per pdftoppm) — wenn gesetzt, rendern wir
+   * statt pdf.js-Canvas einfach ein <img>. Canvas ist Fallback bei Ladefehler.
+   */
+  thumbUrl?: string | null;
 };
 
-export function FloorPlanPdfThumb({ remotePdfUrl, label }: Props) {
+export function FloorPlanPdfThumb({ remotePdfUrl, label, thumbUrl }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
-  const [useFallback, setUseFallback] = useState(!canLoadRemotePdfWithPdfJs());
+  const [imgFailed, setImgFailed] = useState(false);
+  const useImg = Boolean(thumbUrl) && !imgFailed;
+  const [useFallback, setUseFallback] = useState(!useImg && !canLoadRemotePdfWithPdfJs());
 
   useEffect(() => {
+    // Canvas-Render nur, wenn weder <img> noch <iframe>-Fallback aktiv ist.
+    if (useImg) return;
     if (!canLoadRemotePdfWithPdfJs()) return;
 
     const el = wrapRef.current;
@@ -43,10 +52,10 @@ export function FloorPlanPdfThumb({ remotePdfUrl, label }: Props) {
       lastH = ch;
 
       const base = page.getViewport({ scale: 1 });
-      /* «Cover»: Vorschau füllen, keine weissen Innenränder durch kleinen Scale */
+      // «Contain»: Vorschau passt komplett ins Box, kein Stretch.
       const scaleW = cw / base.width;
       const scaleH = ch / base.height;
-      const scale = Math.min(Math.max(scaleW, scaleH), 8);
+      const scale = Math.min(Math.min(scaleW, scaleH), 8);
       const viewport = page.getViewport({ scale: Math.max(scale, 0.08) });
 
       const ctx = canvas.getContext("2d", { alpha: false });
@@ -105,7 +114,28 @@ export function FloorPlanPdfThumb({ remotePdfUrl, label }: Props) {
       pdfRef.current?.destroy().catch(() => {});
       pdfRef.current = null;
     };
-  }, [remotePdfUrl]);
+  }, [remotePdfUrl, useImg]);
+
+  if (useImg && thumbUrl) {
+    return (
+      <div className="pdf-wrap pdf-wrap--compact pdf-wrap--thumb-fill">
+        <img
+          src={thumbUrl}
+          alt={label}
+          loading="lazy"
+          decoding="async"
+          onError={() => setImgFailed(true)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            background: "#ffffff",
+            display: "block",
+          }}
+        />
+      </div>
+    );
+  }
 
   if (useFallback) {
     return (

@@ -29,6 +29,7 @@ export type ClientGalleryRow = {
   video_source_path: string | null;
   video_url: string | null;
   floor_plans_json: string | null;
+  videos_json: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -72,6 +73,7 @@ export type EmailTemplateRow = {
 };
 
 export type GalleryFloorPlan = { url: string; title: string };
+export type GalleryVideo = { url: string; title: string };
 
 export type GalleryMediaSummary = {
   imagesWebsize: number;
@@ -93,6 +95,7 @@ export type PublicGalleryPayload = {
   download_all_url: string | null;
   matterport_src: string;
   video_url: string;
+  videos?: GalleryVideo[];
   floor_plans: GalleryFloorPlan[];
   images: Array<{
     id: string;

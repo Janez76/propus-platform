@@ -35,7 +35,7 @@ RUN npm run build
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache libc6-compat postgresql-client curl
+RUN apk add --no-cache libc6-compat postgresql-client curl poppler-utils
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 propus
@@ -76,7 +76,7 @@ RUN chmod +x /app/scripts/*.sh 2>/dev/null || true
 # ── Writable runtime data directories (owned by propus before USER switch) ──
 RUN mkdir -p /app/booking/data/photographer-portraits && \
     chown -R propus:nodejs /app/booking/data
-RUN mkdir -p /app/tours/uploads/gallery-thumbs && \
+RUN mkdir -p /app/tours/uploads/gallery-thumbs /app/tours/uploads/gallery-floorplan-thumbs && \
     chown -R propus:nodejs /app/tours/uploads
 
 # ── Start-Script ──
