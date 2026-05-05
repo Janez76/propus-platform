@@ -39,7 +39,6 @@ import {
   updateGallery,
   updateImage,
 } from "../../../api/listingAdmin";
-import { LightboxFloorPlanCanvas } from "../../../components/listing/LightboxFloorPlanCanvas";
 import {
   getLinkMatterportBookingSearch,
   getToursByOrderNo,
@@ -2015,6 +2014,7 @@ export function ListingEditorPage() {
                 {floorPlans.map((fp, idx) => {
                   const url = fp.source_type === "nas_local" ? adminGalleryFloorPlanUrl(id, idx) : fp.url;
                   if (!url) return null;
+                  const thumbSrc = adminGalleryFloorPlanThumbUrl(id, idx, 600);
                   return (
                     <a
                       key={`${idx}-${fp.title}`}
@@ -2024,11 +2024,16 @@ export function ListingEditorPage() {
                       className="block overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] hover:border-[var(--gold)] transition-colors"
                       title={`${fp.title} in neuem Tab öffnen`}
                     >
-                      <div className="aspect-[4/3] bg-white">
-                        <LightboxFloorPlanCanvas
-                          remotePdfUrl={url}
-                          thumbUrl={adminGalleryFloorPlanThumbUrl(id, idx, 600)}
-                          label={fp.title}
+                      <div className="relative aspect-[4/3] bg-white overflow-hidden">
+                        <img
+                          src={thumbSrc}
+                          alt={fp.title}
+                          loading="lazy"
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-contain"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
                         />
                       </div>
                       <div className="px-3 py-2 text-xs text-[var(--text-subtle)] truncate">
