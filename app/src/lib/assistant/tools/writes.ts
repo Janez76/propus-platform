@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { query as defaultQuery, queryOne as defaultQueryOne, withTransaction as defaultWithTransaction } from "@/lib/db";
+import { query as defaultQuery, queryOne as defaultQueryOne, withTransaction as defaultWithTransaction, type Querier } from "@/lib/db";
 import { ensureBookingOrderSequence } from "@/lib/orderSequence";
 import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
@@ -7,8 +7,8 @@ import { enqueueOutbox as defaultEnqueueOutbox, type OutboxKind } from "@/lib/ou
 import { renderWorkflowMails } from "@/lib/mail/workflowMail";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
 
-type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T[]>;
-type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T | null>;
+type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: Querier) => Promise<T[]>;
+type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: Querier) => Promise<T | null>;
 type WithTransactionFn = <T>(fn: (tx: PoolClient) => Promise<T>) => Promise<T>;
 type EnqueueOutboxFn = (
   tx: PoolClient,
