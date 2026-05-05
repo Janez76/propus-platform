@@ -1,17 +1,27 @@
-import { query as defaultQuery, queryOne as defaultQueryOne, withTransaction } from "@/lib/db";
+import type { PoolClient } from "pg";
+import { query as defaultQuery, queryOne as defaultQueryOne, withTransaction as defaultWithTransaction } from "@/lib/db";
 import { ensureBookingOrderSequence } from "@/lib/orderSequence";
 import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
-import { enqueueOutbox } from "@/lib/outbox";
+import { enqueueOutbox as defaultEnqueueOutbox, type OutboxKind } from "@/lib/outbox";
 import { renderWorkflowMails } from "@/lib/mail/workflowMail";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
 
-type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
-type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T | null>;
+type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T[]>;
+type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T | null>;
+type WithTransactionFn = <T>(fn: (tx: PoolClient) => Promise<T>) => Promise<T>;
+type EnqueueOutboxFn = (
+  tx: PoolClient,
+  orderNo: number,
+  kind: OutboxKind,
+  payload: Record<string, unknown>,
+) => Promise<{ id: number }>;
 
 type WriteDeps = {
   query: QueryFn;
   queryOne: QueryOneFn;
+  withTransaction?: WithTransactionFn;
+  enqueueOutbox?: EnqueueOutboxFn;
 };
 
 function requireString(value: unknown, label: string): string {
@@ -153,6 +163,8 @@ const VALID_REF_TYPES = new Set(["tour", "order"]);
 export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler> {
   const runQuery = deps.query;
   const runQueryOne = deps.queryOne;
+  const runWithTransaction: WithTransactionFn = deps.withTransaction || defaultWithTransaction;
+  const runEnqueueOutbox: EnqueueOutboxFn = deps.enqueueOutbox || defaultEnqueueOutbox;
 
   return {
     create_posteingang_task: async (input: Record<string, unknown>, ctx: ToolContext) => {
@@ -313,8 +325,11 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // order_no kommt aus der Postgres-Sequence (Migration 055).
       // ensureBookingOrderSequence muss VOR der Tx laufen (DDL).
       await ensureBookingOrderSequence(runQuery);
-      const orderNo = await withTransaction(async (tx) => {
-        const inserted = await tx.query<{ order_no: number }>(
+      // INSERT + Outbox-Enqueue ueber injizierte withTransaction/enqueueOutbox.
+      // Defaults nutzen die echte db.ts-Implementierung; in Tests werden
+      // mockable Varianten injiziert (sonst ECONNREFUSED gegen :5432 im CI).
+      const orderNo = await runWithTransaction(async (tx) => {
+        const inserted = await runQueryOne<{ order_no: number }>(
           `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
            VALUES (
              $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
@@ -331,8 +346,9 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
             JSON.stringify(billingJson),
             JSON.stringify(settingsJson),
           ],
+          tx,
         );
-        const no = inserted.rows[0]?.order_no;
+        const no = inserted?.order_no;
         if (!no) throw new Error("Auftrag konnte nicht erstellt werden");
 
         // Workflow-Mails: Kunde bekommt Provisorisch-Bestätigung, Office
@@ -350,7 +366,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
           { customer: true, office: true, photographer: false, cc: false },
         );
         for (const mail of rendered) {
-          await enqueueOutbox(tx, no, "workflow_status_mail", {
+          await runEnqueueOutbox(tx, no, "workflow_status_mail", {
             to: mail.to,
             subject: mail.subject,
             html: mail.html,
