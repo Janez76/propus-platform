@@ -1,0 +1,39 @@
+---
+import { GUIDELINE_MANUALS } from '../../data/guideline-manuals';
+
+interface Props {
+	activeHref: string;
+}
+
+const { activeHref } = Astro.props;
+
+const normalize = (p: string) => (p.endsWith('/') ? p : `${p}/`);
+
+const current = normalize(activeHref);
+
+const links = [
+	{ href: '/guideline/', label: 'Übersicht' },
+	{ href: '/guideline/willkommen/', label: 'Willkommen' },
+	...GUIDELINE_MANUALS.map((m) => ({
+		href: `/guideline/anleitung/${m.slug}/`,
+		label: m.navLabel,
+	})),
+] as const;
+
+const isActive = (href: string) => current === normalize(href);
+---
+
+<nav class="guideline-subnav" aria-label="Guideline-Navigation">
+	<div class="guideline-subnav__scroll">
+		{
+			links.map((l) => (
+				<a
+					href={l.href}
+					class:list={['guideline-subnav__link', { 'is-active': isActive(l.href) }]}
+				>
+					{l.label}
+				</a>
+			))
+		}
+	</div>
+</nav>

@@ -1,0 +1,97 @@
+---
+export const prerender = false;
+
+import GuidelineLayout from '../../../layouts/GuidelineLayout.astro';
+import { getManualBySlug } from '../../../data/guideline-manuals';
+
+const slug = Astro.params.slug ?? '';
+const manual = getManualBySlug(slug);
+
+if (!manual) {
+	return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+const activeHref = `/guideline/anleitung/${manual.slug}/`;
+const pdfUrl = `/api/guideline/download?id=${encodeURIComponent(manual.pdfDownloadId)}`;
+const docxUrl = `/api/guideline/download?id=${encodeURIComponent(manual.docxDownloadId)}`;
+const isEn = manual.lang === 'en';
+const dlPdf = isEn ? 'Download PDF' : 'PDF herunterladen';
+const dlDoc = isEn ? 'Download Word' : 'Word herunterladen';
+const dlHint = isEn
+	? 'Official Propus handout (same content as on this page).'
+	: 'Offizielle Propus-Anleitung (gleicher Inhalt wie auf dieser Seite).';
+const contentsLabel = isEn ? 'On this page' : 'Auf dieser Seite';
+const logoutLabel = isEn ? 'Sign out' : 'Abmelden';
+---
+
+<GuidelineLayout title={manual.title} activeHref={activeHref} lang={manual.lang}>
+	<button
+		slot="actions"
+		type="button"
+		class="guideline-btn guideline-btn--ghost"
+		id="guideline-logout">{logoutLabel}</button>
+
+	<div class="guideline-manual-grid">
+		<article class="guideline-manual-main guideline-prose">
+			<p class="guideline-manual-teaser">{manual.teaser}</p>
+
+			<nav class="guideline-toc" aria-label={contentsLabel}>
+				<h2 class="guideline-toc__title">{contentsLabel}</h2>
+				<ol class="guideline-toc__list">
+					{
+						manual.sections.map((s) => (
+							<li>
+								<a href={`#${s.id}`}>{s.title}</a>
+							</li>
+						))
+					}
+				</ol>
+			</nav>
+
+			{
+				manual.sections.map((section) => (
+					<section id={section.id} class="guideline-section">
+						<h2 class="guideline-section__h">{section.title}</h2>
+						{section.intro && <p>{section.intro}</p>}
+						{section.bullets && (
+							<ul class="guideline-section__ul">
+								{section.bullets.map((b) => (
+									<li>{b}</li>
+								))}
+							</ul>
+						)}
+						{section.numbered && (
+							<ol class="guideline-section__ol">
+								{section.numbered.map((b) => (
+									<li>{b}</li>
+								))}
+							</ol>
+						)}
+						{section.note && <p class="guideline-section__note">{section.note}</p>}
+					</section>
+				))
+			}
+		</article>
+
+		<aside class="guideline-manual-aside" aria-label="Downloads">
+			<div class="guideline-download-card">
+				<h2 class="guideline-download-card__title">{isEn ? 'Documents' : 'Dokumente'}</h2>
+				<p class="guideline-download-card__hint">{dlHint}</p>
+				<div class="guideline-download-card__actions">
+					<a href={pdfUrl} class="guideline-btn guideline-btn--primary">{dlPdf}</a>
+					<a href={docxUrl} class="guideline-btn">{dlDoc}</a>
+				</div>
+			</div>
+		</aside>
+	</div>
+
+	<script>
+		document.getElementById('guideline-logout')?.addEventListener('click', async () => {
+			await fetch('/api/guideline/logout', {
+				method: 'POST',
+				credentials: 'same-origin',
+			});
+			window.location.href = '/guideline/login';
+		});
+	</script>
+</GuidelineLayout>
