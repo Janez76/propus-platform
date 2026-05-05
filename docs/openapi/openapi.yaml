@@ -62,6 +62,12 @@ tags:
       (`requirePortalSession`).
   - name: tours-webhook
     description: Eingehende Webhooks (z. B. Payrexx-Zahlungsstatus).
+  - name: bookkeeper
+    description: >-
+      Buchhaltungs-Pipeline (Block 4). Backend-Proxy zum propus-bookkeeper-Container
+      auf der NAS, der Belege via KI-Cascade (Sonnet 4.6 → Opus 4.7) extrahiert,
+      Custom Fields in Paperless schreibt, und nach Approval in bexio pusht.
+      Alle Routes erfordern Admin-Cookie.
 security: []
 paths:
   /api/admin/login:
@@ -18016,6 +18022,176 @@ paths:
                 additionalProperties: true
         5XX:
           $ref: '#/components/responses/ServerError'
+  /api/admin/bookkeeper/counts:
+    get:
+      tags: [bookkeeper]
+      summary: Status-Counts der Buchhaltungs-Pipeline
+      description: >-
+        Live-Counts aller Belege pro Pipeline-Stage (pending, vorgeschlagen,
+        approved, verbucht, fehler, spam, abgleich, duplikat). Quelle: Paperless-NGX
+        via Backend-Proxy. 503 wenn Token nicht konfiguriert.
+      responses:
+        '200':
+          description: Counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured: {type: boolean}
+                  counts:
+                    type: object
+                    additionalProperties: {type: integer}
+        '503': {$ref: '#/components/responses/ServerError'}
+  /api/admin/bookkeeper/documents:
+    get:
+      tags: [bookkeeper]
+      summary: Liste der Belege eines Status
+      parameters:
+        - {name: status, in: query, required: true, schema: {type: string, enum: [pending, vorgeschlagen, approved, verbucht, fehler, spam, abgleich, duplikat]}}
+        - {name: limit, in: query, schema: {type: integer, default: 50, maximum: 200}}
+        - {name: min_confidence, in: query, schema: {type: integer, minimum: 0, maximum: 100}}
+        - {name: max_confidence, in: query, schema: {type: integer, minimum: 0, maximum: 100}}
+      responses:
+        '200':
+          description: Document list mit Custom Fields
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: {type: integer}
+                  total: {type: integer}
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: {type: integer}
+                        title: {type: string}
+                        added: {type: string, format: date-time}
+                        tags: {type: array, items: {type: integer}}
+                        custom_fields: {type: object, additionalProperties: true}
+  /api/admin/bookkeeper/documents/{id}:
+    get:
+      tags: [bookkeeper]
+      summary: Detail eines Belegs (Paperless-Passthrough)
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses: {'200': {description: Doc Detail}}
+    patch:
+      tags: [bookkeeper]
+      summary: Inline-Edit der Custom Fields (mit Merge-Logic)
+      description: >-
+        Wichtig: Paperless `PATCH custom_fields=[...]` ist ein REPLACE der gesamten
+        Liste. Der Backend-Proxy merged automatisch mit existierenden Feldern, sodass
+        nur die übergebenen Felder geändert werden.
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fields]
+              properties:
+                fields:
+                  type: object
+                  description: '{ "<paperless_field_id>": <value>, ... }'
+                  additionalProperties: true
+      responses: {'200': {description: ok}}
+    delete:
+      tags: [bookkeeper]
+      summary: Beleg in Paperless-Trash + optional bexio-Storno
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+        - {name: also_bexio, in: query, schema: {type: boolean, default: false}, description: 'Wenn true: auch zugehörige bexio-Buchung stornieren'}
+      responses:
+        '200':
+          description: Result inkl. Paperless- und bexio-Status
+  /api/admin/bookkeeper/documents/{id}/approve:
+    post:
+      tags: [bookkeeper]
+      summary: Tag-Swap vorgeschlagen → approved
+      description: Container pollt approved-Belege und pusht sie nach bexio (sofern BOOKKEEPER_DRY_RUN=false).
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses: {'200': {description: ok}}
+  /api/admin/bookkeeper/documents/{id}/reject:
+    post:
+      tags: [bookkeeper]
+      summary: Beleg auf pending zurück (Re-Cascade)
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses: {'200': {description: ok}}
+  /api/admin/bookkeeper/documents/{id}/spam:
+    post:
+      tags: [bookkeeper]
+      summary: Beleg als spam markieren
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses: {'200': {description: ok}}
+  /api/admin/bookkeeper/preflight/{id}:
+    get:
+      tags: [bookkeeper]
+      summary: Pre-Flight-Check vor bexio-Push
+      description: Prüft Pflichtfelder + Existenz der Soll/Haben-Konten in bexio.
+      parameters: [{name: id, in: path, required: true, schema: {type: integer}}]
+      responses:
+        '200':
+          description: Pre-Flight-Result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: {type: boolean}
+                  doc_id: {type: integer}
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        severity: {type: string, enum: [error, warn]}
+                        field: {type: string}
+                        msg: {type: string}
+  /api/admin/bookkeeper/feedback:
+    post:
+      tags: [bookkeeper]
+      summary: User-Korrektur loggen (KI-Training-Sample)
+      description: >-
+        Persistiert in `core.bookkeeper_feedback` und patcht das Custom Field in
+        Paperless live. Der `generate_few_shot.py`-Generator liest unapplied
+        Einträge und webt sie in `prompts/extractor.txt` ein.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [doc_id, field_id]
+              properties:
+                doc_id: {type: integer}
+                field_id: {type: integer, description: 'Paperless-Custom-Field-ID (2..18)'}
+                original_value: {type: string}
+                corrected_value: {type: string}
+                reason: {type: string}
+      responses: {'200': {description: ok}}
+    get:
+      tags: [bookkeeper]
+      summary: Feedback-Liste (Audit + Training-View)
+      parameters: [{name: unapplied, in: query, schema: {type: string, enum: ['1']}}]
+      responses: {'200': {description: Feedback-Rows}}
+  /api/admin/bookkeeper/recascade:
+    post:
+      tags: [bookkeeper]
+      summary: Bulk-Re-Cascade aller Belege eines Status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [vorgeschlagen, approved, fehler, spam, abgleich, duplikat]}
+      responses: {'200': {description: 'migrated count'}}
 components:
   securitySchemes:
     bearerAuth:
