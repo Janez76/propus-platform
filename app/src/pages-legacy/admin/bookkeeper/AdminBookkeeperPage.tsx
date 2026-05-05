@@ -435,8 +435,9 @@ export function AdminBookkeeperPage() {
           <p className="text-sm text-amber-800 mt-1">{desc.help}</p>
         </div>
         <a href={PAPERLESS_VIEW_LINKS[activeTab]} target="_blank" rel="noopener noreferrer"
+          aria-label="Paperless"
           className="flex items-center gap-1 text-sm text-amber-800 hover:underline flex-shrink-0 whitespace-nowrap">
-          <ExternalLink className="w-4 h-4" /> <span className="hidden sm:inline">Paperless</span>
+          <ExternalLink className="w-4 h-4" aria-hidden="true" /> <span className="hidden sm:inline">Paperless</span>
         </a>
       </div>
 
