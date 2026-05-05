@@ -114,8 +114,14 @@ chmod 775 "$PROJECT_ROOT/backups" || true
 
 cd "$PROJECT_ROOT"
 
-# Optionale VPS-only Env (z. B. Payrexx); wird nicht aus dem Deploy-Archiv geliefert.
+# Optionale VPS-only Env (z. B. Payrexx, Guideline-Secrets); wird nicht aus dem Deploy-Archiv geliefert.
 touch .env.vps.secrets
+
+# docker compose: Interpolation ${VAR} aus .env.vps; optionale .env.vps.secrets (spätere Datei überschreibt Keys).
+COMPOSE_ENV_ARGS=(--env-file .env.vps)
+if [ -f .env.vps.secrets ]; then
+	COMPOSE_ENV_ARGS+=(--env-file .env.vps.secrets)
+fi
 
 echo "==> Installiere VPS-sichere Compose-Defaults"
 # Auf dem VPS soll auch ein plain `docker compose up` dieselbe Konfiguration wie
@@ -166,28 +172,28 @@ echo "Alle Ports verfuegbar."
 
 echo "==> Docker Build"
 export DOCKER_BUILDKIT=1
-docker compose -f docker-compose.vps.yml --env-file .env.vps build \
+docker compose -f docker-compose.vps.yml "${COMPOSE_ENV_ARGS[@]}" build \
   --build-arg DEPLOY_SHA="${GITHUB_SHA:-$(date +%s)}" \
   migrate platform website
 
 echo "==> Platform Restart"
-docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate platform
+docker compose -f docker-compose.vps.yml "${COMPOSE_ENV_ARGS[@]}" up -d --force-recreate platform
 
 echo "==> Platform Port-Binding Check"
 check_platform_port_bindings
 
 echo "==> DB Migrations"
-docker compose -f docker-compose.vps.yml --env-file .env.vps --profile migrate run --rm migrate
+docker compose -f docker-compose.vps.yml "${COMPOSE_ENV_ARGS[@]}" --profile migrate run --rm migrate
 
 echo "==> Website Handover"
-docker compose -f docker-compose.vps.yml --env-file .env.vps rm -sf website || true
+docker compose -f docker-compose.vps.yml "${COMPOSE_ENV_ARGS[@]}" rm -sf website || true
 if command -v fuser >/dev/null 2>&1; then
   fuser -k 4343/tcp || true
 else
   pids=$(ss -ltnp '( sport = :4343 )' 2>/dev/null | awk -F 'pid=' 'NR>1 && NF>1 {split($2,a,","); print a[1]}' | sort -u)
   if [ -n "$pids" ]; then kill $pids || true; fi
 fi
-docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --force-recreate website
+docker compose -f docker-compose.vps.yml "${COMPOSE_ENV_ARGS[@]}" up -d --force-recreate website
 
 # ── Health-Check: wartet bis Platform wirklich antwortet, bevor Cloudflare-
 #    Tunnel wieder Traffic bekommt. Ohne diesen Wait serviert Cloudflare 403
