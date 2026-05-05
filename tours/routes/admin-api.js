@@ -818,6 +818,26 @@ router.post('/tours/:id/set-booking-order', async (req, res) => {
       } catch (e) {
         console.warn('[admin-api] set-booking-order patchModelInternalId:', e.message);
       }
+      // Beim Verknuepfen einer Bestellung soll die Tour automatisch
+      // oeffentlich/sichtbar werden — sonst bleibt sie auf "privat" und
+      // ist im Listing fuer den Kunden nicht erreichbar.
+      try {
+        const visibilityResult = await matterport.setVisibility(mpId, 'PUBLIC');
+        if (visibilityResult?.success) {
+          await logAction(id, 'admin', adminEmail(req), 'ADMIN_VISIBILITY', {
+            visibility: 'PUBLIC',
+            source: 'auto_on_set_booking_order',
+            booking_order_no: orderNo,
+          });
+        } else {
+          console.warn(
+            '[admin-api] set-booking-order setVisibility:',
+            visibilityResult?.error || 'unknown',
+          );
+        }
+      } catch (e) {
+        console.warn('[admin-api] set-booking-order setVisibility:', e.message);
+      }
     }
     return res.json({ ok: true, booking_order_no: orderNo });
   } catch (err) {
