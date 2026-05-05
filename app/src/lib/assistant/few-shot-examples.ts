@@ -10,6 +10,12 @@ export type FewShot = {
 
 /**
  * Kuratierte Muster (kein exakter Chat-Export) — Stil, Tool-Reihenfolge, Ton.
+ *
+ * Ab Migration 059 dient diese Liste als **Default-Seed** für die DB-Tabelle
+ * `tour_manager.assistant_few_shots`. Im Live-Betrieb mischt
+ * `selectFewShotsAsync()` (siehe `few-shot-loader.ts`) DB-Einträge **vor** diese
+ * Code-Defaults ein, damit die Trainer-UI ohne Deploy neue Beispiele aktivieren
+ * kann.
  */
 export const FEW_SHOTS: FewShot[] = [
   {
@@ -90,7 +96,48 @@ function fewShotMatchText(fs: FewShot): string {
 }
 
 /**
+ * Wählt bis zu k Few-Shots aus einer Liste per Token-Overlap.
+ * Exportiert für `few-shot-loader.ts`, der DB- und Code-Liste mischt.
+ */
+export function rankFewShots(pool: FewShot[], userMessage: string, k = 3): FewShot[] {
+  const tokens = tokenizeForMatch(userMessage);
+  const scored = pool.map((fs) => {
+    const bodyTokens = tokenizeForMatch(fewShotMatchText(fs));
+    let score = 0;
+    for (const t of tokens) {
+      if (bodyTokens.has(t)) score += 1;
+    }
+    return { fs, score };
+  });
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.fs.id.localeCompare(b.fs.id);
+  });
+  const picked: FewShot[] = [];
+  const seen = new Set<string>();
+  for (const { fs } of scored) {
+    if (seen.has(fs.id)) continue;
+    picked.push(fs);
+    seen.add(fs.id);
+    if (picked.length >= k) break;
+  }
+  if (picked.length < k) {
+    for (const fs of pool) {
+      if (seen.has(fs.id)) continue;
+      picked.push(fs);
+      seen.add(fs.id);
+      if (picked.length >= k) break;
+    }
+  }
+  return picked.slice(0, k);
+}
+
+/**
  * Wählt bis zu k Few-Shots per Token-Overlap zur Nutzernachricht (wie Erinnerungs-Ranking).
+ *
+ * Sync-Variante über die Code-Defaults — wird vom Eval-Skript und Tests genutzt.
+ * Im Server-Pfad bevorzugt `selectFewShotsAsync()` aus `few-shot-loader.ts`,
+ * das die DB-Einträge mit einbezieht.
  */
 export function selectFewShots(userMessage: string, k = 3): FewShot[] {
   const tokens = tokenizeForMatch(userMessage);

@@ -1,0 +1,427 @@
+/**
+ * Bookkeeper-Routes — Proxy auf den propus-bookkeeper / Paperless-NGX-Stack auf der NAS.
+ *
+ * Erlaubt dem Admin-UI in propus-platform die Kontrolle über die KI-Cascade-Pipeline,
+ * ohne dass der Bookkeeper-Token im Frontend gehalten werden muss.
+ *
+ * ENV-Variablen (in .env.vps / .env.vps.secrets):
+ *   PAPERLESS_BOOKKEEPER_URL=https://paperless.propus.ch
+ *   PAPERLESS_BOOKKEEPER_TOKEN=<bookkeeper-service-Token>
+ *
+ * Tag-IDs sind Konstanten im Code (entsprechen den Buchhaltungs-Pipeline-Tags
+ * in Paperless, siehe Y:\Arhive\propus-bookkeeper\.env).
+ *
+ * Werden in server.js mit requireAdmin registriert.
+ */
+const PAPERLESS_URL = process.env.PAPERLESS_BOOKKEEPER_URL || "https://paperless.propus.ch";
+const PAPERLESS_TOKEN = process.env.PAPERLESS_BOOKKEEPER_TOKEN || "";
+
+// Tag-IDs (Stand 2026-05-05)
+const T = {
+  buchhaltung: 475,
+  propus: 470,
+  pending: 476,
+  vorgeschlagen: 477,
+  approved: 478,
+  verbucht: 479,
+  fehler: 480,
+  privat: 481,
+  spam: 482,
+  abgleich: 483,
+  duplikat: 484,
+};
+const STATUS_TAGS = new Set([
+  T.pending, T.vorgeschlagen, T.approved, T.verbucht,
+  T.fehler, T.privat, T.spam, T.abgleich,
+]);
+
+// Custom-Field-IDs
+const F = {
+  belegart: 2,
+  belegdatum: 3,
+  beleg_nr: 4,
+  lieferant: 5,
+  betrag_brutto: 6,
+  waehrung: 7,
+  mwst_gesamt: 8,
+  mwst_aufteilung_json: 9,
+  soll_konto: 10,
+  haben_konto: 11,
+  buchungstext: 12,
+  confidence: 13,
+  bexio_buchungs_id: 14,
+  verbuchungs_status: 15,
+  privat_anteil_chf: 16,
+  auftrag_propus: 17,
+  notiz_ai: 18,
+};
+
+function isConfigured() {
+  return Boolean(PAPERLESS_URL && PAPERLESS_TOKEN);
+}
+
+async function plFetch(path, init = {}) {
+  if (!isConfigured()) {
+    const err = new Error("PAPERLESS_BOOKKEEPER_URL/TOKEN nicht konfiguriert");
+    err.code = "NOT_CONFIGURED";
+    throw err;
+  }
+  const url = path.startsWith("http") ? path : `${PAPERLESS_URL.replace(/\/$/, "")}${path}`;
+  const headers = {
+    Authorization: `Token ${PAPERLESS_TOKEN}`,
+    Accept: "application/json",
+    ...(init.headers || {}),
+  };
+  if (init.body && typeof init.body === "string") {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  }
+  const res = await fetch(url, { ...init, headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const err = new Error(`Paperless ${res.status}: ${text.slice(0, 300)}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+async function countByTag(tagId) {
+  const data = await plFetch(`/api/documents/?tags__id__all=${T.buchhaltung},${tagId}&page_size=1`);
+  return Number(data.count || 0);
+}
+
+// bexio-Storno-Helper: löscht/storniert eine manual_entry, falls eine bexio_buchungs_id im Custom Field steht
+async function bexioStornoIfBooked(doc) {
+  const bexioToken = process.env.BEXIO_API_TOKEN;
+  if (!bexioToken) return { skipped: true, reason: "kein BEXIO_API_TOKEN" };
+  const cfs = (doc.custom_fields || []).reduce((acc, cf) => { acc[cf.field] = cf.value; return acc; }, {});
+  const buchungsId = cfs[14]; // bexio_buchungs_id
+  if (!buchungsId || String(buchungsId).startsWith("MOCK")) {
+    return { skipped: true, reason: "keine bexio-Buchung" };
+  }
+  const url = `${process.env.BEXIO_API_URL || "https://api.bexio.com"}/3.0/accounting/manual_entries/${buchungsId}`;
+  const r = await fetch(url, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${bexioToken}`, Accept: "application/json" },
+  });
+  if (!r.ok && r.status !== 404) {
+    const t = await r.text().catch(() => "");
+    throw new Error(`bexio DELETE ${r.status}: ${t.slice(0, 200)}`);
+  }
+  return { ok: true, buchungs_id: buchungsId };
+}
+
+function registerBookkeeperRoutes(app, db, requireAdmin) {
+  const pool = db && db.getPool ? db.getPool() : null;
+  // ─── Status-Counts (für die Bookkeeper-Übersichts-Page) ────────────────
+  app.get("/api/admin/bookkeeper/counts", requireAdmin, async (_req, res) => {
+    if (!isConfigured()) {
+      return res.status(503).json({
+        error: "PAPERLESS_BOOKKEEPER_URL/TOKEN nicht konfiguriert",
+        configured: false,
+      });
+    }
+    try {
+      const [pending, vorgeschlagen, approved, verbucht, fehler, spam, abgleich, duplikat] =
+        await Promise.all([
+          countByTag(T.pending),
+          countByTag(T.vorgeschlagen),
+          countByTag(T.approved),
+          countByTag(T.verbucht),
+          countByTag(T.fehler),
+          countByTag(T.spam),
+          countByTag(T.abgleich),
+          // Duplikat-Tag ist OHNE buchhaltung-Tag-Zwang, weil er auch auf released-belegen sein kann
+          plFetch(`/api/documents/?tags__id__all=${T.duplikat}&page_size=1`).then((d) => Number(d.count || 0)),
+        ]);
+      res.json({
+        configured: true,
+        counts: { pending, vorgeschlagen, approved, verbucht, fehler, spam, abgleich, duplikat },
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message || String(e), configured: true });
+    }
+  });
+
+  // ─── Liste der Belege eines Status (für Approval-Queue etc.) ───────────
+  app.get("/api/admin/bookkeeper/documents", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const status = String(req.query.status || "vorgeschlagen");
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const tag = T[status];
+    if (!tag) return res.status(400).json({ error: `Unbekannter Status: ${status}` });
+    try {
+      const data = await plFetch(
+        `/api/documents/?tags__id__all=${T.buchhaltung},${tag}&page_size=${limit}&ordering=-added`,
+      );
+      const docs = (data.results || []).map((d) => ({
+        id: d.id,
+        title: d.title,
+        added: d.added,
+        created: d.created,
+        tags: d.tags,
+        custom_fields: (d.custom_fields || []).reduce((acc, cf) => {
+          acc[cf.field] = cf.value;
+          return acc;
+        }, {}),
+      }));
+      res.json({ count: data.count || 0, results: docs });
+    } catch (e) {
+      res.status(500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Single Document Detail ────────────────────────────────────────────
+  app.get("/api/admin/bookkeeper/documents/:id", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    try {
+      const data = await plFetch(`/api/documents/${id}/`);
+      res.json(data);
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Custom Fields editieren (Inline-Edit) ─────────────────────────────
+  // Body: { fields: { [fieldId]: value, ... } }
+  // MUSS bestehende Custom Fields mergen, weil PATCH bei Paperless ein REPLACE der Liste ist.
+  app.patch("/api/admin/bookkeeper/documents/:id", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    const fields = req.body && req.body.fields;
+    if (!fields || typeof fields !== "object") {
+      return res.status(400).json({ error: "fields object required" });
+    }
+    try {
+      // 1) bestehende Custom Fields lesen
+      const existing = await plFetch(`/api/documents/${id}/`);
+      const merged = {};
+      for (const cf of existing.custom_fields || []) {
+        merged[cf.field] = cf.value;
+      }
+      for (const [fid, value] of Object.entries(fields)) {
+        merged[parseInt(fid, 10)] = value;
+      }
+      const custom_fields = Object.entries(merged).map(([fid, value]) => ({
+        field: parseInt(fid, 10),
+        value,
+      }));
+
+      // 2) PATCH mit gemergten Werten
+      const updated = await plFetch(`/api/documents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ custom_fields }),
+      });
+      res.json({ ok: true, id: updated.id });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Approve: Tag von vorgeschlagen → approved ─────────────────────────
+  app.post("/api/admin/bookkeeper/documents/:id/approve", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    try {
+      const doc = await plFetch(`/api/documents/${id}/`);
+      const newTags = (doc.tags || []).filter((t) => !STATUS_TAGS.has(t));
+      newTags.push(T.approved);
+      await plFetch(`/api/documents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ tags: newTags }),
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Reject: zurück auf pending (für Re-Cascade) ──────────────────────
+  app.post("/api/admin/bookkeeper/documents/:id/reject", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    try {
+      const doc = await plFetch(`/api/documents/${id}/`);
+      const newTags = (doc.tags || []).filter((t) => !STATUS_TAGS.has(t));
+      newTags.push(T.pending);
+      await plFetch(`/api/documents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ tags: newTags }),
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Mark as spam ─────────────────────────────────────────────────────
+  app.post("/api/admin/bookkeeper/documents/:id/spam", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    try {
+      const doc = await plFetch(`/api/documents/${id}/`);
+      const newTags = (doc.tags || []).filter((t) => !STATUS_TAGS.has(t));
+      newTags.push(T.spam);
+      await plFetch(`/api/documents/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({ tags: newTags }),
+      });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── DELETE: in Paperless Trash + (optional) bexio-Storno ─────────────
+  // Body: { also_bexio?: boolean } — wenn true und bexio_buchungs_id existiert, wird auch dort gelöscht.
+  app.delete("/api/admin/bookkeeper/documents/:id", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    const alsoBexio = Boolean(req.query.also_bexio || (req.body && req.body.also_bexio));
+    const result = { paperless: null, bexio: null };
+    try {
+      // Doc-Detail vorab holen, um an die bexio_buchungs_id zu kommen
+      const doc = await plFetch(`/api/documents/${id}/`);
+
+      if (alsoBexio) {
+        try {
+          result.bexio = await bexioStornoIfBooked(doc);
+        } catch (e) {
+          result.bexio = { error: e.message };
+        }
+      }
+
+      // Paperless-Trash via bulk_edit
+      const r = await plFetch(`/api/documents/bulk_edit/`, {
+        method: "POST",
+        body: JSON.stringify({ documents: [id], method: "delete" }),
+      });
+      result.paperless = r;
+      res.json({ ok: true, ...result });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e), partial: result });
+    }
+  });
+
+  // ─── KI-Training-Feedback (Option 4) ──────────────────────────────────
+  // Speichert User-Korrekturen, die später als Few-Shot-Beispiele in den
+  // Cascade-Prompts eingewoben werden können.
+  // Body: { doc_id, field, original_value, corrected_value, reason? }
+  // Storage: in einer JSON-Liste auf der NAS unter /volume1/docker/propus-bookkeeper/feedback/.
+  // Persistierung über Backend-Proxy: POST hier → Paperless-API patcht Document
+  // (custom field) UND Feedback wird in einer DB-Tabelle gespeichert (TODO).
+  app.post("/api/admin/bookkeeper/feedback", requireAdmin, async (req, res) => {
+    const body = req.body || {};
+    if (!body.doc_id || !body.field_id) {
+      return res.status(400).json({ error: "doc_id und field_id required" });
+    }
+    const fid = parseInt(body.field_id, 10);
+    if (!Number.isFinite(fid)) return res.status(400).json({ error: "ungueltige field_id" });
+
+    const fieldNameMap = {
+      2: "belegart", 3: "belegdatum", 4: "beleg_nr", 5: "lieferant",
+      6: "betrag_brutto", 7: "waehrung", 8: "mwst_gesamt", 9: "mwst_aufteilung_json",
+      10: "soll_konto", 11: "haben_konto", 12: "buchungstext", 13: "confidence",
+      14: "bexio_buchungs_id", 15: "verbuchungs_status", 16: "privat_anteil_chf",
+      17: "auftrag_propus", 18: "notiz_ai",
+    };
+
+    let persisted = false;
+    let pgError = null;
+    try {
+      // 1) DB-Persistenz für Few-Shot-Lerntag
+      if (pool) {
+        await pool.query(
+          `INSERT INTO core.bookkeeper_feedback
+             (doc_id, field_id, field_name, original_value, corrected_value, reason, user_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            body.doc_id, fid, fieldNameMap[fid] || null,
+            body.original_value != null ? String(body.original_value) : null,
+            body.corrected_value != null ? String(body.corrected_value) : null,
+            body.reason || null,
+            (req.user && req.user.id) || null,
+          ],
+        );
+        persisted = true;
+      }
+    } catch (e) {
+      pgError = e.message || String(e);
+    }
+
+    try {
+      // 2) Paperless-Patch — User-Korrektur sofort live
+      if (typeof body.corrected_value !== "undefined") {
+        const existing = await plFetch(`/api/documents/${body.doc_id}/`);
+        const merged = {};
+        for (const cf of existing.custom_fields || []) merged[cf.field] = cf.value;
+        merged[fid] = body.corrected_value;
+        const custom_fields = Object.entries(merged).map(([k, v]) => ({ field: parseInt(k, 10), value: v }));
+        await plFetch(`/api/documents/${body.doc_id}/`, {
+          method: "PATCH",
+          body: JSON.stringify({ custom_fields }),
+        });
+      }
+      res.json({ ok: true, persisted, pgError });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e), persisted, pgError });
+    }
+  });
+
+  // ─── Feedback-Liste (für Few-Shot-Generator + Audit) ──────────────────
+  app.get("/api/admin/bookkeeper/feedback", requireAdmin, async (req, res) => {
+    if (!pool) return res.status(503).json({ error: "DB nicht verfuegbar" });
+    const onlyUnapplied = req.query.unapplied === "1";
+    try {
+      const where = onlyUnapplied ? "WHERE applied_to_prompt = FALSE" : "";
+      const r = await pool.query(
+        `SELECT id, doc_id, field_id, field_name, original_value, corrected_value, reason,
+                user_id, created_at, applied_to_prompt
+           FROM core.bookkeeper_feedback ${where}
+          ORDER BY created_at DESC LIMIT 500`,
+      );
+      res.json({ count: r.rowCount, results: r.rows });
+    } catch (e) {
+      res.status(500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Re-Cascade (alle vorgeschlagenen zurück auf pending) ──────────────
+  app.post("/api/admin/bookkeeper/recascade", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const status = String((req.body && req.body.status) || "vorgeschlagen");
+    const tag = T[status];
+    if (!tag || tag === T.pending) {
+      return res.status(400).json({ error: `Status nicht re-cascadebar: ${status}` });
+    }
+    try {
+      let migrated = 0;
+      let next = `/api/documents/?tags__id__all=${T.buchhaltung},${tag}&page_size=200`;
+      while (next) {
+        const data = await plFetch(next);
+        for (const d of data.results || []) {
+          const newTags = (d.tags || []).filter((t) => !STATUS_TAGS.has(t));
+          newTags.push(T.pending);
+          await plFetch(`/api/documents/${d.id}/`, {
+            method: "PATCH",
+            body: JSON.stringify({ tags: newTags }),
+          });
+          migrated++;
+        }
+        next = data.next ? data.next.replace(/^https?:\/\/[^/]+/, "") : null;
+      }
+      res.json({ ok: true, migrated });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
+    }
+  });
+}
+
+module.exports = { registerBookkeeperRoutes };

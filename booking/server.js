@@ -181,6 +181,7 @@ const { registerAccessRoutes } = require("./access-routes");
 const { registerExxasReconcileRoutes } = require("./exxas-reconcile-routes");
 const { registerAdminMissingRoutes } = require("./admin-missing-routes");
 const { registerDocsRoutes } = require("./docs-routes");
+const { registerBookkeeperRoutes } = require("./bookkeeper-routes");
 const portalAuthBridge = require("./portal-auth-bridge");
 const portalTeam = require("../tours/lib/portal-team");
 
@@ -14595,6 +14596,7 @@ registerCustomerContactsRoutes(app, db, requireAdmin, ensureCustomerInRequestCom
 registerAccessRoutes(app, { db, requireAdmin, ensureCustomerInRequestCompany, rbac });
 registerExxasReconcileRoutes(app, db, requireAdmin, ensureCustomerInRequestCompany);
 registerAdminMissingRoutes(app, db, requireAdmin, mailer);
+registerBookkeeperRoutes(app, db, requireAdmin);
 
 // ─── Nextcloud/PDF-Proxy-Routen ─────────────────────────────────────────────
 const { nextcloudProxyMiddleware, nextcloudThumbMiddleware, pdfInlineMiddleware } = require('./selekto-proxy');
