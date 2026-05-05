@@ -264,6 +264,8 @@ export function ConversationView() {
   const [restoredBanner, setRestoredBanner] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  /** Queue: vom User getippte Nachrichten während ein Turn läuft. Wird gesendet sobald isLoading=false. */
+  const [pendingSendQueue, setPendingSendQueue] = useState<string[]>([]);
   const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<{ message: string; code?: ErrorCode } | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
@@ -802,10 +804,28 @@ export function ConversationView() {
   }
 
   function submitText() {
-    const text = textInput;
+    const text = textInput.trim();
+    if (!text) return;
     setTextInput("");
+    if (isLoading || pendingConfirmation) {
+      // Antwort läuft / Bestätigung offen → in Queue legen, später automatisch senden
+      setPendingSendQueue((prev) => [...prev, text]);
+      return;
+    }
     void send(text);
   }
+
+  // Queue automatisch leeren sobald der laufende Turn durch ist und keine
+  // Confirmation mehr aussteht. Wir nehmen jeweils eine Nachricht pro Tick,
+  // damit der Status sauber zwischen den Sends transitioniert.
+  useEffect(() => {
+    if (isLoading || pendingConfirmation) return;
+    if (pendingSendQueue.length === 0) return;
+    const [next, ...rest] = pendingSendQueue;
+    setPendingSendQueue(rest);
+    void send(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, pendingConfirmation, pendingSendQueue]);
 
   async function saveSettings(patch: Partial<AssistantSettings>) {
     try {
@@ -1231,7 +1251,7 @@ export function ConversationView() {
               onError={(msg) => setError({ message: msg })}
             />
             <input
-              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] disabled:opacity-50"
+              className="min-w-0 flex-1 bg-transparent px-1 py-2 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)]"
               value={textInput}
               onChange={(event) => setTextInput(event.target.value)}
               onKeyDown={(event) => {
@@ -1240,18 +1260,28 @@ export function ConversationView() {
                   submitText();
                 }
               }}
-              placeholder={pendingConfirmation ? "Bestätigen oder abbrechen …" : "Nachricht …"}
-              disabled={inputDisabled}
+              placeholder={
+                pendingConfirmation
+                  ? "Bestätigen oder abbrechen …"
+                  : isLoading
+                    ? "Schon weiter tippen — wird nach Antwort gesendet …"
+                    : "Nachricht …"
+              }
             />
             <button
               type="button"
               onClick={submitText}
-              disabled={inputDisabled || !textInput.trim()}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="Senden"
-              title="Senden"
+              disabled={!textInput.trim()}
+              className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label={isLoading || pendingConfirmation ? "In Warteschlange senden" : "Senden"}
+              title={isLoading || pendingConfirmation ? "In Warteschlange — wird nach Antwort gesendet" : "Senden"}
             >
               <Send className="h-4 w-4" />
+              {pendingSendQueue.length > 0 ? (
+                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                  {pendingSendQueue.length}
+                </span>
+              ) : null}
             </button>
           </div>
           <div className="mt-1.5 flex items-center justify-between gap-2 text-[10px] text-[var(--text-subtle)]">
@@ -1277,7 +1307,7 @@ export function ConversationView() {
         <div className="hidden lg:block">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <input
-              className="min-h-11 min-w-0 w-full flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 disabled:opacity-50 sm:min-w-[12rem]"
+              className="min-h-11 min-w-0 w-full flex-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20 sm:min-w-[12rem]"
               value={textInput}
               onChange={(event) => setTextInput(event.target.value)}
               onKeyDown={(event) => {
@@ -1286,17 +1316,28 @@ export function ConversationView() {
                   submitText();
                 }
               }}
-              placeholder={pendingConfirmation ? "Bitte bestätige oder brich die Aktion ab …" : "Nach Aufträgen, Touren oder Posteingang fragen ..."}
-              disabled={inputDisabled}
+              placeholder={
+                pendingConfirmation
+                  ? "Bitte bestätige oder brich die Aktion ab …"
+                  : isLoading
+                    ? "Schon weiter tippen — wird nach der Antwort gesendet …"
+                    : "Nach Aufträgen, Touren oder Posteingang fragen ..."
+              }
             />
             <button
               type="button"
               onClick={submitText}
-              disabled={inputDisabled || !textInput.trim()}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!textInput.trim()}
+              className="relative inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[var(--gold-on-gold)] transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              title={isLoading || pendingConfirmation ? "In Warteschlange — wird nach Antwort gesendet" : "Senden"}
             >
               <Send className="h-4 w-4" />
-              Senden
+              {isLoading || pendingConfirmation ? "Anstellen" : "Senden"}
+              {pendingSendQueue.length > 0 ? (
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold text-white">
+                  {pendingSendQueue.length}
+                </span>
+              ) : null}
             </button>
             <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
           </div>
