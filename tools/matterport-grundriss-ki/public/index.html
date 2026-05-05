@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Matterport → Grundriss (KI)</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Matterport → einfache Grundrisse</h1>
+      <p class="sub">
+        Pipeline: Matterport-Daten → Räume bereinigen → KI-Klassifikator → KI-Validator → Layout → SVG.
+        Klicke nach dem Erzeugen auf einen Raum, um Name oder Typ zu korrigieren — Korrekturen werden pro Modell gespeichert.
+      </p>
+      <p id="health" class="health"></p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Deine Spaces</h2>
+        <button type="button" id="btnReload" class="primary">Liste laden</button>
+        <div id="listStatus" class="status"></div>
+        <ul id="modelList" class="model-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Auswahl</h2>
+        <p id="selectedInfo" class="muted">Kein Modell gewählt.</p>
+        <div class="actions">
+          <button type="button" id="btnGenerate" class="primary" disabled>KI-Grundriss generieren</button>
+        </div>
+        <div id="genStatus" class="status"></div>
+      </section>
+
+      <section class="panel full">
+        <h2>Ergebnis</h2>
+        <div id="output" class="output"></div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

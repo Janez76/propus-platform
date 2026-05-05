@@ -2,11 +2,8 @@ import type { APIRoute } from 'astro';
 import { createReadStream, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { Readable } from 'node:stream';
-import {
-	loadGuidelineManifest,
-	mimeForFilename,
-	resolveGuidelineAssetPath,
-} from '../../../lib/guideline-private-files';
+import { GUIDELINE_DOWNLOADS } from '../../../lib/guideline-static';
+import { mimeForFilename, resolveGuidelineAssetPath } from '../../../lib/guideline-private-files';
 
 export const prerender = false;
 
@@ -19,8 +16,7 @@ export const GET: APIRoute = async ({ url }) => {
 		});
 	}
 
-	const manifest = loadGuidelineManifest();
-	const entry = manifest.files.find((f) => f.id === id);
+	const entry = GUIDELINE_DOWNLOADS.find((f) => f.id === id);
 	if (!entry) {
 		return new Response(JSON.stringify({ error: 'Datei nicht gefunden.' }), {
 			status: 404,

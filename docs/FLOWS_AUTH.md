@@ -455,7 +455,7 @@ Eingehender Request mit Bearer ppk_live_<secret>
 
 ## 13. Website (Astro) — interner Guideline-Bereich
 
-Eigenständig vom **CMS-Backpanel** (`PROPUS_ADMIN_*`): geschützte Routen unter `/guideline` für interne Markdown-Anleitungen und Downloads.
+Eigenständig vom **CMS-Backpanel** (`PROPUS_ADMIN_*`): geschützte Routen unter `/guideline` für interne statische Anleitungsseiten und Downloads.
 
 | Thema | Detail |
 |---|---|
@@ -463,6 +463,6 @@ Eigenständig vom **CMS-Backpanel** (`PROPUS_ADMIN_*`): geschützte Routen unter
 | **ENV (Container)** | `GUIDELINE_SECRET`, `GUIDELINE_PASSWORD`; optional `GUIDELINE_CSRF_ORIGINS` für zusätzliche öffentliche Origins (z. B. `https://guideline.propus.ch` bei Login-POST von der Subdomain) |
 | **VPS (.env.vps)** | `WEBSITE_GUIDELINE_SECRET`, `WEBSITE_GUIDELINE_PASSWORD`, optional `WEBSITE_GUIDELINE_CSRF_ORIGINS` → durch [`docker-compose.vps.yml`](../docker-compose.vps.yml) an den `website`-Service |
 | **Middleware** | [`website/src/middleware.ts`](../website/src/middleware.ts) — Zugriff nur mit gültiger Session; Ausnahmen `/guideline/login`, `POST /api/guideline/login`; Host `guideline.propus.ch`: Root `/` → `/guideline/` |
-| **Inhalt** | Markdown: `website/src/content/guideline/` · Binärdateien: `website/private-guideline-assets/` + `manifest.json`, Auslieferung nur über `GET /api/guideline/download` mit Session |
+| **Inhalt** | Statische Seiten: `website/src/pages/guideline/` + `website/src/lib/guideline-static.ts` · Binärdateien: `website/private-guideline-assets/`, Auslieferung nur über `GET /api/guideline/download` mit Session |
 
 Siehe auch [`website/README.md`](../website/README.md) (Abschnitt „Interne Guidelines“).

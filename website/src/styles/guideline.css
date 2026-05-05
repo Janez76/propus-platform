@@ -166,62 +166,12 @@
 	font-weight: 500;
 }
 
-.guideline-input-wrap {
-	position: relative;
-	display: flex;
-	align-items: center;
-}
-
-.guideline-input-wrap input {
-	flex: 1;
-	min-width: 0;
-	padding: 0.55rem 2.65rem 0.55rem 0.65rem;
-	border: 1px solid var(--gl-border);
-	border-radius: 8px;
-	font-size: 1rem;
-	font-family: inherit;
-}
-
 .guideline-field > input {
 	padding: 0.55rem 0.65rem;
 	border: 1px solid var(--gl-border);
 	border-radius: 8px;
 	font-size: 1rem;
 	font-family: inherit;
-}
-
-.guideline-toggle-pw {
-	position: absolute;
-	right: 0.25rem;
-	top: 50%;
-	transform: translateY(-50%);
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 2.25rem;
-	height: 2.25rem;
-	padding: 0;
-	border: none;
-	border-radius: 8px;
-	background: transparent;
-	color: var(--gl-muted);
-	cursor: pointer;
-}
-
-.guideline-toggle-pw:hover {
-	color: var(--gl-accent);
-	background: rgb(0 0 0 / 0.04);
-}
-
-.guideline-toggle-pw:focus-visible {
-	outline: 2px solid var(--gl-accent);
-	outline-offset: 2px;
-}
-
-.guideline-toggle-pw svg {
-	display: block;
-	width: 1.25rem;
-	height: 1.25rem;
 }
 
 .guideline-msg--err {
