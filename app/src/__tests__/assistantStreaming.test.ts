@@ -8,6 +8,7 @@ const mockQuery = vi.fn();
 vi.mock("@/lib/db", () => ({
   query: (...args: unknown[]) => mockQuery(...args),
   queryOne: (...args: unknown[]) => mockQueryOne(...args),
+  withTransaction: async <T,>(fn: (tx: never) => Promise<T>) => fn({} as never),
 }));
 
 describe("token limit enforcement", () => {

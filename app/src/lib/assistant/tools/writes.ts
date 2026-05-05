@@ -1,15 +1,27 @@
-import { query as defaultQuery, queryOne as defaultQueryOne } from "@/lib/db";
+import type { PoolClient } from "pg";
+import { query as defaultQuery, queryOne as defaultQueryOne, withTransaction as defaultWithTransaction } from "@/lib/db";
 import { ensureBookingOrderSequence } from "@/lib/orderSequence";
 import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
+import { enqueueOutbox as defaultEnqueueOutbox, type OutboxKind } from "@/lib/outbox";
+import { renderWorkflowMails } from "@/lib/mail/workflowMail";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
 
-type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
-type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T | null>;
+type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T[]>;
+type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: unknown) => Promise<T | null>;
+type WithTransactionFn = <T>(fn: (tx: PoolClient) => Promise<T>) => Promise<T>;
+type EnqueueOutboxFn = (
+  tx: PoolClient,
+  orderNo: number,
+  kind: OutboxKind,
+  payload: Record<string, unknown>,
+) => Promise<{ id: number }>;
 
 type WriteDeps = {
   query: QueryFn;
   queryOne: QueryOneFn;
+  withTransaction?: WithTransactionFn;
+  enqueueOutbox?: EnqueueOutboxFn;
 };
 
 function requireString(value: unknown, label: string): string {
@@ -151,6 +163,8 @@ const VALID_REF_TYPES = new Set(["tour", "order"]);
 export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler> {
   const runQuery = deps.query;
   const runQueryOne = deps.queryOne;
+  const runWithTransaction: WithTransactionFn = deps.withTransaction || defaultWithTransaction;
+  const runEnqueueOutbox: EnqueueOutboxFn = deps.enqueueOutbox || defaultEnqueueOutbox;
 
   return {
     create_posteingang_task: async (input: Record<string, unknown>, ctx: ToolContext) => {
@@ -304,36 +318,70 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       const objectJson = { type: "Immobilie" };
       const settingsJson = notes ? { assistant_notes: notes } : {};
 
-      // order_no nicht mehr per MAX(order_no)+1 (TOCTOU-Race), sondern über
-      // die Postgres-Sequence aus Migration 055. order_no weglassen → DEFAULT
-      // greift, RETURNING liefert die allokierte Nummer. Vor dem INSERT
-      // defensiver Bootstrap, falls Migration 055 noch nicht eingespielt ist
-      // (Codex-Review #253). runQuery durchreichen damit DI in Tests greift.
+      // INSERT + Mail-Outbox in einer Tx, damit Auftrag und Workflow-Mails
+      // atomar landen (sonst kann ein Crash zwischen INSERT und Outbox-Insert
+      // den Auftrag ohne Benachrichtigung hinterlassen — Symptom Bestellung
+      // #100103: Order da, Mails fehlen).
+      // order_no kommt aus der Postgres-Sequence (Migration 055).
+      // ensureBookingOrderSequence muss VOR der Tx laufen (DDL).
       await ensureBookingOrderSequence(runQuery);
-      const row = await runQueryOne<{ order_no: number }>(
-        `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
-         VALUES (
-           $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
-         )
-         RETURNING order_no`,
-        [
-          customerId,
-          status,
-          address,
-          JSON.stringify(objectJson),
-          JSON.stringify(servicesJson),
-          JSON.stringify(photographerJson),
-          JSON.stringify(scheduleJson),
-          JSON.stringify(billingJson),
-          JSON.stringify(settingsJson),
-        ],
-      );
+      // INSERT + Outbox-Enqueue ueber injizierte withTransaction/enqueueOutbox.
+      // Defaults nutzen die echte db.ts-Implementierung; in Tests werden
+      // mockable Varianten injiziert (sonst ECONNREFUSED gegen :5432 im CI).
+      const orderNo = await runWithTransaction(async (tx) => {
+        const inserted = await runQueryOne<{ order_no: number }>(
+          `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
+           VALUES (
+             $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
+           )
+           RETURNING order_no`,
+          [
+            customerId,
+            status,
+            address,
+            JSON.stringify(objectJson),
+            JSON.stringify(servicesJson),
+            JSON.stringify(photographerJson),
+            JSON.stringify(scheduleJson),
+            JSON.stringify(billingJson),
+            JSON.stringify(settingsJson),
+          ],
+          tx,
+        );
+        const no = inserted?.order_no;
+        if (!no) throw new Error("Auftrag konnte nicht erstellt werden");
 
-      if (!row?.order_no) return { error: "Auftrag konnte nicht erstellt werden" };
+        // Workflow-Mails: Kunde bekommt Provisorisch-Bestätigung, Office
+        // bekommt einen Hinweis dass der KI-Assistent neu gebucht hat und
+        // Pricing finalisiert werden muss.
+        const rendered = renderWorkflowMails(
+          ["email.provisional_created", "email.provisional_office"],
+          {
+            orderNo: no,
+            customerEmail: customer.email,
+            officeEmail: process.env.OFFICE_EMAIL,
+            scheduleDate,
+            scheduleTime,
+          },
+          { customer: true, office: true, photographer: false, cc: false },
+        );
+        for (const mail of rendered) {
+          await runEnqueueOutbox(tx, no, "workflow_status_mail", {
+            to: mail.to,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            effect: mail.effect,
+            role: mail.role,
+            context: `order:${no}:assistant_create:${mail.effect}:${mail.role}`,
+          });
+        }
+        return no;
+      });
 
       return {
         ok: true,
-        orderNo: row.order_no,
+        orderNo,
         customerId,
         customerName: customer.name || customer.company,
         address,
@@ -341,7 +389,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         schedule: scheduleDate ? { date: scheduleDate, time: scheduleTime } : null,
         photographer: photographerKey,
         status,
-        message: `Auftrag #${row.order_no} für "${customer.name || customer.company}" an "${address}" erstellt.`,
+        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. Bestätigungs-Mails an Kunde und Office in Outbox eingereiht. Pricing wird im Admin via Leistungen-Tab finalisiert.`,
       };
     },
 

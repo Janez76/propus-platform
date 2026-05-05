@@ -1,0 +1,142 @@
+[
+  {
+    "id": "delivery_speed",
+    "intent": "How fast do I get the material?",
+    "triggers": ["how fast", "when do i get", "delivery time", "how long does it take", "when ready"],
+    "answer_en": "Standard delivery is 24–48 hours after the shoot for photo and Matterport, 3–7 working days for video, 3–5 working days for floor plans. Express is possible at a surcharge if capacity allows. For an exact commitment let me check the next slots.",
+    "next_action": "check_availability"
+  },
+  {
+    "id": "price_question",
+    "intent": "What does it cost?",
+    "triggers": ["how much", "price", "cost", "rate", "tariff"],
+    "answer_en": "Price depends on property size and the services you need. Give me the address, the unit size (number of rooms is enough) and which services — I'll compute it firmly, travel zone included.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "drone_capability",
+    "intent": "Do you do drone shoots?",
+    "triggers": ["drone", "aerial", "from above"],
+    "answer_en": "Yes, photos and 4K video. Properties near major airports (Zurich, Geneva, Basel, Bern, Sion, Lugano) or inside CTR zones need 1–2 weeks lead time for the FOCA permit. Other locations work on short notice. Send me the address and I'll check.",
+    "next_action": "lookup_kb:services.drone"
+  },
+  {
+    "id": "empty_property_value",
+    "intent": "Worth shooting an empty property?",
+    "triggers": ["empty", "unfurnished", "no furniture", "vacant"],
+    "answer_en": "Empty rooms often work even better in Matterport because prospects can read the volume. Photos of empty rooms look professional with the right light and clean floors. The combo I usually recommend: photos for the listing hero, Matterport for the walkthrough, floor plan for the dimensions.",
+    "next_action": null
+  },
+  {
+    "id": "next_slot",
+    "intent": "When is the next available slot?",
+    "triggers": ["next slot", "next week", "available", "booking date"],
+    "answer_en": "I'll check the next slots. Which services do you need and in what window? I'll come back with available dates.",
+    "next_action": "check_availability"
+  },
+  {
+    "id": "regional_coverage",
+    "intent": "Do you cover my canton?",
+    "triggers": ["canton", "region", "in our area", "far away", "travel"],
+    "answer_en": "We work nationwide. Travel flows into the price via the zone system, computed automatically from the address. Send me the address and we'll see the exact zone and surcharge.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "matterport_concept",
+    "intent": "How does a Matterport tour work?",
+    "triggers": ["matterport", "3d tour", "virtual tour", "walkthrough"],
+    "answer_en": "A Matterport tour is a walkable 3D capture of the property. Prospects move freely through every room, can measure distances, and see an automatic floor plan. The tour lives on a private link you can embed in your listings and website. Capture takes about 30 minutes per 100 m².",
+    "next_action": "lookup_kb:services.matterport"
+  },
+  {
+    "id": "renewal_price",
+    "intent": "What does Matterport renewal cost?",
+    "triggers": ["renewal", "stay online", "renew", "extend"],
+    "answer_en": "Matterport tour renewal is CHF 59. Tour stays unchanged, same link, embedded iframes keep working. A reactivated (previously archived) tour is CHF 74.",
+    "next_action": null
+  },
+  {
+    "id": "tour_duration",
+    "intent": "How long does the tour stay online?",
+    "triggers": ["how long online", "hosting duration", "expiry"],
+    "answer_en": "A newly created Matterport tour is paid for one marketing period by default. Before it expires you receive a reminder with the options renewal (CHF 59) or archival (free).",
+    "next_action": null
+  },
+  {
+    "id": "weather_handling",
+    "intent": "What happens with bad weather?",
+    "triggers": ["weather", "rain", "cloudy", "wind", "snow"],
+    "answer_en": "We reschedule weather-driven jobs free of charge — drone needs wind below 10 m/s and no continuous precipitation, outdoor photo needs sufficient daylight. Indoor shoots, Matterport, and floor plans run in any weather. The photographer makes the call the evening before or in the morning, and we reach out proactively.",
+    "next_action": null
+  },
+  {
+    "id": "reschedule_rules",
+    "intent": "Can we reschedule the slot?",
+    "triggers": ["reschedule", "move slot", "different date"],
+    "answer_en": "Yes. More than 48 h before the slot: free. 24–48 h before: 50 % surcharge on the travel component. Less than 24 h: full travel component owed, the shoot itself can move to a later slot. Weather reschedules initiated by Propus are always free.",
+    "next_action": null
+  },
+  {
+    "id": "cancellation_rules",
+    "intent": "Cancellation fees?",
+    "triggers": ["cancel", "cancellation", "abort", "fee"],
+    "answer_en": "More than 48 h before: free. 24–48 h before: 50 % of order value. Less than 24 h: full order value.",
+    "next_action": null
+  },
+  {
+    "id": "payment_methods",
+    "intent": "Payment methods?",
+    "triggers": ["payment", "pay", "invoice", "twint", "credit card"],
+    "answer_en": "Invoice goes out after delivery as a Swiss QR invoice. Standard is 30 days net. Payment via bank transfer (IBAN on the invoice) or TWINT for amounts under CHF 500. We don't take credit cards directly, but on request we set up a Stripe link.",
+    "next_action": null
+  },
+  {
+    "id": "raw_files",
+    "intent": "Do I get the raw files?",
+    "triggers": ["raw", "raw files", "originals", "unedited"],
+    "answer_en": "Standard delivery is fully retouched, web- and print-ready images. We don't release raw files — post-production is part of our quality commitment. If you have specific editing requirements, we incorporate them in post.",
+    "next_action": null
+  },
+  {
+    "id": "copyright",
+    "intent": "Who holds the copyright?",
+    "triggers": ["copyright", "rights", "ownership"],
+    "answer_en": "Copyright stays with the photographer — Swiss standard. As the customer you receive unlimited, geographically unrestricted usage rights for marketing and presentation of the named property. Reselling the images or using them for other properties is not covered.",
+    "next_action": "lookup_kb:billing.usage-rights"
+  },
+  {
+    "id": "twilight_shoot",
+    "intent": "Twilight shots possible?",
+    "triggers": ["twilight", "blue hour", "evening shot", "dusk"],
+    "answer_en": "Yes. Twilight needs a separate slot just before sunset because the window is only about 30 minutes. We schedule it as an add-on to the daytime shoot.",
+    "next_action": null
+  },
+  {
+    "id": "portfolio_shoot",
+    "intent": "Multiple properties at once?",
+    "triggers": ["portfolio", "multiple properties", "multiple units", "bundled"],
+    "answer_en": "On bundled jobs same day same region, we charge travel zone only once plus a small switch surcharge per additional address. Significantly cheaper than separate bookings. Send me the addresses, I'll add it up.",
+    "next_action": "estimate_total"
+  },
+  {
+    "id": "photo_vs_matterport",
+    "intent": "What does Matterport add over photos?",
+    "triggers": ["photo vs matterport", "why matterport", "what does 3d add"],
+    "answer_en": "Photos are curated — best angles, best heroes for the listing and website. Matterport is walkable — prospects experience how rooms relate, see the layout, measure distances. In pre-qualification it cuts down unnecessary on-site viewings. In practice you combine both plus floor plan.",
+    "next_action": null
+  },
+  {
+    "id": "shoot_duration",
+    "intent": "How long does the on-site shoot take?",
+    "triggers": ["how long on site", "shoot duration", "how long do you need"],
+    "answer_en": "Rule of thumb: 30 minutes photo per 100 m², 30 minutes Matterport per 100 m², 30 minutes floor-plan survey per 100 m². Drone and video add 30–90 minutes depending on scope. Combined we typically plan 2–4 hours for an average unit.",
+    "next_action": null
+  },
+  {
+    "id": "urgency",
+    "intent": "We need it fast — possible?",
+    "triggers": ["fast", "asap", "urgent", "tomorrow", "today"],
+    "answer_en": "Express is usually doable, at a surcharge and subject to capacity. Tell me by when you need the material and which services — I'll check the slots in the running week.",
+    "next_action": "check_availability"
+  }
+]

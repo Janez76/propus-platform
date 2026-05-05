@@ -33,6 +33,16 @@ export const GUIDELINE_DOWNLOADS: GuidelineDownloadEntry[] = [
 		title: 'Bildoptimierung Web (Word)',
 	},
 	{
+		id: 'anleitung-bildoptimierung-web-en-pdf',
+		path: 'files/Anleitung_Bildoptimierung_Web_EN.pdf',
+		title: 'Bildoptimierung Web EN (PDF)',
+	},
+	{
+		id: 'anleitung-bildoptimierung-web-en-docx',
+		path: 'files/Anleitung_Bildoptimierung_Web_EN.docx',
+		title: 'Bildoptimierung Web EN (Word)',
+	},
+	{
 		id: 'anleitung-drohnenaufnahmen-pdf',
 		path: 'files/Anleitung_Drohnenaufnahmen.pdf',
 		title: 'Drohnenaufnahmen (PDF)',
@@ -41,6 +51,16 @@ export const GUIDELINE_DOWNLOADS: GuidelineDownloadEntry[] = [
 		id: 'anleitung-drohnenaufnahmen-docx',
 		path: 'files/Anleitung_Drohnenaufnahmen.docx',
 		title: 'Drohnenaufnahmen (Word)',
+	},
+	{
+		id: 'anleitung-drohnenaufnahmen-en-pdf',
+		path: 'files/Anleitung_Drohnenaufnahmen_EN.pdf',
+		title: 'Drohnenaufnahmen EN (PDF)',
+	},
+	{
+		id: 'anleitung-drohnenaufnahmen-en-docx',
+		path: 'files/Anleitung_Drohnenaufnahmen_EN.docx',
+		title: 'Drohnenaufnahmen EN (Word)',
 	},
 	{
 		id: 'anleitung-floor-plan-standard-pdf',
@@ -73,6 +93,16 @@ export const GUIDELINE_DOWNLOADS: GuidelineDownloadEntry[] = [
 		title: 'Immobilienfotografie (Word)',
 	},
 	{
+		id: 'anleitung-immobilienfotografie-en-pdf',
+		path: 'files/Anleitung_Immobilienfotografie_EN.pdf',
+		title: 'Immobilienfotografie EN (PDF)',
+	},
+	{
+		id: 'anleitung-immobilienfotografie-en-docx',
+		path: 'files/Anleitung_Immobilienfotografie_EN.docx',
+		title: 'Immobilienfotografie EN (Word)',
+	},
+	{
 		id: 'anleitung-kundenanlage-matterport-pdf',
 		path: 'files/Anleitung_Kundenanlage_Matterport.pdf',
 		title: 'Kundenanlage Matterport (PDF)',
@@ -81,5 +111,15 @@ export const GUIDELINE_DOWNLOADS: GuidelineDownloadEntry[] = [
 		id: 'anleitung-kundenanlage-matterport-docx',
 		path: 'files/Anleitung_Kundenanlage_Matterport.docx',
 		title: 'Kundenanlage Matterport (Word)',
+	},
+	{
+		id: 'anleitung-kundenanlage-matterport-en-pdf',
+		path: 'files/Anleitung_Kundenanlage_Matterport_EN.pdf',
+		title: 'Kundenanlage Matterport EN (PDF)',
+	},
+	{
+		id: 'anleitung-kundenanlage-matterport-en-docx',
+		path: 'files/Anleitung_Kundenanlage_Matterport_EN.docx',
+		title: 'Kundenanlage Matterport EN (Word)',
 	},
 ];
