@@ -178,4 +178,5 @@ Container pollt zusätzlich `tags__id__all=475,478` (approved). Für jeden:
 
 | Datum | Änderung |
 |---|---|
+| 2026-05-06 | Slug `lieferantenrechnung` → `lief_rechnung` umbenannt — Paperless `value_select` ist varchar(16), Original-Slug (19 Zeichen) crashte in 136/159 Cascade-Calls auf HTTP 500 (`StringDataRightTruncation`). Fix: Schema-PATCH auf Custom Field 2 (Label bleibt „Lieferantenrechnung"), Bookkeeper-Code/Prompts angepasst, 174 `fehler`-Belege per bulk_edit zurück auf `pending` gestellt. Self-Healing-Alias im Bookkeeper fängt LLM-Antworten mit altem Slug ab. |
 | 2026-05-05 | Erste Version — End-to-End-Pipeline live, Variante B (Sonnet→Opus), Threshold 95, Vision-Cross-Check, Self-Learning, Admin-UI, 11 Backend-Endpoints, OpenAPI-Doku |

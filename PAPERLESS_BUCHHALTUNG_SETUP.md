@@ -197,7 +197,7 @@ Web-UI (manueller Weg): **Settings → Custom Fields → Create**
 
 | # | Name | Datentyp | Default | Zweck |
 |---|---|---|---|---|
-| 1 | `belegart` | Auswahl (Select) | – | `quittung`, `lieferantenrechnung`, `bankauszug`, `spesenbeleg`, `gutschrift`, `sonstiges` |
+| 1 | `belegart` | Auswahl (Select) | – | `quittung`, `lief_rechnung`, `bankauszug`, `spesenbeleg`, `gutschrift`, `sonstiges` (Slug `lief_rechnung` = Label „Lieferantenrechnung"; Paperless `value_select` ist varchar(16), Slugs müssen ≤16 Zeichen sein) |
 | 2 | `belegdatum` | Datum (Date) | – | Datum vom Beleg, nicht vom Scan |
 | 3 | `beleg_nr` | Text (String) | – | Externe Beleg- oder Rechnungsnummer |
 | 4 | `lieferant` | Text (String) | – | Wird mit Paperless-Correspondent verknüpft |
@@ -215,14 +215,14 @@ Web-UI (manueller Weg): **Settings → Custom Fields → Create**
 | 16 | `auftrag_propus` | Text (String) | – | Auftragsnr aus admin-booking |
 | 17 | `notiz_ai` | Text (String, lang) | – | Anmerkung der KI |
 
-**Auswahl-Werte für `belegart`:**
+**Auswahl-Werte für `belegart`:** (Label = lesbarer Anzeigename, Slug = `id`-Wert in `value_select varchar(16)`)
 ```
-quittung
-lieferantenrechnung
-bankauszug
-spesenbeleg
-gutschrift
-sonstiges
+quittung              (Slug: quittung)
+lieferantenrechnung   (Slug: lief_rechnung)   ← Slug gekürzt, Paperless varchar(16)-Limit
+bankauszug            (Slug: bankauszug)
+spesenbeleg           (Slug: spesenbeleg)
+gutschrift            (Slug: gutschrift)
+sonstiges             (Slug: sonstiges)
 ```
 
 **Auswahl-Werte für `verbuchungs_status`:**
