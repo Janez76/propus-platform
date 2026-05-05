@@ -1,19 +1,8 @@
 ---
 export const prerender = false;
 
-import { getCollection } from 'astro:content';
 import GuidelineLayout from '../../layouts/GuidelineLayout.astro';
-import { loadGuidelineManifest } from '../../lib/guideline-private-files';
-
-const entries = await getCollection('guideline');
-entries.sort((a, b) => {
-	const ao = a.data.order ?? 999;
-	const bo = b.data.order ?? 999;
-	if (ao !== bo) return ao - bo;
-	return a.data.title.localeCompare(b.data.title, 'de');
-});
-
-const manifest = loadGuidelineManifest();
+import { GUIDELINE_DOWNLOADS, GUIDELINE_PAGES } from '../../lib/guideline-static';
 ---
 
 <GuidelineLayout title="Übersicht">
@@ -24,18 +13,16 @@ const manifest = loadGuidelineManifest();
 		id="guideline-logout">Abmelden</button>
 
 	<section>
-		<h2 class="guideline-section-title">Anleitungen (Markdown)</h2>
+		<h2 class="guideline-section-title">Anleitungen</h2>
 		{
-			entries.length === 0 ? (
-				<p class="guideline-empty">Noch keine Markdown-Seiten.</p>
+			GUIDELINE_PAGES.length === 0 ? (
+				<p class="guideline-empty">Noch keine Einträge in guideline-static.ts.</p>
 			) : (
 				<ul class="guideline-list">
-					{entries.map((e) => (
+					{GUIDELINE_PAGES.map((p) => (
 						<li>
-							<a href={`/guideline/${e.id}/`}>{e.data.title}</a>
-							{e.data.category && (
-								<span class="guideline-meta">· {e.data.category}</span>
-							)}
+							<a href={p.href}>{p.title}</a>
+							{p.category && <span class="guideline-meta">· {p.category}</span>}
 						</li>
 					))}
 				</ul>
@@ -46,23 +33,14 @@ const manifest = loadGuidelineManifest();
 	<section>
 		<h2 class="guideline-section-title">Downloads</h2>
 		{
-			manifest.files.length === 0 ? (
-				<div class="guideline-empty guideline-empty--block">
-					<p>
-						Noch keine Downloads — das ist normal, bis Dateien eingetragen sind.
-					</p>
-					<p class="guideline-empty--hint">
-						<strong>PDF / Office / ZIP:</strong> Auf dem Server im Ordner{' '}
-						<code>private-guideline-assets/files/</code> ablegen und in{' '}
-						<code>manifest.json</code> eintragen (
-						<code>id</code>, <code>path</code>, <code>title</code>). Vorlage:{' '}
-						<code>website/private-guideline-assets/README.md</code> im Repo — nach
-						Deploy und Container-Neustart wirksam.
-					</p>
-				</div>
+			GUIDELINE_DOWNLOADS.length === 0 ? (
+				<p class="guideline-empty">
+					Keine Downloads eingetragen — in{' '}
+					<code>website/src/lib/guideline-static.ts</code> ergänzen.
+				</p>
 			) : (
 				<ul class="guideline-list">
-					{manifest.files.map((f) => (
+					{GUIDELINE_DOWNLOADS.map((f) => (
 						<li>
 							<a href={`/api/guideline/download?id=${encodeURIComponent(f.id)}`}>
 								{f.title}

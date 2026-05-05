@@ -58,10 +58,10 @@ Geschützter Bereich für Team-Anleitungen (Cookie-Session, kein öffentliches I
 
 **Inhalt**
 
-- Markdown: [`src/content/guideline/`](src/content/guideline/) (Dateien `.md`, Frontmatter `title`, optional `order`, `category`).
-- Binärdateien (PDF, Office, …): unter [`private-guideline-assets/`](private-guideline-assets/) ablegen, Einträge in `manifest.json` (siehe [`private-guideline-assets/README.md`](private-guideline-assets/README.md)). Nicht unter `public/` — Downloads laufen nur mit Session über `/api/guideline/download`.
+- Statische Seiten: neue Routen als `.astro` unter [`src/pages/guideline/`](src/pages/guideline/) und Eintrag in [`src/lib/guideline-static.ts`](src/lib/guideline-static.ts) (`GUIDELINE_PAGES`).
+- Binärdateien (PDF, Office, …): unter [`private-guideline-assets/files/`](private-guideline-assets/) ablegen und denselben Eintrag in [`src/lib/guideline-static.ts`](src/lib/guideline-static.ts) (`GUIDELINE_DOWNLOADS`). Nicht unter `public/` — Downloads laufen nur mit Session über `/api/guideline/download`.
 
-**Quelle „Propus_Anleitungen“:** Markdown nach `src/content/guideline/` kopieren oder synchronisieren; Dateien nach `private-guideline-assets/files/` und Manifest pflegen.
+**Quelle „Propus_Anleitungen“:** Text/HTML in neue `.astro`-Seiten übernehmen oder kopieren; Dateien nach `private-guideline-assets/files/` und `guideline-static.ts` pflegen.
 
 **Docker / VPS:** Das Runtime-Image kopiert `private-guideline-assets/` mit. In [`docker-compose.vps.yml`](../docker-compose.vps.yml) werden `WEBSITE_GUIDELINE_SECRET`, `WEBSITE_GUIDELINE_PASSWORD` und optional `WEBSITE_GUIDELINE_CSRF_ORIGINS` an den Website-Container durchgereicht (`GUIDELINE_*` im Container).
 
