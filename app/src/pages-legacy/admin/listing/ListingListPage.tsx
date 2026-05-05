@@ -269,7 +269,7 @@ export function ListingListPage() {
         <header className="pad-page-header">
           <div className="pad-ph-top">
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="pad-eyebrow">Galerien · Backpanel</div>
+              <div className="pad-eyebrow">Listing · Backpanel</div>
               <h1 className="pad-h1">Listings</h1>
               <div className="pad-ph-sub">
                 Hier pflegen Sie alle Listings: Fotos und Unterlagen bündeln, für Kunden freigeben und Versand sowie

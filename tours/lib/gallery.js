@@ -89,8 +89,8 @@ function parsePropfind(xml) {
 
 // Erkennt Größen-Marker im Dateinamen vor der Endung, z. B.
 // `IMG_001-websize.jpg`, `foo_fs.jpg`, `bar.fullsize.png`.
-const GALLERY_WEBSIZE_BASENAME_RE = /[._-](?:web[\s_-]?size|websize|ws|web)(?=\.[a-z0-9]+$)/i;
-const GALLERY_FULLSIZE_BASENAME_RE = /[._-](?:full[\s_-]?size|fullsize|fs|full|original|orig|hires|hi)(?=\.[a-z0-9]+$)/i;
+const GALLERY_WEBSIZE_BASENAME_RE = /(?:^web[_-]|[._-](?:web[\s_-]?size|websize|ws|web)(?=\.[a-z0-9]+$))/i;
+const GALLERY_FULLSIZE_BASENAME_RE = /(?:^(?:hd|full|original)[_-]|[._-](?:full[\s_-]?size|fullsize|fs|full|original|orig|hires|hi)(?=\.[a-z0-9]+$))/i;
 
 function pathScoreForGallery(p) {
   const pl = String(p || '').toLowerCase();
@@ -124,9 +124,10 @@ function normalizeGallerySizeFolderInPath(rawPath) {
  * denselben Schlüssel ergeben.
  */
 const GALLERY_SIZE_SUFFIX_RE = /[._-](?:web[\s_-]?size|websize|full[\s_-]?size|fullsize|fs|ws|web|full|original|orig|preview|small|large|hi|lo|hires|lowres|2400|web2400)(?=\.[a-z0-9]+$)/i;
+const GALLERY_SIZE_PREFIX_RE = /^(?:hd|web|full|lo|hi|preview|thumb|original)[_-]/i;
 function stripGallerySizeSuffixFromBasename(basename) {
   if (!basename) return '';
-  return String(basename).toLowerCase().replace(GALLERY_SIZE_SUFFIX_RE, '');
+  return String(basename).toLowerCase().replace(GALLERY_SIZE_PREFIX_RE, '').replace(GALLERY_SIZE_SUFFIX_RE, '');
 }
 
 /**

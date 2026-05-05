@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
   applyTemplateVars,
-  htmlEmailToPlainText,
   listEmailTemplates,
   LISTING_EMAIL_TEMPLATE_ID,
   publicGalleryUrl,
   recordEmailSent,
+  sendGalleryEmail,
 } from "../../../api/listingAdmin";
 import type { ClientGalleryRow, EmailTemplateRow } from "../../../components/listing/types";
 
@@ -60,25 +60,20 @@ export function ListingSendMailModal({ gallery, onClose, onRecordedSent }: Props
   const selectedTpl = templates.find((t) => t.id === LISTING_EMAIL_TEMPLATE_ID) ?? templates[0];
   const title = g.title?.trim() || "Diese Galerie";
 
-  function buildMailto(): string | null {
+  function buildEmailData(): { to: string; subject: string; htmlBody: string } | null {
     if (!selectedTpl) return null;
-    const link = publicGalleryUrl(g.slug);
-    const subj = applyTemplateVars(selectedTpl.subject, {
-      gallery_link: link,
-      title: g.title,
-      customer_name: g.client_name ?? "",
-      address: g.address ?? "",
-    });
-    const bodyHtml = applyTemplateVars(selectedTpl.body, {
-      gallery_link: link,
-      title: g.title,
-      customer_name: g.client_name ?? "",
-      address: g.address ?? "",
-    });
-    const bodyPlain = htmlEmailToPlainText(bodyHtml);
     const to = g.client_email?.trim();
     if (!to) return null;
-    return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(bodyPlain)}`;
+    const link = publicGalleryUrl(g.slug);
+    const vars = {
+      gallery_link: link,
+      title: g.title,
+      customer_name: g.client_name ?? "",
+      address: g.address ?? "",
+    };
+    const subject = applyTemplateVars(selectedTpl.subject, vars);
+    const htmlBody = applyTemplateVars(selectedTpl.body, vars);
+    return { to, subject, htmlBody };
   }
 
   function scheduleCloseAfterSent() {
@@ -90,34 +85,25 @@ export function ListingSendMailModal({ gallery, onClose, onRecordedSent }: Props
   }
 
   async function onJetztSenden() {
-    const href = buildMailto();
-    const to = g.client_email?.trim();
-    if (!to || !href) {
-      setMailMsg("Bitte Kunden-E-Mail in den Stammdaten speichern.");
-      return;
-    }
-    if (!selectedTpl) {
-      setMailMsg("Keine E-Mail-Vorlage gefunden.");
+    const emailData = buildEmailData();
+    if (!emailData) {
+      setMailMsg(!g.client_email?.trim()
+        ? "Bitte Kunden-E-Mail in den Stammdaten speichern."
+        : "Keine E-Mail-Vorlage gefunden.");
       return;
     }
     setMailMsg(null);
     setSending(true);
     try {
+      await sendGalleryEmail(g.id, emailData);
       await recordEmailSent(g.id);
       onRecordedSent();
-    } catch {
-      setMailMsg("Speichern fehlgeschlagen.");
+    } catch (err) {
+      setMailMsg(err instanceof Error ? err.message : "E-Mail-Versand fehlgeschlagen.");
       setSending(false);
       return;
     }
     setSending(false);
-    const a = document.createElement("a");
-    a.href = href;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
     setPhase("sent");
     scheduleCloseAfterSent();
   }
