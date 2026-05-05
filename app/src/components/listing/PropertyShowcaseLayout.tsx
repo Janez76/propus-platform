@@ -284,15 +284,18 @@ export function PropertyShowcaseLayout({
                 </button>
                 {mediaSummary ? (
                   <span className="download-chip">
-                    {[
-                      mediaSummary.imagesWebsize + mediaSummary.imagesFullsize > 0
-                        ? `${mediaSummary.imagesWebsize + mediaSummary.imagesFullsize} Bilder`
-                        : null,
-                      mediaSummary.floorPlans > 0 ? `${mediaSummary.floorPlans} Grundrisse` : null,
-                      mediaSummary.hasVideo ? "1 Video" : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {(() => {
+                      const videoCount = mediaSummary.videos ?? (mediaSummary.hasVideo ? 1 : 0);
+                      return [
+                        mediaSummary.imagesWebsize + mediaSummary.imagesFullsize > 0
+                          ? `${mediaSummary.imagesWebsize + mediaSummary.imagesFullsize} Bilder`
+                          : null,
+                        mediaSummary.floorPlans > 0 ? `${mediaSummary.floorPlans} Grundrisse` : null,
+                        videoCount > 0 ? `${videoCount} Video${videoCount === 1 ? "" : "s"}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+                    })()}
                     {mediaSummary.bytesTotal > 0 ? ` · ~${formatBytes(mediaSummary.bytesTotal)}` : ""}
                   </span>
                 ) : null}

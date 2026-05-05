@@ -1468,6 +1468,7 @@ function getGalleryMediaSummary(gallery) {
     imagesWebsize: 0,
     imagesFullsize: 0,
     floorPlans: 0,
+    videos: 0,
     hasVideo: false,
     bytesWebsize: 0,
     bytesFullsize: 0,
@@ -1522,7 +1523,10 @@ function getGalleryMediaSummary(gallery) {
         if (!stat.isFile()) continue;
         summary.bytesTotal += stat.size;
         if (PDF_EXT.test(file)) summary.floorPlans += 1;
-        if (MP4_EXT.test(file)) summary.hasVideo = true;
+        if (MP4_EXT.test(file)) {
+          summary.videos += 1;
+          summary.hasVideo = true;
+        }
       } catch { /* skip */ }
     }
   } catch { /* skip */ }

@@ -28,7 +28,13 @@ export function FloorPlanPdfThumb({ remotePdfUrl, label, thumbUrl }: Props) {
   useEffect(() => {
     // Canvas-Render nur, wenn weder <img> noch <iframe>-Fallback aktiv ist.
     if (useImg) return;
-    if (!canLoadRemotePdfWithPdfJs()) return;
+    if (!canLoadRemotePdfWithPdfJs()) {
+      // Wenn das Bild gerade gerade fehlgeschlagen ist UND pdf.js nicht
+      // verfuegbar ist, direkt auf den iframe-Fallback umschalten — sonst
+      // bleibt die Karte leer.
+      setUseFallback(true);
+      return;
+    }
 
     const el = wrapRef.current;
     const canvas = canvasRef.current;
@@ -124,7 +130,12 @@ export function FloorPlanPdfThumb({ remotePdfUrl, label, thumbUrl }: Props) {
           alt={label}
           loading="lazy"
           decoding="async"
-          onError={() => setImgFailed(true)}
+          onError={() => {
+            if (typeof console !== "undefined" && console.warn) {
+              console.warn("[FloorPlanPdfThumb] thumb img failed, falling back to canvas");
+            }
+            setImgFailed(true);
+          }}
           style={{
             width: "100%",
             height: "100%",

@@ -79,6 +79,7 @@ export type GalleryMediaSummary = {
   imagesWebsize: number;
   imagesFullsize: number;
   floorPlans: number;
+  videos?: number;
   hasVideo: boolean;
   bytesWebsize: number;
   bytesFullsize: number;

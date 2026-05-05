@@ -10,16 +10,40 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 type Props = {
   remotePdfUrl: string;
   label: string;
+  /**
+   * Server-rendered JPG-Thumbnail (Endpoint `/floorplans/:index/thumb?w=…`).
+   * Wenn gesetzt, wird in der Lightbox die hochaufloesende Variante (`w=1200`)
+   * angezeigt — pdf.js-Canvas + iframe sind nur Fallbacks fuer Ladefehler.
+   */
+  thumbUrl?: string | null;
 };
 
-export function LightboxFloorPlanCanvas({ remotePdfUrl, label }: Props) {
+function highResThumbUrl(thumbUrl: string): string {
+  const isAbsolute = /^https?:\/\//i.test(thumbUrl);
+  try {
+    const u = new URL(thumbUrl, isAbsolute ? undefined : "http://x");
+    u.searchParams.set("w", "1200");
+    return isAbsolute ? u.toString() : `${u.pathname}${u.search}`;
+  } catch {
+    return thumbUrl;
+  }
+}
+
+export function LightboxFloorPlanCanvas({ remotePdfUrl, label, thumbUrl }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
-  const [useIframeFallback, setUseIframeFallback] = useState(!canLoadRemotePdfWithPdfJs());
+  const [imgFailed, setImgFailed] = useState(false);
+  const useImg = Boolean(thumbUrl) && !imgFailed;
+  const [useIframeFallback, setUseIframeFallback] = useState(!useImg && !canLoadRemotePdfWithPdfJs());
 
   useEffect(() => {
-    if (!canLoadRemotePdfWithPdfJs()) return;
+    // Canvas-Render nur, wenn weder <img> noch <iframe>-Fallback aktiv ist.
+    if (useImg) return;
+    if (!canLoadRemotePdfWithPdfJs()) {
+      setUseIframeFallback(true);
+      return;
+    }
 
     const el = hostRef.current;
     const canvas = canvasRef.current;
@@ -115,7 +139,35 @@ export function LightboxFloorPlanCanvas({ remotePdfUrl, label }: Props) {
       pdfRef.current?.destroy().catch(() => {});
       pdfRef.current = null;
     };
-  }, [remotePdfUrl]);
+  }, [remotePdfUrl, useImg]);
+
+  if (useImg && thumbUrl) {
+    return (
+      <div className="lightbox__floor-plan-host" role="presentation">
+        <img
+          src={highResThumbUrl(thumbUrl)}
+          alt={label}
+          loading="eager"
+          decoding="async"
+          onError={() => {
+            if (typeof console !== "undefined" && console.warn) {
+              console.warn("[LightboxFloorPlanCanvas] thumb img failed, falling back to canvas");
+            }
+            setImgFailed(true);
+          }}
+          style={{
+            display: "block",
+            maxWidth: "100%",
+            maxHeight: "76vh",
+            width: "auto",
+            height: "auto",
+            margin: "0 auto",
+            background: "#ffffff",
+          }}
+        />
+      </div>
+    );
+  }
 
   if (useIframeFallback) {
     return (
