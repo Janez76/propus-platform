@@ -40,21 +40,22 @@ export function Hero({
   onDownload,
 }: HeroProps) {
   const dockMetrics: DockMetric[] = useMemo(() => {
-    const m: DockMetric[] = [{ value: photoCount, label: "Aufnahmen", delayMs: 0 }];
-    if (videoCount > 0) {
-      m.push({ value: videoCount, label: "Video", delayMs: 0 });
-    }
-    if (floorPlanCount > 0) {
-      m.push({ value: floorPlanCount, label: "Grundrisse", delayMs: 0 });
-    }
-    if (tourCount > 0) {
-      m.push({
+    // Konsistente Hero-Statistik: alle vier Slots sind immer sichtbar, auch
+    // bei 0 — der Kunde sieht so direkt was in der Unterlage steckt und was
+    // nicht (vorher waren Video/Grundrisse/Tour nur ab >0 sichtbar, was
+    // wirkte als haette die Galerie weniger Inhalt als sie tatsaechlich
+    // dokumentiert).
+    const m: DockMetric[] = [
+      { value: photoCount, label: "Aufnahmen", delayMs: 0 },
+      { value: videoCount, label: videoCount === 1 ? "Video" : "Videos", delayMs: 0 },
+      { value: floorPlanCount, label: floorPlanCount === 1 ? "Grundriss" : "Grundrisse", delayMs: 0 },
+      {
         value: tourCount,
         label: "360° Tour",
         delayMs: 0,
         labelClass: "hero__metric-label--tour-title",
-      });
-    }
+      },
+    ];
     return m.map((row, i) => ({ ...row, delayMs: 300 + i * 40 }));
   }, [photoCount, videoCount, floorPlanCount, tourCount]);
 
