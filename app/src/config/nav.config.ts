@@ -59,6 +59,7 @@ import {
   Inbox,
   Bot,
   Columns3,
+  BookOpenCheck,
 } from "lucide-react";
 
 import type { Role } from "../types";
@@ -71,7 +72,10 @@ export type NavBadgeKey =
   | "orders.openToday"
   | "tickets.openCount"
   | "invoices.openCount"
-  | "invoices.overdueCount";
+  | "invoices.overdueCount"
+  | "bookkeeper.vorgeschlagenCount"
+  | "bookkeeper.duplikatPruefenCount"
+  | "bookkeeper.fehlerCount";
 
 export type NavBadgeTone = "default" | "warn" | "danger";
 
@@ -318,6 +322,15 @@ export const navConfig: NavSection[] = [
           { id: "exxas-sync", to: "/admin/finance/exxas-sync", labelKey: "nav.item.exxasSync", icon: FolderSync },
           { id: "reminders-sub", to: "/admin/finance/reminders", labelKey: "nav.item.reminders", icon: AlertTriangle },
         ],
+      },
+      {
+        id: "bookkeeper",
+        to: "/admin/finance/bookkeeper",
+        labelKey: "nav.item.bookkeeper",
+        icon: BookOpenCheck,
+        roles: ADMIN,
+        matchNested: true,
+        badgeKey: "bookkeeper.vorgeschlagenCount",
       },
     ],
   },
