@@ -38,7 +38,7 @@ interface Counts {
 }
 
 const FIELD_LABELS: Record<number, { label: string; type: "text"|"number"|"date"|"select"; options?: string[] }> = {
-  2:  { label: "Belegart", type: "select", options: ["quittung","lieferantenrechnung","bankauszug","spesenbeleg","gutschrift","sonstiges"] },
+  2:  { label: "Belegart", type: "select", options: ["quittung","lief_rechnung","bankauszug","spesenbeleg","gutschrift","sonstiges"] },
   3:  { label: "Beleg-Datum", type: "date" },
   4:  { label: "Beleg-Nr", type: "text" },
   5:  { label: "Lieferant", type: "text" },
