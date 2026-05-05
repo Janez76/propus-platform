@@ -1,4 +1,0 @@
-Interne Guidelines — Beispieldownload
-
-Ersetze diese Datei durch echte Anleitungen (PDF/Office) aus eurer Ablage.
-Dateien hier ablegen und Einträge in website/src/lib/guideline-static.ts (GUIDELINE_DOWNLOADS) ergänzen.
