@@ -1,18 +1,23 @@
 /**
- * Matterport-Tools fuer den KI-Assistenten — read-only Zugriff auf Spaces.
+ * Matterport-Tools fuer den KI-Assistenten — Read + minimal-Write auf Spaces.
  *
  * Auth: MATTERPORT_TOKEN_ID + MATTERPORT_TOKEN_SECRET (Basic), Fallback
  * MATTERPORT_API_KEY als Bearer. Identische Logik wie tours/lib/matterport.js,
- * aber TS-only und auf Read-Operationen reduziert.
+ * aber TS-only.
  *
- * Tools:
+ * Read-Tools:
  *   - matterport_list_spaces: alle Spaces (optional Suchbegriff)
- *   - matterport_get_space: Detail eines Spaces (inkl. Share-URL, State)
+ *   - matterport_get_space: Detail eines Spaces (inkl. Share-URL, State, Visibility)
  *   - matterport_get_share_url: nur die public Share-URL eines Spaces
  *
- * Schreibzugriff (archive/unarchive/create) bleibt bewusst aussen vor —
- * diese Aktionen wuerden Matterport-Lizenzen verbrauchen und gehoeren
- * hinter eine explizite Confirmation.
+ * Write-Tools (kind: "write", requiresConfirmation: true):
+ *   - matterport_rename_space: Titel/Namen eines Spaces aendern (patchModel)
+ *   - matterport_set_visibility: Sichtbarkeit setzen
+ *       (private / password_protected / unlisted / public)
+ *
+ * Lizenz-relevante Schreibaktionen (archive/unarchive/create) bleiben bewusst
+ * aussen vor — die laufen ueber den Tours-Background-Worker mit eigener
+ * Bestellungs-Logik (siehe tours/lib/matterport.js).
  */
 import type { ToolDefinition, ToolHandler } from "./index";
 
@@ -106,6 +111,7 @@ function shapeSpace(m: MatterportModel) {
     id: m.id,
     name: m.name,
     state: m.state,
+    visibility: m.visibility ?? null,
     address: m.publication?.address ?? null,
     shareUrl: m.publication?.url ?? null,
     externalUrl: m.publication?.externalUrl ?? null,
@@ -114,6 +120,9 @@ function shapeSpace(m: MatterportModel) {
     modified: m.modified ?? null,
   };
 }
+
+const VISIBILITY_VALUES = ["private", "password_protected", "unlisted", "public"] as const;
+type VisibilityValue = (typeof VISIBILITY_VALUES)[number];
 
 export const matterportTools: ToolDefinition[] = [
   {
@@ -154,6 +163,47 @@ export const matterportTools: ToolDefinition[] = [
         space_id: { type: "string", description: "Matterport-Space-ID" },
       },
       required: ["space_id"],
+    },
+  },
+  {
+    name: "matterport_rename_space",
+    description:
+      "Aendert den Titel/Namen eines Matterport-Spaces (erscheint im Player, in Listen und in der Matterport-UI). Die Share-URL bleibt unveraendert. Erfordert User-Bestaetigung.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        space_id: { type: "string", description: "Matterport-Space-ID" },
+        name: {
+          type: "string",
+          description: "Neuer Titel/Name (wird getrimmt, leer ist nicht erlaubt)",
+        },
+      },
+      required: ["space_id", "name"],
+    },
+  },
+  {
+    name: "matterport_set_visibility",
+    description:
+      "Setzt die Sichtbarkeit eines Matterport-Spaces. Werte: 'private' = nur Konto-Mitarbeiter, 'password_protected' = mit Passwort, 'unlisted' = jeder mit dem Link, 'public' = oeffentlich + Suchmaschinen. Bei 'password_protected' muss `password` mitgegeben werden. Erfordert User-Bestaetigung.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        space_id: { type: "string", description: "Matterport-Space-ID" },
+        visibility: {
+          type: "string",
+          enum: [...VISIBILITY_VALUES],
+          description: "Eine von: private, password_protected, unlisted, public",
+        },
+        password: {
+          type: "string",
+          description: "Passwort, nur erforderlich bei visibility='password_protected'. Bei anderen Werten ignoriert.",
+        },
+      },
+      required: ["space_id", "visibility"],
     },
   },
 ];
@@ -232,5 +282,54 @@ export const matterportHandlers: Record<string, ToolHandler> = {
     if (!data?.model) return { error: `Matterport-Space ${spaceId} nicht gefunden` };
     const shareUrl = data.model.publication?.url || `https://my.matterport.com/show/?m=${encodeURIComponent(spaceId)}`;
     return { ok: true, spaceId, name: data.model.name, shareUrl };
+  },
+
+  matterport_rename_space: async (input) => {
+    const spaceId = typeof input.space_id === "string" ? input.space_id.trim() : "";
+    const name = typeof input.name === "string" ? input.name.trim() : "";
+    if (!spaceId) return { error: "space_id ist erforderlich" };
+    if (!name) return { error: "name darf nicht leer sein" };
+
+    const gql = `mutation($id: ID!, $name: String!) {
+      patchModel(id: $id, patch: { name: $name }) { id name }
+    }`;
+    const { data, error } = await graphRequest<{ patchModel: { id: string; name: string } | null }>(
+      gql,
+      { id: spaceId, name },
+    );
+    if (error && !data?.patchModel) return { error };
+    if (!data?.patchModel) return { error: `Umbenennung fehlgeschlagen fuer ${spaceId}` };
+    const shareUrl = `https://my.matterport.com/show/?m=${encodeURIComponent(data.patchModel.id)}`;
+    return { ok: true, spaceId: data.patchModel.id, name: data.patchModel.name, shareUrl };
+  },
+
+  matterport_set_visibility: async (input) => {
+    const spaceId = typeof input.space_id === "string" ? input.space_id.trim() : "";
+    const visibilityRaw = typeof input.visibility === "string" ? input.visibility.trim().toLowerCase() : "";
+    const password = typeof input.password === "string" && input.password.length > 0 ? input.password : null;
+    if (!spaceId) return { error: "space_id ist erforderlich" };
+    if (!(VISIBILITY_VALUES as readonly string[]).includes(visibilityRaw)) {
+      return { error: `visibility muss einer von ${VISIBILITY_VALUES.join(", ")} sein` };
+    }
+    const visibility = visibilityRaw as VisibilityValue;
+    if (visibility === "password_protected" && !password) {
+      return { error: "password ist erforderlich bei visibility=password_protected" };
+    }
+
+    const gql = `mutation($id: ID!, $vis: ModelAccessVisibility!, $pw: String) {
+      updateModelAccessVisibility(id: $id, visibility: $vis, password: $pw) { id visibility }
+    }`;
+    const { data, error } = await graphRequest<{
+      updateModelAccessVisibility: { id: string; visibility: string } | null;
+    }>(gql, { id: spaceId, vis: visibility, pw: password });
+    if (error && !data?.updateModelAccessVisibility) return { error };
+    if (!data?.updateModelAccessVisibility) {
+      return { error: `Sichtbarkeit setzen fehlgeschlagen fuer ${spaceId}` };
+    }
+    return {
+      ok: true,
+      spaceId: data.updateModelAccessVisibility.id,
+      visibility: data.updateModelAccessVisibility.visibility,
+    };
   },
 };
