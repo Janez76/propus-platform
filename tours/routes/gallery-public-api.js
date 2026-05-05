@@ -85,6 +85,10 @@ router.get('/:slug', async (req, res) => {
       }
     }
 
+    // Public-Listing-Payload soll vom Browser nicht aggressiv gecached werden,
+    // damit nach Editor-Speichern (z. B. Matterport-Link) der Kunde-View sofort
+    // den aktuellen Stand zieht.
+    res.set('Cache-Control', 'no-store, max-age=0');
     res.json({
       ok: true,
       id: g.id,

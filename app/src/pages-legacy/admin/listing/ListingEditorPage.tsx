@@ -1818,7 +1818,18 @@ export function ListingEditorPage() {
                   <span>Aus Bestellung uebernehmen: {matterportSuggestion}</span>
                 </button>
               ) : null}
-              <p className="gbe-field-hint">Erscheint auf der Kunden-Galerie.</p>
+              <p className="gbe-field-hint">
+                Erscheint auf der Kunden-Galerie.
+                {(g.matterport_input ?? "").trim() ? (
+                  <span style={{ marginLeft: 8, color: "var(--success, #15803d)", fontWeight: 600 }}>
+                    <i className="fa-solid fa-check mr-1" aria-hidden /> gespeichert
+                  </span>
+                ) : (
+                  <span style={{ marginLeft: 8, color: "var(--warn, #a16207)", fontWeight: 600 }}>
+                    <i className="fa-solid fa-circle-exclamation mr-1" aria-hidden /> nicht gespeichert (klicke „Speichern")
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </section>
