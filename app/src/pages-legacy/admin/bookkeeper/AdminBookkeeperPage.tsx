@@ -398,16 +398,16 @@ export function AdminBookkeeperPage() {
                         <td className="p-2">{(cf[3] as string) || "—"}</td>
                         <td className="p-2 truncate max-w-xs" title={(cf[5] as string) || ""}>{(cf[5] as string) || "—"}</td>
                         <td className="p-2 text-right tabular-nums">
-                          {cf[6] != null ? `${cf[6]} ${cf[7] || ""}` : "—"}
+                          {cf[6] != null ? `${String(cf[6])} ${String(cf[7] ?? "")}` : "—"}
                         </td>
-                        <td className="p-2 text-xs font-mono">{cf[10] || "?"} / {cf[11] || "?"}</td>
+                        <td className="p-2 text-xs font-mono">{String(cf[10] ?? "?")} / {String(cf[11] ?? "?")}</td>
                         <td className="p-2 text-right">
                           <span className={
                             "px-1.5 py-0.5 rounded text-xs " +
-                            (Number(cf[13] || 0) >= 85 ? "bg-green-100 text-green-800"
-                              : Number(cf[13] || 0) >= 70 ? "bg-yellow-100 text-yellow-800"
+                            (Number(cf[13] ?? 0) >= 85 ? "bg-green-100 text-green-800"
+                              : Number(cf[13] ?? 0) >= 70 ? "bg-yellow-100 text-yellow-800"
                               : "bg-red-100 text-red-800")
-                          }>{cf[13] ?? "?"}</span>
+                          }>{String(cf[13] ?? "?")}</span>
                         </td>
                         <td className="p-2">
                           <div className="flex justify-end gap-1">
