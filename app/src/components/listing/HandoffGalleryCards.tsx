@@ -96,14 +96,17 @@ export function HandoffGalleryCards({
                   "linear-gradient(160deg, var(--gold-50) 0%, var(--paper-strip) 50%, var(--card) 100%)",
               }}
             >
-              <div
-                className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                aria-hidden
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[var(--border)] bg-white/90 text-[var(--gold-600)] shadow-sm">
-                  <ImageIcon className="h-7 w-7 opacity-80" />
+              {!coverSrc ? (
+                <div
+                  className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-[var(--fg-3)]"
+                  aria-hidden
+                >
+                  <ImageIcon className="h-5 w-5 opacity-60" />
+                  <span style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    Keine Vorschau
+                  </span>
                 </div>
-              </div>
+              ) : null}
               {coverSrc ? (
                 <img
                   src={coverSrc}
