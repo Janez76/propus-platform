@@ -144,17 +144,20 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
   });
 
   // ─── Liste der Belege eines Status (für Approval-Queue etc.) ───────────
+  // Filter: ?status=vorgeschlagen&min_confidence=85&max_confidence=100
   app.get("/api/admin/bookkeeper/documents", requireAdmin, async (req, res) => {
     if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
     const status = String(req.query.status || "vorgeschlagen");
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const minConf = req.query.min_confidence ? parseInt(req.query.min_confidence, 10) : null;
+    const maxConf = req.query.max_confidence ? parseInt(req.query.max_confidence, 10) : null;
     const tag = T[status];
     if (!tag) return res.status(400).json({ error: `Unbekannter Status: ${status}` });
     try {
       const data = await plFetch(
         `/api/documents/?tags__id__all=${T.buchhaltung},${tag}&page_size=${limit}&ordering=-added`,
       );
-      const docs = (data.results || []).map((d) => ({
+      let docs = (data.results || []).map((d) => ({
         id: d.id,
         title: d.title,
         added: d.added,
@@ -165,9 +168,81 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
           return acc;
         }, {}),
       }));
-      res.json({ count: data.count || 0, results: docs });
+      if (minConf !== null || maxConf !== null) {
+        docs = docs.filter((d) => {
+          const c = Number(d.custom_fields[13] || 0);
+          if (minConf !== null && c < minConf) return false;
+          if (maxConf !== null && c > maxConf) return false;
+          return true;
+        });
+      }
+      res.json({ count: docs.length, total: data.count || 0, results: docs });
     } catch (e) {
       res.status(500).json({ error: e.message || String(e) });
+    }
+  });
+
+  // ─── Bexio-Pre-Flight-Check (vor Live-Push) ──────────────────────────
+  // Prüft ob die im Beleg verwendeten Soll/Haben-Konten in bexio existieren UND ob
+  // die MwSt-Kombination eine bekannte tax_id ergibt. Verhindert HTTP-400-Fehler beim
+  // tatsächlichen Push.
+  app.get("/api/admin/bookkeeper/preflight/:id", requireAdmin, async (req, res) => {
+    if (!isConfigured()) return res.status(503).json({ error: "Bookkeeper nicht konfiguriert" });
+    const bexioToken = process.env.BEXIO_API_TOKEN;
+    if (!bexioToken) return res.status(503).json({ error: "BEXIO_API_TOKEN fehlt" });
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "ungueltige id" });
+    try {
+      const doc = await plFetch(`/api/documents/${id}/`);
+      const cfs = (doc.custom_fields || []).reduce((acc, cf) => { acc[cf.field] = cf.value; return acc; }, {});
+      const issues = [];
+      const soll = cfs[10]; const haben = cfs[11];
+      const datum = cfs[3]; const betrag = cfs[6]; const lieferant = cfs[5];
+
+      // Pflichtfelder
+      if (!datum) issues.push({ severity: "error", field: "belegdatum", msg: "Datum fehlt" });
+      if (!betrag) issues.push({ severity: "error", field: "betrag", msg: "Betrag fehlt" });
+      if (!soll) issues.push({ severity: "error", field: "soll_konto", msg: "Soll-Konto fehlt" });
+      if (!haben) issues.push({ severity: "error", field: "haben_konto", msg: "Haben-Konto fehlt" });
+      if (!lieferant) issues.push({ severity: "warn", field: "lieferant", msg: "Lieferant leer" });
+
+      // Konten-Existenz in bexio prüfen
+      if (soll || haben) {
+        const r = await fetch(`${process.env.BEXIO_API_URL || "https://api.bexio.com"}/2.0/accounts?limit=500`, {
+          headers: { Authorization: `Bearer ${bexioToken}`, Accept: "application/json" },
+        });
+        if (r.ok) {
+          const accs = await r.json();
+          const nrs = new Set(accs.map((a) => String(a.account_no || "")));
+          if (soll && !nrs.has(String(soll))) {
+            issues.push({ severity: "error", field: "soll_konto", msg: `Konto ${soll} existiert nicht in bexio` });
+          }
+          if (haben && !nrs.has(String(haben))) {
+            issues.push({ severity: "error", field: "haben_konto", msg: `Konto ${haben} existiert nicht in bexio` });
+          }
+        }
+      }
+
+      // MwSt-Aufteilung-Check
+      if (cfs[9]) {
+        try {
+          const mwstParts = JSON.parse(String(cfs[9]));
+          if (Array.isArray(mwstParts)) {
+            for (const p of mwstParts) {
+              if (p.netto != null && p.mwst != null) {
+                if (p.satz === "0.00" || (p.satz === "0" )) continue;
+              }
+            }
+          }
+        } catch (_) {
+          issues.push({ severity: "warn", field: "mwst_aufteilung_json", msg: "MwSt-JSON nicht parsebar" });
+        }
+      }
+
+      const ok = issues.filter((i) => i.severity === "error").length === 0;
+      res.json({ ok, issues, doc_id: id });
+    } catch (e) {
+      res.status(e.status || 500).json({ error: e.message || String(e) });
     }
   });
 

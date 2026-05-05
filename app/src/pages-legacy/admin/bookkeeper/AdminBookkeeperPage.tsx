@@ -261,7 +261,7 @@ export function AdminBookkeeperPage() {
           <div>
             <h1 className="text-2xl font-semibold">Buchhaltung — KI-Cascade</h1>
             <p className="text-sm text-neutral-500 mt-1">
-              Haiku 4.5 → Sonnet 4.6 → Opus 4.7 · Vision-Fallback aktiv · Container auf NAS
+              Sonnet 4.6 → Opus 4.7 (Eskalation ab confidence&lt;95) · Vision-Cross-Check · Container auf NAS
             </p>
           </div>
         </div>
