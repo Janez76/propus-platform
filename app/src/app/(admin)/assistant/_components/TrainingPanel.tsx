@@ -222,6 +222,9 @@ export function TrainingPanel({ initialContext, onContextConsumed }: Props) {
   const [trainerLoading, setTrainerLoading] = useState(false);
   const [pendingContext, setPendingContext] = useState<string | null>(null);
   const trainerScrollRef = useRef<HTMLDivElement>(null);
+  const trainerInputRef = useRef<HTMLInputElement>(null);
+  /** Trainer-Send-Queue: Nachrichten die der User während der Bot noch antwortet abschickt. */
+  const [trainerSendQueue, setTrainerSendQueue] = useState<string[]>([]);
 
   useEffect(() => {
     if (initialContext && initialContext.trim()) {
@@ -243,10 +246,9 @@ export function TrainingPanel({ initialContext, onContextConsumed }: Props) {
     trainerScrollRef.current?.scrollTo({ top: trainerScrollRef.current.scrollHeight, behavior: "smooth" });
   }, [trainerMessages, trainerLoading]);
 
-  const sendTrainer = useCallback(async () => {
-    const text = trainerInput.trim();
-    if (!text || trainerLoading) return;
-    setTrainerInput("");
+  const sendTrainerWithText = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text) return;
     const userMsg: TrainerMessage = { id: `u-${Date.now()}`, role: "user", content: text };
     setTrainerMessages((prev) => [...prev, userMsg]);
     setTrainerLoading(true);
@@ -307,8 +309,31 @@ export function TrainingPanel({ initialContext, onContextConsumed }: Props) {
       ]);
     } finally {
       setTrainerLoading(false);
+      // Auto-Fokus zurück ins Eingabefeld, damit der User direkt weiterschreiben kann
+      window.setTimeout(() => trainerInputRef.current?.focus(), 50);
     }
-  }, [trainerInput, trainerLoading, trainerHistory, pendingContext, refreshEvalRuns, loadFewShots]);
+  }, [trainerHistory, pendingContext, refreshEvalRuns, loadFewShots]);
+
+  const sendTrainer = useCallback(async () => {
+    const text = trainerInput.trim();
+    if (!text) return;
+    setTrainerInput("");
+    if (trainerLoading) {
+      // Aktueller Turn läuft → in Queue legen, automatisch nach Fertigstellung absenden
+      setTrainerSendQueue((prev) => [...prev, text]);
+      return;
+    }
+    void sendTrainerWithText(text);
+  }, [trainerInput, trainerLoading, sendTrainerWithText]);
+
+  // Queue-Effekt: sobald der Turn durch ist, nächste Nachricht automatisch senden.
+  useEffect(() => {
+    if (trainerLoading) return;
+    if (trainerSendQueue.length === 0) return;
+    const [next, ...rest] = trainerSendQueue;
+    setTrainerSendQueue(rest);
+    void sendTrainerWithText(next);
+  }, [trainerLoading, trainerSendQueue, sendTrainerWithText]);
 
   const confirmTrainerAction = useCallback(
     async (msgId: string, approved: boolean) => {
@@ -734,19 +759,29 @@ export function TrainingPanel({ initialContext, onContextConsumed }: Props) {
               className="mt-2 flex gap-2"
             >
               <input
+                ref={trainerInputRef}
                 value={trainerInput}
                 onChange={(e) => setTrainerInput(e.target.value)}
-                placeholder='z. B. "Speichere als Beispiel: Frage X → Antwort Y" oder "Eval starten"'
-                disabled={trainerLoading}
+                placeholder={
+                  trainerLoading
+                    ? "Schon weiter tippen — wird nach Antwort gesendet …"
+                    : 'z. B. "Speichere als Beispiel: Frage X → Antwort Y" oder "Eval starten"'
+                }
                 className="flex-1 rounded-md border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2 text-xs text-[var(--text-main)] outline-none placeholder:text-[var(--text-subtle)] focus:border-[var(--accent)]"
               />
               <button
                 type="submit"
-                disabled={trainerLoading || !trainerInput.trim()}
-                className="inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
+                disabled={!trainerInput.trim()}
+                title={trainerLoading ? "In Warteschlange — wird nach Antwort gesendet" : "Senden"}
+                className="relative inline-flex items-center gap-1 rounded-md bg-[var(--accent)] px-3 py-2 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
               >
                 <Send className="h-3.5 w-3.5" />
-                Senden
+                {trainerLoading ? "Anstellen" : "Senden"}
+                {trainerSendQueue.length > 0 ? (
+                  <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                    {trainerSendQueue.length}
+                  </span>
+                ) : null}
               </button>
             </form>
 
