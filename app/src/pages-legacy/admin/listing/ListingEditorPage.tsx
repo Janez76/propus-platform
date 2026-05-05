@@ -17,7 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Building2, Hash, User, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   adminGalleryFloorPlanUrl,
   adminGalleryFloorPlanThumbUrl,
@@ -645,6 +645,14 @@ const GalleryImagesDndGrid = memo(function GalleryImagesDndGrid({
 export function ListingEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autofillOrderNoParam = searchParams.get("orderNo");
+  const orderNoFromUrl = autofillOrderNoParam ? Number(autofillOrderNoParam) : null;
+  const validOrderNoFromUrl =
+    orderNoFromUrl != null && Number.isFinite(orderNoFromUrl) && orderNoFromUrl > 0
+      ? orderNoFromUrl
+      : null;
+  const orderAutofillAppliedRef = useRef<number | null>(null);
   const [g, setG] = useState<ClientGalleryRow | null>(null);
   const [images, setImages] = useState<GalleryImageRow[]>([]);
   const imagesRef = useRef<GalleryImageRow[]>([]);
@@ -1128,7 +1136,9 @@ export function ListingEditorPage() {
     [id],
   );
 
-  /** `/admin/listing/new` → Galerie anlegen und zur echten ID weiterleiten */
+  /** `/admin/listing/new` → Galerie anlegen und zur echten ID weiterleiten.
+   *  `?orderNo=…` wird durchgereicht, damit der Editor anschliessend die
+   *  Bestellungsdaten auto-importieren kann. */
   useEffect(() => {
     if (id !== "new") return;
     let cancelled = false;
@@ -1137,7 +1147,11 @@ export function ListingEditorPage() {
       try {
         const { gallery } = await createGallery({ status: "active" });
         if (cancelled) return;
-        navigate(pathListingAdmin(gallery.id), { replace: true });
+        const targetPath = pathListingAdmin(gallery.id);
+        const targetWithQuery = validOrderNoFromUrl
+          ? `${targetPath}?orderNo=${validOrderNoFromUrl}`
+          : targetPath;
+        navigate(targetWithQuery, { replace: true });
       } catch (e) {
         if (!cancelled) {
           setErr(e instanceof Error ? e.message : "Neue Galerie konnte nicht angelegt werden");
@@ -1147,7 +1161,51 @@ export function ListingEditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, navigate]);
+  }, [id, navigate, validOrderNoFromUrl]);
+
+  /** Wenn die Galerie via `/admin/listing/new?orderNo=…` aus einer Bestellung
+   *  heraus angelegt wurde: Bestellung suchen und `handleSelectOrder` ausloesen
+   *  (Adresse/Kunde/Kontakt/Matterport/NAS-Vorschlaege). Einmal pro Order. */
+  useEffect(() => {
+    if (!id || id === "new") return;
+    if (!g || !validOrderNoFromUrl) return;
+    if (orderAutofillAppliedRef.current === validOrderNoFromUrl) return;
+    if (g.booking_order_no === validOrderNoFromUrl) {
+      // Bereits gespeichert → URL-Param wegputzen, keine erneute Auto-Anwendung.
+      orderAutofillAppliedRef.current = validOrderNoFromUrl;
+      const next = new URLSearchParams(searchParams);
+      next.delete("orderNo");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    let cancelled = false;
+    orderAutofillAppliedRef.current = validOrderNoFromUrl;
+    (async () => {
+      try {
+        const res = await getLinkMatterportBookingSearch(String(validOrderNoFromUrl));
+        if (cancelled) return;
+        const rawRows = Array.isArray(res.orders) ? res.orders : [];
+        const orders = rawRows
+          .map(normalizeOrderOption)
+          .filter((row): row is GalleryOrderOption => Boolean(row));
+        const match = orders.find((o) => o.order_no === validOrderNoFromUrl) ?? orders[0];
+        if (!match) return;
+        await handleSelectOrder(match);
+      } catch {
+        // Auto-Import ist optional — wenn er fehlschlaegt, kann der User die
+        // Bestellung manuell verknuepfen.
+      } finally {
+        if (!cancelled) {
+          const next = new URLSearchParams(searchParams);
+          next.delete("orderNo");
+          setSearchParams(next, { replace: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, g, validOrderNoFromUrl, searchParams, setSearchParams]);
 
   /** Einmal speichern: Stammdaten, Freigabe-Link, Matterport; bei neuer/geänderter Freigabe-URL Bilder einlesen. */
   async function saveAll() {
