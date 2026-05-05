@@ -1166,6 +1166,8 @@ export function ListingEditorPage() {
   /** Wenn die Galerie via `/admin/listing/new?orderNo=…` aus einer Bestellung
    *  heraus angelegt wurde: Bestellung suchen und `handleSelectOrder` ausloesen
    *  (Adresse/Kunde/Kontakt/Matterport/NAS-Vorschlaege). Einmal pro Order. */
+  const [pendingAutoSaveForOrder, setPendingAutoSaveForOrder] = useState<number | null>(null);
+
   useEffect(() => {
     if (!id || id === "new") return;
     if (!g || !validOrderNoFromUrl) return;
@@ -1191,6 +1193,11 @@ export function ListingEditorPage() {
         const match = orders.find((o) => o.order_no === validOrderNoFromUrl) ?? orders[0];
         if (!match) return;
         await handleSelectOrder(match);
+        if (!cancelled) {
+          // Auto-Save planen: wird vom naechsten useEffect ausgeloest, sobald
+          // der State gesettlet ist (insb. bookingOrderNo === orderNo).
+          setPendingAutoSaveForOrder(validOrderNoFromUrl);
+        }
       } catch {
         // Auto-Import ist optional — wenn er fehlschlaegt, kann der User die
         // Bestellung manuell verknuepfen.
@@ -1206,6 +1213,74 @@ export function ListingEditorPage() {
       cancelled = true;
     };
   }, [id, g, validOrderNoFromUrl, searchParams, setSearchParams]);
+
+  /** Auto-Save nach Auto-Import: laeuft, sobald der State des Editors die
+   *  uebernommenen Werte aus der Bestellung enthaelt. Dieser zweite useEffect
+   *  ist bewusst getrennt vom Auto-Import oben, damit React zwischen den
+   *  beiden Effekten alle setState/draftRef-Updates flushen kann.
+   *
+   *  Hinweis: Ohne customerId koennen wir nicht speichern (saveAll erwartet ihn);
+   *  in dem Fall bleibt der Auto-Save aus und der User kann manuell speichern. */
+  useEffect(() => {
+    if (pendingAutoSaveForOrder == null) return;
+    if (!id || !g) return;
+    // Warten bis bookingOrderNo den Auto-Import-Wert reflektiert.
+    if (bookingOrderNo !== pendingAutoSaveForOrder) return;
+    // Wenn handleSelectOrder keine customerId aus der Bestellung herstellen
+    // konnte, lieber nicht still speichern — der User soll bewusst entscheiden.
+    if (!customerId) {
+      setPendingAutoSaveForOrder(null);
+      setSavedMsg("Bestellung uebernommen — bitte Kunden pruefen und speichern.");
+      window.setTimeout(() => setSavedMsg(null), 6000);
+      return;
+    }
+    let cancelled = false;
+    setPendingAutoSaveForOrder(null);
+    void (async () => {
+      try {
+        const persistedContactId =
+          customerContactId === ORDER_CONTACT_SENTINEL_ID ? null : customerContactId;
+        const nextCloud = (cloudInput || "").trim();
+        const prevCloud = (g.cloud_share_url ?? "").trim();
+        const runImport = Boolean(nextCloud && nextCloud !== prevCloud);
+        setSaving(true);
+        await updateGallery(id, {
+          title: ((titleInput ?? titleDraftRef.current) || "").trim() || "Ohne Titel",
+          address: (addressInput || addressDraftRef.current || "").trim() || null,
+          customer_id: customerId,
+          customer_contact_id: persistedContactId,
+          booking_order_no: bookingOrderNo,
+          client_name: customerInput.trim() || null,
+          client_contact: contactInput.trim() || null,
+          client_email: (clientEmailInput || clientEmailDraftRef.current || "").trim() || null,
+          status,
+          slug: (g.slug ?? "").trim(),
+          cloud_share_url: nextCloud || null,
+          matterport_input: (matterportInput || matterportDraftRef.current || "").trim() || null,
+        });
+        if (!cancelled && runImport) {
+          try {
+            await importImagesFromShare(id, [{ url: nextCloud }]);
+          } catch {
+            // Bilder koennen spaeter manuell importiert werden.
+          }
+        }
+        if (!cancelled) {
+          setSavedMsg("Aus Bestellung uebernommen und gespeichert.");
+          window.setTimeout(() => setSavedMsg(null), 5000);
+          await load();
+        }
+      } catch {
+        // Auto-Save scheitert still — der User kann manuell speichern.
+      } finally {
+        if (!cancelled) setSaving(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoSaveForOrder, bookingOrderNo, customerId, g, id]);
 
   /** Einmal speichern: Stammdaten, Freigabe-Link, Matterport; bei neuer/geänderter Freigabe-URL Bilder einlesen. */
   async function saveAll() {
