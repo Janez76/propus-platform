@@ -69,6 +69,31 @@ const TAB_DESC: Record<TabId, { title: string; help: string; icon: typeof BookOp
   training:    { title: "KI-Training", help: "Sammlung User-Korrekturen — werden zu Few-Shot-Beispielen", icon: Sparkles },
 };
 
+const TAG_TO_STATUS: Record<number, string> = {
+  476: "Pending",
+  477: "Vorgeschlagen",
+  478: "Approved",
+  479: "Verbucht",
+  480: "Fehler",
+  482: "Spam",
+  483: "Bankauszug",
+  484: "Duplikat-Verdacht",
+};
+
+function statusFromTags(tags: number[]): string {
+  for (const t of tags) {
+    if (TAG_TO_STATUS[t]) return TAG_TO_STATUS[t];
+  }
+  return "—";
+}
+
+function parseRelatedIds(notizAi: unknown): number[] {
+  if (notizAi == null) return [];
+  const text = String(notizAi);
+  const matches = text.match(/\b\d{2,}\b/g) || [];
+  return Array.from(new Set(matches.map(Number))).filter((n) => Number.isFinite(n) && n > 0);
+}
+
 const PAPERLESS_VIEW_LINKS: Record<TabId, string> = {
   overview: `${PAPERLESS_BASE}/dashboard`,
   pending: `${PAPERLESS_BASE}/documents?tags__id__all=475,476`,
@@ -93,6 +118,9 @@ export function AdminBookkeeperPage() {
   const [editingFields, setEditingFields] = useState<Record<number, unknown>>({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<unknown[]>([]);
+  const [relatedDocs, setRelatedDocs] = useState<Record<number, BelegeRow[]>>({});
+  const [duplicateReason, setDuplicateReason] = useState<Record<number, string>>({});
+  const [duplicateBusyId, setDuplicateBusyId] = useState<number | null>(null);
 
   const loadCounts = useCallback(async () => {
     try {
@@ -141,6 +169,46 @@ export function AdminBookkeeperPage() {
     else setDocs([]);
   }, [activeTab, loadDocs, loadFeedback]);
 
+  useEffect(() => {
+    if (activeTab !== "duplikat") { setRelatedDocs({}); return; }
+    if (docs.length === 0) { setRelatedDocs({}); return; }
+    let cancelled = false;
+    (async () => {
+      const idsPerDoc = new Map<number, number[]>();
+      const allIds = new Set<number>();
+      for (const d of docs) {
+        const cf = d.custom_fields as Record<string, unknown>;
+        const ids = parseRelatedIds(cf[18]).filter((rid) => rid !== d.id);
+        idsPerDoc.set(d.id, ids);
+        ids.forEach((id) => allIds.add(id));
+      }
+      const cache: Record<number, BelegeRow | null> = {};
+      await Promise.all(Array.from(allIds).map(async (rid) => {
+        try {
+          const r = await fetch(`/api/admin/bookkeeper/documents/${rid}`, { credentials: "include" });
+          if (!r.ok) { cache[rid] = null; return; }
+          const j = await r.json();
+          const flatCf = (j.custom_fields || []).reduce(
+            (acc: Record<string, unknown>, cf: { field: number; value: unknown }) => {
+              acc[cf.field] = cf.value; return acc;
+            }, {} as Record<string, unknown>);
+          cache[rid] = {
+            id: j.id, title: j.title, added: j.added, created: j.created,
+            tags: j.tags || [], custom_fields: flatCf,
+          };
+        } catch { cache[rid] = null; }
+      }));
+      if (cancelled) return;
+      const map: Record<number, BelegeRow[]> = {};
+      for (const d of docs) {
+        const ids = idsPerDoc.get(d.id) || [];
+        map[d.id] = ids.map((rid) => cache[rid]).filter((x): x is BelegeRow => Boolean(x));
+      }
+      setRelatedDocs(map);
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, docs]);
+
   const action = useCallback(async (key: string, fn: () => Promise<unknown>, refreshAfter = true) => {
     setBusyAction(key); setError(null);
     try {
@@ -178,6 +246,47 @@ export function AdminBookkeeperPage() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
     });
   };
+  const submitDuplicateDecision = async (
+    docId: number,
+    isDuplicate: boolean,
+    originalNotiz: string,
+  ) => {
+    const reason = (duplicateReason[docId] || "").trim();
+    if (isDuplicate) {
+      if (!window.confirm("Beleg als Duplikat bestätigen und in Paperless-Trash schieben?")) return;
+    }
+    setDuplicateBusyId(docId); setError(null);
+    try {
+      await fetch("/api/admin/bookkeeper/feedback", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doc_id: docId,
+          field_id: 18,
+          original_value: originalNotiz || null,
+          corrected_value: isDuplicate ? "ist_duplikat" : "kein_duplikat",
+          reason: reason || null,
+        }),
+      });
+      if (isDuplicate) {
+        const r = await fetch(`/api/admin/bookkeeper/documents/${docId}?also_bexio=0`, {
+          method: "DELETE", credentials: "include",
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      } else {
+        const r = await fetch(`/api/admin/bookkeeper/documents/${docId}/reject`, {
+          method: "POST", credentials: "include",
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      }
+      setDuplicateReason((m) => { const c = { ...m }; delete c[docId]; return c; });
+      await loadCounts();
+      await loadDocs("duplikat");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Aktion fehlgeschlagen");
+    } finally { setDuplicateBusyId(null); }
+  };
+
   const bulkApprove = () => {
     if (selected.size === 0) return;
     if (!window.confirm(`${selected.size} Belege approven?`)) return;
@@ -514,6 +623,121 @@ export function AdminBookkeeperPage() {
                           </td>
                         </tr>
                       )}
+                      {activeTab === "duplikat" && !isEditing && (() => {
+                        const notiz = String((cf[18] as string) || "");
+                        const partners = relatedDocs[d.id] || [];
+                        const parsedIds = parseRelatedIds(notiz).filter((rid) => rid !== d.id);
+                        const decisionBusy = duplicateBusyId === d.id;
+                        const compareCols: Array<[number, string]> = [
+                          [2, "Belegart"], [3, "Datum"], [4, "Beleg-Nr"], [5, "Lieferant"],
+                          [6, "Betrag"], [7, "Währung"], [10, "Soll"], [11, "Haben"], [13, "Conf"],
+                        ];
+                        return (
+                          <tr key={`dup-${d.id}`} className="border-t bg-orange-50/40">
+                            <td colSpan={8} className="p-4">
+                              <div className="flex items-center gap-2 mb-3">
+                                <GitMerge className="w-4 h-4 text-orange-700" />
+                                <span className="font-medium text-orange-900">Duplikat-Vergleich</span>
+                                {parsedIds.length > 0 && (
+                                  <span className="text-xs text-orange-700">
+                                    Container vermutet Verwandtschaft mit: {parsedIds.map((rid) => `#${rid}`).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                              {notiz && (
+                                <div className="mb-3 p-2 bg-orange-100/60 border border-orange-200 rounded text-xs text-orange-900">
+                                  <span className="font-medium">Notiz AI:</span> {notiz}
+                                </div>
+                              )}
+                              {parsedIds.length === 0 && (
+                                <p className="text-sm text-neutral-600 mb-3">
+                                  Keine Doc-IDs in <code>notiz_ai</code> gefunden — Tag wurde evtl. manuell gesetzt.
+                                </p>
+                              )}
+                              {parsedIds.length > 0 && partners.length === 0 && (
+                                <p className="text-sm text-neutral-500 mb-3 italic">Lade verwandte Belege …</p>
+                              )}
+                              {partners.length > 0 && (
+                                <div className="overflow-x-auto mb-3">
+                                  <table className="w-full text-xs border">
+                                    <thead className="bg-orange-100">
+                                      <tr>
+                                        <th className="p-1.5 text-left font-medium">Feld</th>
+                                        <th className="p-1.5 text-left font-medium">
+                                          <a href={`${PAPERLESS_BASE}/documents/${d.id}/details`} target="_blank" rel="noopener noreferrer"
+                                            className="text-orange-800 hover:underline">
+                                            #{d.id} (dieser Beleg)
+                                          </a>
+                                        </th>
+                                        {partners.map((p) => (
+                                          <th key={p.id} className="p-1.5 text-left font-medium">
+                                            <a href={`${PAPERLESS_BASE}/documents/${p.id}/details`} target="_blank" rel="noopener noreferrer"
+                                              className="text-orange-800 hover:underline">
+                                              #{p.id}
+                                            </a>
+                                            <span className="ml-1 text-[10px] text-neutral-600 font-normal">({statusFromTags(p.tags)})</span>
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {compareCols.map(([fid, label]) => {
+                                        const ownVal = (cf[fid] as unknown);
+                                        return (
+                                          <tr key={fid} className="border-t">
+                                            <td className="p-1.5 font-medium text-neutral-700">{label}</td>
+                                            <td className="p-1.5 font-mono">{ownVal == null || ownVal === "" ? "—" : String(ownVal)}</td>
+                                            {partners.map((p) => {
+                                              const pcf = p.custom_fields as Record<string, unknown>;
+                                              const pVal = pcf[fid];
+                                              const same = String(ownVal ?? "") === String(pVal ?? "")
+                                                && (ownVal != null && ownVal !== "");
+                                              return (
+                                                <td key={p.id} className={"p-1.5 font-mono " + (same ? "bg-yellow-100" : "")}>
+                                                  {pVal == null || pVal === "" ? "—" : String(pVal)}
+                                                </td>
+                                              );
+                                            })}
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                              <label className="block text-xs font-medium text-neutral-700 mb-1">
+                                Begründung (fließt als Trainings-Sample in <code>core.bookkeeper_feedback</code> ein)
+                              </label>
+                              <textarea
+                                value={duplicateReason[d.id] || ""}
+                                onChange={(e) => setDuplicateReason({ ...duplicateReason, [d.id]: e.target.value })}
+                                placeholder="z.B. 'Beleg-Nr identisch, gleicher Betrag, gleicher Lieferant — eindeutig dieselbe Rechnung' oder 'Mahnung zu #1234'"
+                                rows={2}
+                                className="w-full text-sm border rounded p-2 mb-3"
+                              />
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => submitDuplicateDecision(d.id, true, notiz)}
+                                  disabled={decisionBusy || busyAction !== null}
+                                  className="text-sm px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                                  title="Bestätigen → Beleg in Paperless-Trash + Begründung als Feedback"
+                                >
+                                  <Trash2 className="w-4 h-4" /> Ja, ist Duplikat → löschen
+                                </button>
+                                <button
+                                  onClick={() => submitDuplicateDecision(d.id, false, notiz)}
+                                  disabled={decisionBusy || busyAction !== null}
+                                  className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                                  title="Ablehnen → Beleg zurück in Cascade-Queue, Tag wird neu evaluiert"
+                                >
+                                  <RefreshCw className="w-4 h-4" /> Nein, kein Duplikat → Re-Cascade
+                                </button>
+                                {decisionBusy && <span className="text-xs text-neutral-500 self-center">…läuft</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })()}
                     </>
                   );
                 })}
