@@ -1,0 +1,83 @@
+---
+export const prerender = false;
+
+import '../../styles/guideline.css';
+import { GUIDELINE_COOKIE, verifyGuidelineSessionToken } from '../../lib/guideline-auth';
+
+const token = Astro.cookies.get(GUIDELINE_COOKIE)?.value;
+if (verifyGuidelineSessionToken(token)) {
+	const redir = Astro.url.searchParams.get('redirect');
+	const safe =
+		redir &&
+		redir.startsWith('/') &&
+		!redir.startsWith('//') &&
+		redir.startsWith('/guideline')
+			? redir
+			: '/guideline/';
+	return Astro.redirect(safe, 302);
+}
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Anmelden · Guideline</title>
+	</head>
+	<body class="guideline-body">
+		<div class="guideline-login-panel">
+			<h1>Interne Guidelines</h1>
+			<p class="guideline-empty">Passwort erforderlich.</p>
+			<div class="guideline-msg--err" id="guideline-login-err" hidden></div>
+			<form id="guideline-login-form">
+				<div class="guideline-field">
+					<label for="guideline-pw">Passwort</label>
+					<input
+						id="guideline-pw"
+						name="password"
+						type="password"
+						autocomplete="current-password"
+						required
+					/>
+				</div>
+				<button type="submit" class="guideline-btn">Anmelden</button>
+			</form>
+		</div>
+		<script>
+			function safeRedirect(raw) {
+				if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/guideline/';
+				if (!raw.startsWith('/guideline')) return '/guideline/';
+				return raw;
+			}
+
+			document.getElementById('guideline-login-form')?.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const errEl = document.getElementById('guideline-login-err');
+				const fd = new FormData(/** @type {HTMLFormElement} */ (e.target));
+				const password = fd.get('password');
+				if (errEl) {
+					errEl.textContent = '';
+					errEl.setAttribute('hidden', '');
+				}
+				const r = await fetch('/api/guideline/login', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'same-origin',
+					body: JSON.stringify({ password }),
+				});
+				if (r.ok) {
+					const params = new URLSearchParams(window.location.search);
+					window.location.href = safeRedirect(params.get('redirect'));
+					return;
+				}
+				const j = await r.json().catch(() => ({}));
+				if (errEl) {
+					errEl.textContent = j.error || 'Anmeldung fehlgeschlagen.';
+					errEl.removeAttribute('hidden');
+				}
+			});
+		</script>
+	</body>
+</html>

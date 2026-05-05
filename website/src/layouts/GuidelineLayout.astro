@@ -1,0 +1,33 @@
+---
+import '../styles/guideline.css';
+
+interface Props {
+	title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>{title} · Guideline</title>
+	</head>
+	<body class="guideline-body">
+		<div class="guideline-shell">
+			<div class="guideline-topbar">
+				<a href="/guideline/" class="guideline-brand">Propus · Guideline</a>
+				<div class="guideline-actions">
+					<slot name="actions" />
+				</div>
+			</div>
+			<main>
+				<h1 class="guideline-h1">{title}</h1>
+				<slot />
+			</main>
+		</div>
+	</body>
+</html>

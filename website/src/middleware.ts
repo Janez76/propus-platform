@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { canonicalBase } from './config/seo';
 import { ADMIN_COOKIE, verifySessionToken } from './lib/cms/auth';
+import { GUIDELINE_COOKIE, verifyGuidelineSessionToken } from './lib/guideline-auth';
 import { loadSeoRouteMapCached } from './lib/seo';
 import { normalizeSeoPath } from './lib/seo-config';
 
@@ -34,6 +35,14 @@ function buildCsrfAllowedOrigins(): Set<string> {
   if (String(process.env.CSRF_ALLOW_LOCALHOST || '').toLowerCase() === 'true') {
     set.add('http://localhost:4343');
     set.add('http://127.0.0.1:4343');
+  }
+  /** Zusätzliche Origins für Guideline-Login POST (z. B. https://guideline.propus.ch). */
+  const guidelineOrigins = String(process.env.GUIDELINE_CSRF_ORIGINS || '').trim();
+  if (guidelineOrigins) {
+    for (const o of guidelineOrigins.split(',')) {
+      const trimmed = o.trim().replace(/\/$/, '');
+      if (trimmed) set.add(trimmed);
+    }
   }
   return set;
 }
@@ -78,9 +87,18 @@ function isAdminLoginApiPath(pathname: string): boolean {
 	return pathname === '/api/admin/login' || pathname === '/api/admin/login/';
 }
 
+function isGuidelineLoginPath(pathname: string): boolean {
+	return pathname === '/guideline/login' || pathname === '/guideline/login/';
+}
+
+function isGuidelineLoginApiPath(pathname: string): boolean {
+	return pathname === '/api/guideline/login' || pathname === '/api/guideline/login/';
+}
+
 function canRewriteSeoPath(pathname: string): boolean {
 	if (
 		pathname.startsWith('/admin') ||
+		pathname.startsWith('/guideline') ||
 		pathname.startsWith('/api') ||
 		pathname.startsWith('/_astro') ||
 		pathname.startsWith('/uploads')
@@ -135,6 +153,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		return context.redirect(legacyTarget, 301);
 	}
 
+	/* Dedicated Host für interne Guidelines → gleiche App, Pfad /guideline/ */
+	const hostLc = context.url.hostname.toLowerCase();
+	if (hostLc === 'guideline.propus.ch') {
+		const p = context.url.pathname;
+		if (p === '/' || p === '') {
+			return context.redirect('/guideline/', 302);
+		}
+	}
+
 	if (path.startsWith('/admin') && !isAdminLoginPath(path)) {
 		const token = context.cookies.get(ADMIN_COOKIE)?.value;
 		if (!verifySessionToken(token)) {
@@ -149,6 +176,27 @@ export const onRequest = defineMiddleware(async (context, next) => {
 				status: 401,
 				headers: { 'Content-Type': 'application/json; charset=utf-8' },
 			});
+		}
+	}
+
+	const needsGuidelineAuth =
+		(path.startsWith('/guideline') && !isGuidelineLoginPath(path)) ||
+		(path.startsWith('/api/guideline/') && !isGuidelineLoginApiPath(path));
+
+	if (needsGuidelineAuth) {
+		const gToken = context.cookies.get(GUIDELINE_COOKIE)?.value;
+		if (!verifyGuidelineSessionToken(gToken)) {
+			if (path.startsWith('/api/')) {
+				return new Response(JSON.stringify({ error: 'Nicht angemeldet.' }), {
+					status: 401,
+					headers: { 'Content-Type': 'application/json; charset=utf-8' },
+				});
+			}
+			const dest = path + (context.url.search || '');
+			return context.redirect(
+				`/guideline/login?redirect=${encodeURIComponent(dest)}`,
+				302,
+			);
 		}
 	}
 
@@ -192,6 +240,23 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		});
 	}
 
+	if (
+		path.startsWith('/guideline') ||
+		(path.startsWith('/api/guideline') && status >= 200 && status < 400)
+	) {
+		const headers = new Headers(response.headers);
+		headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+		headers.set('Pragma', 'no-cache');
+		if (path.startsWith('/guideline')) {
+			headers.set('X-Robots-Tag', 'noindex, nofollow');
+		}
+		return new Response(response.body, {
+			status,
+			statusText: response.statusText,
+			headers,
+		});
+	}
+
 	/* Hochgeladene Medien & Astro-Assets: lange Browser-Caches (UUID/Hash in URLs). */
 	if (status >= 200 && status < 400) {
 		if (path.startsWith('/uploads/') || path.startsWith('/_astro/')) {
@@ -212,6 +277,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 		status < 400 &&
 		ct.includes('text/html') &&
 		!path.startsWith('/admin') &&
+		!path.startsWith('/guideline') &&
 		!response.headers.get('Cache-Control')
 	) {
 		const headers = new Headers(response.headers);

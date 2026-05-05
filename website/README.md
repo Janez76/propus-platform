@@ -41,3 +41,28 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+
+---
+
+## Interne Guidelines (`/guideline`)
+
+Geschützter Bereich für Team-Anleitungen (Cookie-Session, kein öffentliches Indexieren).
+
+**Umgebungsvariabellen**
+
+| Variable | Beschreibung |
+|----------|----------------|
+| `GUIDELINE_SECRET` | HMAC-Secret für Session-Cookie (wie `PROPUS_ADMIN_SECRET`) |
+| `GUIDELINE_PASSWORD` | Ein gemeinsames Passwort für den Internbereich |
+| `GUIDELINE_CSRF_ORIGINS` | Optional, komma-separiert — zusätzliche Origins für Login-POST (z. B. `https://guideline.propus.ch`, wenn die Subdomain auf dieselbe App zeigt) |
+
+**Inhalt**
+
+- Markdown: [`src/content/guideline/`](src/content/guideline/) (Dateien `.md`, Frontmatter `title`, optional `order`, `category`).
+- Binärdateien (PDF, Office, …): unter [`private-guideline-assets/`](private-guideline-assets/) ablegen, Einträge in `manifest.json` (siehe [`private-guideline-assets/README.md`](private-guideline-assets/README.md)). Nicht unter `public/` — Downloads laufen nur mit Session über `/api/guideline/download`.
+
+**Quelle „Propus_Anleitungen“:** Markdown nach `src/content/guideline/` kopieren oder synchronisieren; Dateien nach `private-guideline-assets/files/` und Manifest pflegen.
+
+**Docker / VPS:** Das Runtime-Image kopiert `private-guideline-assets/` mit. In [`docker-compose.vps.yml`](../docker-compose.vps.yml) werden `WEBSITE_GUIDELINE_SECRET`, `WEBSITE_GUIDELINE_PASSWORD` und optional `WEBSITE_GUIDELINE_CSRF_ORIGINS` an den Website-Container durchgereicht (`GUIDELINE_*` im Container).
+
+**Hostname:** `guideline.propus.ch` kann auf dieselbe Website zeigen; Root `/` leitet intern nach `/guideline/`.

@@ -20,6 +20,7 @@
 10. [Frontend-Integration](#10-frontend-integration)
 11. [API-Key-Authentifizierung](#11-api-key-authentifizierung-bearer-token-ppk_live_)
 12. [Sicherheitshinweise](#12-sicherheitshinweise)
+13. [Website (Astro) — interner Guideline-Bereich](#13-website-astro--interner-guideline-bereich)
 
 ---
 
@@ -449,3 +450,19 @@ Eingehender Request mit Bearer ppk_live_<secret>
 | **Token-Key-Konstante** | `TOKEN_STORAGE_KEY = "admin_token_v2"` zentral in `authStore.ts` exportiert — kein Hard-Coding in einzelnen Dateien |
 | **Session-Bridge** | Bearer-Token nur für Kunden-Rollen (`customer_user`, `customer_admin`, `tour_manager`) akzeptiert — Admin-Tokens können kein Portal-Session hijacken |
 | **Rate-Limiting** | `authLimiter` (5 Versuche / 15 min pro IP, nur fehlgeschlagene Requests) auf `POST /auth/login` und `POST /api/admin/login`. `passwordResetLimiter` (3 / 60 min) auf Forgot-Password. Konfiguration: `booking/rate-limiters.js`, ENV-Overrides möglich. Details: [FLOWS_BOOKING.md §16](./FLOWS_BOOKING.md#16-rate-limiting--security-header) |
+
+---
+
+## 13. Website (Astro) — interner Guideline-Bereich
+
+Eigenständig vom **CMS-Backpanel** (`PROPUS_ADMIN_*`): geschützte Routen unter `/guideline` für interne Markdown-Anleitungen und Downloads.
+
+| Thema | Detail |
+|---|---|
+| **Cookie** | `propus_guideline` (HttpOnly, HMAC-signiert) |
+| **ENV (Container)** | `GUIDELINE_SECRET`, `GUIDELINE_PASSWORD`; optional `GUIDELINE_CSRF_ORIGINS` für zusätzliche öffentliche Origins (z. B. `https://guideline.propus.ch` bei Login-POST von der Subdomain) |
+| **VPS (.env.vps)** | `WEBSITE_GUIDELINE_SECRET`, `WEBSITE_GUIDELINE_PASSWORD`, optional `WEBSITE_GUIDELINE_CSRF_ORIGINS` → durch [`docker-compose.vps.yml`](../docker-compose.vps.yml) an den `website`-Service |
+| **Middleware** | [`website/src/middleware.ts`](../website/src/middleware.ts) — Zugriff nur mit gültiger Session; Ausnahmen `/guideline/login`, `POST /api/guideline/login`; Host `guideline.propus.ch`: Root `/` → `/guideline/` |
+| **Inhalt** | Markdown: `website/src/content/guideline/` · Binärdateien: `website/private-guideline-assets/` + `manifest.json`, Auslieferung nur über `GET /api/guideline/download` mit Session |
+
+Siehe auch [`website/README.md`](../website/README.md) (Abschnitt „Interne Guidelines“).

@@ -1,0 +1,44 @@
+---
+export const prerender = false;
+
+import { getEntry, render } from 'astro:content';
+import GuidelineLayout from '../../layouts/GuidelineLayout.astro';
+
+const slug = Astro.params.slug;
+if (!slug || typeof slug !== 'string') {
+	return Astro.redirect('/guideline/', 302);
+}
+
+const entry = await getEntry('guideline', slug);
+if (!entry) {
+	return new Response('Seite nicht gefunden.', {
+		status: 404,
+		headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+	});
+}
+
+const { Content } = await render(entry);
+---
+
+<GuidelineLayout title={entry.data.title}>
+	<a href="/guideline/" slot="actions" class="guideline-btn guideline-btn--ghost">Übersicht</a>
+	<button
+		slot="actions"
+		type="button"
+		class="guideline-btn guideline-btn--ghost"
+		id="guideline-logout">Abmelden</button>
+
+	<article class="guideline-prose">
+		<Content />
+	</article>
+
+	<script>
+		document.getElementById('guideline-logout')?.addEventListener('click', async () => {
+			await fetch('/api/guideline/logout', {
+				method: 'POST',
+				credentials: 'same-origin',
+			});
+			window.location.href = '/guideline/login';
+		});
+	</script>
+</GuidelineLayout>

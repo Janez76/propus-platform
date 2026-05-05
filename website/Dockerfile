@@ -24,6 +24,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=builder --chown=astro:nodejs /app/dist ./dist
 COPY --from=builder --chown=astro:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=astro:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=astro:nodejs /app/private-guideline-assets ./private-guideline-assets
 
 USER astro
 

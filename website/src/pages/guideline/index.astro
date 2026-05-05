@@ -1,0 +1,77 @@
+---
+export const prerender = false;
+
+import { getCollection } from 'astro:content';
+import GuidelineLayout from '../../layouts/GuidelineLayout.astro';
+import { loadGuidelineManifest } from '../../lib/guideline-private-files';
+
+const entries = await getCollection('guideline');
+entries.sort((a, b) => {
+	const ao = a.data.order ?? 999;
+	const bo = b.data.order ?? 999;
+	if (ao !== bo) return ao - bo;
+	return a.data.title.localeCompare(b.data.title, 'de');
+});
+
+const manifest = loadGuidelineManifest();
+---
+
+<GuidelineLayout title="Übersicht">
+	<button
+		slot="actions"
+		type="button"
+		class="guideline-btn guideline-btn--ghost"
+		id="guideline-logout">Abmelden</button>
+
+	<section>
+		<h2 class="guideline-section-title">Anleitungen (Markdown)</h2>
+		{
+			entries.length === 0 ? (
+				<p class="guideline-empty">Noch keine Markdown-Seiten.</p>
+			) : (
+				<ul class="guideline-list">
+					{entries.map((e) => (
+						<li>
+							<a href={`/guideline/${e.id}/`}>{e.data.title}</a>
+							{e.data.category && (
+								<span class="guideline-meta">· {e.data.category}</span>
+							)}
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</section>
+
+	<section>
+		<h2 class="guideline-section-title">Downloads</h2>
+		{
+			manifest.files.length === 0 ? (
+				<p class="guideline-empty">
+					Keine Dateien in <code>private-guideline-assets</code> registriert.
+				</p>
+			) : (
+				<ul class="guideline-list">
+					{manifest.files.map((f) => (
+						<li>
+							<a href={`/api/guideline/download?id=${encodeURIComponent(f.id)}`}>
+								{f.title}
+							</a>
+							<span class="guideline-meta">({f.id})</span>
+						</li>
+					))}
+				</ul>
+			)
+		}
+	</section>
+
+	<script>
+		document.getElementById('guideline-logout')?.addEventListener('click', async () => {
+			await fetch('/api/guideline/logout', {
+				method: 'POST',
+				credentials: 'same-origin',
+			});
+			window.location.href = '/guideline/login';
+		});
+	</script>
+</GuidelineLayout>
