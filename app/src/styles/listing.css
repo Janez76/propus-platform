@@ -658,6 +658,10 @@ h2 {
   min-height: min(100vh, 44rem);
   color: #fff;
   isolation: isolate;
+  /* Override fuer das Order-Handoff `.hero { padding: 28px 32px 24px }` aus
+     `handoff/order-styles.css`, das sonst auch die Listing-Seite verkleinert
+     und seitliche Luecken im Hero/Dock erzeugt. */
+  padding: 0;
 }
 
 .hero--welcome .hero__media {
