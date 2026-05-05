@@ -1,6 +1,9 @@
 ---
 import { ArrowRight } from "@lucide/astro";
 
+const turnstileSiteKey =
+  import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "0x4AAAAAADJkMXOEUkFHo5Ji";
+
 const projectTypes = [
   { value: "landingpage", label: "Landingpage" },
   { value: "website", label: "Website" },
@@ -44,8 +47,20 @@ const budgets = [
     </aside>
 
     <!-- Right: flat form -->
-    <form id="contact-form" class="contact__form u-animate" style="--delay: 100ms" novalidate>
+    <form
+      id="contact-form"
+      class="contact__form u-animate"
+      style="--delay: 100ms"
+      novalidate
+      action="/api/contact.php"
+      method="post"
+    >
       <div class="contact__fields">
+        <!-- Honeypot: bleibt für Menschen unsichtbar; Bots fuellen es aus → Server verwirft. -->
+        <div class="contact__honeypot" aria-hidden="true">
+          <label for="c-website">Website</label>
+          <input id="c-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
         <div class="contact__field">
           <label for="c-name">Name</label>
           <input id="c-name" name="name" type="text" required autocomplete="name" />
@@ -172,16 +187,43 @@ const budgets = [
         </div>
       </div>
 
+      <div
+        class="cf-turnstile contact__turnstile"
+        data-sitekey={turnstileSiteKey}
+        data-theme="dark"
+        data-action="contact"
+        data-size="invisible"
+        data-execution="execute"
+        data-callback="onCfTurnstileSuccess"
+        data-error-callback="onCfTurnstileError"
+        data-expired-callback="onCfTurnstileExpired"
+        data-timeout-callback="onCfTurnstileTimeout"
+      ></div>
+
+      <script
+        is:inline
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        async
+        defer></script>
+
       <div class="contact__submit">
         <p class="contact__consent">
           Mit Absenden akzeptieren Sie die
-          <a href="/datenschutz">Datenschutzerklärung</a>.
+          <a href="/datenschutz">Datenschutzerklärung</a>. Spam-Schutz durch Cloudflare Turnstile.
         </p>
-        <button type="submit" class="btn btn--primary btn--xl">
-          Anfrage senden
+        <button id="contact-submit" type="submit" class="btn btn--primary btn--xl">
+          <span class="contact__btn-label">Anfrage senden</span>
           <ArrowRight size={16} />
         </button>
       </div>
+
+      <div
+        id="contact-status"
+        class="contact__status"
+        role="status"
+        aria-live="polite"
+        hidden
+      ></div>
     </form>
   </div>
 </section>
@@ -189,12 +231,175 @@ const budgets = [
 <script is:inline>
   (() => {
     const form = document.getElementById("contact-form");
-    if (form) {
+    const status = document.getElementById("contact-status");
+    const submitBtn = document.getElementById("contact-submit");
+    const submitLabel = submitBtn ? submitBtn.querySelector(".contact__btn-label") : null;
+    const ORIGINAL_LABEL = submitLabel ? submitLabel.textContent : "Anfrage senden";
+
+    const setStatus = (kind, message) => {
+      if (!status) return;
+      status.hidden = false;
+      status.classList.remove("is-success", "is-error", "is-info");
+      status.classList.add(kind === "ok" ? "is-success" : kind === "err" ? "is-error" : "is-info");
+      status.textContent = message;
+    };
+
+    const setLabel = (text) => {
+      if (submitLabel) submitLabel.textContent = text;
+    };
+
+    const lockSubmit = (label) => {
+      if (!submitBtn) return;
+      submitBtn.disabled = true;
+      submitBtn.setAttribute("aria-busy", "true");
+      setLabel(label);
+    };
+
+    const unlockSubmit = () => {
+      if (!submitBtn) return;
+      submitBtn.disabled = false;
+      submitBtn.removeAttribute("aria-busy");
+      setLabel(ORIGINAL_LABEL);
+    };
+
+    const resetTurnstile = () => {
+      if (window.turnstile && typeof window.turnstile.reset === "function") {
+        try {
+          window.turnstile.reset();
+        } catch (_e) {
+          /* ignore */
+        }
+      }
+    };
+
+    const resetComboboxes = () => {
+      document.querySelectorAll("[data-combobox]").forEach((combo) => {
+        combo.classList.remove("has-value");
+        const valueEl = combo.querySelector("[data-combobox-value]");
+        if (valueEl) valueEl.textContent = "Bitte wählen";
+        combo.querySelectorAll(".combobox__option").forEach((o) =>
+          o.setAttribute("aria-selected", "false")
+        );
+        const input = combo.querySelector("[data-combobox-input]");
+        if (input) input.value = "";
+      });
+    };
+
+    let pendingSubmit = false;
+
+    const sendForm = async (token) => {
+      if (!form) return;
+      lockSubmit("Wird gesendet …");
+      setStatus("info", "Anfrage wird übermittelt …");
+
+      try {
+        const formData = new FormData(form);
+        formData.set("cf-turnstile-response", token);
+
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: formData,
+          headers: { Accept: "application/json" },
+        });
+
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (_e) {
+          payload = null;
+        }
+
+        if (response.ok && payload && payload.ok) {
+          setStatus(
+            "ok",
+            "Vielen Dank – Ihre Anfrage ist eingegangen. Wir melden uns werktags innert 24 Stunden."
+          );
+          form.reset();
+          resetComboboxes();
+        } else {
+          setStatus(
+            "err",
+            (payload && payload.error) ||
+              "Senden fehlgeschlagen – bitte später erneut versuchen oder direkt an codestudio@propus.ch schreiben."
+          );
+        }
+      } catch (_e) {
+        setStatus(
+          "err",
+          "Netzwerk-Fehler – bitte später erneut versuchen oder direkt an codestudio@propus.ch schreiben."
+        );
+      } finally {
+        resetTurnstile();
+        unlockSubmit();
+      }
+    };
+
+    window.onCfTurnstileSuccess = (token) => {
+      if (!pendingSubmit) return;
+      pendingSubmit = false;
+      sendForm(token || "");
+    };
+
+    window.onCfTurnstileError = (errCode) => {
+      if (!pendingSubmit) return;
+      pendingSubmit = false;
+      console.warn("turnstile error", errCode);
+      setStatus(
+        "err",
+        "Bot-Prüfung fehlgeschlagen – bitte erneut versuchen oder direkt an codestudio@propus.ch schreiben."
+      );
+      resetTurnstile();
+      unlockSubmit();
+    };
+
+    window.onCfTurnstileExpired = () => {
+      if (!pendingSubmit) return;
+      pendingSubmit = false;
+      setStatus("err", "Bot-Prüfung abgelaufen – bitte erneut absenden.");
+      resetTurnstile();
+      unlockSubmit();
+    };
+
+    window.onCfTurnstileTimeout = () => {
+      if (!pendingSubmit) return;
+      pendingSubmit = false;
+      setStatus(
+        "err",
+        "Bot-Prüfung dauerte zu lange – bitte Seite neu laden und erneut versuchen."
+      );
+      resetTurnstile();
+      unlockSubmit();
+    };
+
+    if (form && submitBtn) {
       form.addEventListener("submit", (event) => {
         event.preventDefault();
-        alert(
-          "Das Formular ist noch nicht aktiv.\nBitte senden Sie Ihre Anfrage an hallo@propus.ch – danke!"
-        );
+        if (submitBtn.disabled) return;
+        if (!form.reportValidity()) return;
+
+        if (!window.turnstile || typeof window.turnstile.execute !== "function") {
+          setStatus(
+            "err",
+            "Bot-Schutz konnte nicht geladen werden – bitte Seite neu laden und erneut versuchen."
+          );
+          return;
+        }
+
+        lockSubmit("Bot-Prüfung läuft …");
+        setStatus("info", "Bot-Prüfung läuft – bitte kurz warten …");
+        pendingSubmit = true;
+
+        try {
+          window.turnstile.execute();
+        } catch (e) {
+          pendingSubmit = false;
+          console.warn("turnstile.execute() threw", e);
+          setStatus(
+            "err",
+            "Bot-Schutz konnte nicht gestartet werden – bitte Seite neu laden."
+          );
+          unlockSubmit();
+        }
       });
     }
 
@@ -732,5 +937,60 @@ const budgets = [
 
   .contact__consent a:hover {
     text-decoration: underline;
+  }
+
+  /* Honeypot — visuell + a11y unsichtbar, aber im DOM vorhanden */
+  .contact__honeypot {
+    position: absolute;
+    left: -10000px;
+    top: auto;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  /* Submit-Status (Erfolg / Fehler / Info) */
+  .contact__status {
+    grid-column: 1 / -1;
+    margin-top: 0.25rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+
+  .contact__status.is-success {
+    border-color: color-mix(in oklab, var(--color-gold), transparent 60%);
+    background: color-mix(in oklab, var(--color-gold), transparent 92%);
+    color: var(--color-text);
+  }
+
+  .contact__status.is-error {
+    border-color: color-mix(in oklab, #c0392b, transparent 55%);
+    background: color-mix(in oklab, #c0392b, transparent 90%);
+    color: var(--color-text);
+  }
+
+  .contact__status.is-info {
+    color: var(--color-text-muted);
+  }
+
+  /* Submit disabled state */
+  #contact-submit[aria-busy="true"] {
+    cursor: progress;
+    opacity: 0.75;
+  }
+
+  /* Turnstile-Widget – invisible mode: kein eigener Platz im Layout.
+     Cloudflare zeigt bei Bedarf ein Modal-Overlay nach Klick auf Absenden. */
+  .contact__turnstile {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    overflow: hidden;
   }
 </style>
