@@ -70,10 +70,12 @@ router.get('/:slug', async (req, res) => {
 
     // Videos: aus videos_json — falls leer (Alt-Galerien vor Migration 058),
     // legacy video_url + video_source_type als ein Eintrag liefern.
-    let videosList = parseVideosJson(g.videos_json).map((item) => ({
-      ...item,
-      url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
-    }));
+    let videosList = parseVideosJson(g.videos_json)
+      .map((item) => ({
+        ...item,
+        url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
+      }))
+      .filter((item) => Boolean(String(item.url || '').trim()));
     if (videosList.length === 0) {
       const legacyVideoUrl = g.video_source_type === 'nas_local'
         ? `/api/listing/${encodeURIComponent(g.slug)}/video`

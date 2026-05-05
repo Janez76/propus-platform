@@ -132,7 +132,7 @@ export function FloorPlanPdfThumb({ remotePdfUrl, label, thumbUrl }: Props) {
           decoding="async"
           onError={() => {
             if (typeof console !== "undefined" && console.warn) {
-              console.warn("[FloorPlanPdfThumb] thumb img failed, falling back to canvas:", thumbUrl);
+              console.warn("[FloorPlanPdfThumb] thumb img failed, falling back to canvas");
             }
             setImgFailed(true);
           }}
