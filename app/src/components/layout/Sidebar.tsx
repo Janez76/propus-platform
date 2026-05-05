@@ -71,6 +71,9 @@ export function useNavBadge(key: NavBadgeKey | undefined): number | null {
     "tickets.openCount": 7,
     "invoices.openCount": 12,
     "invoices.overdueCount": 3,
+    "bookkeeper.vorgeschlagenCount": 0,
+    "bookkeeper.duplikatPruefenCount": 0,
+    "bookkeeper.fehlerCount": 0,
   };
   return demo[key] ?? null;
 }
