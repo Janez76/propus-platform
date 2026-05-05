@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { runAssistantTurn, type AssistantHistory } from "@/lib/assistant/claude";
 import { runAssistantTurnStreaming } from "@/lib/assistant/claude-stream";
 import { allHandlers, allTools } from "@/lib/assistant/tools";
-import { buildSystemPrompt } from "@/lib/assistant/system-prompt";
-import { selectFewShots } from "@/lib/assistant/few-shot-examples";
+import { buildSystemPromptAsync } from "@/lib/assistant/system-prompt-resolved";
+import { selectFewShotsAsync } from "@/lib/assistant/few-shot-loader";
 import {
   ensureConversation,
   insertAssistantMessage,
@@ -157,12 +157,12 @@ export async function POST(req: NextRequest) {
     });
     await insertAssistantMessage({ conversationId, role: "user", content: { text: userMessage } });
 
-    const [memories, now] = await Promise.all([
+    const [memories, fewShots, now] = await Promise.all([
       selectMemoriesForPrompt(user.id, userMessage, 40),
+      selectFewShotsAsync(userMessage),
       Promise.resolve(new Date()),
     ]);
-    const fewShots = selectFewShots(userMessage);
-    const systemPrompt = buildSystemPrompt({
+    const systemPrompt = await buildSystemPromptAsync({
       userName: user.name,
       userEmail: user.email,
       currentTime: now.toLocaleString("de-CH", { timeZone: "Europe/Zurich" }),

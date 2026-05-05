@@ -18,6 +18,9 @@ import {
   Settings,
   ShieldAlert,
   Smartphone,
+  Sparkles,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   UserRound,
   X,
@@ -31,6 +34,8 @@ import {
 } from "@/lib/assistant/assistant-model-mode";
 import { formatModelLabel } from "@/lib/assistant/model-router";
 import { VoiceButton } from "./VoiceButton";
+import { TrainingPanel } from "./TrainingPanel";
+import { LinkifiedText } from "./LinkifiedText";
 
 type DisplayMessage = {
   id: string;
@@ -114,6 +119,34 @@ function formatUsageChf(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+/**
+ * Slash-Commands: Tippst du `/auftrag Müller AG, Bahnhofstr. 1`, wird daraus
+ * vor dem Senden „Lege einen neuen Auftrag an: Müller AG, Bahnhofstr. 1." —
+ * der Assistant erkennt sein bekanntes Auftragsanlage-Muster und springt direkt rein.
+ */
+const SLASH_COMMANDS: Array<{ trigger: string; label: string; expand: (rest: string) => string }> = [
+  { trigger: "/auftrag", label: "Neuen Auftrag anlegen", expand: (r) => `Neuer Auftrag${r ? `: ${r}` : ""}.` },
+  { trigger: "/order", label: "New order (German reply)", expand: (r) => `Neuer Auftrag${r ? `: ${r}` : ""}.` },
+  { trigger: "/mail", label: "E-Mail vorbereiten", expand: (r) => `Schreib eine E-Mail${r ? ` ${r}` : ""}.` },
+  { trigger: "/rechnung", label: "Rechnungen suchen", expand: (r) => `Zeig offene Rechnungen${r ? ` von ${r}` : ""}.` },
+  { trigger: "/kunde", label: "Kunde suchen", expand: (r) => `Such Kunde ${r}` },
+  { trigger: "/tour", label: "Tour-Status", expand: (r) => `Wie ist der Status von Tour ${r}?` },
+  { trigger: "/heute", label: "Heutiger Plan", expand: () => "Was steht heute an?" },
+  { trigger: "/wetter", label: "Wetter-Vorschau", expand: (r) => `Wie wird das Wetter${r ? ` in ${r}` : ""}?` },
+  { trigger: "/route", label: "Route/Fahrzeit", expand: (r) => `Berechne die Route ${r}` },
+];
+
+function expandSlashCommand(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/")) return trimmed;
+  const spaceIdx = trimmed.indexOf(" ");
+  const head = spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
+  const rest = spaceIdx === -1 ? "" : trimmed.slice(spaceIdx + 1).trim();
+  const cmd = SLASH_COMMANDS.find((c) => c.trigger.toLowerCase() === head.toLowerCase());
+  if (!cmd) return trimmed;
+  return cmd.expand(rest);
 }
 
 const INPUT_LABELS: Record<string, string> = {
@@ -249,24 +282,9 @@ export function ConversationView() {
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
-  const [trainingFewShots, setTrainingFewShots] = useState<{ count: number; shots: Array<{ id: string; tags: string[] }> } | null>(null);
-  const [trainingFewShotsListOpen, setTrainingFewShotsListOpen] = useState(false);
-  const [trainingFewShotsLoading, setTrainingFewShotsLoading] = useState(false);
-  const [trainingEvalLoading, setTrainingEvalLoading] = useState(false);
-  const [trainingEvalSummaryText, setTrainingEvalSummaryText] = useState<string | null>(null);
-  const [trainingTuneLoading, setTrainingTuneLoading] = useState(false);
-  const [trainingTuneInfo, setTrainingTuneInfo] = useState<{
-    mdFilename: string;
-    markdownPreview: string;
-    previewTruncated: boolean;
-    markdownFull: string;
-    responseTruncatedAt100kb: boolean;
-  } | null>(null);
-  const [trainingSeedLoading, setTrainingSeedLoading] = useState<"dry" | "live" | null>(null);
-  const [trainingReplayLoading, setTrainingReplayLoading] = useState(false);
-  const [trainingReplayLimit, setTrainingReplayLimit] = useState(30);
-  const [trainingReplayMessage, setTrainingReplayMessage] = useState<string | null>(null);
-  const [trainingBanner, setTrainingBanner] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [trainerContext, setTrainerContext] = useState<string | null>(null);
+  const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
+  const [feedbackDoneById, setFeedbackDoneById] = useState<Record<string, "up" | "down" | null>>({});
   const [modelMode, setModelMode] = useState<AssistantModelMode>("auto");
   /** Last resolved Claude model label for header (streaming updates + last reply). */
   const [liveModelLabel, setLiveModelLabel] = useState<string | null>(null);
@@ -694,7 +712,7 @@ export function ConversationView() {
   }, [loadHistory, modelMode]);
 
   async function send(userText: string) {
-    const text = userText.trim();
+    const text = expandSlashCommand(userText.trim());
     if (!text || isLoading || pendingConfirmation) return;
     setError(null);
     setIsLoading(true);
@@ -801,194 +819,61 @@ export function ConversationView() {
     } catch { /* non-critical */ }
   }
 
-  function flashTrainingBanner(type: "ok" | "err", text: string) {
-    setTrainingBanner({ type, text });
-    window.setTimeout(() => setTrainingBanner((cur) => (cur && cur.text === text ? null : cur)), 6000);
-  }
-
-  async function loadTrainingFewShots() {
-    setTrainingFewShotsLoading(true);
-    try {
-      const res = await fetch("/api/assistant/training/few-shots", { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as {
-        count?: number;
-        shots?: Array<{ id: string; tags: string[] }>;
-        error?: string;
-      };
-      if (res.ok && typeof data.count === "number") {
-        setTrainingFewShots({ count: data.count, shots: data.shots || [] });
-        setTrainingFewShotsListOpen(true);
-      } else {
-        flashTrainingBanner("err", data.error || "Few-Shots konnten nicht geladen werden.");
+  const previousUserMessageBefore = useCallback(
+    (assistantMessageId: string): string | null => {
+      const idx = messages.findIndex((m) => m.id === assistantMessageId);
+      if (idx <= 0) return null;
+      for (let i = idx - 1; i >= 0; i -= 1) {
+        if (messages[i].role === "user") return messages[i].content;
       }
-    } catch (e) {
-      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setTrainingFewShotsLoading(false);
-    }
-  }
+      return null;
+    },
+    [messages],
+  );
 
-  async function runTrainingEval() {
-    setTrainingEvalLoading(true);
-    setTrainingEvalSummaryText(null);
-    try {
-      const res = await fetch("/api/assistant/training/eval", { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        summary?: {
-          passed: number;
-          total: number;
-          totalInputTokens: number;
-          totalOutputTokens: number;
-          failedCaseIds: string[];
-        };
-      };
-      if (res.ok && data.ok && data.summary) {
-        const s = data.summary;
-        const failed = s.failedCaseIds.length;
-        const totalTokens = s.totalInputTokens + s.totalOutputTokens;
-        setTrainingEvalSummaryText(
-          `${s.passed}/${s.total} bestanden · ${totalTokens.toLocaleString("de-CH")} Tokens${
-            failed ? ` · failed: ${s.failedCaseIds.join(", ")}` : ""
-          }`,
-        );
-        flashTrainingBanner(
-          failed ? "err" : "ok",
-          failed ? `${failed} Eval-Fall/Fälle fehlgeschlagen.` : "Alle Eval-Fälle bestanden.",
-        );
-      } else {
-        flashTrainingBanner("err", data.error || "Eval fehlgeschlagen.");
-      }
-    } catch (e) {
-      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setTrainingEvalLoading(false);
-    }
-  }
-
-  async function runTrainingTune() {
-    setTrainingTuneLoading(true);
-    setTrainingTuneInfo(null);
-    try {
-      const res = await fetch("/api/assistant/training/tune", { method: "POST" });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        mdFilename?: string;
-        markdownPreview?: string;
-        previewTruncated?: boolean;
-        markdownFull?: string;
-        responseTruncatedAt100kb?: boolean;
-        patchCount?: number;
-        failedCaseCount?: number;
-      };
-      if (res.ok && data.ok && data.mdFilename) {
-        setTrainingTuneInfo({
-          mdFilename: data.mdFilename,
-          markdownPreview: data.markdownPreview || "",
-          previewTruncated: Boolean(data.previewTruncated),
-          markdownFull: data.markdownFull || "",
-          responseTruncatedAt100kb: Boolean(data.responseTruncatedAt100kb),
+  const submitFeedback = useCallback(
+    async (assistantMessageId: string, thumb: "up" | "down") => {
+      const msg = messages.find((m) => m.id === assistantMessageId);
+      if (!msg) return;
+      const userMessage = previousUserMessageBefore(assistantMessageId) ?? "";
+      if (!userMessage) return;
+      setFeedbackBusyId(assistantMessageId);
+      try {
+        const res = await fetch("/api/assistant/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            thumb,
+            userMessage,
+            assistantResponse: msg.content,
+            conversationId: conversationIdRef.current,
+            messageId: msg.id,
+          }),
         });
-        flashTrainingBanner(
-          "ok",
-          `Tune-Report: ${data.patchCount ?? 0} Patch(es), ${data.failedCaseCount ?? 0} Fail(s).`,
-        );
-      } else {
-        flashTrainingBanner("err", data.error || "Tune fehlgeschlagen.");
-      }
-    } catch (e) {
-      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setTrainingTuneLoading(false);
-    }
-  }
-
-  function downloadTuneReport() {
-    if (!trainingTuneInfo) return;
-    const blob = new Blob([trainingTuneInfo.markdownFull], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = trainingTuneInfo.mdFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-
-  async function runTrainingSeed(dryRun: boolean) {
-    setTrainingSeedLoading(dryRun ? "dry" : "live");
-    try {
-      const res = await fetch("/api/assistant/training/seed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dryRun }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        created?: number;
-        skipped?: number;
-        total?: number;
-      };
-      if (res.ok && data.ok) {
-        flashTrainingBanner(
-          "ok",
-          `${dryRun ? "Dry-Run" : "Seed"}: ${data.created ?? 0} neu · ${data.skipped ?? 0} übersprungen · ${data.total ?? 0} gesamt.`,
-        );
-      } else {
-        flashTrainingBanner("err", data.error || "Seed fehlgeschlagen.");
-      }
-    } catch (e) {
-      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setTrainingSeedLoading(null);
-    }
-  }
-
-  async function runTrainingReplayHarvest() {
-    setTrainingReplayLoading(true);
-    setTrainingReplayMessage(null);
-    try {
-      const res = await fetch("/api/assistant/training/replay-harvest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: trainingReplayLimit }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        caseCount?: number;
-        download?: { filename: string; base64: string; byteLength: number } | null;
-        downloadOmittedReason?: string | null;
-      };
-      if (res.ok && data.ok) {
-        if (data.download?.base64) {
-          const link = document.createElement("a");
-          link.href = `data:application/json;base64,${data.download.base64}`;
-          link.download = data.download.filename;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          const msg = `${data.caseCount ?? 0} Fälle exportiert (${data.download.filename}).`;
-          setTrainingReplayMessage(msg);
-          flashTrainingBanner("ok", msg);
-        } else {
-          const msg = data.downloadOmittedReason || "Download nicht enthalten.";
-          setTrainingReplayMessage(msg);
-          flashTrainingBanner("err", msg);
+        if (res.ok) {
+          setFeedbackDoneById((prev) => ({ ...prev, [assistantMessageId]: thumb }));
         }
-      } else {
-        flashTrainingBanner("err", data.error || "Replay-Harvest fehlgeschlagen.");
+      } catch {
+        /* swallow — banner not critical */
+      } finally {
+        setFeedbackBusyId(null);
       }
-    } catch (e) {
-      flashTrainingBanner("err", e instanceof Error ? e.message : String(e));
-    } finally {
-      setTrainingReplayLoading(false);
-    }
-  }
+    },
+    [messages, previousUserMessageBefore],
+  );
+
+  const openTrainerFor = useCallback(
+    (assistantMessageId: string) => {
+      const msg = messages.find((m) => m.id === assistantMessageId);
+      if (!msg) return;
+      const userMessage = previousUserMessageBefore(assistantMessageId) ?? "(unbekannt)";
+      const ctx = `Frage des Users:\n${userMessage}\n\nAntwort des Assistenten:\n${msg.content}`;
+      setTrainerContext(ctx);
+      setTrainingOpen(true);
+      setShowSettings(true);
+    },
+    [messages, previousUserMessageBefore],
+  );
 
   const inputDisabled = isLoading || !!pendingConfirmation;
   const tokenPct = tokenUsage.limit > 0 ? (tokenUsage.total / tokenUsage.limit) * 100 : 0;
@@ -1241,7 +1126,13 @@ export function ConversationView() {
                   ))}
                 </div>
               ) : null}
-              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</div>
+              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                {message.role === "assistant" ? (
+                  <LinkifiedText text={message.content} />
+                ) : (
+                  message.content
+                )}
+              </div>
               {message.isStreaming ? (
                 <span className="mt-1 inline-block h-4 w-1 animate-pulse bg-[var(--accent)]" />
               ) : null}
@@ -1258,6 +1149,45 @@ export function ConversationView() {
                       {message.modelModeNotice}
                     </span>
                   ) : null}
+                </div>
+              ) : null}
+              {message.role === "assistant" && !message.isStreaming && message.content && isAdmin ? (
+                <div className="mt-2 flex items-center gap-1 border-t border-[var(--border-soft)] pt-2 opacity-70 transition group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => void submitFeedback(message.id, "up")}
+                    disabled={feedbackBusyId === message.id}
+                    title={feedbackDoneById[message.id] === "up" ? "Als gutes Beispiel gespeichert" : "Gute Antwort"}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
+                      feedbackDoneById[message.id] === "up"
+                        ? "bg-emerald-500/15 text-emerald-500"
+                        : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-emerald-500"
+                    }`}
+                  >
+                    <ThumbsUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void submitFeedback(message.id, "down")}
+                    disabled={feedbackBusyId === message.id}
+                    title={feedbackDoneById[message.id] === "down" ? "Als Negativbeispiel gespeichert" : "Schlechte Antwort"}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-md transition ${
+                      feedbackDoneById[message.id] === "down"
+                        ? "bg-red-500/15 text-red-500"
+                        : "text-[var(--text-subtle)] hover:bg-[var(--surface-raised)] hover:text-red-500"
+                    }`}
+                  >
+                    <ThumbsDown className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openTrainerFor(message.id)}
+                    title="Im Trainer-Chat besprechen"
+                    className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[10px] text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--accent)]"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    trainieren
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1408,19 +1338,6 @@ export function ConversationView() {
               </button>
             </div>
 
-            {trainingBanner ? (
-              <div
-                className={`mx-6 mt-4 rounded-lg border px-3 py-2 text-xs ${
-                  trainingBanner.type === "ok"
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-                    : "border-red-500/40 bg-red-500/10 text-red-200"
-                }`}
-                role="status"
-              >
-                {trainingBanner.text}
-              </div>
-            ) : null}
-
             <div className="space-y-4 overflow-y-auto px-6 py-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">Modell</label>
@@ -1506,178 +1423,11 @@ export function ConversationView() {
                   </button>
 
                   {trainingOpen ? (
-                    <div className="mt-3 space-y-4 text-sm">
-                      <p className="text-xs text-[var(--text-subtle)]">
-                        Eval, Tuner, Memory-Seeds, Replay-Harvest und Few-Shots — wie in <code className="rounded bg-[var(--surface-raised)] px-1">app/scripts/README-training.md</code>. Benötigt <code className="rounded bg-[var(--surface-raised)] px-1">ANTHROPIC_API_KEY</code> auf dem Server.
-                      </p>
-
-                      {/* Eval */}
-                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-medium text-[var(--text-main)]">Eval-Suite</div>
-                            <div className="text-[11px] text-[var(--text-subtle)]">Regression gegen gemockte Tools.</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
-                            onClick={() => void runTrainingEval()}
-                            disabled={trainingEvalLoading}
-                          >
-                            {trainingEvalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            Ausführen
-                          </button>
-                        </div>
-                        {trainingEvalSummaryText ? (
-                          <div className="mt-2 rounded bg-[var(--surface-raised)] px-2 py-1.5 text-[11px] text-[var(--text-main)]">
-                            {trainingEvalSummaryText}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {/* Tune */}
-                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-medium text-[var(--text-main)]">Auto-Tuner</div>
-                            <div className="text-[11px] text-[var(--text-subtle)]">Opus schlägt Prompt-Patches vor — überschreibt nichts.</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
-                            onClick={() => void runTrainingTune()}
-                            disabled={trainingTuneLoading}
-                          >
-                            {trainingTuneLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            Report erzeugen
-                          </button>
-                        </div>
-                        {trainingTuneInfo ? (
-                          <div className="mt-2 space-y-2">
-                            <div className="flex items-center justify-between text-[11px] text-[var(--text-subtle)]">
-                              <span className="truncate">{trainingTuneInfo.mdFilename}</span>
-                              <button
-                                type="button"
-                                className="rounded border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-main)] hover:bg-[var(--surface-raised)]"
-                                onClick={downloadTuneReport}
-                              >
-                                .md herunterladen
-                              </button>
-                            </div>
-                            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-[var(--surface-raised)] p-2 text-[11px] text-[var(--text-main)]">
-                              {trainingTuneInfo.markdownPreview}
-                              {trainingTuneInfo.previewTruncated ? "\n…(Vorschau gekürzt)" : ""}
-                            </pre>
-                            {trainingTuneInfo.responseTruncatedAt100kb ? (
-                              <p className="text-[11px] text-yellow-500">Response &gt; 100 KB — vollständige Datei lokal in <code>app/scripts/</code>.</p>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {/* Memory Seed */}
-                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
-                        <div className="text-sm font-medium text-[var(--text-main)]">Memory-Seed</div>
-                        <div className="text-[11px] text-[var(--text-subtle)]">
-                          Idempotent aus <code className="rounded bg-[var(--surface-raised)] px-1">scripts/seed-memories.yaml</code> — gleiche bodys werden übersprungen. Ziel: dein Account.
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
-                            onClick={() => void runTrainingSeed(true)}
-                            disabled={trainingSeedLoading !== null}
-                          >
-                            {trainingSeedLoading === "dry" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            Dry-Run
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
-                            onClick={() => void runTrainingSeed(false)}
-                            disabled={trainingSeedLoading !== null}
-                          >
-                            {trainingSeedLoading === "live" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            Seed schreiben
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Replay Harvest */}
-                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
-                        <div className="text-sm font-medium text-[var(--text-main)]">Replay-Harvest</div>
-                        <div className="text-[11px] text-[var(--text-subtle)]">
-                          Eigene Konversationen als <code>replay-cases.json</code> exportieren.
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-end gap-2">
-                          <label className="flex flex-col gap-1 text-[11px] text-[var(--text-subtle)]">
-                            Limit
-                            <input
-                              type="number"
-                              min={1}
-                              max={500}
-                              step={10}
-                              value={trainingReplayLimit}
-                              onChange={(e) => setTrainingReplayLimit(Math.max(1, Number(e.target.value) || 1))}
-                              className="w-24 rounded-md border border-[var(--border-soft)] bg-[var(--surface)] px-2 py-1 text-xs text-[var(--text-main)]"
-                              disabled={trainingReplayLoading}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-[var(--gold-on-gold)] disabled:opacity-50"
-                            onClick={() => void runTrainingReplayHarvest()}
-                            disabled={trainingReplayLoading}
-                          >
-                            {trainingReplayLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            Export &amp; Download
-                          </button>
-                        </div>
-                        {trainingReplayMessage ? (
-                          <div className="mt-2 text-[11px] text-[var(--text-subtle)]">{trainingReplayMessage}</div>
-                        ) : null}
-                      </div>
-
-                      {/* Few-Shots */}
-                      <div className="rounded-lg border border-[var(--border-soft)] p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <div className="text-sm font-medium text-[var(--text-main)]">Few-Shots</div>
-                            <div className="text-[11px] text-[var(--text-subtle)]">Aktuell hinterlegte Beispiele.</div>
-                          </div>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs text-[var(--text-main)] hover:bg-[var(--surface-raised)] disabled:opacity-50"
-                            onClick={() => void loadTrainingFewShots()}
-                            disabled={trainingFewShotsLoading}
-                          >
-                            {trainingFewShotsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                            {trainingFewShots ? "Neu laden" : "Laden"}
-                          </button>
-                        </div>
-                        {trainingFewShots ? (
-                          <div className="mt-2">
-                            <button
-                              type="button"
-                              className="flex w-full items-center justify-between text-[11px] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
-                              onClick={() => setTrainingFewShotsListOpen((v) => !v)}
-                            >
-                              <span>{trainingFewShots.count} Beispiele</span>
-                              <ChevronDown className={`h-3.5 w-3.5 transition ${trainingFewShotsListOpen ? "rotate-180" : ""}`} />
-                            </button>
-                            {trainingFewShotsListOpen ? (
-                              <ul className="mt-2 max-h-40 space-y-1 overflow-auto rounded bg-[var(--surface-raised)] p-2 text-[11px]">
-                                {trainingFewShots.shots.map((s) => (
-                                  <li key={s.id} className="flex items-start gap-2">
-                                    <span className="font-mono text-[var(--text-main)]">{s.id}</span>
-                                    <span className="text-[var(--text-subtle)]">{s.tags.join(", ")}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
+                    <div className="mt-3">
+                      <TrainingPanel
+                        initialContext={trainerContext}
+                        onContextConsumed={() => setTrainerContext(null)}
+                      />
                     </div>
                   ) : null}
                 </div>
