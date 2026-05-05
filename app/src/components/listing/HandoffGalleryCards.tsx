@@ -92,6 +92,10 @@ export function HandoffGalleryCards({
             <div
               className="gal-cover relative"
               style={{
+                aspectRatio: "16 / 10",
+                flexShrink: 0,
+                width: "100%",
+                overflow: "hidden",
                 backgroundImage:
                   "linear-gradient(160deg, var(--gold-50) 0%, var(--paper-strip) 50%, var(--card) 100%)",
               }}
