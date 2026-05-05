@@ -436,6 +436,7 @@ Alle NAS-Skripte und Anleitungen liegen in `Z:\NAS Ugreen\`:
 - Upload-/Material-Benachrichtigungen per Mail: gewünscht ist ein direkter Link nach Nextcloud (`https://cloud.propus.ch`) in den jeweiligen Upload-/Zielordner (nicht nur interne Pfadangaben).
 - Touren-Bereinigungs- und ähnliche Workflow-/Automationen: bei **inaktivem** Toggle sollen keine Folgeaktionen laufen (z. B. keine Benachrichtigungs-Mails).
 - Website-Popups (z. B. Newsletter): lieber **einmalig** pro Besucher statt bei jedem Aufruf; **ohne Cookies** ist dafür oft **`localStorage`** oder **`sessionStorage`** (einmal pro Gerät bzw. pro Browser-Session) die pragmatische Alternative.
+- **Auto-Deploy**: nach **jeder** Aenderung sofort mergen + deployen (PR squash-mergen, dann via GitHub-Workflow `Deploy VPS And Booking Smoke` auf den VPS rollen). Nicht auf CodeRabbit/CI warten, ausser der User stoppt explizit.
 
 ## Microsoft Graph App-Registrierungen
 
