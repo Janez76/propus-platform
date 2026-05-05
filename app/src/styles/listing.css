@@ -664,6 +664,16 @@ h2 {
   padding: 0;
 }
 
+/* order-styles.css wird nach listing.css importiert und hat eine generische
+   `.hero { padding: 28px 32px 24px }`-Regel mit gleicher Spezifitaet, die unser
+   `.hero { padding: 0 }` ueberschreibt. Daher zusaetzlich mit hoeherer
+   Spezifitaet (zwei Klassen) — Listing nutzt immer `.hero--welcome` oder
+   `.hero--cinematic`. */
+.hero.hero--welcome,
+.hero.hero--cinematic {
+  padding: 0;
+}
+
 .hero--welcome .hero__media {
   position: absolute;
   inset: 0;
