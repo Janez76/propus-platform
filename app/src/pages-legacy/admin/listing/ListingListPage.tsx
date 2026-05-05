@@ -266,59 +266,80 @@ export function ListingListPage() {
   return (
     <>
       <div className="padmin-shell admin-content gal-admin-listings-page">
-        <header className="pad-page-header">
-          <div className="pad-ph-top">
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="pad-eyebrow">Listing · Backpanel</div>
-              <h1 className="pad-h1">Listings</h1>
-              <div className="pad-ph-sub">
-                Hier pflegen Sie alle Listings: Fotos und Unterlagen bündeln, für Kunden freigeben und Versand sowie
-                Rückmeldungen im Griff behalten.
-              </div>
+        <header
+          className="pad-page-header"
+          style={{ paddingBottom: 12 }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <h1 className="pad-h1" style={{ margin: 0 }}>
+                Listings
+              </h1>
+              {rows.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    marginTop: 6,
+                    fontSize: 13,
+                    color: "var(--fg-2)",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span>
+                    <strong style={{ color: "var(--ink)" }}>{kpiCounts.total}</strong> gesamt
+                  </span>
+                  <span aria-hidden style={{ color: "var(--fg-3)" }}>
+                    ·
+                  </span>
+                  <span>
+                    <strong style={{ color: "var(--ink)" }}>{kpiCounts.active}</strong> aktiv
+                  </span>
+                  {kpiCounts.deliveryOpen > 0 ? (
+                    <>
+                      <span aria-hidden style={{ color: "var(--fg-3)" }}>
+                        ·
+                      </span>
+                      <span style={{ color: "var(--warn, #a16207)" }}>
+                        <strong>{kpiCounts.deliveryOpen}</strong> Lieferung offen
+                      </span>
+                    </>
+                  ) : null}
+                  {kpiCounts.deliverySent > 0 ? (
+                    <>
+                      <span aria-hidden style={{ color: "var(--fg-3)" }}>
+                        ·
+                      </span>
+                      <span>
+                        <strong style={{ color: "var(--ink)" }}>{kpiCounts.deliverySent}</strong> versandt
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
-          {rows.length > 0 ? (
-            <div className="pad-kpis">
-              <div className="pad-kpi">
-                <div className="pad-kpi-label">Aktive Listings</div>
-                <div className="pad-kpi-value">{kpiCounts.active}</div>
-              </div>
-              <div className="pad-kpi is-gold">
-                <div className="pad-kpi-label">Listings gesamt</div>
-                <div className="pad-kpi-value is-gold">{kpiCounts.total}</div>
-              </div>
-              <div className={`pad-kpi${kpiCounts.deliveryOpen > 0 ? " is-warn" : ""}`}>
-                <div className="pad-kpi-label">Lieferung offen</div>
-                <div className="pad-kpi-value">{kpiCounts.deliveryOpen}</div>
-              </div>
-              <div className="pad-kpi">
-                <div className="pad-kpi-label">Lieferung versandt</div>
-                <div className="pad-kpi-value">{kpiCounts.deliverySent}</div>
-                {kpiCounts.inactive > 0 && (
-                  <div className="pad-kpi-trend">{kpiCounts.inactive} inaktiv</div>
-                )}
-              </div>
-            </div>
-          ) : null}
         </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
 
         <div className="gal-admin-listings-shell">
-          <div className="gal-admin-listings-shell__head">
-            <div className="gal-admin-listings-shell__titles" style={{ display: "none" }}>
-              <p className="admin-section-title admin-section-title--accent">Backpanel</p>
-              <h1 className="gal-admin-listings-shell__h1">Listings</h1>
-              <p className="admin-lead">
-                Hier pflegen Sie alle Listings: Fotos und Unterlagen bündeln, für Kunden freigeben und Versand sowie
-                Rückmeldungen im Griff behalten.
-              </p>
-            </div>
-            <Link to={pathListingAdmin("new")} className="admin-btn admin-btn--outline gal-admin-btn-new-listing">
-              + Neues Listing Erstellen
-            </Link>
-          </div>
-
         <div className="gal-admin-listings-toolbar">
+          <Link
+            to={pathListingAdmin("new")}
+            className="admin-btn admin-btn--outline gal-admin-btn-new-listing"
+            style={{ flexShrink: 0 }}
+          >
+            + Neues Listing
+          </Link>
           <div className="gal-admin-listings-search-wrap">
             <label htmlFor="gal-listings-search" className="gal-admin-visually-hidden">
               Suche
