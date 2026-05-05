@@ -195,6 +195,14 @@ export function adminGalleryFloorPlanUrl(galleryId: string, index: number) {
   return `${BASE}/${galleryId}/floorplans/${index}/file`;
 }
 
+export function adminGalleryFloorPlanThumbUrl(
+  galleryId: string,
+  index: number,
+  width: 200 | 400 | 600 | 1200 = 600,
+) {
+  return `${BASE}/${galleryId}/floorplans/${index}/thumb?w=${width}`;
+}
+
 export type AdminFloorPlanItem = {
   title: string;
   url: string | null;
