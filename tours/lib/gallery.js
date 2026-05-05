@@ -594,7 +594,8 @@ async function listGalleries({ search, filter, sort } = {}) {
   const sql = `
     SELECT g.*,
       COALESCE(ic.cnt, 0)::int AS image_count,
-      COALESCE(fc.cnt, 0)::int AS feedback_count
+      COALESCE(fc.cnt, 0)::int AS feedback_count,
+      ci.id AS cover_image_id
     FROM tour_manager.galleries g
     LEFT JOIN (
       SELECT gallery_id,
@@ -623,6 +624,13 @@ async function listGalleries({ search, filter, sort } = {}) {
       WHERE resolved_at IS NULL AND author = 'client'
       GROUP BY gallery_id
     ) fc ON fc.gallery_id = g.id
+    LEFT JOIN LATERAL (
+      SELECT id
+      FROM tour_manager.gallery_images
+      WHERE gallery_id = g.id AND enabled = TRUE
+      ORDER BY sort_order ASC, created_at ASC
+      LIMIT 1
+    ) ci ON TRUE
     ${where}
     ${orderBy}
   `;

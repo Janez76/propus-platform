@@ -105,4 +105,5 @@ export type PublicGalleryPayload = {
 export type GalleryListRow = ClientGalleryRow & {
   image_count: number;
   feedback_count: number;
+  cover_image_id?: string | null;
 };
