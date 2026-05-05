@@ -1120,7 +1120,7 @@ export function ListingEditorPage() {
     setErr(null);
     (async () => {
       try {
-        const { gallery } = await createGallery();
+        const { gallery } = await createGallery({ status: "active" });
         if (cancelled) return;
         navigate(pathListingAdmin(gallery.id), { replace: true });
       } catch (e) {
