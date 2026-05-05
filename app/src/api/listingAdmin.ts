@@ -116,7 +116,7 @@ export function reorderImages(galleryId: string, orderedIds: string[]) {
 }
 
 export function importImagesFromShare(galleryId: string, urls: Array<{ url: string }>) {
-  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; hasVideo: boolean }>(`/${galleryId}/import-share`, {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; videos?: number; hasVideo: boolean }>(`/${galleryId}/import-share`, {
     method: "POST",
     body: JSON.stringify({ urls }),
   });
@@ -172,7 +172,7 @@ export function importGalleryFromNas(
     storageSourceType: "order_folder" | "nas_browser";
   },
 ) {
-  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; hasVideo: boolean }>(`/${galleryId}/import-nas`, {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; videos?: number; hasVideo: boolean }>(`/${galleryId}/import-nas`, {
     method: "POST",
     body: JSON.stringify(body),
   });

@@ -68,6 +68,21 @@ router.get('/:slug', async (req, res) => {
 
     const hasDownload = ['order_folder', 'nas_browser'].includes(String(g.storage_source_type || ''));
 
+    // Videos: aus videos_json — falls leer (Alt-Galerien vor Migration 058),
+    // legacy video_url + video_source_type als ein Eintrag liefern.
+    let videosList = parseVideosJson(g.videos_json).map((item) => ({
+      ...item,
+      url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
+    }));
+    if (videosList.length === 0) {
+      const legacyVideoUrl = g.video_source_type === 'nas_local'
+        ? `/api/listing/${encodeURIComponent(g.slug)}/video`
+        : (g.video_url || '').trim();
+      if (legacyVideoUrl) {
+        videosList = [{ url: legacyVideoUrl, title: 'Video' }];
+      }
+    }
+
     res.json({
       ok: true,
       id: g.id,
@@ -83,10 +98,7 @@ router.get('/:slug', async (req, res) => {
       video_url: g.video_source_type === 'nas_local'
         ? `/api/listing/${encodeURIComponent(g.slug)}/video`
         : (g.video_url || '').trim(),
-      videos: parseVideosJson(g.videos_json).map((item) => ({
-        ...item,
-        url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),
-      })),
+      videos: videosList,
       floor_plans: parseFloorPlansJson(g.floor_plans_json).map((item) => ({
         ...item,
         url: item.url.replace('__SLUG__', encodeURIComponent(g.slug)),

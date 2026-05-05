@@ -1109,7 +1109,8 @@ export function ListingEditorPage() {
         });
         const parts = [`${result.added} Bild(er)`];
         if (result.floorPlans > 0) parts.push(`${result.floorPlans} Grundriss(e)`);
-        if (result.hasVideo) parts.push("1 Video");
+        const videoCount = result.videos ?? (result.hasVideo ? 1 : 0);
+        if (videoCount > 0) parts.push(`${videoCount} Video${videoCount === 1 ? "" : "s"}`);
         setNasMsg(`NAS-Import erfolgreich: ${parts.join(", ")}.`);
         // Nur Bilder/Medien neu laden, Stammdaten-Formularfelder nicht überschreiben
         const { gallery: row, images: ims, feedback: fb } = await getGallery(id);
@@ -1185,7 +1186,8 @@ export function ListingEditorPage() {
           const res = await importImagesFromShare(id, [{ url: nextCloud }]);
           const parts = [`${res.added} Bild(er)`];
           if (res.floorPlans > 0) parts.push(`${res.floorPlans} Grundriss(e)`);
-          if (res.hasVideo) parts.push("1 Video");
+          const videoCount = res.videos ?? (res.hasVideo ? 1 : 0);
+          if (videoCount > 0) parts.push(`${videoCount} Video${videoCount === 1 ? "" : "s"}`);
           msg = `Gespeichert. ${parts.join(", ")} importiert.`;
         } catch {
           msg = "Gespeichert. Freigabe konnte nicht eingelesen werden.";
