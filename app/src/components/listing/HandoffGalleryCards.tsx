@@ -83,15 +83,19 @@ export function HandoffGalleryCards({
           >
             <div
               className="gal-cover relative"
-              style={
-                coverSrc
-                  ? undefined
-                  : {
-                      backgroundImage:
-                        "linear-gradient(160deg, var(--gold-50) 0%, var(--paper-strip) 50%, var(--card) 100%)",
-                    }
-              }
+              style={{
+                backgroundImage:
+                  "linear-gradient(160deg, var(--gold-50) 0%, var(--paper-strip) 50%, var(--card) 100%)",
+              }}
             >
+              <div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                aria-hidden
+              >
+                <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[var(--border)] bg-white/90 text-[var(--gold-600)] shadow-sm">
+                  <ImageIcon className="h-7 w-7 opacity-80" />
+                </div>
+              </div>
               {coverSrc ? (
                 <img
                   src={coverSrc}
@@ -102,16 +106,7 @@ export function HandoffGalleryCards({
                     (e.currentTarget as HTMLImageElement).style.display = "none";
                   }}
                 />
-              ) : (
-                <div
-                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                  aria-hidden
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-[var(--border)] bg-white/90 text-[var(--gold-600)] shadow-sm">
-                    <ImageIcon className="h-7 w-7 opacity-80" />
-                  </div>
-                </div>
-              )}
+              ) : null}
 
               {selectionEnabled ? (
                 <label
@@ -238,6 +233,7 @@ export function HandoffGalleryCards({
                 type="button"
                 className="icon-btn"
                 title={copyFlashId === g.id ? "Kopiert" : "Link kopieren"}
+                aria-label={copyFlashId === g.id ? "Link kopiert" : "Link kopieren"}
                 onClick={() => onCopyLink(g)}
               >
                 <i
@@ -256,6 +252,7 @@ export function HandoffGalleryCards({
                 type="button"
                 className="icon-btn text-red-600"
                 title="Löschen"
+                aria-label="Listing löschen"
                 disabled={busyId === g.id}
                 onClick={() => onDelete(g)}
               >
