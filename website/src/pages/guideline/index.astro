@@ -47,9 +47,19 @@ const manifest = loadGuidelineManifest();
 		<h2 class="guideline-section-title">Downloads</h2>
 		{
 			manifest.files.length === 0 ? (
-				<p class="guideline-empty">
-					Keine Dateien in <code>private-guideline-assets</code> registriert.
-				</p>
+				<div class="guideline-empty guideline-empty--block">
+					<p>
+						Noch keine Downloads — das ist normal, bis Dateien eingetragen sind.
+					</p>
+					<p class="guideline-empty--hint">
+						<strong>PDF / Office / ZIP:</strong> Auf dem Server im Ordner{' '}
+						<code>private-guideline-assets/files/</code> ablegen und in{' '}
+						<code>manifest.json</code> eintragen (
+						<code>id</code>, <code>path</code>, <code>title</code>). Vorlage:{' '}
+						<code>website/private-guideline-assets/README.md</code> im Repo — nach
+						Deploy und Container-Neustart wirksam.
+					</p>
+				</div>
 			) : (
 				<ul class="guideline-list">
 					{manifest.files.map((f) => (

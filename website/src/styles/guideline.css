@@ -234,3 +234,22 @@
 	color: var(--gl-muted);
 	font-size: 0.9375rem;
 }
+
+.guideline-empty--block {
+	max-width: 40rem;
+}
+
+.guideline-empty--block > p:first-child {
+	margin-top: 0;
+}
+
+.guideline-empty--hint {
+	margin-top: 0.75rem;
+	font-size: 0.875rem;
+	line-height: 1.55;
+}
+
+.guideline-empty--hint strong {
+	color: var(--gl-text);
+	font-weight: 600;
+}
