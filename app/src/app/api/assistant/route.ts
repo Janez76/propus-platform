@@ -15,6 +15,8 @@ import {
   writeAudit,
 } from "@/lib/assistant/store";
 import { createMemory, selectMemoriesForPrompt } from "@/lib/assistant/memory-store";
+import { detectAndRecordImplicit } from "@/lib/assistant/implicit-detector";
+import { getSelfLearningSettings } from "@/lib/assistant/self-learning-store";
 import { resolveAssistantUser } from "@/lib/assistant/auth";
 import { isAssistantDailyLimitExempt } from "@/lib/assistant/access-env";
 import { getAssistantSettings } from "@/lib/assistant/settings";
@@ -244,6 +246,45 @@ export async function POST(req: NextRequest) {
             });
           }
         }
+
+        // Self-Learning: passive Signal-Erfassung post-stream
+        try {
+          const sl = await getSelfLearningSettings();
+          if (sl.implicitFeedbackEnabled) {
+            const priorAssistant = (history as Array<{ role: string; content: unknown }>)
+              .filter((m) => m.role === "assistant")
+              .pop();
+            const priorAssistantText = priorAssistant && Array.isArray(priorAssistant.content)
+              ? (priorAssistant.content as Array<{ type: string; text?: string }>)
+                  .filter((b) => b.type === "text")
+                  .map((b) => b.text || "")
+                  .join("\n")
+                  .trim()
+              : null;
+            await detectAndRecordImplicit({
+              userId: user.id,
+              conversationId,
+              userMessageId: null,
+              assistantMessageId,
+              currentUserMessage: userMessage,
+              previousAssistantText: priorAssistantText,
+              currentToolCalls: meta.toolCallsExecuted.map((c) => ({ name: c.name, error: c.error })),
+              recentHistory: (history as Array<{ role: string; content: unknown }>)
+                .slice(-6)
+                .map((m) => ({
+                  role: (m.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+                  content: Array.isArray(m.content)
+                    ? (m.content as Array<{ type: string; text?: string }>)
+                        .filter((b) => b.type === "text")
+                        .map((b) => b.text || "")
+                        .join("\n")
+                    : String(m.content ?? ""),
+                })),
+            });
+          }
+        } catch (err) {
+          console.warn("[assistant-stream] implicit-signal write failed:", err);
+        }
       }).catch((err) => {
         console.error("[assistant-stream] post-stream persistence error:", err);
       });
@@ -298,6 +339,45 @@ export async function POST(req: NextRequest) {
           userAgent,
         });
       }
+    }
+
+    // Self-Learning: passive Signal-Erfassung
+    try {
+      const sl = await getSelfLearningSettings();
+      if (sl.implicitFeedbackEnabled) {
+        const priorAssistant = (history as Array<{ role: string; content: unknown }>)
+          .filter((m) => m.role === "assistant")
+          .pop();
+        const priorAssistantText = priorAssistant && Array.isArray(priorAssistant.content)
+          ? (priorAssistant.content as Array<{ type: string; text?: string }>)
+              .filter((b) => b.type === "text")
+              .map((b) => b.text || "")
+              .join("\n")
+              .trim()
+          : null;
+        await detectAndRecordImplicit({
+          userId: user.id,
+          conversationId,
+          userMessageId: null,
+          assistantMessageId,
+          currentUserMessage: userMessage,
+          previousAssistantText: priorAssistantText,
+          currentToolCalls: result.toolCallsExecuted.map((c) => ({ name: c.name, error: c.error })),
+          recentHistory: (history as Array<{ role: string; content: unknown }>)
+            .slice(-6)
+            .map((m) => ({
+              role: (m.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+              content: Array.isArray(m.content)
+                ? (m.content as Array<{ type: string; text?: string }>)
+                    .filter((b) => b.type === "text")
+                    .map((b) => b.text || "")
+                    .join("\n")
+                : String(m.content ?? ""),
+            })),
+        });
+      }
+    } catch (err) {
+      console.warn("[assistant] implicit-signal write failed:", err);
     }
 
     const memorySaved = result.toolCallsExecuted.some(
