@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Box, Camera, ExternalLink, FolderOpen, Receipt } from "lucide-react";
+import { Box, Camera, ExternalLink, FolderOpen, Receipt, Lock, Link2, Globe, KeyRound, Tag } from "lucide-react";
 import { Section, Empty, KpiGrid, Kpi, formatCHF, formatTS } from "../_shared";
 import { galleryDisplayHostPath, galleryUrl, matterportShowUrl } from "./_links";
 import { CopyLinkButton } from "./copy-link-button";
 import { MatterportSpacesList } from "./matterport-spaces-list";
+import { MatterportVisibilityForm } from "./matterport-visibility-form";
 import {
   displayGallerySlug,
   type VerknuepfungenData,
@@ -264,6 +265,61 @@ export function VerknuepfungenView({
           </div>
         )}
       </Section>
+
+      {tour && (
+        <Section title="Objektbezeichnung" icon={<Tag className="h-4 w-4" />}>
+          <form
+            action={mutateAction}
+            method="post"
+            className="space-y-3"
+          >
+            <input type="hidden" name="_action" value="set-object-label" />
+            <p className="text-sm text-[var(--ink-2)]">
+              Anzeigename der Immobilie in Propus (Listen, Tour-Detail, E-Mails). Beim Speichern
+              wird der Name zusätzlich ins verknüpfte Matterport-Modell übernommen (sofern
+              technisch möglich).
+            </p>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+              Bezeichnung
+              <input
+                type="text"
+                name="object_label"
+                defaultValue={tour.bezeichnung ?? tour.object_label ?? ""}
+                maxLength={200}
+                placeholder="z. B. Aspstrasse 12, 5608 Stetten"
+                className="mt-1 w-full max-w-xl rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-2 py-1.5 text-sm focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-[var(--ink-2)]">
+              <input
+                type="checkbox"
+                name="sync_matterport"
+                value="1"
+                defaultChecked={Boolean(tour.matterport_space_id)}
+                disabled={!tour.matterport_space_id}
+                className="h-4 w-4 accent-[var(--gold-600)]"
+              />
+              Auch in Matterport-Modell übernehmen
+              {!tour.matterport_space_id && (
+                <span className="text-xs text-[var(--ink-3)]">(Space-ID fehlt)</span>
+              )}
+            </label>
+            <button type="submit" className="bd-btn-outline-gold">
+              Speichern
+            </button>
+          </form>
+        </Section>
+      )}
+
+      {tour && tour.matterport_space_id && (
+        <Section title="Matterport-Sichtbarkeit" icon={<Lock className="h-4 w-4" />}>
+          <MatterportVisibilityForm
+            mutateAction={mutateAction}
+            current={tour.visibility}
+            errorHint={tour.visibilityError}
+          />
+        </Section>
+      )}
 
       <Section title="Kunden-Galerie" icon={<Camera className="h-4 w-4" />}>
         {gallery && gSlug ? (

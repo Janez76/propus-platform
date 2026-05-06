@@ -1,5 +1,6 @@
 import "server-only";
 import { query, queryOne } from "@/lib/db";
+import { mpGetModelMeta } from "@/app/(admin)/orders/[id]/verknuepfungen/matterport-api";
 import type {
   VerknuepfungenData,
   VerknuepfungFolderCounts,
@@ -11,6 +12,11 @@ import type {
 
 export type { VerknuepfungenData } from "./verknuepfungenTypes";
 
+type TourRow = Omit<VerknuepfungTour, "visibility" | "visibilityError"> & {
+  bezeichnung: string | null;
+  object_label: string | null;
+};
+
 export async function loadVerknuepfungenData(orderId: string): Promise<VerknuepfungenData | null> {
   const orderCheck = await queryOne<{ order_no: number }>(`
     SELECT order_no FROM booking.orders WHERE order_no = $1
@@ -20,12 +26,14 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
   }
   const orderNo = orderCheck.order_no;
 
-  const [tour, suggestedTours, gallery, folderCounts, invoices] = await Promise.all([
-    queryOne<VerknuepfungTour>(`
+  const [tourRow, suggestedTours, gallery, folderCounts, invoices] = await Promise.all([
+    queryOne<TourRow>(`
       SELECT
         matterport_space_id,
         tour_url,
         matterport_state,
+        bezeichnung,
+        object_label,
         COALESCE(
           NULLIF(TRIM(object_label), ''),
           NULLIF(TRIM(bezeichnung), ''),
@@ -93,6 +101,24 @@ export async function loadVerknuepfungenData(orderId: string): Promise<Verknuepf
       ORDER BY iv.created_at DESC
     `, [orderNo]),
   ]);
+
+  let tour: VerknuepfungTour | null = null;
+  if (tourRow) {
+    let visibility: VerknuepfungTour["visibility"] = null;
+    let visibilityError: string | null = null;
+    if (tourRow.matterport_space_id) {
+      const meta = await mpGetModelMeta(tourRow.matterport_space_id);
+      if (meta.meta) {
+        visibility = meta.meta.accessVisibility;
+        if (!visibility) {
+          visibilityError = `Unbekannter Wert von Matterport: ${meta.meta.visibilityRaw ?? "—"}`;
+        }
+      } else if (meta.error) {
+        visibilityError = meta.error;
+      }
+    }
+    tour = { ...tourRow, visibility, visibilityError };
+  }
 
   return { orderNo, tour, suggestedTours, gallery, folderCounts, invoices };
 }

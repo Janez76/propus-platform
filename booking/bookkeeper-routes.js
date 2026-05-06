@@ -416,6 +416,13 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
         paperless_patched: false,
       });
     }
+    // user_id-Spalte ist UUID — req.user.id kann aber Integer (booking.users) sein.
+    // Nur wenn es UUID-Format hat, mit Wert speichern; sonst NULL (Korrektur bleibt
+    // gespeichert, nur Attribution geht verloren).
+    const rawUid = req.user && req.user.id != null ? String(req.user.id) : null;
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const userIdParam = rawUid && UUID_RE.test(rawUid) ? rawUid : null;
+
     let persisted = false;
     let pgError = null;
     try {
@@ -428,7 +435,7 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
           body.original_value != null ? String(body.original_value) : null,
           body.corrected_value != null ? String(body.corrected_value) : null,
           body.reason || null,
-          (req.user && req.user.id) || null,
+          userIdParam,
         ],
       );
       persisted = true;
