@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import type { FloorPlanItem } from "./demo/demoTypes";
 import { isMp4VideoUrl, resolvePlayableMp4Url } from "./demo/parsing";
 import type { GalleryVideo } from "./types";
@@ -15,6 +15,85 @@ type ImmersiveSectionProps = {
   /** Öffnet dieselbe Vollbild-Lightbox wie bei den Fotos */
   onFloorPlanOpen: (index: number) => void;
 };
+
+function MatterportCopyBar({ src }: { src: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(src);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = src;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* still */
+    }
+  };
+  return (
+    <div
+      className="matterport-copy-bar"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 10,
+        padding: "8px 10px",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-bg-muted, #f6f5f0)",
+      }}
+    >
+      <input
+        type="text"
+        value={src}
+        readOnly
+        onFocus={(e) => e.currentTarget.select()}
+        aria-label="Matterport-Link"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: 12,
+          fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+          background: "transparent",
+          border: 0,
+          outline: 0,
+          color: "var(--color-text)",
+        }}
+      />
+      <button
+        type="button"
+        onClick={onCopy}
+        className="btn btn--outline"
+        style={{
+          fontSize: 12,
+          padding: "4px 12px",
+          whiteSpace: "nowrap",
+          flexShrink: 0,
+        }}
+      >
+        {copied ? (
+          <>
+            <i className="fa-solid fa-check mr-1.5" aria-hidden /> Kopiert
+          </>
+        ) : (
+          <>
+            <i className="fa-regular fa-copy mr-1.5" aria-hidden /> Kopieren
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
 
 function copyBlock(showMp: boolean, showVid: boolean, showFp: boolean) {
   if (showMp && showVid && showFp) {
@@ -130,6 +209,7 @@ export const ImmersiveSection = memo(function ImmersiveSection({
                       referrerPolicy="no-referrer-when-downgrade"
                     />
                   </div>
+                  <MatterportCopyBar src={matterportSrc} />
                 </div>
               ) : null}
               {showVid ? (
