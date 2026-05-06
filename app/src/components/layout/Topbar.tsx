@@ -6,6 +6,7 @@ import { t } from "../../i18n";
 import { ProfileModal } from "../profile/ProfileModal";
 import { QuickImpersonateButton } from "./QuickImpersonateButton";
 import { TopbarSearch } from "../search/TopbarSearch";
+import { CockpitToggleButton } from "../cockpit";
 import { API_BASE } from "../../api/client";
 import { isKiAssistantHostname } from "../../lib/kiHost";
 
@@ -118,6 +119,8 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             <ThemeIcon className="h-4 w-4" />
             <span className="hidden md:inline">{themeLabel}</span>
           </button>
+
+          <CockpitToggleButton className="hidden lg:inline-flex" />
 
           <QuickImpersonateButton />
 

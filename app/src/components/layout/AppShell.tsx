@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Footer } from "./Footer";
 import { SearchPalette } from "../search/SearchPalette";
+import { SidePanel, PropiChat } from "../cockpit";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -25,7 +26,7 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [isMobileMenuOpen]);
 
   return (
-    <div className="min-h-screen transition-colors duration-300" style={{ background: "var(--bg-classic)" }}>
+    <div className="flex min-h-screen transition-colors duration-300" style={{ background: "var(--bg-classic)" }}>
       <Sidebar
         onOpenCmdk={() => setIsSearchOpen(true)}
         isMobileOpen={isMobileMenuOpen}
@@ -35,7 +36,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
       <div
         className={cn(
-          "flex min-h-[100dvh] flex-col overflow-hidden lg:pl-[272px]",
+          "flex min-w-0 flex-1 min-h-[100dvh] flex-col overflow-hidden lg:pl-[272px]",
           /* Feste Viewport-Höhe: innere Flex-Kinder (z. B. Kanban) können min-height:0 + Scroll nutzen */
           "h-[100dvh] max-h-[100dvh]",
         )}
@@ -55,6 +56,8 @@ export function AppShell({ children }: PropsWithChildren) {
 
         <Footer />
       </div>
+
+      <SidePanel panes={{ propi: <PropiChat /> }} />
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (

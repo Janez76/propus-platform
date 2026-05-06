@@ -1,0 +1,182 @@
+/* Propus Cockpit · Side Panel — erwartet propus-cockpit-tokens.css (geladen via index.css) */
+
+.propus-side-panel {
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--propus-bg-card);
+  border-left: 1px solid var(--propus-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  z-index: 40;
+  font-family: var(--propus-font-body, 'Roboto', sans-serif);
+  color: var(--propus-text-primary);
+}
+
+/* Tabs */
+.propus-side-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--propus-border);
+  background: var(--propus-bg-strip);
+  flex-shrink: 0;
+}
+.propus-side-tabs[data-collapsed='true'] {
+  flex-direction: column;
+  padding: 56px 6px 6px;
+  border-bottom: none;
+  background: transparent;
+}
+
+.propus-side-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--propus-text-muted);
+  font-family: var(--propus-font-body, inherit);
+  font-size: 9px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  position: relative;
+  transition: color var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+}
+.propus-side-tab:focus-visible {
+  outline: 2px solid var(--propus-gold);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.propus-side-tab:hover {
+  color: var(--propus-text-primary);
+  background: var(--propus-bg-strip);
+  border-radius: 6px 6px 0 0;
+}
+.propus-side-tab[data-active='true'] {
+  color: var(--propus-gold);
+  border-bottom-color: var(--propus-gold);
+}
+.propus-side-tabs[data-collapsed='true'] .propus-side-tab {
+  width: 100%;
+  flex: 0 0 auto;
+  padding: 10px 4px;
+  border-radius: 8px;
+  border-bottom: none;
+}
+.propus-side-tabs[data-collapsed='true'] .propus-side-tab[data-active='true'] {
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+}
+
+.propus-side-tab-label { display: inline; }
+
+.propus-side-tab-dot {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--propus-bad, #c44a3a);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-family: var(--propus-font-body, sans-serif);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.propus-side-tabs[data-collapsed='true'] .propus-side-tab-dot { top: 2px; right: 4px; }
+
+/* Collapse-Button */
+.propus-side-collapse {
+  position: absolute;
+  top: 14px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  background: var(--propus-bg-card);
+  border: 1px solid var(--propus-border);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--propus-text-secondary);
+  z-index: 5;
+  transition: background var(--propus-dur-fast, .15s), color var(--propus-dur-fast, .15s), border-color var(--propus-dur-fast, .15s);
+}
+.propus-side-collapse:hover {
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+  color: var(--propus-gold);
+  border-color: var(--propus-gold);
+}
+.propus-side-collapse:focus-visible { outline: 2px solid var(--propus-gold); outline-offset: 2px; }
+.propus-side-collapse svg { width: 13px; height: 13px; transition: transform var(--propus-dur-slow, .35s); }
+.propus-side-panel[data-state='collapsed'] .propus-side-collapse {
+  top: 8px; right: 8px; width: 40px; height: 40px;
+}
+.propus-side-panel[data-state='collapsed'] .propus-side-collapse svg {
+  width: 16px; height: 16px; transform: rotate(180deg);
+}
+
+/* Pane */
+.propus-side-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.propus-side-pane-header { padding: 14px 16px; border-bottom: 1px solid var(--propus-border); flex-shrink: 0; }
+.propus-side-pane-body { flex: 1; min-height: 0; overflow-y: auto; }
+.propus-side-pane-body::-webkit-scrollbar { width: 6px; }
+.propus-side-pane-body::-webkit-scrollbar-thumb { background: var(--propus-border); border-radius: 3px; }
+
+/* Stub */
+.propus-side-empty { padding: 32px 24px; text-align: center; color: var(--propus-text-muted); }
+.propus-side-empty-title {
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--propus-text-primary);
+  margin-bottom: 4px;
+}
+.propus-side-empty-sub { font-size: 12px; }
+
+/* Topbar Toggle */
+.propus-cockpit-toggle {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--propus-text-secondary);
+  transition: background var(--propus-dur-fast, .15s), color var(--propus-dur-fast, .15s), border-color var(--propus-dur-fast, .15s);
+}
+.propus-cockpit-toggle:hover {
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+  color: var(--propus-gold);
+  border-color: var(--propus-gold);
+}
+.propus-cockpit-toggle:focus-visible { outline: 2px solid var(--propus-gold); outline-offset: 2px; }
+.propus-cockpit-toggle[aria-pressed='true'] {
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+  color: var(--propus-gold);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .propus-side-collapse svg { transition: none !important; }
+}
+
+/* Mobile: Side Panel ausblenden — verhindert Layout-Squeeze auf engen Viewports.
+   Toggle in der Topbar wird parallel via Tailwind hidden lg:inline-flex versteckt. */
+@media (max-width: 1023px) {
+  .propus-side-panel { display: none; }
+}
