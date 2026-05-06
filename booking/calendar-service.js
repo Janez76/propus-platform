@@ -226,6 +226,17 @@ async function createProvisional(order, deps) {
   }
 
   if (!photographerOk) {
+    // Symmetrischer Rollback: falls Office-Event bereits angelegt, wieder loeschen,
+    // sonst bleibt es als verwaister Eintrag im Office-Postfach (DB-Update wird durch
+    // den folgenden throw uebersprungen).
+    if (updateFields.office_event_id && OFFICE_EMAIL) {
+      try {
+        await graphClient.api("/users/" + OFFICE_EMAIL + "/events/" + updateFields.office_event_id).delete();
+        console.log("[calendar-service] Rollback: office event deleted after photographer failure", { orderNo: order.orderNo });
+      } catch (rollbackErr) {
+        console.error("[calendar-service] Office-Rollback fehlgeschlagen (Event verwaist im Office-Postfach):", { orderNo: order.orderNo, eventId: updateFields.office_event_id, error: rollbackErr && rollbackErr.message });
+      }
+    }
     throw new CalendarServiceError(
       "Provisorisches Fotografen-Event konnte nicht erstellt werden",
       "PHOTOGRAPHER_EVENT_CREATE_FAILED"
@@ -275,6 +286,10 @@ async function upgradeToFinal(order, deps) {
   const updateFields = {};
   let photographerOk = false;
   let officeOk = false;
+  // Track ob NEU angelegt (vs. nur PATCH auf bereits existierendes Event).
+  // Rollback-Loeschen darf nur neu angelegte Events treffen, sonst loeschen wir
+  // ein Event, das vor dem Aufruf schon im Postfach war.
+  let photographerCreatedNew = false;
 
   // Fotograf-Event upgraden
   if (photographerEmail) {
@@ -292,6 +307,7 @@ async function upgradeToFinal(order, deps) {
             const created = await graphClient.api("/users/" + photographerEmail + "/events").post(payload);
             updateFields.photographer_event_id = created.id || null;
             photographerOk = true;
+            photographerCreatedNew = true;
             console.log("[calendar-service] photographer final event created (fallback)", { orderNo: order.orderNo });
           } catch (err2) {
             console.error("[calendar-service] photographer final event create fallback failed", err2 && err2.message);
@@ -304,6 +320,7 @@ async function upgradeToFinal(order, deps) {
         const created = await graphClient.api("/users/" + photographerEmail + "/events").post(payload);
         updateFields.photographer_event_id = created.id || null;
         photographerOk = true;
+        photographerCreatedNew = true;
         console.log("[calendar-service] photographer final event created (no tentative existed)", { orderNo: order.orderNo });
       } catch (err) {
         console.error("[calendar-service] photographer final event create failed", err && err.message);
@@ -352,6 +369,17 @@ async function upgradeToFinal(order, deps) {
   }
 
   if (!officeOk) {
+    // Symmetrischer Rollback: nur neu angelegtes Fotografen-Event entfernen.
+    // PATCH-Faelle (showAs busy auf bereits existierendem Event) werden NICHT
+    // rueckgaengig gemacht — das Event existierte vorher schon und gehoerte zur Order.
+    if (photographerCreatedNew && updateFields.photographer_event_id && photographerEmail) {
+      try {
+        await graphClient.api("/users/" + photographerEmail + "/events/" + updateFields.photographer_event_id).delete();
+        console.log("[calendar-service] Rollback: newly created photographer event deleted after office failure", { orderNo: order.orderNo });
+      } catch (rollbackErr) {
+        console.error("[calendar-service] Photographer-Rollback fehlgeschlagen (Event verwaist im Fotografen-Postfach):", { orderNo: order.orderNo, eventId: updateFields.photographer_event_id, error: rollbackErr && rollbackErr.message });
+      }
+    }
     throw new CalendarServiceError(
       "Finales Buero-Event konnte nicht erstellt/upgraded werden",
       "OFFICE_FINAL_EVENT_FAILED"
@@ -620,6 +648,146 @@ async function deleteCalendarEvents(order, deps) {
   };
 }
 
+/**
+ * Repariert eine Order, bei der durch geschluckte Graph-Fehler in einem
+ * frueheren Lauf nur eines der beiden Events tatsaechlich angelegt wurde
+ * (verwaiste Eintraege im Outlook-Postfach, NULL-IDs in der DB).
+ *
+ * Idempotent:
+ *   - Bestehende Event-IDs werden NICHT angefasst.
+ *   - Fehlende Event-IDs werden via POST nachgezogen.
+ *
+ * Sucht zusaetzlich nach verwaisten Events im Postfach (gleiche Order-Nr im
+ * Subject), die nicht in der DB referenziert sind, und meldet sie. Loescht sie
+ * NICHT automatisch — manuelle Pruefung erforderlich.
+ *
+ * Wirft CalendarServiceError bei nicht behebbaren Fehlern.
+ *
+ * @param {object} order - vollstaendiges Order-Objekt
+ * @param {object} deps - { graphClient, OFFICE_EMAIL, PHOTOG_PHONES, db }
+ * @returns {Promise<{
+ *   actions: string[],
+ *   updateFields: object,
+ *   orphans: { photographer: object[], office: object[] }
+ * }>}
+ */
+async function repairCalendarEvents(order, deps) {
+  const { graphClient, OFFICE_EMAIL, PHOTOG_PHONES, db } = deps;
+  const pool = db && db.getPool ? db.getPool() : null;
+
+  if (!graphClient) {
+    throw new CalendarServiceError("graphClient nicht verfuegbar", "NO_GRAPH_CLIENT");
+  }
+
+  const photographerEmail = (order.photographer && order.photographer.email) || "";
+  const date = (order.schedule && order.schedule.date) || "";
+  const time = (order.schedule && order.schedule.time) || "";
+  const durationMin = (order.schedule && order.schedule.durationMin) || 60;
+
+  if (!date || !time) {
+    throw new CalendarServiceError("Kein Termin auf Order — Repair nicht moeglich", "NO_SCHEDULE");
+  }
+
+  const photogPhone = PHOTOG_PHONES[(order.photographer && order.photographer.key) || ""] || "—";
+  const { calSubject, calDescription, addressText } = await buildOrderEventData(order, photogPhone, { eventType: "confirmed" }, pool);
+
+  const updateFields = {};
+  const actions = [];
+  const orphans = { photographer: [], office: [] };
+
+  // Verwaiste Events suchen (nach Order-Nr im Subject)
+  // Subject-Format aus templates/calendar.js: enthaelt order.orderNo
+  async function searchOrphans(mailbox) {
+    if (!mailbox) return [];
+    const q = "#" + order.orderNo;
+    try {
+      const result = await graphClient
+        .api("/users/" + mailbox + "/events")
+        .filter("contains(subject,'" + q + "')")
+        .select("id,subject,start")
+        .top(20)
+        .get();
+      return Array.isArray(result && result.value) ? result.value : [];
+    } catch (err) {
+      console.warn("[calendar-service][repair] orphan search failed", { mailbox, error: err && err.message });
+      return [];
+    }
+  }
+
+  // Fotograf-Event nachziehen
+  if (!order.photographerEventId) {
+    if (!photographerEmail) {
+      actions.push("photographer_event: SKIPPED (keine Fotografen-Mail auf Order)");
+    } else {
+      const found = await searchOrphans(photographerEmail);
+      const orphansHere = found.filter(e => e && e.id);
+      if (orphansHere.length) {
+        // Nicht automatisch loeschen — nur melden. Falls genau 1 Event existiert,
+        // duerfte das das verwaiste Event sein; Operator entscheidet.
+        orphans.photographer = orphansHere;
+        actions.push("photographer_event: " + orphansHere.length + " verwaiste Eintraege gefunden — manuell pruefen, KEIN Auto-Insert");
+      } else {
+        try {
+          const payload = buildEventPayload({ subject: calSubject, date, time, durationMin, addressText, descriptionHtml: calDescription, showAs: "busy" });
+          const created = await graphClient.api("/users/" + photographerEmail + "/events").post(payload);
+          updateFields.photographer_event_id = created.id || null;
+          actions.push("photographer_event: created (" + (created.id || "?") + ")");
+          console.log("[calendar-service][repair] photographer event created", { orderNo: order.orderNo, eventId: created.id });
+        } catch (err) {
+          throw new CalendarServiceError(
+            "Repair Fotografen-Event fehlgeschlagen: " + (err && err.message),
+            "REPAIR_PHOTOGRAPHER_FAILED"
+          );
+        }
+      }
+    }
+  } else {
+    actions.push("photographer_event: bereits vorhanden (" + order.photographerEventId + ")");
+  }
+
+  // Office-Event nachziehen
+  if (!order.officeEventId) {
+    if (!OFFICE_EMAIL) {
+      actions.push("office_event: SKIPPED (kein OFFICE_EMAIL gesetzt)");
+    } else {
+      const found = await searchOrphans(OFFICE_EMAIL);
+      const orphansHere = found.filter(e => e && e.id);
+      if (orphansHere.length) {
+        orphans.office = orphansHere;
+        actions.push("office_event: " + orphansHere.length + " verwaiste Eintraege gefunden — manuell pruefen, KEIN Auto-Insert");
+      } else {
+        try {
+          const payload = buildEventPayload({ subject: calSubject, date, time, durationMin, addressText, descriptionHtml: calDescription, showAs: "busy" });
+          const created = await graphClient.api("/users/" + OFFICE_EMAIL + "/events").post(payload);
+          updateFields.office_event_id = created.id || null;
+          actions.push("office_event: created (" + (created.id || "?") + ")");
+          console.log("[calendar-service][repair] office event created", { orderNo: order.orderNo, eventId: created.id });
+        } catch (err) {
+          throw new CalendarServiceError(
+            "Repair Office-Event fehlgeschlagen: " + (err && err.message),
+            "REPAIR_OFFICE_FAILED"
+          );
+        }
+      }
+    }
+  } else {
+    actions.push("office_event: bereits vorhanden (" + order.officeEventId + ")");
+  }
+
+  if (Object.keys(updateFields).length) {
+    updateFields.calendar_sync_status = "final";
+    if (db && db.updateOrderFields) {
+      try {
+        await db.updateOrderFields(Number(order.orderNo), updateFields);
+      } catch (err) {
+        console.error("[calendar-service][repair] DB update failed", err && err.message);
+      }
+    }
+  }
+
+  return { actions, updateFields, orphans };
+}
+
 module.exports = {
   CalendarServiceError,
   createProvisional,
@@ -627,4 +795,5 @@ module.exports = {
   createFinal,
   deleteBlock,
   deleteCalendarEvents,
+  repairCalendarEvents,
 };
