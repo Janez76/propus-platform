@@ -269,6 +269,17 @@ export function PropertyShowcaseLayout({
           </section>
         ) : null}
 
+        <hr
+          aria-hidden="true"
+          style={{
+            margin: 0,
+            border: 0,
+            borderTop: "1px solid var(--color-border, rgba(15,15,15,0.14))",
+            width: "min(100% - clamp(2rem, 6vw, 4rem), var(--content-max, 1280px))",
+            marginInline: "auto",
+          }}
+        />
+
         <section className="u-section" id="download" aria-labelledby="download-title">
           <div className="u-container">
             <header className="intro-block">
