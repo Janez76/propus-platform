@@ -408,31 +408,46 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
       17: "auftrag_propus", 18: "notiz_ai",
     };
 
+    // 1) DB-Persistenz für Few-Shot-Lerntag — KRITISCH, ohne Zeile kein KI-Training.
+    if (!pool) {
+      return res.status(503).json({
+        error: "DB-Pool nicht verfuegbar — KI-Training-Persistenz ausgefallen",
+        persisted: false,
+        paperless_patched: false,
+      });
+    }
     let persisted = false;
     let pgError = null;
     try {
-      // 1) DB-Persistenz für Few-Shot-Lerntag
-      if (pool) {
-        await pool.query(
-          `INSERT INTO core.bookkeeper_feedback
-             (doc_id, field_id, field_name, original_value, corrected_value, reason, user_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            body.doc_id, fid, fieldNameMap[fid] || null,
-            body.original_value != null ? String(body.original_value) : null,
-            body.corrected_value != null ? String(body.corrected_value) : null,
-            body.reason || null,
-            (req.user && req.user.id) || null,
-          ],
-        );
-        persisted = true;
-      }
+      await pool.query(
+        `INSERT INTO core.bookkeeper_feedback
+           (doc_id, field_id, field_name, original_value, corrected_value, reason, user_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          body.doc_id, fid, fieldNameMap[fid] || null,
+          body.original_value != null ? String(body.original_value) : null,
+          body.corrected_value != null ? String(body.corrected_value) : null,
+          body.reason || null,
+          (req.user && req.user.id) || null,
+        ],
+      );
+      persisted = true;
     } catch (e) {
       pgError = e.message || String(e);
     }
 
+    // Wenn DB-Schreiben scheiterte, NICHT Paperless patchen — sonst Drift.
+    if (!persisted) {
+      return res.status(500).json({
+        error: `Feedback-DB-Insert fehlgeschlagen: ${pgError}`,
+        persisted: false,
+        paperless_patched: false,
+        pgError,
+      });
+    }
+
+    // 2) Paperless-Patch — User-Korrektur sofort live
     try {
-      // 2) Paperless-Patch — User-Korrektur sofort live
       if (typeof body.corrected_value !== "undefined") {
         const existing = await plFetch(`/api/documents/${body.doc_id}/`);
         const merged = {};
@@ -444,9 +459,60 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
           body: JSON.stringify({ custom_fields }),
         });
       }
-      res.json({ ok: true, persisted, pgError });
+      res.json({ ok: true, persisted: true, paperless_patched: true });
     } catch (e) {
-      res.status(e.status || 500).json({ error: e.message || String(e), persisted, pgError });
+      // DB-Zeile ist drin, Paperless-Patch scheiterte — 502 damit User merkt.
+      res.status(502).json({
+        error: `Paperless-Patch fehlgeschlagen: ${e.message || String(e)}`,
+        persisted: true,
+        paperless_patched: false,
+      });
+    }
+  });
+
+  // ─── Feedback-Diagnose ─────────────────────────────────────────────────
+  // Damit der Training-Tab klar zeigen kann, warum die Liste leer ist:
+  // Pool nicht verfuegbar? Migration nicht eingespielt? Tabelle fehlt?
+  // Oder schlicht noch keine Korrekturen gemacht.
+  app.get("/api/admin/bookkeeper/feedback/debug", requireAdmin, async (_req, res) => {
+    const out = {
+      database_url_set: Boolean(process.env.DATABASE_URL),
+      pool_available: Boolean(pool),
+      table_exists: null,
+      migration_applied: null,
+      row_count: null,
+      last_row_at: null,
+      error: null,
+    };
+    if (!pool) return res.json(out);
+    try {
+      const ex = await pool.query(
+        `SELECT to_regclass('core.bookkeeper_feedback') IS NOT NULL AS exists`,
+      );
+      out.table_exists = Boolean(ex.rows[0] && ex.rows[0].exists);
+
+      try {
+        const m = await pool.query(
+          `SELECT 1 FROM core.applied_migrations
+            WHERE filename = '060_bookkeeper_feedback.sql' LIMIT 1`,
+        );
+        out.migration_applied = m.rowCount > 0;
+      } catch {
+        out.migration_applied = null;
+      }
+
+      if (out.table_exists) {
+        const c = await pool.query(
+          `SELECT count(*)::int AS n, max(created_at) AS last_at
+             FROM core.bookkeeper_feedback`,
+        );
+        out.row_count = c.rows[0].n;
+        out.last_row_at = c.rows[0].last_at;
+      }
+      res.json(out);
+    } catch (e) {
+      out.error = e.message || String(e);
+      res.status(500).json(out);
     }
   });
 

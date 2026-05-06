@@ -12,10 +12,11 @@
  *
  * Backend: /api/admin/bookkeeper/* (booking/bookkeeper-routes.js)
  */
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   BookOpenCheck, Sparkles, GitMerge, FileSearch, AlertTriangle, Trash, Trash2,
   CheckCircle, ExternalLink, RefreshCw, Save, X, Edit3, ArrowLeft, Eye,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 const PAPERLESS_BASE = "https://paperless.propus.ch";
@@ -118,9 +119,42 @@ export function AdminBookkeeperPage() {
   const [editingFields, setEditingFields] = useState<Record<number, unknown>>({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<unknown[]>([]);
+  const [feedbackDebug, setFeedbackDebug] = useState<{
+    database_url_set?: boolean;
+    pool_available?: boolean;
+    table_exists?: boolean | null;
+    migration_applied?: boolean | null;
+    row_count?: number | null;
+    last_row_at?: string | null;
+    error?: string | null;
+  } | null>(null);
   const [relatedDocs, setRelatedDocs] = useState<Record<number, BelegeRow[]>>({});
   const [duplicateReason, setDuplicateReason] = useState<Record<number, string>>({});
   const [duplicateBusyId, setDuplicateBusyId] = useState<number | null>(null);
+
+  const tabsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tabScroll, setTabScroll] = useState({ left: false, right: false });
+  const updateTabScroll = useCallback(() => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 4;
+    const right = el.scrollLeft < el.scrollWidth - el.clientWidth - 4;
+    setTabScroll((s) => (s.left === left && s.right === right ? s : { left, right }));
+  }, []);
+  useEffect(() => {
+    updateTabScroll();
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateTabScroll, { passive: true });
+    window.addEventListener("resize", updateTabScroll);
+    return () => {
+      el.removeEventListener("scroll", updateTabScroll);
+      window.removeEventListener("resize", updateTabScroll);
+    };
+  }, [updateTabScroll]);
+  const scrollTabsBy = (delta: number) => {
+    tabsScrollRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  };
 
   const loadCounts = useCallback(async () => {
     try {
@@ -150,13 +184,25 @@ export function AdminBookkeeperPage() {
   }, []);
 
   const loadFeedback = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setError(null);
     try {
-      const r = await fetch(`/api/admin/bookkeeper/feedback`, { credentials: "include" });
-      if (r.ok) {
-        const j = await r.json();
+      const [listRes, debugRes] = await Promise.all([
+        fetch(`/api/admin/bookkeeper/feedback`, { credentials: "include" }),
+        fetch(`/api/admin/bookkeeper/feedback/debug`, { credentials: "include" }),
+      ]);
+      const debugJson = await debugRes.json().catch(() => null);
+      setFeedbackDebug(debugJson);
+
+      if (listRes.ok) {
+        const j = await listRes.json();
         setFeedback(j.results || []);
+      } else {
+        setFeedback([]);
+        const txt = await listRes.text().catch(() => "");
+        setError(`Feedback-Liste: HTTP ${listRes.status}${txt ? ` — ${txt.slice(0, 200)}` : ""}`);
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Feedback-Lade-Fehler");
     } finally { setLoading(false); }
   }, []);
 
@@ -257,7 +303,7 @@ export function AdminBookkeeperPage() {
     }
     setDuplicateBusyId(docId); setError(null);
     try {
-      await fetch("/api/admin/bookkeeper/feedback", {
+      const fbRes = await fetch("/api/admin/bookkeeper/feedback", {
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -268,6 +314,10 @@ export function AdminBookkeeperPage() {
           reason: reason || null,
         }),
       });
+      if (!fbRes.ok) {
+        const j = await fbRes.json().catch(() => ({}));
+        throw new Error(`KI-Training-Feedback nicht gespeichert (HTTP ${fbRes.status}): ${j.error || ""}`);
+      }
       if (isDuplicate) {
         const r = await fetch(`/api/admin/bookkeeper/documents/${docId}?also_bexio=0`, {
           method: "DELETE", credentials: "include",
@@ -352,9 +402,10 @@ export function AdminBookkeeperPage() {
       if (!patchRes.ok) throw new Error(`PATCH HTTP ${patchRes.status}`);
 
       // 3) For each changed field, send a feedback entry (für KI-Training)
+      const failedFields: string[] = [];
       for (const [fidStr, newVal] of Object.entries(changed)) {
         const fid = Number(fidStr);
-        await fetch(`/api/admin/bookkeeper/feedback`, {
+        const r = await fetch(`/api/admin/bookkeeper/feedback`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -365,6 +416,13 @@ export function AdminBookkeeperPage() {
             corrected_value: newVal,
           }),
         });
+        if (!r.ok) {
+          const j = await r.json().catch(() => ({}));
+          failedFields.push(`field_id=${fid} (HTTP ${r.status}${j.error ? `: ${j.error}` : ""})`);
+        }
+      }
+      if (failedFields.length > 0) {
+        throw new Error(`KI-Training-Feedback nicht gespeichert: ${failedFields.join("; ")}`);
       }
 
       cancelEdit();
@@ -406,25 +464,51 @@ export function AdminBookkeeperPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b overflow-x-auto">
-        {(Object.keys(TAB_DESC) as TabId[]).map((id) => {
-          const t = TAB_DESC[id];
-          const Icon = t.icon;
-          const isActive = id === activeTab;
-          const c = t.status && counts ? counts[t.status] : undefined;
-          return (
-            <button key={id} onClick={() => setActiveTab(id)}
-              className={"flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition " +
-                (isActive ? "border-amber-700 text-amber-800" : "border-transparent text-neutral-600 hover:text-neutral-900")}>
-              <Icon className="w-4 h-4" />
-              {t.title}
-              {typeof c === "number" && c > 0 && (
-                <span className="ml-1 text-xs bg-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded">{c}</span>
-              )}
-            </button>
-          );
-        })}
+      {/* Tabs — horizontal scrollbar mit Chevron-Buttons */}
+      <div className="relative mb-6 border-b">
+        {tabScroll.left && (
+          <button
+            type="button"
+            aria-label="Tabs nach links scrollen"
+            onClick={() => scrollTabsBy(-200)}
+            className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-1 bg-linear-to-r from-white via-white to-transparent"
+          >
+            <ChevronLeft className="w-5 h-5 text-neutral-600 hover:text-neutral-900" />
+          </button>
+        )}
+        {tabScroll.right && (
+          <button
+            type="button"
+            aria-label="Tabs nach rechts scrollen"
+            onClick={() => scrollTabsBy(200)}
+            className="absolute right-0 top-0 bottom-0 z-10 flex items-center px-1 bg-linear-to-l from-white via-white to-transparent"
+          >
+            <ChevronRight className="w-5 h-5 text-neutral-600 hover:text-neutral-900" />
+          </button>
+        )}
+        <div
+          ref={tabsScrollRef}
+          className="flex gap-1 overflow-x-auto bookkeeper-tabs-scroll"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {(Object.keys(TAB_DESC) as TabId[]).map((id) => {
+            const t = TAB_DESC[id];
+            const Icon = t.icon;
+            const isActive = id === activeTab;
+            const c = t.status && counts ? counts[t.status] : undefined;
+            return (
+              <button key={id} onClick={() => setActiveTab(id)}
+                className={"flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition " +
+                  (isActive ? "border-amber-700 text-amber-800" : "border-transparent text-neutral-600 hover:text-neutral-900")}>
+                <Icon className="w-4 h-4" />
+                {t.title}
+                {typeof c === "number" && c > 0 && (
+                  <span className="ml-1 text-xs bg-neutral-200 text-neutral-700 px-1.5 py-0.5 rounded">{c}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Help-Banner */}
@@ -755,7 +839,33 @@ export function AdminBookkeeperPage() {
             <h3 className="font-medium">User-Korrekturen ({feedback.length})</h3>
             <p className="text-sm text-neutral-500">Werden vom Few-Shot-Generator zu Beispielen im Cascade-Prompt eingewoben.</p>
           </div>
-          {feedback.length === 0 && <p className="text-neutral-500 text-sm">Noch keine Korrekturen erfasst.</p>}
+          {feedback.length === 0 && (() => {
+            const d = feedbackDebug;
+            if (!d) return <p className="text-neutral-500 text-sm">Noch keine Korrekturen erfasst.</p>;
+            const reasons: string[] = [];
+            if (!d.database_url_set) reasons.push("DATABASE_URL nicht gesetzt");
+            if (d.database_url_set && !d.pool_available) reasons.push("DB-Pool nicht initialisiert");
+            if (d.pool_available && d.table_exists === false) reasons.push("Tabelle core.bookkeeper_feedback fehlt — Migration 060 nicht eingespielt");
+            if (d.pool_available && d.migration_applied === false) reasons.push("Migration 060_bookkeeper_feedback.sql nicht in core.applied_migrations");
+            if (d.error) reasons.push(`Diagnose-Fehler: ${d.error}`);
+            const isHealthy = d.pool_available && d.table_exists && d.row_count === 0;
+            return (
+              <div className={`text-sm rounded p-3 mb-2 ${isHealthy ? "bg-neutral-50 text-neutral-600" : "bg-amber-50 text-amber-800 border border-amber-200"}`}>
+                {isHealthy ? (
+                  <>Tabelle leer — bisher hat noch niemand inline editiert. Sobald ein Feld in einem Beleg geändert &amp; gespeichert wird, erscheint hier ein Eintrag.</>
+                ) : (
+                  <>
+                    <strong>Persistenz-Problem:</strong>
+                    <ul className="list-disc pl-5 mt-1">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+                  </>
+                )}
+                <details className="mt-2 text-xs text-neutral-500">
+                  <summary className="cursor-pointer">Diagnose-Details</summary>
+                  <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(d, null, 2)}</pre>
+                </details>
+              </div>
+            );
+          })()}
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-neutral-50">
