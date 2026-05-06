@@ -253,19 +253,21 @@ export function PropertyShowcaseLayout({
           onFloorPlanOpen={(index) => openFloorLightbox(index)}
         />
 
-        <section className="value" id="galerie" aria-labelledby="gallery-title">
-          <div className="u-container">
-            <header className="intro-block">
-              <p className="u-eyebrow">Immobilienfotografie</p>
-              <h2 id="gallery-title">Fotos</h2>
-              <div className="divider-gold" aria-hidden="true" />
-              <p className="intro-block__lede">
-                Schauen Sie sich die Aufnahmen in Ruhe an – ein Klick öffnet die volle Bildansicht.
-              </p>
-            </header>
-            <Gallery items={gallery} onOpen={openLightbox} clientQuiet={Boolean(listingFeedback)} />
-          </div>
-        </section>
+        {gallery.length > 0 ? (
+          <section className="value" id="galerie" aria-labelledby="gallery-title">
+            <div className="u-container">
+              <header className="intro-block">
+                <p className="u-eyebrow">Immobilienfotografie</p>
+                <h2 id="gallery-title">Fotos</h2>
+                <div className="divider-gold" aria-hidden="true" />
+                <p className="intro-block__lede">
+                  Schauen Sie sich die Aufnahmen in Ruhe an – ein Klick öffnet die volle Bildansicht.
+                </p>
+              </header>
+              <Gallery items={gallery} onOpen={openLightbox} clientQuiet={Boolean(listingFeedback)} />
+            </div>
+          </section>
+        ) : null}
 
         <section className="u-section" id="download" aria-labelledby="download-title">
           <div className="u-container">

@@ -108,7 +108,7 @@ function copyBlock(showMp: boolean, showVid: boolean, showFp: boolean) {
     return {
       eyebrow: "Rundgang & Medien",
       title: "Rundgang und Video",
-      lede: "3D-Rundgang und Kurzvideo – ohne weitere Medien in dieser Freigabe.",
+      lede: "3D-Rundgang und Kurzvideo dieser Immobilie.",
     };
   }
   if (showMp && showFp) {
@@ -122,27 +122,27 @@ function copyBlock(showMp: boolean, showVid: boolean, showFp: boolean) {
     return {
       eyebrow: "Medien",
       title: "Video und Grundrisse",
-      lede: "Kurzvideo und Grundrisse – ohne 3D-Rundgang in dieser Unterlage.",
+      lede: "Kurzvideo und Grundrisse dieser Immobilie.",
     };
   }
   if (showMp) {
     return {
       eyebrow: "Rundgang",
       title: "3D-Rundgang",
-      lede: "Virtuell durch die Räume – weitere Medien (Video, PDF) sind hier nicht hinterlegt.",
+      lede: "Virtuell durch die Räume.",
     };
   }
   if (showVid) {
     return {
       eyebrow: "Medien",
       title: "Video",
-      lede: "Kurzvideo zur Immobilie – ohne Rundgang oder Grundrisse in dieser Unterlage.",
+      lede: "Kurzvideo zur Immobilie.",
     };
   }
   return {
     eyebrow: "Unterlagen",
     title: "Grundrisse",
-    lede: "PDF-Grundrisse zur Immobilie – ohne Rundgang oder Video in dieser Unterlage.",
+    lede: "PDF-Grundrisse zur Immobilie.",
   };
 }
 
