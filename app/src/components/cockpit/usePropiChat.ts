@@ -16,6 +16,12 @@ interface UsePropiChatOptions {
   maxHistory?: number;
 }
 
+interface ToolEvent {
+  name: string;
+  durationMs?: number;
+  error?: string;
+}
+
 interface UsePropiChatReturn {
   messages: PropiMessage[];
   loading: boolean;
@@ -23,6 +29,10 @@ interface UsePropiChatReturn {
   send: (text: string) => Promise<void>;
   reset: () => void;
   abort: () => void;
+  /** Tool-Calls die Propi aktuell oder zuletzt ausgeführt hat (Phase A: read-only Status, Phase B: Confirms). */
+  activeTools: ToolEvent[];
+  /** Persistierte Conversation-ID (vom /api/assistant-Backend). */
+  conversationId: string | null;
 }
 
 const DEFAULT_INITIAL: PropiMessage = {
@@ -32,16 +42,20 @@ const DEFAULT_INITIAL: PropiMessage = {
 
 export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatReturn {
   const {
-    endpoint = '/api/chat',
+    endpoint = '/api/assistant?stream=true',
     storageKey = 'propus.cockpit.propi.v1',
     initialMessage = DEFAULT_INITIAL,
     maxHistory = 20,
   } = options;
 
+  const conversationStorageKey = `${storageKey}.conv`;
+
   const [messages, setMessages] = useState<PropiMessage[]>([initialMessage]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [activeTools, setActiveTools] = useState<ToolEvent[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -61,6 +75,8 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
           if (valid.length > 0) setMessages([initialMessage, ...valid]);
         }
       }
+      const cid = window.localStorage.getItem(conversationStorageKey);
+      if (cid) setConversationId(cid);
     } catch {
       /* corrupt storage */
     }
@@ -86,11 +102,14 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
 
       setError(null);
       setLoading(true);
+      setActiveTools([]);
 
       const userMsg: PropiMessage = { role: 'user', content: trimmed };
+      // Phase A: /api/assistant erwartet { userMessage, history, conversationId? }.
+      // History exkludiert das initialMessage-Greeting (kein DB-Echo nötig).
       const baseHistory = messages.slice(-maxHistory + 1);
-      const apiMessages: PropiMessage[] = [...baseHistory, userMsg].filter((m) => !!m.content);
-      if (apiMessages[0] === messages[0]) apiMessages.shift();
+      const historyForApi = (baseHistory[0] === messages[0] ? baseHistory.slice(1) : baseHistory)
+        .filter((m) => !!m.content);
 
       setMessages((prev) => [...prev, userMsg, { role: 'assistant', content: '' }]);
 
@@ -101,13 +120,24 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: apiMessages }),
+          credentials: 'include',
+          body: JSON.stringify({
+            userMessage: trimmed,
+            history: historyForApi,
+            ...(conversationId ? { conversationId } : {}),
+          }),
           signal: controller.signal,
         });
 
         if (!res.ok || !res.body) {
           const errBody = await res.json().catch(() => null);
           throw new Error(errBody?.error ?? `Request fehlgeschlagen (${res.status}).`);
+        }
+
+        const headerCid = res.headers.get('X-Conversation-Id');
+        if (headerCid) {
+          setConversationId(headerCid);
+          try { window.localStorage.setItem(conversationStorageKey, headerCid); } catch { /* quota */ }
         }
 
         const reader = res.body.getReader();
@@ -119,31 +149,53 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
 
-          let nlIdx;
-          while ((nlIdx = buffer.indexOf('\n\n')) !== -1) {
-            const chunk = buffer.slice(0, nlIdx);
-            buffer = buffer.slice(nlIdx + 2);
-            const lines = chunk.split('\n');
-            const evt = lines.find((l) => l.startsWith('event: '))?.slice(7).trim();
-            const data = lines.find((l) => l.startsWith('data: '))?.slice(6);
-            if (!evt || !data) continue;
+          let sepIdx;
+          while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+            const chunk = buffer.slice(0, sepIdx);
+            buffer = buffer.slice(sepIdx + 2);
+            const dataLine = chunk.split('\n').find((l) => l.startsWith('data: '));
+            if (!dataLine) continue;
 
+            let payload: Record<string, unknown>;
             try {
-              const payload = JSON.parse(data);
-              if (evt === 'delta' && typeof payload.text === 'string') {
-                setMessages((prev) => {
-                  const next = [...prev];
-                  const last = next[next.length - 1];
-                  if (last?.role === 'assistant') {
-                    next[next.length - 1] = { ...last, content: last.content + payload.text };
-                  }
-                  return next;
-                });
-              } else if (evt === 'error') {
-                throw new Error(payload?.error ?? 'Streaming-Fehler.');
+              payload = JSON.parse(dataLine.slice(6));
+            } catch {
+              continue;
+            }
+
+            const evtType = payload.type as string | undefined;
+            if (evtType === 'text_delta' && typeof payload.text === 'string') {
+              const t = payload.text;
+              setMessages((prev) => {
+                const next = [...prev];
+                const last = next[next.length - 1];
+                if (last?.role === 'assistant') {
+                  next[next.length - 1] = { ...last, content: last.content + t };
+                }
+                return next;
+              });
+            } else if (evtType === 'tool_start' && typeof payload.name === 'string') {
+              const name = payload.name;
+              setActiveTools((prev) => [...prev, { name }]);
+            } else if (evtType === 'tool_result' && typeof payload.name === 'string') {
+              const name = payload.name;
+              const durationMs = typeof payload.duration === 'number' ? payload.duration : undefined;
+              const errMsg = typeof payload.error === 'string' ? payload.error : undefined;
+              setActiveTools((prev) => {
+                const next = [...prev];
+                const idx = next.findLastIndex((t) => t.name === name && t.durationMs === undefined);
+                if (idx >= 0) next[idx] = { ...next[idx], durationMs, error: errMsg };
+                else next.push({ name, durationMs, error: errMsg });
+                return next;
+              });
+            } else if (evtType === 'done') {
+              const cid = typeof payload.conversationId === 'string' ? payload.conversationId : null;
+              if (cid) {
+                setConversationId(cid);
+                try { window.localStorage.setItem(conversationStorageKey, cid); } catch { /* quota */ }
               }
-            } catch (e) {
-              if (evt === 'error') throw e;
+            } else if (evtType === 'error') {
+              throw new Error(typeof payload.error === 'string' ? payload.error : 'Streaming-Fehler.');
             }
           }
         }
@@ -157,15 +209,22 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
         abortRef.current = null;
       }
     },
-    [endpoint, loading, maxHistory, messages],
+    [endpoint, loading, maxHistory, messages, conversationId, conversationStorageKey],
   );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
     setMessages([initialMessage]);
     setError(null);
-    if (typeof window !== 'undefined') window.localStorage.removeItem(storageKey);
-  }, [initialMessage, storageKey]);
+    setActiveTools([]);
+    setConversationId(null);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(conversationStorageKey);
+      } catch { /* quota */ }
+    }
+  }, [initialMessage, storageKey, conversationStorageKey]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
@@ -173,5 +232,5 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
     setLoading(false);
   }, []);
 
-  return { messages, loading, error, send, reset, abort };
+  return { messages, loading, error, send, reset, abort, activeTools, conversationId };
 }
