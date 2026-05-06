@@ -1,0 +1,69 @@
+name: calendar-audit
+
+# Einmaliger Audit-Lauf des Repair-Skripts gegen die Prod-DB.
+# Read-only: listet nur Orders mit inkonsistenten Calendar-Event-IDs auf,
+# aendert NICHTS. Wird via "gh workflow run calendar-audit" ausgeloest.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Modus"
+        required: true
+        type: choice
+        default: "audit"
+        options:
+          - audit          # nur Liste, kein DB-Write, kein Graph-Call
+          - dry-run-all    # Vorschau aller potenziellen Repair-Aktionen
+      order_no:
+        description: "Optional: einzelne Order-Nr fuer Detailausgabe (nur audit)"
+        required: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_propus_vps
+          chmod 600 ~/.ssh/id_ed25519_propus_vps
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy repair script to VPS
+        run: |
+          scp -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+            booking/scripts/repair-photographer-event.js \
+            root@${{ secrets.VPS_HOST }}:/tmp/repair-photographer-event.js
+
+      - name: docker cp script into container
+        run: |
+          ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+            root@${{ secrets.VPS_HOST }} \
+            "docker cp /tmp/repair-photographer-event.js propus-platform-platform-1:/app/booking/scripts/repair-photographer-event.js && echo CP_OK"
+
+      - name: Run audit
+        id: audit
+        run: |
+          set -e
+          ARGS=""
+          case "${{ inputs.mode }}" in
+            audit)
+              if [ -n "${{ inputs.order_no }}" ]; then
+                ARGS="${{ inputs.order_no }} --dry-run"
+              fi
+              ;;
+            dry-run-all)
+              ARGS="--all --dry-run"
+              ;;
+          esac
+          echo "Running with args: $ARGS"
+          ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+            root@${{ secrets.VPS_HOST }} \
+            "docker exec propus-platform-platform-1 node /app/booking/scripts/repair-photographer-event.js $ARGS"
