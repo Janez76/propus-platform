@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useQuery } from '../../hooks/useQuery';
 import { getOrders } from '../../api/orders';
@@ -8,7 +9,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useNow } from '../../hooks/useNow';
 import { useDashboardMetrics } from '../dashboard-v2/useDashboardMetrics';
 import { DashAlerts } from '../dashboard-v2/DashAlerts';
+import { getWeatherForecast, type WeatherForecastDay } from '../../api/weather';
 import { WeatherStrip } from './WeatherStrip';
+import { BriefingCard } from './BriefingCard';
 import '../dashboard-v2/dashboard-v2.css';
 import './cockpit-panes.css';
 
@@ -23,8 +26,20 @@ export function InsightsPane() {
   );
   const metrics = useDashboardMetrics(orders ?? [], now);
 
+  const [weather, setWeather] = useState<WeatherForecastDay[] | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    getWeatherForecast(token, { days: 7, region: 'zurich' })
+      .then((res) => { if (!cancelled) setWeather(res.days.slice(0, 7)); })
+      .catch(() => { if (!cancelled) setWeather([]); });
+    return () => { cancelled = true; };
+  }, [token]);
+
   return (
     <div className="propus-pane-stack">
+      <BriefingCard metrics={orders ? metrics : null} weather={weather} />
+
       <section className="propus-pane-section">
         <h5 className="propus-pane-section-title">Wetter Zürich · 7 Tage</h5>
         <WeatherStrip />
