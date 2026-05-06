@@ -7,6 +7,7 @@ import { Footer } from "../components/layout/Footer";
 import { AuthLogoHeader, AuthCard } from "../components/auth/AuthPageLayout";
 import { AuthThemeToggle } from "../components/auth/AuthThemeToggle";
 import { resolvePostLoginTarget } from "../lib/postLoginRedirect";
+import { isPortalHost } from "../lib/portalHost";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -61,6 +62,28 @@ export function LoginPage() {
     setError("");
     setLoading(true);
     try {
+      if (isPortalHost()) {
+        // Auf dem Kunden-Portal: customer_session Cookie via dediziertem Endpunkt,
+        // kein Admin-JWT. Verhindert den Redirect-Loop durch CustomerSessionBootstrap.
+        const res = await fetch("/api/customer/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: username.trim(), password, rememberMe }),
+          credentials: "include",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError((data as { error?: string })?.error || "Login fehlgeschlagen");
+          return;
+        }
+        const returnTo = params.get("returnTo");
+        const target = returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") && !returnTo.startsWith("/\\")
+          ? returnTo
+          : "/account";
+        navigate(target, { replace: true });
+        return;
+      }
+
       const res = await fetch(`/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
