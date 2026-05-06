@@ -4,7 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Footer } from "./Footer";
 import { SearchPalette } from "../search/SearchPalette";
-import { SidePanel, PropiChat } from "../cockpit";
+import { SidePanel, PropiChat, InsightsPane, ActivityPane } from "../cockpit";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -57,7 +57,13 @@ export function AppShell({ children }: PropsWithChildren) {
         <Footer />
       </div>
 
-      <SidePanel panes={{ propi: <PropiChat /> }} />
+      <SidePanel
+        panes={{
+          propi: <PropiChat />,
+          insights: <InsightsPane />,
+          activity: <ActivityPane />,
+        }}
+      />
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
