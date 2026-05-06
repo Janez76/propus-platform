@@ -40,22 +40,30 @@ export function Hero({
   onDownload,
 }: HeroProps) {
   const dockMetrics: DockMetric[] = useMemo(() => {
-    // Konsistente Hero-Statistik: alle vier Slots sind immer sichtbar, auch
-    // bei 0 — der Kunde sieht so direkt was in der Unterlage steckt und was
-    // nicht (vorher waren Video/Grundrisse/Tour nur ab >0 sichtbar, was
-    // wirkte als haette die Galerie weniger Inhalt als sie tatsaechlich
-    // dokumentiert).
-    const m: DockMetric[] = [
-      { value: photoCount, label: "Aufnahmen", delayMs: 0 },
-      { value: videoCount, label: videoCount === 1 ? "Video" : "Videos", delayMs: 0 },
-      { value: floorPlanCount, label: floorPlanCount === 1 ? "Grundriss" : "Grundrisse", delayMs: 0 },
-      {
+    // Nur Stats mit echtem Inhalt zeigen — der Kunde sieht so genau, was
+    // in der Unterlage steckt, ohne 0-Slots als Noise.
+    const m: DockMetric[] = [];
+    if (photoCount > 0) {
+      m.push({ value: photoCount, label: "Aufnahmen", delayMs: 0 });
+    }
+    if (videoCount > 0) {
+      m.push({ value: videoCount, label: videoCount === 1 ? "Video" : "Videos", delayMs: 0 });
+    }
+    if (floorPlanCount > 0) {
+      m.push({
+        value: floorPlanCount,
+        label: floorPlanCount === 1 ? "Grundriss" : "Grundrisse",
+        delayMs: 0,
+      });
+    }
+    if (tourCount > 0) {
+      m.push({
         value: tourCount,
         label: "360° Tour",
         delayMs: 0,
         labelClass: "hero__metric-label--tour-title",
-      },
-    ];
+      });
+    }
     return m.map((row, i) => ({ ...row, delayMs: 300 + i * 40 }));
   }, [photoCount, videoCount, floorPlanCount, tourCount]);
 
@@ -123,25 +131,29 @@ export function Hero({
         <div className="hero__dock" aria-label="Inhalt dieser Unterlagen">
           <div className="hero__dock-rule hero__dock-rule--full" aria-hidden="true" />
           <div className="hero__dock-inner">
-            <div className={`hero__metrics hero__metrics--${dockMetrics.length}`}>
-              {dockMetrics.map((row) => (
-                <div
-                  key={row.label}
-                  className="hero__metric u-animate"
-                  style={{ "--delay": `${row.delayMs}ms` } as CSSProperties}
-                >
-                  <span className="hero__metric-value">{row.value}</span>
-                  <span
-                    className={
-                      row.labelClass ? `hero__metric-label ${row.labelClass}` : "hero__metric-label"
-                    }
-                  >
-                    {row.label}
-                  </span>
+            {dockMetrics.length > 0 ? (
+              <>
+                <div className={`hero__metrics hero__metrics--${dockMetrics.length}`}>
+                  {dockMetrics.map((row) => (
+                    <div
+                      key={row.label}
+                      className="hero__metric u-animate"
+                      style={{ "--delay": `${row.delayMs}ms` } as CSSProperties}
+                    >
+                      <span className="hero__metric-value">{row.value}</span>
+                      <span
+                        className={
+                          row.labelClass ? `hero__metric-label ${row.labelClass}` : "hero__metric-label"
+                        }
+                      >
+                        {row.label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="hero__dock-rule hero__dock-rule--full hero__dock-rule--soft" aria-hidden="true" />
+                <div className="hero__dock-rule hero__dock-rule--full hero__dock-rule--soft" aria-hidden="true" />
+              </>
+            ) : null}
             <p className="hero__stand u-animate" style={{ "--delay": `${standDelayMs}ms` } as CSSProperties}>
               {standDisplay}
             </p>
