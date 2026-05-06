@@ -5,7 +5,8 @@
  */
 
 :root {
-  /* ── Bridge-Aliasse (cockpit-Komponenten erwarten --propus-* Namen) ── */
+  /* ── Bridge-Aliasse (cockpit-Komponenten + dashboard-v2 erwarten --propus-* Namen) ── */
+  --propus-bg-page:        var(--bg-classic);
   --propus-bg-card:        var(--bg-card);
   --propus-bg-strip:       var(--surface-raised);
   --propus-border:         var(--border-soft);
@@ -61,6 +62,7 @@
 
 html.dark {
   /* Dark-Mode-Bridge */
+  --propus-bg-page:        var(--bg-classic);
   --propus-bg-card:        var(--bg-card);
   --propus-bg-strip:       var(--surface-raised);
   --propus-border:         var(--border-soft);
