@@ -19,6 +19,7 @@
  * aussen vor — die laufen ueber den Tours-Background-Worker mit eigener
  * Bestellungs-Logik (siehe tours/lib/matterport.js).
  */
+import { query as defaultQuery } from "@/lib/db";
 import type { ToolDefinition, ToolHandler } from "./index";
 
 const MATTERPORT_GRAPHQL_URLS = [
@@ -206,6 +207,19 @@ export const matterportTools: ToolDefinition[] = [
       required: ["space_id", "visibility"],
     },
   },
+  {
+    name: "matterport_live_status_for_orders",
+    description:
+      "Prüft live in Matterport, welche Spaces zu den Aufträgen eines Datums gehören und wie ihr aktueller Status ist. Joint booking.orders mit tour_manager.tours per booking_order_no und ruft pro gefundenem matterport_space_id direkt die Matterport-GraphQL-API auf (state, visibility, shareUrl, lastModified). Standard: heute. Nutze dieses Tool wenn der User 'live' sagt im Zusammenhang mit Touren / Aufträgen / Matterport.",
+    kind: "read",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "ISO-Datum YYYY-MM-DD (Default: heute)" },
+        order_no: { type: "number", description: "Optional: nur ein einzelner Auftrag (überschreibt date)" },
+      },
+    },
+  },
 ];
 
 export const matterportHandlers: Record<string, ToolHandler> = {
@@ -330,6 +344,138 @@ export const matterportHandlers: Record<string, ToolHandler> = {
       ok: true,
       spaceId: data.updateModelAccessVisibility.id,
       visibility: data.updateModelAccessVisibility.visibility,
+    };
+  },
+
+  matterport_live_status_for_orders: async (input) => {
+    const orderNoInput = Number(input.order_no);
+    const singleOrder = Number.isFinite(orderNoInput) && orderNoInput > 0 ? Math.trunc(orderNoInput) : null;
+    const dateInput = typeof input.date === "string" ? input.date.trim() : "";
+    const isoDateRe = /^\d{4}-\d{2}-\d{2}$/;
+    const dateFilter = isoDateRe.test(dateInput) ? dateInput : null;
+
+    type Row = {
+      order_no: number;
+      status: string | null;
+      address: string | null;
+      scheduled_date: string | null;
+      scheduled_time: string | null;
+      customer_name: string | null;
+      photographer_name: string | null;
+      services: Record<string, unknown> | null;
+      tour_id: number | null;
+      matterport_space_id: string | null;
+      tour_url: string | null;
+    };
+
+    let rows: Row[];
+    if (singleOrder) {
+      rows = await defaultQuery<Row>(
+        `SELECT o.order_no, o.status, o.address,
+                NULLIF(o.schedule->>'date', '') AS scheduled_date,
+                NULLIF(o.schedule->>'time', '') AS scheduled_time,
+                COALESCE(o.billing->>'name', o.billing->>'company') AS customer_name,
+                COALESCE(o.photographer->>'name', o.photographer->>'key') AS photographer_name,
+                o.services::jsonb AS services,
+                t.id AS tour_id, t.matterport_space_id, t.tour_url
+         FROM booking.orders o
+         LEFT JOIN tour_manager.tours t ON t.booking_order_no = o.order_no
+         WHERE o.order_no = $1
+         LIMIT 1`,
+        [singleOrder],
+      );
+    } else {
+      const dateExpr = dateFilter ? "$1::date" : "CURRENT_DATE";
+      const params = dateFilter ? [dateFilter] : [];
+      rows = await defaultQuery<Row>(
+        `SELECT o.order_no, o.status, o.address,
+                NULLIF(o.schedule->>'date', '') AS scheduled_date,
+                NULLIF(o.schedule->>'time', '') AS scheduled_time,
+                COALESCE(o.billing->>'name', o.billing->>'company') AS customer_name,
+                COALESCE(o.photographer->>'name', o.photographer->>'key') AS photographer_name,
+                o.services::jsonb AS services,
+                t.id AS tour_id, t.matterport_space_id, t.tour_url
+         FROM booking.orders o
+         LEFT JOIN tour_manager.tours t ON t.booking_order_no = o.order_no
+         WHERE NULLIF(o.schedule->>'date', '')::date = ${dateExpr}
+         ORDER BY NULLIF(o.schedule->>'time', '') NULLS LAST, o.order_no ASC`,
+        params,
+      );
+    }
+
+    const liveQuery = `query getModel($id: ID!) {
+      model(id: $id) {
+        id name state visibility modified created
+        publication { url externalUrl published address }
+      }
+    }`;
+
+    const orders = await Promise.all(
+      rows.map(async (r) => {
+        const services = r.services && typeof r.services === "object"
+          ? Object.keys(r.services).filter((k) => {
+              const v = (r.services as Record<string, unknown>)[k];
+              return v === true || (typeof v === "number" && v > 0);
+            })
+          : [];
+
+        const base = {
+          orderNo: r.order_no,
+          status: r.status,
+          address: r.address,
+          scheduledDate: r.scheduled_date,
+          scheduledTime: r.scheduled_time,
+          customerName: r.customer_name,
+          photographer: r.photographer_name,
+          services,
+          tourId: r.tour_id,
+          matterportSpaceId: r.matterport_space_id,
+        };
+
+        if (!r.matterport_space_id) {
+          return {
+            ...base,
+            matterport: null,
+            note: "Kein verknüpfter Matterport-Space (booking_order_no in tour_manager.tours nicht gefunden oder Tour ohne Space-ID).",
+          };
+        }
+
+        const { data, error } = await graphRequest<{ model: MatterportModel | null }>(
+          liveQuery,
+          { id: r.matterport_space_id },
+        );
+
+        if (!data?.model) {
+          return {
+            ...base,
+            matterport: { error: error || "Space in Matterport nicht gefunden" },
+          };
+        }
+
+        const m = data.model;
+        return {
+          ...base,
+          matterport: {
+            spaceId: m.id,
+            name: m.name,
+            state: m.state,
+            visibility: m.visibility ?? null,
+            published: m.publication?.published ?? null,
+            shareUrl: m.publication?.url ?? `https://my.matterport.com/show/?m=${encodeURIComponent(m.id)}`,
+            address: m.publication?.address ?? null,
+            modified: m.modified ?? null,
+            created: m.created ?? null,
+          },
+        };
+      }),
+    );
+
+    return {
+      ok: true,
+      filter: singleOrder ? { orderNo: singleOrder } : { date: dateFilter || "today" },
+      total: orders.length,
+      withMatterportSpace: orders.filter((o) => o.matterportSpaceId).length,
+      orders,
     };
   },
 };

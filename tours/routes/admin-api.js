@@ -56,7 +56,19 @@ const cleanupMailer = require('../lib/cleanup-mailer');
 const cleanupDashboard = require('../lib/cleanup-dashboard');
 const { getAiConfig, chatWithAi } = require('../lib/ai');
 const { listActionDefinitions, listRiskDefinitions } = require('../lib/admin-actions-schema');
-const { sendMailDirect, getGraphConfig, fetchMailboxMessages } = require('../lib/microsoft-graph');
+const {
+  sendMailDirect,
+  getGraphConfig,
+  fetchMailboxMessages,
+  listTeams: graphListTeams,
+  listTeamChannels: graphListTeamChannels,
+  listTeamMembers: graphListTeamMembers,
+  findGraphUser,
+  fetchChannelMessages: graphFetchChannelMessages,
+  fetchChannelMessageReplies: graphFetchChannelReplies,
+  listUserChats: graphListUserChats,
+  fetchChatMessages: graphFetchChatMessages,
+} = require('../lib/microsoft-graph');
 const adminCustomersApi = require('../lib/admin-customers-api');
 const portalRolesLib = require('../lib/admin-portal-roles');
 const portalTeam = require('../lib/portal-team');
@@ -1722,6 +1734,136 @@ router.post('/mail/sent-matterport-match/apply', async (req, res) => {
     });
   } catch (err) {
     console.error('[admin-api] mail/sent-matterport-match/apply:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Microsoft Teams (Phase 1: App-Permissions) ──────────────────────────────
+// Auth: gleiche App-Registration wie Mail (M365_TENANT_ID/M365_CLIENT_ID/M365_CLIENT_SECRET).
+// Protected APIs (ChannelMessage.Read.All, Chat.Read.All) erfordern Microsoft-Billing.
+// Schreibende Endpunkte: siehe /teams/oauth/* (Phase 2 – Delegated).
+
+function teamsErrorResponse(res, error, errorCode) {
+  if (errorCode === 'Authorization_RequestDenied' || /forbidden|denied/i.test(String(error || ''))) {
+    return res.status(403).json({
+      ok: false,
+      error: 'Teams-Zugriff verweigert. Mögliche Ursachen: (1) Admin-Consent für Scope fehlt, (2) Protected-API-Billing nicht aktiviert für den Resource (Channel/Chat).',
+      errorCode: errorCode || 'forbidden',
+    });
+  }
+  return res.status(502).json({ ok: false, error, errorCode: errorCode || null });
+}
+
+// GET /teams – Liste aller Teams im Tenant
+router.get('/teams', async (req, res) => {
+  try {
+    const top = parseInt(req.query.top || '50', 10) || 50;
+    const { teams, error, errorCode } = await graphListTeams({ top });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: teams.length, teams });
+  } catch (err) {
+    console.error('[admin-api] teams:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/:teamId/channels
+router.get('/teams/:teamId/channels', async (req, res) => {
+  try {
+    const { channels, error, errorCode } = await graphListTeamChannels({ teamId: req.params.teamId });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: channels.length, channels });
+  } catch (err) {
+    console.error('[admin-api] teams/channels:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/:teamId/members
+router.get('/teams/:teamId/members', async (req, res) => {
+  try {
+    const top = parseInt(req.query.top || '50', 10) || 50;
+    const { members, error, errorCode } = await graphListTeamMembers({ teamId: req.params.teamId, top });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: members.length, members });
+  } catch (err) {
+    console.error('[admin-api] teams/members:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/users/search?q=
+router.get('/teams/users/search', async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(400).json({ ok: false, error: 'Parameter q erforderlich' });
+    const { users, error, errorCode } = await findGraphUser({ query: q });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: users.length, users });
+  } catch (err) {
+    console.error('[admin-api] teams/users/search:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/:teamId/channels/:channelId/messages – Protected API
+router.get('/teams/:teamId/channels/:channelId/messages', async (req, res) => {
+  try {
+    const top = parseInt(req.query.top || '20', 10) || 20;
+    const sinceDate = req.query.since ? String(req.query.since).trim() : null;
+    const { messages, error, errorCode } = await graphFetchChannelMessages({
+      teamId: req.params.teamId,
+      channelId: req.params.channelId,
+      top,
+      sinceDate,
+    });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: messages.length, messages });
+  } catch (err) {
+    console.error('[admin-api] teams/channels/messages:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/:teamId/channels/:channelId/messages/:messageId/replies
+router.get('/teams/:teamId/channels/:channelId/messages/:messageId/replies', async (req, res) => {
+  try {
+    const { replies, error, errorCode } = await graphFetchChannelReplies({
+      teamId: req.params.teamId,
+      channelId: req.params.channelId,
+      messageId: req.params.messageId,
+    });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: replies.length, replies });
+  } catch (err) {
+    console.error('[admin-api] teams/channel-replies:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/chats?user=upn – Chats eines Users (Protected API)
+router.get('/teams/chats', async (req, res) => {
+  try {
+    const userUpn = String(req.query.user || '').trim().toLowerCase() || getGraphConfig().mailboxUpn;
+    const top = parseInt(req.query.top || '20', 10) || 20;
+    const { chats, error, errorCode } = await graphListUserChats({ userUpn, top });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, userUpn, total: chats.length, chats });
+  } catch (err) {
+    console.error('[admin-api] teams/chats:', err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET /teams/chats/:chatId/messages – Protected API
+router.get('/teams/chats/:chatId/messages', async (req, res) => {
+  try {
+    const top = parseInt(req.query.top || '20', 10) || 20;
+    const { messages, error, errorCode } = await graphFetchChatMessages({ chatId: req.params.chatId, top });
+    if (error) return teamsErrorResponse(res, error, errorCode);
+    return res.json({ ok: true, total: messages.length, messages });
+  } catch (err) {
+    console.error('[admin-api] teams/chat-messages:', err.message);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });

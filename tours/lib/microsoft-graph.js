@@ -408,6 +408,222 @@ async function moveMessageToFolder(options = {}) {
   return { success: !error, error: error || null, message: data || null };
 }
 
+// ─── Microsoft Teams Helpers ──────────────────────────────────────────────────
+// App-Permissions:
+//   Team.ReadBasic.All         (frei)
+//   Channel.ReadBasic.All      (frei)
+//   ChannelMember.Read.All     (frei)
+//   User.Read.All              (frei)
+//   ChannelMessage.Read.All    (Protected API – Billing nötig)
+//   Chat.Read.All              (Protected API – Billing nötig)
+//   ChatMessage.Read.All       (Protected API – Billing nötig)
+// Schreibende Aktionen brauchen Delegated-Tokens (siehe ms-graph-delegated.js).
+
+function normalizeTeamsMessage(message) {
+  const body = message?.body?.content || '';
+  const contentType = message?.body?.contentType || '';
+  const bodyText = contentType.toLowerCase() === 'html' ? stripHtml(body) : String(body || '').trim();
+  const fromUser = message?.from?.user || message?.from?.application || {};
+  const mentions = Array.isArray(message?.mentions)
+    ? message.mentions.map((m) => m?.mentionText || m?.mentioned?.user?.displayName).filter(Boolean)
+    : [];
+  return {
+    id: message?.id || null,
+    replyToId: message?.replyToId || null,
+    messageType: message?.messageType || 'message',
+    createdAt: message?.createdDateTime || null,
+    lastModifiedAt: message?.lastModifiedDateTime || null,
+    importance: message?.importance || 'normal',
+    fromId: fromUser?.id || null,
+    fromName: fromUser?.displayName || null,
+    fromKind: message?.from?.user ? 'user' : (message?.from?.application ? 'application' : 'unknown'),
+    subject: message?.subject || null,
+    bodyText: bodyText || null,
+    contentType,
+    mentions,
+    webUrl: message?.webUrl || null,
+    raw: message,
+  };
+}
+
+async function listTeams(options = {}) {
+  const top = Math.max(1, Math.min(parseInt(options.top || '50', 10) || 50, 999));
+  const search = new URLSearchParams({
+    '$top': String(top),
+    '$select': 'id,displayName,description,visibility,createdDateTime',
+  });
+  const url = `https://graph.microsoft.com/v1.0/teams?${search.toString()}`;
+  const { data, error, errorCode } = await graphRequest(url, { method: 'GET' });
+  if (error) return { teams: [], error, errorCode };
+  const teams = Array.isArray(data?.value) ? data.value : [];
+  return {
+    teams: teams.map((t) => ({
+      id: t.id,
+      displayName: t.displayName,
+      description: t.description || null,
+      visibility: t.visibility || null,
+      createdDateTime: t.createdDateTime || null,
+    })),
+    error: null,
+  };
+}
+
+async function listTeamChannels(options = {}) {
+  const { teamId } = options;
+  if (!teamId) return { channels: [], error: 'teamId fehlt' };
+  const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/channels?$select=id,displayName,description,membershipType,webUrl`;
+  const { data, error, errorCode } = await graphRequest(url, { method: 'GET' });
+  if (error) return { channels: [], error, errorCode };
+  const channels = Array.isArray(data?.value) ? data.value : [];
+  return {
+    channels: channels.map((c) => ({
+      id: c.id,
+      displayName: c.displayName,
+      description: c.description || null,
+      membershipType: c.membershipType || null,
+      webUrl: c.webUrl || null,
+    })),
+    error: null,
+  };
+}
+
+async function listTeamMembers(options = {}) {
+  const { teamId } = options;
+  if (!teamId) return { members: [], error: 'teamId fehlt' };
+  const top = Math.max(1, Math.min(parseInt(options.top || '50', 10) || 50, 200));
+  const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/members?$top=${top}`;
+  const { data, error, errorCode } = await graphRequest(url, { method: 'GET' });
+  if (error) return { members: [], error, errorCode };
+  const members = Array.isArray(data?.value) ? data.value : [];
+  return {
+    members: members.map((m) => ({
+      id: m.id,
+      userId: m.userId || null,
+      displayName: m.displayName || null,
+      email: (m.email || '').toLowerCase() || null,
+      roles: Array.isArray(m.roles) ? m.roles : [],
+    })),
+    error: null,
+  };
+}
+
+async function findGraphUser(options = {}) {
+  const { query } = options;
+  const q = String(query || '').trim();
+  if (!q) return { users: [], error: 'query fehlt' };
+  // $search braucht ConsistencyLevel: eventual
+  const search = new URLSearchParams({
+    '$top': '10',
+    '$select': 'id,displayName,mail,userPrincipalName,jobTitle,department',
+    '$search': `"displayName:${q}" OR "mail:${q}" OR "userPrincipalName:${q}"`,
+  });
+  const url = `https://graph.microsoft.com/v1.0/users?${search.toString()}`;
+  const { data, error, errorCode } = await graphRequest(url, {
+    method: 'GET',
+    headers: { ConsistencyLevel: 'eventual' },
+  });
+  if (error) return { users: [], error, errorCode };
+  const users = Array.isArray(data?.value) ? data.value : [];
+  return {
+    users: users.map((u) => ({
+      id: u.id,
+      displayName: u.displayName || null,
+      mail: (u.mail || '').toLowerCase() || null,
+      userPrincipalName: (u.userPrincipalName || '').toLowerCase() || null,
+      jobTitle: u.jobTitle || null,
+      department: u.department || null,
+    })),
+    error: null,
+  };
+}
+
+async function fetchChannelMessages(options = {}) {
+  const { teamId, channelId, sinceDate = null } = options;
+  if (!teamId || !channelId) return { messages: [], error: 'teamId und channelId erforderlich' };
+  const totalLimit = Math.max(1, Math.min(parseInt(options.top || '20', 10) || 20, 50));
+  const pageSize = Math.min(totalLimit, 50);
+  const search = new URLSearchParams({ '$top': String(pageSize) });
+  let nextUrl = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/messages?${search.toString()}`;
+  const all = [];
+  while (nextUrl && all.length < totalLimit) {
+    const { data, error, errorCode } = await graphRequest(nextUrl, { method: 'GET' });
+    if (error) return { messages: [], error, errorCode };
+    const page = Array.isArray(data?.value) ? data.value.map(normalizeTeamsMessage) : [];
+    for (const msg of page) {
+      if (sinceDate && msg.createdAt && msg.createdAt < sinceDate) continue;
+      all.push(msg);
+      if (all.length >= totalLimit) break;
+    }
+    nextUrl = data?.['@odata.nextLink'] || null;
+  }
+  return { messages: all.slice(0, totalLimit), error: null };
+}
+
+async function fetchChannelMessageReplies(options = {}) {
+  const { teamId, channelId, messageId } = options;
+  if (!teamId || !channelId || !messageId) return { replies: [], error: 'teamId, channelId, messageId erforderlich' };
+  const url = `https://graph.microsoft.com/v1.0/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/replies`;
+  const { data, error, errorCode } = await graphRequest(url, { method: 'GET' });
+  if (error) return { replies: [], error, errorCode };
+  const items = Array.isArray(data?.value) ? data.value.map(normalizeTeamsMessage) : [];
+  return { replies: items, error: null };
+}
+
+async function listUserChats(options = {}) {
+  const { userUpn = getGraphConfig().mailboxUpn } = options;
+  if (!userUpn) return { chats: [], error: 'userUpn fehlt' };
+  const top = Math.max(1, Math.min(parseInt(options.top || '20', 10) || 20, 50));
+  const search = new URLSearchParams({
+    '$top': String(top),
+    '$expand': 'members',
+    '$orderby': 'lastMessagePreview/createdDateTime desc',
+  });
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(userUpn)}/chats?${search.toString()}`;
+  const { data, error, errorCode } = await graphRequest(url, {
+    method: 'GET',
+    headers: { Prefer: 'include-unknown-enum-members' },
+  });
+  if (error) return { chats: [], error, errorCode };
+  const chats = Array.isArray(data?.value) ? data.value : [];
+  return {
+    chats: chats.map((c) => ({
+      id: c.id,
+      topic: c.topic || null,
+      chatType: c.chatType || null,
+      createdAt: c.createdDateTime || null,
+      lastUpdatedAt: c.lastUpdatedDateTime || null,
+      webUrl: c.webUrl || null,
+      members: Array.isArray(c.members)
+        ? c.members.map((m) => ({
+            displayName: m.displayName || null,
+            email: (m.email || '').toLowerCase() || null,
+            userId: m.userId || null,
+          }))
+        : [],
+      lastMessagePreview: c.lastMessagePreview
+        ? {
+            createdAt: c.lastMessagePreview.createdDateTime || null,
+            from: c.lastMessagePreview.from?.user?.displayName || null,
+            preview: stripHtml(c.lastMessagePreview.body?.content || '').slice(0, 200) || null,
+          }
+        : null,
+    })),
+    error: null,
+  };
+}
+
+async function fetchChatMessages(options = {}) {
+  const { chatId } = options;
+  if (!chatId) return { messages: [], error: 'chatId fehlt' };
+  const totalLimit = Math.max(1, Math.min(parseInt(options.top || '20', 10) || 20, 50));
+  const pageSize = Math.min(totalLimit, 50);
+  const url = `https://graph.microsoft.com/v1.0/chats/${encodeURIComponent(chatId)}/messages?$top=${pageSize}`;
+  const { data, error, errorCode } = await graphRequest(url, { method: 'GET' });
+  if (error) return { messages: [], error, errorCode };
+  const messages = Array.isArray(data?.value) ? data.value.map(normalizeTeamsMessage) : [];
+  return { messages: messages.slice(0, totalLimit), error: null };
+}
+
 module.exports = {
   createReplyDraft,
   createDraftMessage,
@@ -420,4 +636,14 @@ module.exports = {
   sendDraftMessage,
   sendMailDirect,
   stripHtml,
+  // Teams (App-Permissions)
+  listTeams,
+  listTeamChannels,
+  listTeamMembers,
+  findGraphUser,
+  fetchChannelMessages,
+  fetchChannelMessageReplies,
+  listUserChats,
+  fetchChatMessages,
+  normalizeTeamsMessage,
 };
