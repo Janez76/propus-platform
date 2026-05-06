@@ -8,6 +8,7 @@ import { matterportHandlers, matterportTools } from "./matterport";
 import { memoriesHandlers, memoriesTools } from "./memories";
 import { ordersHandlers, ordersTools } from "./orders";
 import { posteingangHandlers, posteingangTools } from "./posteingang";
+import { teamsHandlers, teamsTools } from "./teams";
 import { toursHandlers, toursTools } from "./tours";
 import { weatherHandlers, weatherTools } from "./weather";
 import { writeTools, writeHandlers } from "./writes";
@@ -49,6 +50,7 @@ export const allTools: ToolDefinition[] = [
   ...weatherTools,
   ...mapsTools,
   ...matterportTools,
+  ...teamsTools,
   ...writeTools,
 ];
 
@@ -65,6 +67,7 @@ export const allHandlers: Record<string, ToolHandler> = {
   ...weatherHandlers,
   ...mapsHandlers,
   ...matterportHandlers,
+  ...teamsHandlers,
   ...writeHandlers,
 };
 
