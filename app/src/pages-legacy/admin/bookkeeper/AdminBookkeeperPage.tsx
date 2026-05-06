@@ -488,8 +488,8 @@ export function AdminBookkeeperPage() {
         )}
         <div
           ref={tabsScrollRef}
-          className="flex gap-1 overflow-x-auto bookkeeper-tabs-scroll"
-          style={{ scrollbarWidth: "thin" }}
+          className="flex gap-1 overflow-x-auto bookkeeper-tabs-scroll [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {(Object.keys(TAB_DESC) as TabId[]).map((id) => {
             const t = TAB_DESC[id];
