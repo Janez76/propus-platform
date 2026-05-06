@@ -73,7 +73,7 @@ export function WeatherStrip({ region = 'zurich', days = 7 }: WeatherStripProps)
             data-today={isToday || undefined}
             title={`${weekday} ${dom}. · ${weatherLabel(day.kind)} · ${day.t_min}°–${day.t_max}°${day.precip > 0 ? ` · ${day.precip}% Regen` : ''}`}
           >
-            <span className="propus-weather-day-label">{i === 0 ? 'Heute' : weekday}</span>
+            <span className="propus-weather-day-label">{isToday ? 'Heute' : weekday}</span>
             <span className="propus-weather-day-emoji" aria-hidden>{weatherEmoji(day.kind)}</span>
             <span className="propus-weather-day-temp">{day.t_max}°</span>
           </div>
