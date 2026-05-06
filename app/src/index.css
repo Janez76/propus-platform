@@ -11,6 +11,7 @@
 @import "./styles/handoff/page-calendar.css";
 @import "./styles/handoff/product-catalog.css";
 @import "./styles/handoff/foundation.css";
+@import "./propus-cockpit-tokens.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ─── Tailwind v4 Theme Tokens ───────────────────────────────────────────────

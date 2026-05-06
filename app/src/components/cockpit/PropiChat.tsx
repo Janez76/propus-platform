@@ -1,0 +1,188 @@
+'use client';
+
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
+import { Mic, Paperclip, RotateCcw, Send, StopCircle } from 'lucide-react';
+import { PropiAvatar } from './PropiAvatar';
+import { usePropiChat } from './usePropiChat';
+import './propi-chat.css';
+
+interface PropiChatProps {
+  quickPrompts?: string[];
+  greeting?: string;
+}
+
+const DEFAULT_PROMPTS = [
+  '📊 Wochenrückblick',
+  '📅 Wo bin ich morgen?',
+  '⚡ Mahnungen senden',
+  '💰 Cashflow Mai',
+  '📷 Bildauswahl-Status',
+];
+
+export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiChatProps) {
+  const initialMessage = greeting ? { role: 'assistant' as const, content: greeting } : undefined;
+  const { messages, loading, error, send, reset, abort } = usePropiChat(
+    initialMessage ? { initialMessage } : {},
+  );
+  const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    void send(text);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e as unknown as FormEvent);
+    }
+  };
+
+  const handleQuickPrompt = (text: string) => {
+    if (loading) return;
+    void send(text);
+  };
+
+  return (
+    <div className="propi-chat" role="region" aria-label="Propi Chat">
+      <header className="propi-chat-head">
+        <PropiAvatar size={36} followCursor={false} />
+        <div className="propi-chat-head-text">
+          <h4>Propi</h4>
+          <small>
+            <span className="propi-chat-online" />
+            Online · Claude Haiku 4.5
+          </small>
+        </div>
+        <div className="propi-chat-actions">
+          <button
+            type="button"
+            className="propi-chat-icon-btn"
+            onClick={reset}
+            title="Neuer Chat"
+            aria-label="Neuer Chat"
+            disabled={loading || messages.length <= 1}
+          >
+            <RotateCcw size={14} aria-hidden />
+          </button>
+        </div>
+      </header>
+
+      <div className="propi-chat-body" ref={bodyRef}>
+        {messages.map((m, i) => {
+          const isLast = i === messages.length - 1;
+          const isStreaming = loading && isLast && m.role === 'assistant';
+          return (
+            <div
+              key={i}
+              className={`propi-msg propi-msg-${m.role}`}
+              data-streaming={isStreaming || undefined}
+            >
+              {m.role === 'assistant' && (
+                <div className="propi-msg-avatar">
+                  <PropiAvatar size={26} followCursor={false} />
+                </div>
+              )}
+              <div className="propi-msg-content">
+                {m.content || (isStreaming ? <TypingDots /> : null)}
+              </div>
+            </div>
+          );
+        })}
+        {error && (
+          <div className="propi-msg-error" role="alert">
+            <strong>Fehler:</strong> {error}
+          </div>
+        )}
+      </div>
+
+      {quickPrompts.length > 0 && (
+        <div className="propi-chat-prompts">
+          {quickPrompts.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className="propi-chat-qp"
+              onClick={() => handleQuickPrompt(p.replace(/^\p{Emoji}\s*/u, ''))}
+              disabled={loading}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <form className="propi-chat-input" onSubmit={handleSubmit}>
+        <div className="propi-chat-input-field">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Frag Propi etwas…"
+            rows={1}
+            maxLength={4000}
+            aria-label="Nachricht an Propi"
+            disabled={loading}
+          />
+          <div className="propi-chat-tools">
+            <button type="button" className="propi-chat-tool" title="Datei anhängen (bald)" aria-label="Datei anhängen" disabled>
+              <Paperclip size={14} aria-hidden />
+            </button>
+            <button type="button" className="propi-chat-tool" title="Sprachnachricht (bald)" aria-label="Sprachnachricht" disabled>
+              <Mic size={14} aria-hidden />
+            </button>
+          </div>
+        </div>
+        {loading ? (
+          <button type="button" className="propi-chat-send" onClick={abort} title="Antwort abbrechen" aria-label="Antwort abbrechen" data-variant="stop">
+            <StopCircle size={16} aria-hidden />
+          </button>
+        ) : (
+          <button type="submit" className="propi-chat-send" disabled={!input.trim()} title="Senden (Enter)" aria-label="Senden">
+            <Send size={16} aria-hidden />
+          </button>
+        )}
+      </form>
+
+      <div className="propi-chat-foot">
+        Propi kann Fehler machen · <kbd>P</kbd> öffnet Chat · <kbd>⇧ Enter</kbd> für neue Zeile
+      </div>
+    </div>
+  );
+}
+
+function TypingDots() {
+  return (
+    <span className="propi-typing" aria-hidden>
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}

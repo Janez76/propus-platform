@@ -1,0 +1,83 @@
+/**
+ * Propus Cockpit — Token-Erweiterungen
+ * Erweitert index.css. Non-breaking — nur additiv.
+ * Bridge-Aliasse mappen auf die in index.css bereits existierenden Tokens.
+ */
+
+:root {
+  /* ── Bridge-Aliasse (cockpit-Komponenten erwarten --propus-* Namen) ── */
+  --propus-bg-card:        var(--bg-card);
+  --propus-bg-strip:       var(--surface-raised);
+  --propus-border:         var(--border-soft);
+  --propus-text-primary:   var(--text-main);
+  --propus-text-secondary: var(--text-muted);
+  --propus-text-muted:     var(--text-subtle);
+
+  /* ── Status (fehlten bisher) ── */
+  --propus-warn:        #d28a2a;
+  --propus-warn-soft:   #fbeacb;
+  --propus-bad:         #c44a3a;
+  --propus-bad-soft:    #fbdcd5;
+  --propus-good:        #2A7A2A;
+  --propus-good-soft:   #dff0e0;
+  --propus-green:       #2a7a2a;
+
+  /* ── Categorical (Charts, Donut, Funnel) ── */
+  --propus-cat-1: var(--propus-gold);
+  --propus-cat-2: #4a7aa8;
+  --propus-cat-3: #8a5fb8;
+  --propus-cat-4: #2A7A2A;
+  --propus-cat-5: #d05a87;
+  --propus-cat-6: #d6a447;
+
+  /* ── Brand-Soft Surface (für AI Briefing, Highlights) ── */
+  --propus-gold-soft:   #fdf3d6;
+  --propus-gold-glow:   rgba(182,142,32,.30);
+
+  /* ── Radii ── */
+  --propus-r-sm:  8px;
+  --propus-r-md: 14px;
+  --propus-r-lg: 20px;
+
+  /* ── Shadows ── */
+  --propus-shadow-sm:   0 1px 2px rgba(60,40,15,.05);
+  --propus-shadow-md:   0 6px 20px rgba(60,40,15,.07), 0 2px 6px rgba(60,40,15,.04);
+  --propus-shadow-lg:   0 16px 48px rgba(60,40,15,.12), 0 6px 16px rgba(60,40,15,.06);
+  --propus-shadow-glow: 0 8px 32px var(--propus-gold-glow);
+
+  /* ── Transitions ── */
+  --propus-ease-spring: cubic-bezier(.34,1.56,.64,1);
+  --propus-ease-layout: cubic-bezier(.4,.0,.2,1);
+  --propus-dur-fast: .15s;
+  --propus-dur-base: .25s;
+  --propus-dur-slow: .35s;
+
+  /* ── Side Panel & Layout ── */
+  --propus-side-panel-w:    400px;
+  --propus-side-panel-rail:  56px;
+  --propus-sidebar-w:       240px;
+  --propus-topbar-h:         56px;
+}
+
+html.dark {
+  /* Dark-Mode-Bridge */
+  --propus-bg-card:        var(--bg-card);
+  --propus-bg-strip:       var(--surface-raised);
+  --propus-border:         var(--border-soft);
+  --propus-text-primary:   var(--text-main);
+  --propus-text-secondary: var(--text-muted);
+  --propus-text-muted:     var(--text-subtle);
+
+  --propus-gold-soft: #3a2c14;
+  --propus-good:      #5aaa5a;
+  --propus-good-soft: rgba(90,170,90,.18);
+  --propus-green:     #5aaa5a;
+  --propus-warn:      #e09b3d;
+  --propus-warn-soft: rgba(224,155,61,.18);
+  --propus-bad:       #d65a4a;
+  --propus-bad-soft:  rgba(214,90,74,.18);
+}
+
+@keyframes propus-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.85)} }
+@keyframes propus-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes propus-spin  { to { transform: rotate(360deg); } }
