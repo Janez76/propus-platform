@@ -3375,6 +3375,41 @@ app.get("/auth/customer/callback", (req, res) => {
   return res.redirect(resolveCustomerFrontendRedirect(req.query.redirect));
 });
 
+// Kunden-Portal-Login: erstellt customer_session Cookie (kein Admin-JWT).
+// Wird von der React-SPA auf portal.propus.ch genutzt, damit der Redirect-Loop
+// vermieden wird, der entsteht wenn CustomerSessionBootstrap das Admin-JWT räumt.
+app.post("/api/customer/login", authLimiter, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) return res.status(503).json({ error: "Datenbank nicht konfiguriert" });
+    const { email, password, rememberMe } = req.body || {};
+    const loginId = String(email || "").trim();
+    const pw = String(password || "");
+    if (!loginId || !pw) return res.status(400).json({ error: "E-Mail und Passwort erforderlich" });
+
+    const portalEmail = await portalAuthBridge.verifyPortalCustomerPassword(loginId, pw);
+    if (!portalEmail) return res.status(401).json({ error: "E-Mail oder Passwort falsch." });
+
+    const customer = await db.getCustomerByEmail(portalEmail);
+    if (!customer) return res.status(401).json({ error: "Kein Kundenkonto gefunden." });
+    if (customer.blocked) return res.status(403).json({ error: "Konto gesperrt." });
+
+    const token = customerAuth.createSessionToken();
+    const tokenHash = customerAuth.hashSha256Hex(token);
+    const sessionDays = (rememberMe === true || rememberMe === "1" || rememberMe === "on" || rememberMe === "true") ? 30 : 7;
+    const expiresAt = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000);
+    await db.createCustomerSession({ customerId: Number(customer.id), tokenHash, expiresAt });
+
+    res.cookie("customer_session", token, customerSessionCookieOptions(sessionDays * 24 * 60 * 60 * 1000));
+
+    const rawRole = await portalAuthBridge.getPortalCustomerRole(portalEmail);
+    const permissions = Array.from(rbac.legacyFallbackPermissions(rawRole));
+    return res.json({ ok: true, role: rawRole, permissions });
+  } catch (err) {
+    console.error("[customer/login]", err?.message || err);
+    res.status(500).json({ error: err?.message || "Login fehlgeschlagen" });
+  }
+});
+
 // Kunden-Logout
 app.post("/api/customer/logout", requireCustomer, async (req, res) => {
   try {
