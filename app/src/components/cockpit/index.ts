@@ -6,6 +6,7 @@ export { usePropiChat, type PropiMessage, type PropiRole } from './usePropiChat'
 export { InsightsPane } from './InsightsPane';
 export { ActivityPane } from './ActivityPane';
 export { WeatherStrip } from './WeatherStrip';
+export { BriefingCard } from './BriefingCard';
 export type { CockpitTabDefinition } from './types';
 export {
   useCockpitPanelStore,
