@@ -177,17 +177,12 @@ const ERROR_DISPLAY: Record<ErrorCode, string> = {
   validation_error: "Ungültige Anfrage.",
 };
 
-/** Rate limits: show API `message` (daily budget vs. provider 429); other codes keep catalog text when set. */
+/** Prefer the API `message` when present; only fall back to the catalog text when the server sent nothing. */
 function formatAssistantErrorBanner(error: { message: string; code?: ErrorCode }): string {
-  if (error.code === "rate_limited") {
-    const detail = error.message?.trim();
-    if (detail) return detail;
-    return ERROR_DISPLAY.rate_limited;
-  }
-  if (error.code && ERROR_DISPLAY[error.code]) {
-    return ERROR_DISPLAY[error.code];
-  }
-  return error.message;
+  const detail = error.message?.trim();
+  if (detail) return detail;
+  if (error.code && ERROR_DISPLAY[error.code]) return ERROR_DISPLAY[error.code];
+  return "Unbekannter Fehler.";
 }
 
 function ConfirmationCard({
