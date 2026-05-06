@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 /**
  * Ergänzt /tmp/propus-platform.env.vps (aus GitHub Secret VPS_ENV_FILE) um
- * PAYREXX_*-Werte aus der aktuell auf dem VPS liegenden .env.vps, falls das
+ * geschützte Werte aus der aktuell auf dem VPS liegenden .env.vps, falls das
  * Secret diese Keys leer lässt oder weglässt.
  *
  * So schlägt guard-vps-env.sh nicht mehr fehl, wenn das Secret veraltet ist,
- * ohne Payrexx-Konfiguration zu löschen.
+ * ohne Payrexx-Konfiguration oder den Assistant-API-Key zu löschen.
  *
  * Usage: node scripts/merge-vps-env-protected.js <incoming-path> <current-live-path>
  */
 const fs = require("fs");
 
-const PROTECTED_KEYS = ["PAYREXX_INSTANCE", "PAYREXX_API_SECRET", "PAYREXX_WEBHOOK_SECRET"];
+const PROTECTED_KEYS = [
+  "PAYREXX_INSTANCE",
+  "PAYREXX_API_SECRET",
+  "PAYREXX_WEBHOOK_SECRET",
+  "ANTHROPIC_API_KEY",
+];
 
 function parseEnv(filePath) {
   const values = {};
