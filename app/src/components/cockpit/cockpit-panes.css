@@ -1,0 +1,120 @@
+/* Propus Cockpit · Generic pane container styles
+   Used by InsightsPane / ActivityPane (and future panes). */
+
+.propus-pane-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 14px 18px;
+  font-family: var(--propus-font-body, 'Roboto', sans-serif);
+  color: var(--propus-text-primary);
+}
+
+.propus-pane-section { display: flex; flex-direction: column; gap: 8px; }
+
+.propus-pane-section-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 10px;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--propus-text-muted);
+}
+
+.propus-pane-empty {
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--propus-text-muted);
+  background: var(--propus-bg-strip);
+  border-radius: var(--propus-r-sm, 8px);
+}
+.propus-pane-empty-title {
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--propus-text-primary);
+  margin-bottom: 2px;
+}
+.propus-pane-empty-sub { font-size: 11px; }
+
+.propus-pane-error {
+  padding: 10px 12px;
+  background: var(--propus-bad-soft, #fbdcd5);
+  color: var(--propus-bad, #c44a3a);
+  border: 1px solid rgba(196, 74, 58, .25);
+  border-radius: var(--propus-r-sm, 8px);
+  font-size: 12px;
+}
+
+/* ── Weather Strip ─────────────────────────────────────── */
+.propus-weather-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 8px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-md, 14px);
+}
+.propus-weather-strip--error,
+.propus-weather-strip--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  font-size: 11px;
+  color: var(--propus-text-muted);
+  min-height: 64px;
+}
+
+.propus-weather-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: var(--propus-r-sm, 8px);
+  background: var(--propus-bg-card);
+  border: 1px solid transparent;
+  font-family: var(--propus-font-body, inherit);
+  cursor: default;
+  transition: border-color var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+}
+.propus-weather-day:hover {
+  border-color: var(--propus-gold);
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+}
+.propus-weather-day[data-today] {
+  border-color: var(--propus-gold);
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+}
+.propus-weather-day--skeleton {
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  height: 56px;
+  animation: propus-pulse 1.4s infinite;
+}
+
+.propus-weather-day-label {
+  font-size: 9px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--propus-text-muted);
+}
+.propus-weather-day-emoji {
+  font-size: 18px;
+  line-height: 1;
+  margin: 1px 0;
+}
+.propus-weather-day-temp {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--propus-text-primary);
+  font-variant-numeric: tabular-nums;
+}
