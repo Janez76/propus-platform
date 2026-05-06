@@ -4,6 +4,14 @@ export type VerknuepfungTour = {
   tour_url: string | null;
   matterport_state: string | null;
   display_title: string;
+  /** Manueller Anzeigename (DB: tour_manager.tours.bezeichnung). */
+  bezeichnung: string | null;
+  /** Sekundärer Anzeigename, wird vom Tour-Manager gepflegt (object_label). */
+  object_label: string | null;
+  /** Aktuelle Matterport-AccessVisibility, sofern API erreichbar; sonst null. */
+  visibility: "PRIVATE" | "LINK_ONLY" | "PUBLIC" | "PASSWORD" | null;
+  /** Falls Matterport-API nicht erreichbar war oder Modell archiviert: Fehlertext. */
+  visibilityError: string | null;
 };
 
 export type VerknuepfungSuggestedTour = VerknuepfungTour & {

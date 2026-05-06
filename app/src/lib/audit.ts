@@ -17,6 +17,8 @@ export type OrderEventType =
   | "note_added"
   | "matterport_linked"
   | "matterport_unlinked"
+  | "matterport_object_label_set"
+  | "matterport_visibility_set"
   | "gallery_linked"
   | "gallery_unlinked";
 

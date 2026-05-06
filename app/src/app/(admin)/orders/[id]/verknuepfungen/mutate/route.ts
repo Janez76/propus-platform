@@ -5,6 +5,12 @@ import { getAdminSession, isOrderEditorRole } from "@/lib/auth.server";
 import { logOrderEvent } from "@/lib/audit";
 import { parseMatterportInput } from "../_links";
 import { addSubscriptionMonths, planMatterportUnlink, toIsoDate } from "../matterport-linking";
+import {
+  VISIBILITY_PORTAL_KEYS,
+  mpPatchModelName,
+  mpSetVisibility,
+  type VisibilityPortalKey,
+} from "../matterport-api";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -307,6 +313,85 @@ export async function POST(request: Request, { params }: Props) {
     if (rows.length > 0) {
       await logOrderEvent(orderNo, "gallery_unlinked", { old: { gallery_ids: rows.map((r) => r.id) }, new: {} }, editor);
     }
+    revalidateOrderLinks(orderNo);
+    return redirectBack(request, orderNo, { saved: "1" });
+  }
+
+  if (action === "set-object-label") {
+    const name = String(formData.get("object_label") ?? "").trim();
+    const syncMatterport = String(formData.get("sync_matterport") ?? "") === "1";
+    if (name.length > 200) {
+      return redirectBack(request, orderNo, { error: "Bezeichnung zu lang (max. 200 Zeichen)" });
+    }
+    const tour = await queryOne<{ id: number; matterport_space_id: string | null }>(
+      `SELECT id, matterport_space_id
+       FROM tour_manager.tours
+       WHERE booking_order_no = $1
+       LIMIT 1`,
+      [orderNo],
+    );
+    if (!tour) {
+      return redirectBack(request, orderNo, { error: "Keine Tour mit dieser Bestellung verknüpft" });
+    }
+    const value = name.length > 0 ? name : null;
+    await query(
+      `UPDATE tour_manager.tours
+       SET bezeichnung = $1, object_label = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [value, tour.id],
+    );
+    let mpError: string | null = null;
+    if (syncMatterport && value && tour.matterport_space_id) {
+      const result = await mpPatchModelName(tour.matterport_space_id, value);
+      if (!result.ok) mpError = result.error || "Matterport-Sync fehlgeschlagen";
+    }
+    await logOrderEvent(
+      orderNo,
+      "matterport_object_label_set",
+      { old: {}, new: { object_label: value, sync_matterport: syncMatterport, mp_error: mpError } },
+      editor,
+    );
+    revalidateOrderLinks(orderNo);
+    return redirectBack(
+      request,
+      orderNo,
+      mpError ? { error: `Bezeichnung gespeichert, aber Matterport-Sync fehlgeschlagen: ${mpError}` } : { saved: "1" },
+    );
+  }
+
+  if (action === "set-matterport-visibility") {
+    const visibilityRaw = String(formData.get("visibility") ?? "").toUpperCase();
+    if (!(VISIBILITY_PORTAL_KEYS as readonly string[]).includes(visibilityRaw)) {
+      return redirectBack(request, orderNo, { error: "Ungültige Sichtbarkeit" });
+    }
+    const visibility = visibilityRaw as VisibilityPortalKey;
+    const password = visibility === "PASSWORD" ? String(formData.get("password") ?? "").trim() : null;
+    if (visibility === "PASSWORD" && !password) {
+      return redirectBack(request, orderNo, { error: "Passwort erforderlich bei Sichtbarkeit „Passwort“" });
+    }
+    const tour = await queryOne<{ id: number; matterport_space_id: string | null }>(
+      `SELECT id, matterport_space_id
+       FROM tour_manager.tours
+       WHERE booking_order_no = $1
+       LIMIT 1`,
+      [orderNo],
+    );
+    if (!tour) {
+      return redirectBack(request, orderNo, { error: "Keine Tour mit dieser Bestellung verknüpft" });
+    }
+    if (!tour.matterport_space_id) {
+      return redirectBack(request, orderNo, { error: "Kein Matterport-Space — Sichtbarkeit kann nicht gesetzt werden" });
+    }
+    const result = await mpSetVisibility(tour.matterport_space_id, visibility, password);
+    if (!result.ok) {
+      return redirectBack(request, orderNo, { error: `Sichtbarkeit nicht gesetzt: ${result.error || "unbekannter Matterport-Fehler"}` });
+    }
+    await logOrderEvent(
+      orderNo,
+      "matterport_visibility_set",
+      { old: {}, new: { visibility, has_password: visibility === "PASSWORD" } },
+      editor,
+    );
     revalidateOrderLinks(orderNo);
     return redirectBack(request, orderNo, { saved: "1" });
   }
