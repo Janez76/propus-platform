@@ -1,22 +1,16 @@
 name: calendar-audit
 
-# Einmaliger Audit-Lauf des Repair-Skripts gegen die Prod-DB.
-# Read-only: listet nur Orders mit inkonsistenten Calendar-Event-IDs auf,
-# aendert NICHTS. Wird via "gh workflow run calendar-audit" ausgeloest.
+# Read-only Audit der Prod-DB nach Orders mit inkonsistenten Calendar-Event-IDs.
+# Schreibt NICHTS — weder in DB noch in Container-Filesystem. Reines SELECT
+# via docker exec auf den postgres-Container. Trigger:
+#   gh workflow run calendar-audit
+#   gh workflow run calendar-audit -f order_no=100101
 
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: "Modus"
-        required: true
-        type: choice
-        default: "audit"
-        options:
-          - audit          # nur Liste, kein DB-Write, kein Graph-Call
-          - dry-run-all    # Vorschau aller potenziellen Repair-Aktionen
       order_no:
-        description: "Optional: einzelne Order-Nr fuer Detailausgabe (nur audit)"
+        description: "Optional: Detailausgabe einer einzelnen Order"
         required: false
 
 jobs:
@@ -24,11 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref }}
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -36,34 +25,32 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519_propus_vps
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copy repair script to VPS
+      - name: Detect postgres container
+        id: pg
         run: |
-          scp -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
-            booking/scripts/repair-photographer-event.js \
-            root@${{ secrets.VPS_HOST }}:/tmp/repair-photographer-event.js
-
-      - name: docker cp script into container
-        run: |
-          ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+          NAME=$(ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
             root@${{ secrets.VPS_HOST }} \
-            "docker cp /tmp/repair-photographer-event.js propus-platform-platform-1:/app/booking/scripts/repair-photographer-event.js && echo CP_OK"
+            "docker ps --filter 'name=postgres' --format '{{.Names}}' | head -n1")
+          echo "container=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Postgres container: $NAME"
 
-      - name: Run audit
-        id: audit
+      - name: Audit — list inconsistent orders
+        if: ${{ inputs.order_no == '' }}
         run: |
           set -e
-          ARGS=""
-          case "${{ inputs.mode }}" in
-            audit)
-              if [ -n "${{ inputs.order_no }}" ]; then
-                ARGS="${{ inputs.order_no }} --dry-run"
-              fi
-              ;;
-            dry-run-all)
-              ARGS="--all --dry-run"
-              ;;
-          esac
-          echo "Running with args: $ARGS"
+          SQL="SELECT o.order_no, o.status, o.schedule->>'date' AS d, o.schedule->>'time' AS t, o.photographer->>'key' AS photog, CASE WHEN o.photographer_event_id IS NULL THEN 'YES' ELSE 'no' END AS photog_missing, CASE WHEN o.office_event_id IS NULL THEN 'YES' ELSE 'no' END AS office_missing, o.calendar_sync_status FROM booking.orders o WHERE o.status IN ('provisional','confirmed') AND (o.photographer_event_id IS NULL OR o.office_event_id IS NULL) ORDER BY o.order_no DESC LIMIT 200;"
           ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
             root@${{ secrets.VPS_HOST }} \
-            "docker exec propus-platform-platform-1 node /app/booking/scripts/repair-photographer-event.js $ARGS"
+            "docker exec ${{ steps.pg.outputs.container }} psql -U \$POSTGRES_USER -d \$POSTGRES_DB -c \"$SQL\""
+          ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+            root@${{ secrets.VPS_HOST }} \
+            "docker exec ${{ steps.pg.outputs.container }} psql -U \$POSTGRES_USER -d \$POSTGRES_DB -c \"SELECT count(*) AS total_inconsistent FROM booking.orders WHERE status IN ('provisional','confirmed') AND (photographer_event_id IS NULL OR office_event_id IS NULL);\""
+
+      - name: Detail — single order
+        if: ${{ inputs.order_no != '' }}
+        run: |
+          set -e
+          SQL="SELECT order_no, status, schedule, photographer, photographer_event_id, office_event_id, calendar_sync_status, created_at, updated_at FROM booking.orders WHERE order_no = ${{ inputs.order_no }};"
+          ssh -i ~/.ssh/id_ed25519_propus_vps -o StrictHostKeyChecking=no \
+            root@${{ secrets.VPS_HOST }} \
+            "docker exec ${{ steps.pg.outputs.container }} psql -U \$POSTGRES_USER -d \$POSTGRES_DB -x -c \"$SQL\""
