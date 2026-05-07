@@ -246,7 +246,15 @@ export function DashboardV2() {
       {showPipeline || showUpcoming ? (
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
           {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
-          {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} onHover={setHoveredOrderNo} /> : null}
+          {showUpcoming ? (
+            <UpcomingV2
+              metrics={metrics}
+              lang={lang}
+              weather={weather}
+              onHover={setHoveredOrderNo}
+              onCreateOrder={can("orders.create") ? () => setShowCreateOrder(true) : undefined}
+            />
+          ) : null}
         </div>
       ) : null}
 
