@@ -32,34 +32,57 @@ interface UseGeolocationReturn {
   error: string | null;
   /** Bug-Hunt M09: typisiertes Pendant zu `error` fuer kontextspezifische UI. */
   errorCode: GeoErrorCode | null;
-  /** Permission persistiert. True = User hat Standort-Sharing aktiv erlaubt. */
+  /**
+   * Aktueller Sharing-State. Default: `true` (Standort wird beim ersten Mount
+   * automatisch angefragt). Wird im Profil-Toggle auf `false` gesetzt → kein
+   * Auto-Request, Position bleibt `null`. Browser-Permission ist orthogonal:
+   * auch wenn `enabled === true` ist, kann der Browser den Zugriff verweigern.
+   */
   enabled: boolean;
   /**
    * Triggert einen frischen `getCurrentPosition`-Call.
    *
    * Bug-Hunt MEDIUM M10: Promise resolved *immer* — Erfolg liefert eine
    * `GeoPosition`, jeder Fehler (Permission denied, Timeout, no GPS,
-   * Browser-Support) liefert ein typisiertes `GeoError`. Vorher resolved
-   * die Promise mit `null` und der Caller konnte Permission-denied nicht
-   * von einem Browser-Support-Fehler unterscheiden, ohne `error`/`errorCode`
-   * separat zu lesen. Die State-Felder `position`, `error`, `errorCode`,
-   * `loading` werden parallel zum Promise-Resolve aktualisiert; Caller die
-   * `void geo.request()` nutzen, brauchen nichts zu aendern.
+   * Browser-Support) liefert ein typisiertes `GeoError`.
    */
   request: () => Promise<{ ok: true; position: GeoPosition } | { ok: false; error: GeoError }>;
+  /** Setzt den Profil-weiten Sharing-State. `false` deaktiviert dauerhaft, bis
+   *  der User im Profil wieder einschaltet. `true` aktiviert + ruft request(). */
+  setEnabled: (next: boolean) => void;
+  /** @deprecated Lieber `setEnabled(false)` benutzen — bleibt fuer Backwards-
+   *  Compat: Position löschen + Storage zurücksetzen (= Default-on). */
   clear: () => void;
 }
 
-const STORAGE_DEFAULT = 'propus.cockpit.geo.enabled.v1';
+/**
+ * Einziger profilweit-persistierter Key für die Standort-Freigabe.
+ * Tri-State im localStorage:
+ *   - `'false'`     → User hat im Profil explizit deaktiviert (kein Auto-Request).
+ *   - `'true'`      → vom Browser einmal erfolgreich gewährt (Auto-Request beim Mount).
+ *   - kein Eintrag  → Default; behandelt wie `'true'`, aber Browser-Popup kommt bei
+ *                     erstem Auto-Request.
+ */
+export const GEO_STORAGE_KEY = 'propus.geo.enabled.v1';
 const MAX_AGE_DEFAULT_MS = 60_000;
 const TIMEOUT_DEFAULT_MS = 10_000;
 
 export type UseGeolocationOptions = {
-  /** localStorage-Key für den Opt-In (z. B. Cockpit, Dashboard oder Assistant). */
+  /** Optionaler Override des Storage-Keys — nur fuer Tests. Production-Code soll
+   *  den Default (= profilweit zentral) nutzen. */
   storageKey?: string;
   maximumAgeMs?: number;
   timeoutMs?: number;
 };
+
+function readEnabledFromStorage(storageKey: string): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(storageKey) !== 'false';
+  } catch {
+    return true;
+  }
+}
 
 export function mapBrowserError(err: GeolocationPositionError): GeoError {
   // Browser GeolocationPositionError codes:
@@ -77,7 +100,7 @@ export function mapBrowserError(err: GeolocationPositionError): GeoError {
  * automatisch gestartet.
  */
 export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationReturn {
-  const storageKey = options?.storageKey ?? STORAGE_DEFAULT;
+  const storageKey = options?.storageKey ?? GEO_STORAGE_KEY;
   const maxAgeMs = options?.maximumAgeMs ?? MAX_AGE_DEFAULT_MS;
   const timeoutMs = options?.timeoutMs ?? TIMEOUT_DEFAULT_MS;
 
@@ -85,7 +108,8 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<GeoErrorCode | null>(null);
-  const [enabled, setEnabled] = useState(false);
+  // Default-on: ohne expliziten 'false'-Eintrag im Storage starten wir aktiviert.
+  const [enabled, setEnabledState] = useState<boolean>(() => readEnabledFromStorage(storageKey));
 
   /**
    * Bug-Hunt MEDIUM M07: ohne In-Flight-Coalesce kann ein Doppel-Klick auf
@@ -123,7 +147,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
             timestamp: pos.timestamp,
           };
           setPosition(p);
-          setEnabled(true);
+          setEnabledState(true);
           setLoading(false);
           try {
             window.localStorage.setItem(storageKey, 'true');
@@ -137,18 +161,13 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
           setError(e.message);
           setErrorCode(e.code);
           setLoading(false);
+          // Browser-Permission ist orthogonal zum Profil-Toggle: wir lassen den
+          // im Storage gespeicherten User-Wunsch (`'true'`/absent/`'false'`) in
+          // Ruhe — wenn der User im Profil "an" hat, will er das so. Lediglich
+          // den in-memory `enabled`-State muessen wir zuruecksetzen, damit
+          // Consumer das CTA "Im Browser blockiert" rendern koennen.
           if (e.code === 'denied') {
-            // Bug-Hunt M09: bei Permission-Denied kein Auto-Retry beim
-            // naechsten Mount — der Browser merkt sich die Verweigerung,
-            // erneutes getCurrentPosition wuerde sofort wieder den Error
-            // ausloesen. User muss explizit klicken (oder im Browser
-            // freigeben) → wir clearen den Opt-In.
-            setEnabled(false);
-            try {
-              window.localStorage.removeItem(storageKey);
-            } catch {
-              /* */
-            }
+            setEnabledState(false);
           }
           resolve({ ok: false, error: e });
         },
@@ -165,7 +184,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
 
   const clear = useCallback(() => {
     setPosition(null);
-    setEnabled(false);
+    setEnabledState(true); // Default-on: clear setzt auf den Default zurueck.
     setError(null);
     setErrorCode(null);
     if (typeof window !== 'undefined') {
@@ -177,22 +196,41 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
     }
   }, [storageKey]);
 
+  const setEnabled = useCallback((next: boolean) => {
+    setEnabledState(next);
+    if (typeof window !== 'undefined') {
+      try {
+        if (next) {
+          window.localStorage.setItem(storageKey, 'true');
+        } else {
+          window.localStorage.setItem(storageKey, 'false');
+        }
+      } catch {
+        /* quota / privacy mode */
+      }
+    }
+    if (next) {
+      void request();
+    } else {
+      setPosition(null);
+      setError(null);
+      setErrorCode(null);
+    }
+  }, [storageKey, request]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!enabled) return; // Profil-Toggle = aus → kein Auto-Request.
     let active = true;
-    try {
-      const stored = window.localStorage.getItem(storageKey);
-      if (stored === 'true' && active) {
-        setEnabled(true);
-        void request();
-      }
-    } catch {
-      /* */
+    if (active) {
+      void request();
     }
     return () => {
       active = false;
     };
-  }, [storageKey, request]);
+    // `enabled` ist der einzige relevante Trigger; storageKey/request sind
+    // stabil pro Hook-Instanz.
+  }, [enabled, request]);
 
-  return { position, loading, error, errorCode, enabled, request, clear };
+  return { position, loading, error, errorCode, enabled, request, setEnabled, clear };
 }
