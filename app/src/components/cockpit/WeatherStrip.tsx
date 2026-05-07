@@ -11,6 +11,7 @@ import {
   type WeatherHourlyEntry,
 } from '../../api/weather';
 import { useAuthStore } from '../../store/authStore';
+import './cockpit-panes.css';
 
 const WEEKDAY_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const WEEKDAY_FULL_DE = [
@@ -115,14 +116,17 @@ export function WeatherStrip({ region = 'zurich', days = 7 }: WeatherStripProps)
   );
 }
 
-interface HourlyPanelProps {
+export interface HourlyPanelProps {
   date: string;
-  region: string;
+  /** Region-Key (z. B. "zurich") ODER lat+lng — letzteres hat Vorrang. */
+  region?: string;
+  lat?: number;
+  lng?: number;
   dayMeta: WeatherForecastDay | null;
   onClose: () => void;
 }
 
-function HourlyPanel({ date, region, dayMeta, onClose }: HourlyPanelProps) {
+export function HourlyPanel({ date, region, lat, lng, dayMeta, onClose }: HourlyPanelProps) {
   const token = useAuthStore((s) => s.token);
   const [hours, setHours] = useState<WeatherHourlyEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +136,7 @@ function HourlyPanel({ date, region, dayMeta, onClose }: HourlyPanelProps) {
     let cancelled = false;
     setHours(null);
     setError(null);
-    getWeatherHourly(token, { date, region })
+    getWeatherHourly(token, { date, region, lat, lng })
       .then((res) => {
         if (cancelled) return;
         setHours(res.hours);
@@ -144,7 +148,7 @@ function HourlyPanel({ date, region, dayMeta, onClose }: HourlyPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [token, date, region]);
+  }, [token, date, region, lat, lng]);
 
   const d = new Date(`${date}T00:00:00`);
   const wd = WEEKDAY_FULL_DE[d.getDay()];
