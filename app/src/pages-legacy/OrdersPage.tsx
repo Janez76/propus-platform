@@ -21,6 +21,7 @@ import { OrderWeekCalendar } from "../components/orders/OrderWeekCalendar";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
 import { useAuthStore } from "../store/authStore";
+import { useQueryStore } from "../store/queryStore";
 import { t } from "../i18n";
 import { getStatusLabel, normalizeStatusKey, STATUS_KEYS, type StatusKey } from "../lib/status";
 import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin";
@@ -372,6 +373,9 @@ export function OrdersPage() {
     setBulkBusy(false);
     setShowBulkDelete(false);
     await refetch({ force: true });
+    // Sprint 9: globalen Cache invalidieren, damit Dashboard/OrdersMap die gelöschten
+    // Aufträge nicht mehr aus stale-cache zeigen.
+    useQueryStore.getState().invalidate(queryKey);
     setSelectedNos(new Set());
     if (fail > 0) {
       setBulkFeedback(
