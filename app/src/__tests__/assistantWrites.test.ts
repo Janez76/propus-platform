@@ -119,6 +119,41 @@ describe("draft_email", () => {
   });
 });
 
+describe("create_order (Bug-Hunt HIGH-5)", () => {
+  it("rejects when customer has no email so the workflow mail is never silently dropped", async () => {
+    const deps = makeDeps({
+      queryOneRow: { id: 7, name: "Mustermann AG", email: null, company: "Mustermann AG" },
+    });
+    const handlers = createWriteHandlers(deps);
+    const result = await handlers.create_order(
+      {
+        customer_id: 7,
+        address: "Bahnhofstrasse 1, 8001 Zuerich",
+        services: { photography: true },
+      },
+      ctx,
+    );
+    expect(result).toEqual({
+      error:
+        "Kunde 7 hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.",
+    });
+    // Wichtig: weder INSERT noch Outbox-Enqueue duerfen passieren.
+    expect(deps.query).not.toHaveBeenCalled();
+  });
+
+  it("rejects when customer email is whitespace-only", async () => {
+    const deps = makeDeps({
+      queryOneRow: { id: 8, name: "X", email: "   ", company: null },
+    });
+    const handlers = createWriteHandlers(deps);
+    const result = await handlers.create_order(
+      { customer_id: 8, address: "Test 1, 8001 Zuerich", services: { photography: true } },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("E-Mail-Adresse hinterlegt") });
+  });
+});
+
 describe("update_order_status", () => {
   it("updates status for valid transition", async () => {
     const deps = makeDeps();
