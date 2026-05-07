@@ -5,6 +5,8 @@ export { PropiAvatar } from './PropiAvatar';
 export { usePropiChat, type PropiMessage, type PropiRole } from './usePropiChat';
 export { InsightsPane } from './InsightsPane';
 export { ActivityPane } from './ActivityPane';
+export { CapturePane } from './CapturePane';
+export { ToolsPane } from './ToolsPane';
 export { WeatherStrip } from './WeatherStrip';
 export { BriefingCard } from './BriefingCard';
 export type { CockpitTabDefinition } from './types';

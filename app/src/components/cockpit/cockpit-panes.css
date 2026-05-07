@@ -174,6 +174,177 @@ html.dark .propus-briefing {
   .propus-briefing-mascot { animation: none !important; }
 }
 
+/* ── CapturePane (Sprint 8) ──────────────────────────────────────── */
+.propus-capture-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-md, 14px);
+  transition: border-color var(--propus-dur-fast, .15s);
+}
+.propus-capture-form:focus-within {
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.propus-capture-textarea {
+  width: 100%;
+  min-height: 80px;
+  max-height: 200px;
+  resize: vertical;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--propus-font-body, inherit);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--propus-text-primary);
+  padding: 0;
+}
+.propus-capture-textarea::placeholder { color: var(--propus-text-muted); }
+.propus-capture-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.propus-capture-counter {
+  font-size: 10px;
+  color: var(--propus-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.propus-capture-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: linear-gradient(135deg, var(--propus-accent-warm, var(--propus-gold)), var(--propus-accent-warm-deep, var(--propus-gold-dark)));
+  color: #fff;
+  border: none;
+  border-radius: var(--propus-r-sm, 8px);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--propus-dur-fast, .15s), transform var(--propus-dur-fast, .15s);
+  box-shadow: var(--propus-shadow-glow-warm, var(--propus-shadow-glow));
+}
+.propus-capture-save:hover:not(:disabled) { transform: translateY(-1px); }
+.propus-capture-save:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+/* Memory list */
+.propus-memory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.propus-memory-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-sm, 8px);
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--propus-text-secondary);
+}
+.propus-memory-body {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+}
+.propus-memory-del {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--propus-text-muted);
+  transition: background var(--propus-dur-fast, .15s), color var(--propus-dur-fast, .15s);
+}
+.propus-memory-del:hover {
+  background: var(--propus-bad-soft, #fbdcd5);
+  color: var(--propus-bad, #c44a3a);
+}
+
+/* ── ToolsPane (Sprint 8) ──────────────────────────────────────── */
+.propus-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.propus-tools-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-sm, 8px);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--propus-text-primary);
+  text-decoration: none;
+  text-align: left;
+  transition: background var(--propus-dur-fast, .15s), border-color var(--propus-dur-fast, .15s);
+}
+.propus-tools-action:hover {
+  background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.propus-tools-action-label { flex: 1; min-width: 0; }
+.propus-tools-action-ext { opacity: .55; }
+
+/* Hotkey-Liste */
+.propus-tools-keys {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--propus-text-secondary);
+}
+.propus-tools-keys dt { display: flex; align-items: center; justify-content: flex-start; }
+.propus-tools-keys dd { display: flex; align-items: center; margin: 0; }
+.propus-tools-keys kbd {
+  display: inline-block;
+  min-width: 22px;
+  text-align: center;
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: var(--propus-bg-card);
+  border: 1px solid var(--propus-border);
+  border-radius: 4px;
+  color: var(--propus-text-primary);
+}
+
+.propus-tools-toast {
+  position: sticky;
+  bottom: 12px;
+  align-self: center;
+  padding: 6px 12px;
+  background: var(--propus-text-primary);
+  color: var(--propus-bg-card);
+  border-radius: var(--propus-r-sm, 8px);
+  font-size: 11px;
+  font-weight: 500;
+  box-shadow: var(--propus-shadow-md);
+  animation: propus-pulse 2.2s 1;
+}
+
 .propus-briefing-refresh {
   width: 22px; height: 22px;
   display: grid; place-items: center;
