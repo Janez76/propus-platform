@@ -9948,6 +9948,42 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
   }
 });
 
+/**
+ * Mobile-Orders-Redesign: Heim-Adresse des eingeloggten Mitarbeiters.
+ * Wird vom MobileOrdersTab fuer den Heimfahrt-Divider am Tagesende verwendet
+ * (Routing ab letztem Termin → home). Match via E-Mail (photographers.email
+ * → photographer_settings.home_address). Fuer Nicht-Mitarbeiter Admins
+ * bleibt der Wert leer; UI faellt dann auf "Heimfahrt nicht verfuegbar".
+ *
+ * Doku: docs/openapi/openapi.yaml (operationId: getApiAdminMeHome)
+ *       docs/FLOWS_BOOKING.md §20 Mobile Tagesplan & Live-Routing
+ */
+app.get("/api/admin/me/home", requireAdmin, async (req, res) => {
+  try {
+    const email = String(req.user?.email || req.user?.userKey || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      return res.json({ ok: true, homeAddress: null, homeLat: null, homeLng: null });
+    }
+    const { rows } = await db.getPool().query(
+      `SELECT ps.home_address, ps.home_lat, ps.home_lon
+         FROM photographer_settings ps
+         JOIN photographers p ON p.key = ps.photographer_key
+        WHERE LOWER(p.email) = $1
+        LIMIT 1`,
+      [email]
+    );
+    const row = rows[0];
+    return res.json({
+      ok: true,
+      homeAddress: row?.home_address || null,
+      homeLat: typeof row?.home_lat === "number" ? row.home_lat : null,
+      homeLng: typeof row?.home_lon === "number" ? row.home_lon : null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "Heim-Adresse konnte nicht geladen werden" });
+  }
+});
+
 app.post("/api/admin/me/change-password", requireAdmin, async (req, res) => {
   try {
     const adminUser = await resolveCurrentAdminUserRecord(req);
