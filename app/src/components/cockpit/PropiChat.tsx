@@ -8,9 +8,10 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { CheckCircle2, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
+import { CheckCircle2, MapPin, MapPinOff, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
 import { PropiAvatar } from './PropiAvatar';
 import { usePropiChat } from './usePropiChat';
+import { useGeolocation } from './useGeolocation';
 import './propi-chat.css';
 
 interface PropiChatProps {
@@ -28,9 +29,11 @@ const DEFAULT_PROMPTS = [
 
 export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiChatProps) {
   const initialMessage = greeting ? { role: 'assistant' as const, content: greeting } : undefined;
-  const { messages, loading, error, send, reset, abort, activeTools } = usePropiChat(
-    initialMessage ? { initialMessage } : {},
-  );
+  const geo = useGeolocation();
+  const { messages, loading, error, send, reset, abort, activeTools } = usePropiChat({
+    ...(initialMessage ? { initialMessage } : {}),
+    location: geo.position,
+  });
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -47,6 +50,12 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   }, [input]);
+
+  // Auto-Focus: beim Mount + nach jedem Streaming-Ende. So muss der User
+  // nicht jedes Mal in das Eingabefeld klicken um zu schreiben.
+  useEffect(() => {
+    if (!loading) inputRef.current?.focus();
+  }, [loading]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -156,6 +165,29 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
             disabled={loading}
           />
           <div className="propi-chat-tools">
+            <button
+              type="button"
+              className="propi-chat-tool"
+              data-active={geo.enabled && geo.position ? 'true' : undefined}
+              onClick={() => (geo.enabled ? geo.clear() : void geo.request())}
+              title={
+                geo.position
+                  ? `Standort aktiv (±${Math.round(geo.position.accuracy)}m) — Klick zum Deaktivieren`
+                  : geo.error
+                  ? `Standort nicht verfügbar: ${geo.error} — erneut versuchen`
+                  : 'Standort teilen — Propi kann dann Routen + Reisezeiten berechnen'
+              }
+              aria-label={geo.enabled ? 'Standort deaktivieren' : 'Standort teilen'}
+              aria-pressed={geo.enabled && !!geo.position}
+            >
+              {geo.enabled && geo.position ? (
+                <MapPin size={14} aria-hidden />
+              ) : geo.error ? (
+                <MapPinOff size={14} aria-hidden />
+              ) : (
+                <MapPin size={14} aria-hidden />
+              )}
+            </button>
             <button type="button" className="propi-chat-tool" title="Datei anhängen (bald)" aria-label="Datei anhängen" disabled>
               <Paperclip size={14} aria-hidden />
             </button>

@@ -227,6 +227,13 @@ html.dark .propi-chat-head {
   color: var(--propus-gold);
 }
 .propi-chat-tool:disabled { opacity: .4; cursor: not-allowed; }
+.propi-chat-tool[data-active='true'] {
+  background: color-mix(in srgb, var(--propus-good-warm, var(--propus-green, #4a8a52)) 18%, transparent);
+  color: var(--propus-good-warm, var(--propus-green, #4a8a52));
+}
+.propi-chat-tool[data-active='true']:hover {
+  background: color-mix(in srgb, var(--propus-good-warm, var(--propus-green, #4a8a52)) 28%, transparent);
+}
 
 .propi-chat-send {
   width: 36px; height: 36px; border-radius: 50%;
