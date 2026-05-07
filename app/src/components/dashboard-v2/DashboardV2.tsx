@@ -28,6 +28,7 @@ import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
 import { OrdersMap } from "./OrdersMap";
 import { GoalRings } from "./GoalRings";
+import { ServiceMixDonut } from "./ServiceMixDonut";
 import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
 import { useGeolocation } from "../cockpit/useGeolocation";
 import {
@@ -112,6 +113,8 @@ export function DashboardV2() {
   const showPerf = isSec("perf") && showOrders;
   const showMap = isSec("map") && showOrders;
   const showGoals = isSec("goals") && showDas && showOrders;
+  const showServiceMix = isSec("serviceMix") && showOrders && (showFin || showDas);
+  const showTopCustomers = isSec("topCustomers") && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
   const inboxSingleCol = (showTickets && !showMails) || (!showTickets && showMails);
 
@@ -282,18 +285,25 @@ export function DashboardV2() {
 
       {showMap ? <OrdersMap orders={orders} lang={lang} hoveredOrderNo={hoveredOrderNo} /> : null}
 
-      {showFunnel || showPerf || showPipeline ? (
+      {showFunnel || showPerf || showPipeline || showServiceMix ? (
         (() => {
-          const count = (showFunnel ? 1 : 0) + (showPipeline ? 1 : 0) + (showPerf ? 1 : 0);
+          const count =
+            (showFunnel ? 1 : 0) +
+            (showPipeline ? 1 : 0) +
+            (showServiceMix ? 1 : 0) +
+            (showPerf ? 1 : 0);
           const tpl =
-            count >= 3 ? "repeat(3, minmax(0, 1fr))" :
-            count === 2 ? "repeat(2, minmax(0, 1fr))" :
-            "1fr";
+            count >= 4 ? "repeat(4, minmax(0, 1fr))"
+            : count >= 3 ? "repeat(3, minmax(0, 1fr))"
+            : count === 2 ? "repeat(2, minmax(0, 1fr))"
+            : "1fr";
           return (
             <div className="dv2-grid-bottom dv2-grid-bottom--charts" style={{ gridTemplateColumns: tpl }}>
               {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
               {/* Sprint 15: Donut neben Funnel (Mockup-V3.1-Match) */}
               {showPipeline ? <PipelineDonut metrics={metrics} /> : null}
+              {/* Polish-Pass 2 · 4.3: Service-Mix-Donut neben Pipeline-Donut */}
+              {showServiceMix ? <ServiceMixDonut orders={orders} lang={lang} /> : null}
               {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
             </div>
           );

@@ -17,6 +17,8 @@ const SECTIONS: { id: DashV2SectionId; labelKey: string }[] = [
   { id: "perf", labelKey: "dashboardV2.tweaks.section.perf" },
   { id: "map", labelKey: "dashboardV2.tweaks.section.map" },
   { id: "goals", labelKey: "dashboardV2.tweaks.section.goals" },
+  { id: "serviceMix", labelKey: "dashboardV2.tweaks.section.serviceMix" },
+  { id: "topCustomers", labelKey: "dashboardV2.tweaks.section.topCustomers" },
 ];
 
 const DENSITIES: DashV2Density[] = ["compact", "comfy", "spacious"];
