@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDays, MapPin } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getCalendarEvents, type CalendarEvent } from "../../api/calendar";
 import { getStatusBadgeClass, getStatusLabel } from "../../lib/status";
+import { MobilePullToRefresh } from "./MobilePullToRefresh";
+import { MobileSectionHeader, MobileSpinner, MobileState } from "./MobileUI";
 
 const DAYS_AHEAD = 14;
 
@@ -35,27 +37,28 @@ export function MobileCalendarTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchEvents = useCallback(async () => {
+    if (!token) return;
+    try {
+      const data = await getCalendarEvents(token);
+      setEvents(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Laden");
+    }
+  }, [token]);
+
   useEffect(() => {
     let cancelled = false;
     if (!token) return;
     setLoading(true);
-    getCalendarEvents(token)
-      .then((data) => {
-        if (cancelled) return;
-        setEvents(data);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Fehler beim Laden");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    fetchEvents().finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, fetchEvents]);
 
   const grouped = useMemo(() => {
     const now = startOfDay(new Date());
@@ -83,90 +86,82 @@ export function MobileCalendarTab() {
     }));
   }, [events]);
 
-  if (loading) {
+  if (loading) return <MobileSpinner />;
+  if (error)
     return (
-      <div className="flex justify-center px-4 py-12">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent)]/25 border-t-[var(--accent)]" />
-      </div>
+      <MobileState icon={CalendarDays} message={`Fehler: ${error}`} />
     );
-  }
-
-  if (error) {
+  if (grouped.length === 0)
     return (
-      <div className="px-4 py-6 text-sm" style={{ color: "var(--text-muted)" }}>
-        Fehler: {error}
-      </div>
+      <MobileState
+        icon={CalendarDays}
+        message={`Keine Termine in den nächsten ${DAYS_AHEAD} Tagen.`}
+      />
     );
-  }
-
-  if (grouped.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-3 px-4 py-12 text-center" style={{ color: "var(--text-muted)" }}>
-        <CalendarDays className="h-10 w-10 opacity-60" />
-        <p className="text-sm">Keine Termine in den nächsten {DAYS_AHEAD} Tagen.</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="px-3 py-3">
-      {grouped.map(({ date, events: dayEvents }) => (
-        <section key={date.toISOString()} className="mb-5">
-          <h2
-            className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "var(--text-muted)" }}
-          >
-            {formatDateHeading(date)}
-          </h2>
-          <ul className="space-y-2">
-            {dayEvents.map((ev) => (
-              <li key={ev.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (ev.orderNo) navigate(`/orders/${ev.orderNo}`);
-                  }}
-                  className="flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition-colors"
-                  style={{
-                    background: "var(--surface-raised)",
-                    border: "1px solid var(--border-soft)",
-                    minHeight: "3.5rem",
-                  }}
-                >
-                  <div
-                    className="flex w-14 shrink-0 flex-col items-center rounded-lg py-1.5 text-xs font-semibold"
-                    style={{
-                      background: ev.color || "var(--accent)",
-                      color: "#fff",
+    <MobilePullToRefresh onRefresh={fetchEvents}>
+      <div>
+        {grouped.map(({ date, events: dayEvents }) => (
+          <section key={date.toISOString()}>
+            <MobileSectionHeader>{formatDateHeading(date)}</MobileSectionHeader>
+            <ul className="mob-section-list">
+              {dayEvents.map((ev) => (
+                <li key={ev.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (ev.orderNo) navigate(`/orders/${ev.orderNo}`);
                     }}
+                    className="mob-list-item"
                   >
-                    <span>{formatTime(ev.start)}</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold" style={{ color: "var(--text-main)" }}>
-                      {ev.title || "Termin"}
+                    <span
+                      className="mob-time-chip"
+                      style={
+                        ev.color
+                          ? {
+                              background: `color-mix(in srgb, ${ev.color} 18%, transparent)`,
+                              borderColor: `color-mix(in srgb, ${ev.color} 40%, transparent)`,
+                              color: ev.color,
+                            }
+                          : undefined
+                      }
+                    >
+                      <span className="mob-time-chip-h">{formatTime(ev.start)}</span>
+                      {ev.end ? (
+                        <span className="mob-time-chip-sub">
+                          {(() => {
+                            const s = new Date(ev.start).getTime();
+                            const e = new Date(ev.end).getTime();
+                            const min = Math.max(0, Math.round((e - s) / 60_000));
+                            return `${min}m`;
+                          })()}
+                        </span>
+                      ) : null}
+                    </span>
+                    <div className="mob-list-content">
+                      <div className="mob-list-title">{ev.title || "Termin"}</div>
+                      {(ev.address || ev.zipcity) && (
+                        <div className="mob-list-sub">
+                          <MapPin size={12} aria-hidden />
+                          <span>{[ev.address, ev.zipcity].filter(Boolean).join(", ")}</span>
+                        </div>
+                      )}
+                      {ev.status && (
+                        <div className="mob-list-meta">
+                          <span className={`mob-pill ${getStatusBadgeClass(ev.status)}`}>
+                            {getStatusLabel(ev.status)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {(ev.address || ev.zipcity) && (
-                      <div
-                        className="mt-0.5 flex items-center gap-1 truncate text-xs"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{[ev.address, ev.zipcity].filter(Boolean).join(", ")}</span>
-                      </div>
-                    )}
-                    {ev.status && (
-                      <span className={`mt-1.5 inline-block rounded px-2 py-0.5 text-[10px] ${getStatusBadgeClass(ev.status)}`}>
-                        {getStatusLabel(ev.status)}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </MobilePullToRefresh>
   );
 }

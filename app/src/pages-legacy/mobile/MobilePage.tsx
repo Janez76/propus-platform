@@ -29,8 +29,12 @@ export function MobilePage() {
       }}
     >
       {!isPropi && <MobileHeader title={TAB_TITLES[tab]} />}
+      {/* Mobile-Phase-2: Tabs (Calendar/Orders/Contacts) bringen jetzt eigenen
+       *  Scroll-Container via MobilePullToRefresh mit. Kein outer overflow-y-
+       *  auto mehr, sonst doppelter Scrollbar/Konflikt mit Pull-Gesture.
+       *  Propi-Tab hat eigenes Scrolling im Chat-Body. */}
       <main
-        className={isPropi ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto"}
+        className="flex flex-1 flex-col overflow-hidden"
         style={{
           paddingBottom: isPropi ? 0 : "calc(5rem + env(safe-area-inset-bottom))",
         }}
@@ -38,7 +42,7 @@ export function MobilePage() {
         {isPropi ? (
           <MobilePropiTab />
         ) : (
-          <div className="mx-auto w-full max-w-md">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col overflow-hidden">
             {tab === "calendar" && <MobileCalendarTab />}
             {tab === "orders" && <MobileOrdersTab />}
             {tab === "contacts" && <MobileContactsTab />}

@@ -1,0 +1,309 @@
+/* ────────────────────────────────────────────────────────────────────────
+   Shared mobile UI primitives (Polish-Pass 2 · Mobile-Phase-2)
+   Verwendet die globalen Propus-Tokens (--surface, --accent, --text-main,
+   --border-soft, --paper-strip). Keine eigenen Farben — folgt Theme.
+   ──────────────────────────────────────────────────────────────────────── */
+
+.mob-page { padding: 12px; }
+.mob-page--flush { padding: 0; }
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+.mob-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mob-card--clickable {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.mob-card--clickable:hover { background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised)); }
+.mob-card--clickable:active { transform: scale(0.985); }
+
+/* ── List-Item: Avatar + Content + Trailing ─────────────────────────── */
+.mob-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.mob-list-item:hover { background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised)); }
+.mob-list-item:active { transform: scale(0.985); }
+.mob-list-item--static { cursor: default; }
+.mob-list-item--static:active { transform: none; }
+.mob-list-item--static:hover { background: var(--surface-raised); }
+
+.mob-list-leading {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mob-list-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mob-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mob-list-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mob-list-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+.mob-list-trailing {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* ── Avatar (initials with gradient) ────────────────────────────────── */
+.mob-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.mob-avatar--sm { width: 32px; height: 32px; font-size: 11px; }
+
+/* ── Time-chip (z. B. „14:00" links neben Termin-Card) ──────────────── */
+.mob-time-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  min-height: 48px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--accent);
+  padding: 6px 4px;
+}
+.mob-time-chip-h {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.mob-time-chip-sub {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 3px;
+  opacity: 0.85;
+}
+
+/* ── Section Header (sticky date/group label) ───────────────────────── */
+.mob-section-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.mob-section-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 14px; }
+
+/* ── Status-Pills (subtle, color-mix tinted) ────────────────────────── */
+.mob-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+  border: 1px solid;
+}
+.mob-pill--accent {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.mob-pill--neutral {
+  color: var(--text-muted);
+  background: var(--paper-strip);
+  border-color: var(--border-soft);
+}
+
+/* ── Search-Bar ──────────────────────────────────────────────────────── */
+.mob-search {
+  position: relative;
+  margin: 0 0 12px;
+}
+.mob-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.mob-search-input {
+  height: 44px;
+  width: 100%;
+  border-radius: 12px;
+  padding: 0 12px 0 38px;
+  font-size: 14px;
+  outline: 0;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+  font-family: inherit;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.mob-search-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* ── Empty / Loading / Error states ─────────────────────────────────── */
+.mob-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.mob-state-icon { opacity: 0.55; }
+.mob-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  animation: mob-spin 0.8s linear infinite;
+}
+@keyframes mob-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Pull-to-Refresh Indicator ──────────────────────────────────────── */
+.mob-ptr-wrap {
+  position: relative;
+  overflow-y: auto;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+.mob-ptr-indicator {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+  transition: transform 0.15s ease, opacity 0.18s ease;
+}
+.mob-ptr-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+}
+.mob-ptr-spinner--ready { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.mob-ptr-spinner--refreshing { animation: mob-spin 0.8s linear infinite; }
+
+/* ── Swipe-Row (framer-motion based) ────────────────────────────────── */
+.mob-swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+}
+.mob-swipe-row-actions {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  display: flex;
+  align-items: stretch;
+  z-index: 0;
+}
+.mob-swipe-row-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  border: 0;
+  font-family: inherit;
+}
+.mob-swipe-row-action--danger { background: var(--danger, #B4311B); }
+.mob-swipe-row-action--success { background: var(--pad-success, #2A7A2A); }
+.mob-swipe-row-content { position: relative; z-index: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mob-card--clickable, .mob-list-item, .mob-ptr-indicator { transition: none; }
+  .mob-spinner, .mob-ptr-spinner--refreshing { animation: none; }
+}
