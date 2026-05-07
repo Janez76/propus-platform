@@ -27,6 +27,7 @@
 17. [API-Key-Verwaltung (CRUD)](#17-api-key-verwaltung-crud)
 18. [Admin-Panel SPA-Auslieferung](#18-admin-panel-spa-auslieferung)
 19. [CI & HTML-Lint (Booking-Backend)](#19-ci--html-lint-booking-backend)
+20. [Mobile Tagesplan & Live-Routing](#20-mobile-tagesplan--live-routing)
 
 ---
 
@@ -866,3 +867,107 @@ Falls dist-Verzeichnis existiert:
 | HTML-Lint | `npm run lint:html` (htmlhint + [`.htmlhintrc`](../booking/.htmlhintrc)) | Statische Checks auf `booking/*.html` (Legacy-Admin-Spa tolerante Regeln) |
 
 Siehe Gesamtüberblick CI vs. VPS-Deploy: [`DEPLOY-FLOW.md`](DEPLOY-FLOW.md) (Abschnitt *Unit-Tests / Lint*).
+
+## 20. Mobile Tagesplan & Live-Routing
+
+**Komponenten:** [`app/src/pages-legacy/mobile/MobileOrdersTab.tsx`](../app/src/pages-legacy/mobile/MobileOrdersTab.tsx) · [`MobileOrdersUI.tsx`](../app/src/pages-legacy/mobile/MobileOrdersUI.tsx) · [`dayBuckets.ts`](../app/src/pages-legacy/mobile/dayBuckets.ts) · [`departureLogic.ts`](../app/src/pages-legacy/mobile/departureLogic.ts) · [`useDriveTimesFromLive.ts`](../app/src/pages-legacy/mobile/useDriveTimesFromLive.ts)
+
+Tagesplan-Ansicht für Fotograf:innen unter `/mobile` (Aufträge-Tab). Gruppiert offene Bestellungen in **Heute / Morgen / Diese Woche / Später** und zeigt pro Termin Live-Fahrzeit + Abfahrtszeit-Eskalation. Reuse von `useGeolocation` (Cockpit) + `missionTimeline.ts` (Dashboard-v2) + `/api/dashboard/drive-times` (Distance-Matrix-API mit Rate-Limit aus Bug-Hunt M01).
+
+### Daten-Pipeline
+
+```
+GET /api/admin/orders                  ← alle offenen Bestellungen
+  ↓
+bucketOrdersByDay()                    ← klassifiziert nach Tagesgruppe
+  ↓
+useGeolocation()                       ← User-Opt-In, navigator.geolocation
+  ↓
+useDriveTimesFromLive()                ← Debounce 450 ms, Abort-Controller
+  → POST /api/dashboard/drive-times   ← max 25 Legs, Live-Verkehr
+  ↓
+missionTimeline.estimateDriveMinutes() ← Fallback ohne Geo (ZIP-Haversine, 28 km/h, +5 min Setup)
+  ↓
+departureLogic.computeDeparture()      ← Termin − Fahrt − 15 min Puffer
+  ↓
+Eskalations-UI                         ← passed / now / soon / ok
+```
+
+### Tagesgruppen ([`dayBuckets.ts`](../app/src/pages-legacy/mobile/dayBuckets.ts))
+
+| Bucket | Definition | Sortierung |
+|---|---|---|
+| `today` | Termin heute (start-of-day bis +24 h) | aufsteigend nach Uhrzeit |
+| `tomorrow` | Termin morgen (+24 h bis +48 h) | aufsteigend nach Uhrzeit |
+| `week` | Termin in 2..7 Tagen | aufsteigend |
+| `later` | >7 Tage, oder kein `appointmentDate`, oder Vergangenheit ohne `done` | absteigend (jüngste zuerst), per Default collapsed |
+
+Status `closed` wird ausgeblendet (per `HIDDEN_STATUSES`). Stornierte (`cancelled`) bleiben sichtbar.
+
+### Tour-Routing (Heute & Morgen)
+
+- **Erster Termin am Tag:** Fahrtquelle = aktuelle GPS-Position (oder PLZ `8005` Studio-Fallback)
+- **Folgetermin:** Fahrtquelle = Adresse des **vorigen** Termins (chained)
+- **Tour-Divider** zwischen Same-Day-Terminen: `(next.appt - cur.appt)` als Pause-Anzeige + Hinweis auf nächste Fahrtzeit + Engpass-Warnung wenn `Pause - Fahrt - Puffer < 30 min`
+- **Heimfahrt-Divider** nach letztem Tagestermin: Fahrtzeit zur `home_address` aus `photographer_settings` (geladen via [`GET /api/admin/me/home`](#api-spec))
+
+### Abfahrts-Eskalation ([`departureLogic.ts`](../app/src/pages-legacy/mobile/departureLogic.ts))
+
+```
+leaveAt = appointmentDate − travelMin − BUFFER_MIN (= 15 min)
+minutesUntilLeave = leaveAt − now
+
+→ < -2     : passed (durchgestrichen)
+→ ≤ 15 min : now    (rote Pulse-Pille, ARIA-live)
+→ ≤ 60 min : soon   (gelbe Pille mit "in X min")
+→ > 60 min : ok     (grüne Pille)
+```
+
+Eskalation rerendered jede 60 s via Effect-Tick (Phase 5 Polish: aktuell statisch beim Mount).
+
+### Live-Drive-Times-Hook
+
+`useDriveTimesFromLive({ lat, lng, enabled, legs })` — extrahiert aus `dashboard-v2/TodayCard`:
+
+- Debounce 450 ms vor jedem Fetch (verhindert Flood bei rascher Position-Update-Folge)
+- `AbortController` cancelt veraltete Requests bei Re-Render
+- Maximal 25 Legs pro Request (MAX_LEGS Server-side)
+- Bei `enabled=false` (Geo aus) → idle, leere Map
+- Liefert `{ byOrderNo: Record<string, { durationText, distanceText? }>, loading, error }`
+
+### Heim-Adresse-Lookup
+
+Mount-once Fetch von `GET /api/admin/me/home`:
+
+```sql
+SELECT ps.home_address, ps.home_lat, ps.home_lon
+  FROM photographer_settings ps
+  JOIN photographers p ON p.key = ps.photographer_key
+ WHERE LOWER(p.email) = LOWER($1)
+ LIMIT 1
+```
+
+Match via E-Mail aus Session. Admins ohne Mitarbeiter-Verknüpfung → `null` für alle Felder, UI zeigt „keine Heim-Adresse hinterlegt".
+
+### Rate-Limits & Budget
+
+`/api/dashboard/drive-times` aus Bug-Hunt M01:
+
+- 30 Anfragen/Minute pro Session (Default, via `DRIVE_TIMES_PER_MIN_LIMIT`)
+- 1000 Anfragen/Tag pro Session (Default, via `DRIVE_TIMES_PER_DAY_LIMIT`)
+- Distance Matrix kostet ~$0.005 pro Element → 25 Legs ≈ $0.125 pro Request
+- Ausnahmen via `ASSISTANT_UNLIMITED_EMAILS`-Liste
+
+Mobile-Strategie: Drive-Times werden NUR für Heute + Morgen geladen (≤ ~10 Legs typisch). Diese Woche & Später nutzen ZIP-Schätzung (kein API-Cost).
+
+### Ausgeblendete / collapsed Sections
+
+- `later` per Default collapsed (zu lange Liste)
+- Empty-State pro `today`/`tomorrow` falls Bucket leer: „Tag frei · keine Termine"
+
+### Verwandte Doku
+
+- `docs/openapi/openapi.yaml` — `getApiAdminMeHome` + `postApiDashboardDriveTimes`
+- §11 Fotograf-Vergabe (Slot-Generierung nutzt selben travel.js-Service)
+- §13 Routing-Service (Backend-Fallback-Kette für Distance Matrix)
+- `dashboard-v2/missionTimeline.ts` — Schweizer ZIP-Tabelle + Haversine + 28 km/h-Schätzung

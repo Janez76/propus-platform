@@ -9948,6 +9948,42 @@ app.put("/api/admin/me", requireAdmin, async (req, res) => {
   }
 });
 
+/**
+ * Mobile-Orders-Redesign: Heim-Adresse des eingeloggten Mitarbeiters.
+ * Wird vom MobileOrdersTab fuer den Heimfahrt-Divider am Tagesende verwendet
+ * (Routing ab letztem Termin → home). Match via E-Mail (photographers.email
+ * → photographer_settings.home_address). Fuer Nicht-Mitarbeiter Admins
+ * bleibt der Wert leer; UI faellt dann auf "Heimfahrt nicht verfuegbar".
+ *
+ * Doku: docs/openapi/openapi.yaml (operationId: getApiAdminMeHome)
+ *       docs/FLOWS_BOOKING.md §20 Mobile Tagesplan & Live-Routing
+ */
+app.get("/api/admin/me/home", requireAdmin, async (req, res) => {
+  try {
+    const email = String(req.user?.email || req.user?.userKey || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      return res.json({ ok: true, homeAddress: null, homeLat: null, homeLng: null });
+    }
+    const { rows } = await db.getPool().query(
+      `SELECT ps.home_address, ps.home_lat, ps.home_lon
+         FROM photographer_settings ps
+         JOIN photographers p ON p.key = ps.photographer_key
+        WHERE LOWER(p.email) = $1
+        LIMIT 1`,
+      [email]
+    );
+    const row = rows[0];
+    return res.json({
+      ok: true,
+      homeAddress: row?.home_address || null,
+      homeLat: typeof row?.home_lat === "number" ? row.home_lat : null,
+      homeLng: typeof row?.home_lon === "number" ? row.home_lon : null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "Heim-Adresse konnte nicht geladen werden" });
+  }
+});
+
 app.post("/api/admin/me/change-password", requireAdmin, async (req, res) => {
   try {
     const adminUser = await resolveCurrentAdminUserRecord(req);
@@ -11245,11 +11281,12 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
   }
 });
 
-// ─── Wetter-Forecast (Stub, deterministisch je Datum) ─────────────────────
-// Liefert mehrere Tage Vorhersage für eine Region. Wird vom Kalender (Mini-Monat,
-// Wochen-/Tageskopf) konsumiert. Solange kein echter Forecast-Provider angebunden
-// ist, generieren wir einen deterministischen Stub auf Basis von date+region —
-// gleiches Datum + gleiche Region = gleiche Vorhersage (cache-fest).
+// ─── Wetter-Forecast (Open-Meteo, MeteoSwiss-priorisiert) ─────────────────
+// Daily- und Hourly-Forecasts für CH-Koordinaten. Aufrufer können entweder
+// einen vordefinierten Region-Key (?region=zurich) oder freie Koordinaten
+// (?lat=&lng=) übergeben — Letzteres wird vom Auftrags-Popover genutzt,
+// damit jede Buchung das Wetter ihrer Adresse sieht.
+const weatherProvider = require("./weather-openmeteo");
 const WEATHER_REGIONS = {
   zurich: { name: "Zürich", lat: 47.3769, lng: 8.5417 },
   winterthur: { name: "Winterthur", lat: 47.5006, lng: 8.7241 },
@@ -11257,68 +11294,47 @@ const WEATHER_REGIONS = {
   thalwil: { name: "Thalwil", lat: 47.2926, lng: 8.5634 },
   kuesnacht: { name: "Küsnacht", lat: 47.3174, lng: 8.5867 },
 };
-const WEATHER_KINDS = ["sun", "psun", "cloud", "rain", "storm", "fog"];
-function _wxHash(seed) {
-  let h = 2166136261 >>> 0;
-  const s = String(seed || "");
-  for (let i = 0; i < s.length; i += 1) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
+
+function _wxResolveCoords(req) {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng ?? req.query.lon);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng, region: { key: "custom", name: "", lat, lng } };
   }
-  return h >>> 0;
+  const key = String(req.query.region || "zurich").trim().toLowerCase();
+  const regionKey = WEATHER_REGIONS[key] ? key : "zurich";
+  const region = WEATHER_REGIONS[regionKey];
+  return { lat: region.lat, lng: region.lng, region: { key: regionKey, ...region } };
 }
-function _wxForecastDay(dateIso, regionKey) {
-  const month = Number(String(dateIso).slice(5, 7)) || 4;
-  const seasonalSummer = month >= 4 && month <= 9;
-  const baseMin = seasonalSummer ? 12 : 1;
-  const baseMax = seasonalSummer ? 22 : 7;
-  const h1 = _wxHash(`${regionKey}|${dateIso}|t`);
-  const h2 = _wxHash(`${regionKey}|${dateIso}|p`);
-  const h3 = _wxHash(`${regionKey}|${dateIso}|k`);
-  const tempJitter = (h1 % 9) - 4;
-  const t_max = baseMax + tempJitter;
-  const t_min = t_max - 4 - (h1 % 5);
-  const precip = h2 % 101;
-  let kind;
-  if (precip >= 75) kind = "rain";
-  else if (precip >= 55) kind = "cloud";
-  else if (precip >= 35) kind = "psun";
-  else if (precip >= 15) kind = "sun";
-  else kind = WEATHER_KINDS[h3 % WEATHER_KINDS.length];
-  if (!seasonalSummer && kind === "rain" && t_min <= 0) kind = "snow";
-  return { date: dateIso, kind, t_min, t_max, precip };
-}
-function _wxIsoDate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-app.get("/api/admin/weather/forecast", requirePhotographerOrAdmin, (req, res) => {
+
+app.get("/api/admin/weather/forecast", requirePhotographerOrAdmin, async (req, res) => {
   try {
     const fromRaw = String(req.query.from || "").trim();
-    const days = Math.max(1, Math.min(120, Number(req.query.days || 42) | 0 || 42));
-    const regionKeyRaw = String(req.query.region || "zurich").trim().toLowerCase();
-    const regionKey = WEATHER_REGIONS[regionKeyRaw] ? regionKeyRaw : "zurich";
-    const region = WEATHER_REGIONS[regionKey];
-    let from;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(fromRaw)) {
-      from = new Date(`${fromRaw}T00:00:00Z`);
-    } else {
-      from = new Date();
-      from.setHours(0, 0, 0, 0);
-    }
-    const out = [];
-    for (let i = 0; i < days; i += 1) {
-      const d = new Date(from.getTime());
-      d.setUTCDate(from.getUTCDate() + i);
-      out.push(_wxForecastDay(_wxIsoDate(d), regionKey));
-    }
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : null;
+    const days = Math.max(1, Math.min(16, Number(req.query.days || 7) | 0 || 7));
+    const { lat, lng, region } = _wxResolveCoords(req);
+    const out = await weatherProvider.fetchDaily(lat, lng, fromIso, days);
     res.set("Cache-Control", "public, max-age=900");
-    res.json({ ok: true, region: { key: regionKey, ...region }, days: out });
+    res.json({ ok: true, region, days: out });
   } catch (err) {
     console.error("[weather/forecast] error:", err?.message || err);
-    res.status(500).json({ error: err.message || "Wetterdaten konnten nicht geladen werden" });
+    res.status(502).json({ error: err.message || "Wetterdaten konnten nicht geladen werden" });
+  }
+});
+
+app.get("/api/admin/weather/hourly", requirePhotographerOrAdmin, async (req, res) => {
+  try {
+    const dateIso = String(req.query.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) {
+      return res.status(400).json({ error: "Parameter `date` fehlt oder ist nicht im Format YYYY-MM-DD." });
+    }
+    const { lat, lng, region } = _wxResolveCoords(req);
+    const hours = await weatherProvider.fetchHourly(lat, lng, dateIso);
+    res.set("Cache-Control", "public, max-age=900");
+    res.json({ ok: true, region, date: dateIso, hours });
+  } catch (err) {
+    console.error("[weather/hourly] error:", err?.message || err);
+    res.status(502).json({ error: err.message || "Wetterdaten konnten nicht geladen werden" });
   }
 });
 

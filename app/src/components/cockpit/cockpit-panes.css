@@ -187,8 +187,11 @@
   background: var(--propus-bg-card);
   border: 1px solid transparent;
   font-family: var(--propus-font-body, inherit);
-  cursor: default;
+  cursor: pointer;
   transition: border-color var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+  appearance: none;
+  color: inherit;
+  font: inherit;
 }
 .propus-weather-day:hover {
   border-color: var(--propus-gold);
@@ -197,6 +200,11 @@
 .propus-weather-day[data-today] {
   border-color: var(--propus-gold);
   background: var(--propus-gold-soft, rgba(182, 142, 32, .12));
+}
+.propus-weather-day[data-open] {
+  border-color: var(--propus-gold);
+  background: var(--propus-gold-soft, rgba(182, 142, 32, .18));
+  box-shadow: 0 0 0 1px var(--propus-gold);
 }
 .propus-weather-day--skeleton {
   background: var(--propus-bg-strip);
@@ -222,6 +230,102 @@
   font-weight: 700;
   color: var(--propus-text-primary);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Hourly-Panel (klappt unter dem 7-Tage-Strip auf) ─────────────────── */
+.propus-weather-strip-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.propus-weather-hourly {
+  background: var(--propus-bg-card);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-md, 14px);
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.propus-weather-hourly-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--propus-text-primary);
+}
+.propus-weather-hourly-sub {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--propus-text-muted);
+  margin-left: 6px;
+}
+.propus-weather-hourly-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--propus-text-muted);
+  border-radius: 4px;
+  display: inline-flex;
+}
+.propus-weather-hourly-close:hover {
+  background: var(--propus-bg-strip);
+  color: var(--propus-text-primary);
+}
+.propus-weather-hourly-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 4px;
+}
+.propus-weather-hourly-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 2px;
+  border-radius: var(--propus-r-sm, 8px);
+  background: var(--propus-bg-strip);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.propus-weather-hourly-time {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: var(--propus-text-muted);
+}
+.propus-weather-hourly-emoji {
+  font-size: 14px;
+  line-height: 1;
+}
+.propus-weather-hourly-temp {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--propus-text-primary);
+}
+.propus-weather-hourly-precip {
+  font-size: 9px;
+  color: var(--propus-text-muted);
+}
+.propus-weather-hourly-precip[data-active] {
+  color: var(--propus-gold);
+  font-weight: 700;
+}
+.propus-weather-hourly-loading,
+.propus-weather-hourly-empty,
+.propus-weather-hourly-error {
+  font-size: 11px;
+  color: var(--propus-text-muted);
+  padding: 6px 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ── BriefingCard ──────────────────────────────────────── */
