@@ -19,13 +19,19 @@ BEGIN;
 -- ─── 2) bexio-Runtime-Config in app_settings setzen ─────────────────────────
 -- IDs ermittelt via scripts/bexio-lookup-defaults.js:
 --   bankAccountId = 1    (UBS Propus, einziges Bankkonto; 2026-05-06)
---   vatTaxId      = 17   (opted_sales_tax_205.303 / 8.10% CH ESTV; 2026-05-06)
 --   paymentTypeId = 4    (Rechnung — bexio hat keine "14 Tage netto"-payment_type;
 --                         Frist via footerTemplate aufs Dokument)
 --   unitId        = 1    (Stk; 2026-05-08)
 --   accountId     = 178  (3400 "Dienstleistungsertrag Sammelkonto"; 2026-05-08)
 --                        Granulare Konten 3401–3407 existieren (Foto/Drohne/Matterport/
 --                        Floor-Plan/Post-Production/Schulungen) — per-Service-Mapping = Phase 2.
+--   vatTaxId      = 31   (Saldosteuersatz SSS1/53, type=net_tax, value=8.10%; 2026-05-08).
+--                        ⚠ Account auf Saldosteuersatz-Methode konfiguriert. Reguläre
+--                        sales_tax-IDs (14/15) UND opted_sales_tax (17) sind im Account
+--                        is_active=false — kb_position_custom rejected sie alle mit
+--                        "tax_id: Diese Eingabe ist nicht korrekt". Nur SSS-net_tax
+--                        (id=31 SSS1/53 oder id=32 SSS2/62) sind zulaessig. Falls SSS2
+--                        die richtige Branche ist, hier auf 32 aendern.
 
 INSERT INTO app_settings (key, value_json, updated_at) VALUES (
   'integration.bexio.config',
@@ -37,7 +43,7 @@ INSERT INTO app_settings (key, value_json, updated_at) VALUES (
     "languageId": 1,
     "paymentTypeId": 4,
     "bankAccountId": 1,
-    "vatTaxId": 17,
+    "vatTaxId": 31,
     "unitId": 1,
     "accountId": 178,
     "mwstType": 0,
