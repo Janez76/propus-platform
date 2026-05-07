@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Calendar, Columns3, List, Map as MapIcon, Plus } from "lucide-react";
 import {
+  createBexioSalesOrder,
   createExxasServiceOrder,
   deleteOrder,
   getOrders,
@@ -283,6 +284,32 @@ export function OrdersPage() {
         }
       } catch (e) {
         setExxasNotice(e instanceof Error ? e.message : t(lang, "orders.exxas.createError"));
+      } finally {
+        setExxasBusy(false);
+      }
+      window.setTimeout(() => setExxasNotice(null), 8000);
+    },
+    [token, exxasBusy, lang, refetch],
+  );
+
+  const handleCreateBexioOrder = useCallback(
+    async (orderNo: string) => {
+      if (!token || exxasBusy) return;
+      setExxasBusy(true);
+      setExxasNotice(null);
+      try {
+        const result = await createBexioSalesOrder(token, orderNo);
+        if (result?.ok) {
+          const display = result.bexioOrderNumber || result.bexioOrderId || "";
+          setExxasNotice(
+            t(lang, "orders.bexio.createSuccess").replace("{{id}}", String(display)),
+          );
+          await refetch({ force: true });
+        } else {
+          setExxasNotice(String((result as { error?: string })?.error || t(lang, "orders.bexio.createError")));
+        }
+      } catch (e) {
+        setExxasNotice(e instanceof Error ? e.message : t(lang, "orders.bexio.createError"));
       } finally {
         setExxasBusy(false);
       }
@@ -702,6 +729,7 @@ export function OrdersPage() {
             onToggleSection={toggleSectionSelection}
             onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
             onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
+            onCreateBexioOrder={canCreateExxasOrder ? handleCreateBexioOrder : undefined}
           />
         )
       ) : view === "kanban" ? (

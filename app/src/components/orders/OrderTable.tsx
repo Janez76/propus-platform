@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import type { Order } from "../../api/orders";
 import { formatCurrency } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
-import { MessageSquare, FolderUp, FileText, RefreshCw, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageSquare, FolderUp, FileText, RefreshCw, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { avatarColorFor, avatarInitials, getTerminInfo, terminKindClasses } from "../../lib/orderTermin";
@@ -19,6 +19,8 @@ type Props = {
   onCreateExxasOrder?: (orderNo: string) => void;
   /** Bestehender Exxas-Auftrag: Tour- und Drive-URL aus Propus nachträglich in Exxas schreiben */
   onSyncExxasOrderLinks?: (orderNo: string) => void;
+  /** Auftragsbestätigung in bexio (kb_order) anlegen */
+  onCreateBexioOrder?: (orderNo: string) => void;
 };
 
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total";
@@ -157,6 +159,7 @@ export function OrderTable({
   onToggleSection,
   onCreateExxasOrder,
   onSyncExxasOrderLinks,
+  onCreateBexioOrder,
 }: Props) {
   const lang = useAuthStore((s) => s.language);
   const tooltipMessage = t(lang, "orders.tooltip.sendMessage");
@@ -166,6 +169,12 @@ export function OrderTable({
     if (o.exxasOrderId) return t(lang, "orders.tooltip.exxasCreated");
     if (o.exxasStatus === "error") return t(lang, "orders.tooltip.exxasError");
     return t(lang, "orders.tooltip.exxasCreate");
+  }
+
+  function bexioRowTitle(o: Order): string {
+    if (o.bexioOrderId) return t(lang, "orders.tooltip.bexioCreated");
+    if (o.bexioStatus === "error") return t(lang, "orders.tooltip.bexioError");
+    return t(lang, "orders.tooltip.bexioCreate");
   }
   const headerSelectRef = useRef<HTMLInputElement>(null);
   const [sortKey, setSortKey] = useState<SortKey | null>("appointment");
@@ -331,6 +340,23 @@ export function OrderTable({
                 </IconBtn>
               )
             ) : null}
+            {onCreateBexioOrder ? (
+              o.bexioOrderId ? (
+                <span
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                  title={bexioRowTitle(o)}
+                  aria-label={bexioRowTitle(o)}
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                </span>
+              ) : (
+                <IconBtn title={bexioRowTitle(o)} onClick={() => onCreateBexioOrder(o.orderNo)}>
+                  <Receipt
+                    className={`h-3.5 w-3.5 ${o.bexioStatus === "error" ? "text-red-500 dark:text-red-400" : ""}`}
+                  />
+                </IconBtn>
+              )
+            ) : null}
           </div>
         </div>
       </article>
@@ -439,6 +465,23 @@ export function OrderTable({
                 <IconBtn title={exxasRowTitle(o)} onClick={() => onCreateExxasOrder(o.orderNo)}>
                   <FileText
                     className={`h-3.5 w-3.5 ${o.exxasStatus === "error" ? "text-red-500 dark:text-red-400" : ""}`}
+                  />
+                </IconBtn>
+              )
+            ) : null}
+            {onCreateBexioOrder ? (
+              o.bexioOrderId ? (
+                <span
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                  title={bexioRowTitle(o)}
+                  aria-label={bexioRowTitle(o)}
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                </span>
+              ) : (
+                <IconBtn title={bexioRowTitle(o)} onClick={() => onCreateBexioOrder(o.orderNo)}>
+                  <Receipt
+                    className={`h-3.5 w-3.5 ${o.bexioStatus === "error" ? "text-red-500 dark:text-red-400" : ""}`}
                   />
                 </IconBtn>
               )

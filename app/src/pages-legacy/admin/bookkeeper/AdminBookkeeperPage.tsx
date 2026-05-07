@@ -21,6 +21,15 @@ import {
 
 const PAPERLESS_BASE = "https://paperless.propus.ch";
 
+let _redirectInFlight = false;
+function redirectToLogin(authErr: string | null) {
+  if (_redirectInFlight || typeof window === "undefined") return;
+  _redirectInFlight = true;
+  const here = `${window.location.pathname}${window.location.search}`;
+  const reason = authErr === "invalid-admin-session" ? "expired" : "required";
+  window.location.replace(`/login?returnTo=${encodeURIComponent(here)}&reason=${reason}`);
+}
+
 type StatusKey = "pending"|"vorgeschlagen"|"approved"|"verbucht"|"fehler"|"spam"|"abgleich"|"duplikat";
 type TabId = "overview" | StatusKey | "training";
 
@@ -161,6 +170,10 @@ export function AdminBookkeeperPage() {
       const r = await fetch("/api/admin/bookkeeper/counts", { credentials: "include" });
       if (r.status === 503) {
         setError("Backend nicht konfiguriert (PAPERLESS_BOOKKEEPER_TOKEN fehlt)");
+        return;
+      }
+      if (r.status === 401) {
+        redirectToLogin(r.headers.get("x-auth-error"));
         return;
       }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
