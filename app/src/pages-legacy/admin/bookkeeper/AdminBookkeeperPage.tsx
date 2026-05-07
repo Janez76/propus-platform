@@ -25,6 +25,18 @@ let _redirectInFlight = false;
 function redirectToLogin(authErr: string | null) {
   if (_redirectInFlight || typeof window === "undefined") return;
   _redirectInFlight = true;
+  // Client-Token-State leeren — sonst sieht LoginPage `token` truthy und
+  // redirected sofort wieder zurück (Loop). Spiegel zu handleUnauthorizedAdminSession
+  // in api/client.ts: dieselben Storage-Keys leeren.
+  for (const key of [
+    "admin_token_v2",
+    "admin_role_v1",
+    "admin_permissions_v1",
+    "admin_auth_provider_v1",
+  ]) {
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    try { window.sessionStorage.removeItem(key); } catch { /* ignore */ }
+  }
   const here = `${window.location.pathname}${window.location.search}`;
   const reason = authErr === "invalid-admin-session" ? "expired" : "required";
   window.location.replace(`/login?returnTo=${encodeURIComponent(here)}&reason=${reason}`);
