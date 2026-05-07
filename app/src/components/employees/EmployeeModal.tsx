@@ -573,7 +573,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
 
   async function savePassword() {
     const trimmed = newPassword.trim();
-    if (trimmed.length < 8) {
+    if (trimmed.length < 12) {
       setError(t(lang, "resetPassword.error.tooShort"));
       return;
     }
@@ -1154,7 +1154,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {newPassword.length > 0 && newPassword.trim().length < 8 ? (
+                {newPassword.length > 0 && newPassword.trim().length < 12 ? (
                   <div className="mt-1 text-xs text-red-500">{t(lang, "resetPassword.error.tooShort")}</div>
                 ) : null}
               </div>
@@ -1163,7 +1163,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
                   type="button"
                   className="btn-primary flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={savePassword}
-                  disabled={newPassword.trim().length < 8}
+                  disabled={newPassword.trim().length < 12}
                 >
                   {t(lang, "employeeModal.button.setPassword")}
                 </button>
