@@ -463,3 +463,231 @@
 }
 .mob-geo-action:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .mob-geo-action--off { color: var(--text-muted); border-color: var(--border-soft); }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobile-Orders-Redesign (Phase 3) — KPI-Pills + Filter-Bottom-Sheet.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.mob-kpi-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 0 8px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 8px;
+}
+.mob-kpi-row::-webkit-scrollbar { display: none; }
+
+.mob-kpi-pill {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+  border-radius: 11px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  min-width: 118px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mob-kpi-pill:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-kpi-pill--active {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+}
+.mob-kpi-pill-lab {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.mob-kpi-pill-val {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+}
+.mob-kpi-pill-sub { font-size: 10px; color: var(--text-muted); }
+
+/* Filter-Bottom-Sheet */
+.mob-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: mobSheetFade 0.18s ease;
+}
+@keyframes mobSheetFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mob-sheet {
+  width: 100%;
+  max-width: 28rem;
+  background: var(--surface-raised);
+  border-radius: 18px 18px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
+  animation: mobSheetSlideUp 0.22s ease;
+}
+@keyframes mobSheetSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.mob-sheet-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+.mob-sheet-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: var(--text-main);
+  margin: 0;
+}
+.mob-sheet-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.mob-sheet-close:hover { background: color-mix(in srgb, var(--text-muted) 10%, transparent); color: var(--text-main); }
+
+.mob-sheet-section { display: flex; flex-direction: column; gap: 8px; }
+.mob-sheet-section-h {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.mob-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mob-sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-raised);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.mob-sheet-chip:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-sheet-chip--active {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mob-sheet-foot {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.mob-sheet-btn {
+  flex: 1;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid;
+  transition: background 0.12s ease;
+}
+.mob-sheet-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mob-sheet-btn--ghost {
+  background: var(--surface-raised);
+  border-color: var(--border-soft);
+  color: var(--text-main);
+}
+.mob-sheet-btn--ghost:not(:disabled):hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-sheet-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-on, #fff);
+}
+.mob-sheet-btn--primary:hover { filter: brightness(0.95); }
+
+/* Filter-Trigger (kleiner Button neben Suchleiste) */
+.mob-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.mob-filter-bar > .mob-search { flex: 1; margin-bottom: 0; }
+.mob-filter-trigger {
+  flex-shrink: 0;
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-raised);
+  color: var(--text-main);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.12s ease;
+}
+.mob-filter-trigger:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-filter-trigger--active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+  color: var(--accent);
+}
+.mob-filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-on, #fff);
+  font-size: 10px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}

@@ -280,3 +280,45 @@ export function MobileObjectAddr({ street, zipcity, children }: MobileObjectAddr
     </span>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KPI-Pills (Phase 3) — horizontal scrollender Snap-Strip mit klickbaren KPIs
+
+export interface MobileKpiPillSpec {
+  /** Stabile Filter-ID — gleichzeitig key + Indicator fuer "active". */
+  id: string;
+  label: string;
+  value: string;
+  /** Optionaler Sub-Text unter dem Wert. */
+  sub?: string;
+}
+
+interface MobileKpiPillsProps {
+  pills: MobileKpiPillSpec[];
+  activeId?: string | null;
+  onSelect?: (id: string) => void;
+}
+
+export function MobileKpiPills({ pills, activeId, onSelect }: MobileKpiPillsProps) {
+  return (
+    <div className="mob-kpi-row" role="group" aria-label="Schnellfilter-Kennzahlen">
+      {pills.map((p) => {
+        const active = activeId === p.id;
+        const Wrapper: "button" | "div" = onSelect ? "button" : "div";
+        return (
+          <Wrapper
+            key={p.id}
+            type={onSelect ? "button" : undefined}
+            onClick={onSelect ? () => onSelect(p.id) : undefined}
+            className={`mob-kpi-pill${active ? " mob-kpi-pill--active" : ""}`}
+            aria-pressed={onSelect ? active : undefined}
+          >
+            <span className="mob-kpi-pill-lab">{p.label}</span>
+            <span className="mob-kpi-pill-val">{p.value}</span>
+            {p.sub && <span className="mob-kpi-pill-sub">{p.sub}</span>}
+          </Wrapper>
+        );
+      })}
+    </div>
+  );
+}
