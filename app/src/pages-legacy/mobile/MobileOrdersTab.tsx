@@ -169,7 +169,10 @@ export function MobileOrdersTab() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/me/home", { credentials: "same-origin" });
+        const res = await fetch("/api/admin/me/home", {
+          credentials: "same-origin",
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) return;
         const data = (await res.json()) as HomeAddrPayload;
         if (cancelled) return;
