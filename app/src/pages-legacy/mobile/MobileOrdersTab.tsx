@@ -104,11 +104,16 @@ export function MobileOrdersTab() {
    * weiter als "soon" angezeigt.
    * Respektiert Document-Visibility: pausiert bei `hidden`, springt sofort
    * an beim `visible`-Event (Battery-Friendly).
+   *
+   * Wichtig: nowMs wird als Prop bis runter zu DayRowEntry gereicht, damit
+   * React.memo den Tick als Prop-Aenderung erkennt — sonst bliebe die
+   * Eskalation in memoizten Rows stehen waehrend die Zeit weiterlaeuft
+   * (P1 — caught by Codex review on PR #400).
    */
-  const [, setNowTick] = useState(0);
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
   useEffect(() => {
     let timerId: number | null = null;
-    const tick = () => setNowTick((n) => (n + 1) % 1_000_000);
+    const tick = () => setNowMs(Date.now());
     const start = () => {
       if (timerId != null) return;
       timerId = window.setInterval(tick, 60_000);
@@ -402,6 +407,7 @@ export function MobileOrdersTab() {
             resolveTravelMin={resolveTravelMin}
             resolveHomeMin={resolveHomeMin}
             geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
+            nowMs={nowMs}
           />
         )}
 
@@ -483,6 +489,9 @@ interface DaySectionsListProps {
   resolveTravelMin: (order: Order, prev: Order | null) => { min: number | null; isLive: boolean };
   resolveHomeMin: (lastOrder: Order) => number | null;
   geoPosLabel: string;
+  /** Aus dem 60-s-Tick — wird bis DayRowEntry gereicht, damit memo den
+   *  Zeitwechsel als Prop-Aenderung erkennt. */
+  nowMs: number;
 }
 
 function DaySectionsList({
@@ -492,6 +501,7 @@ function DaySectionsList({
   resolveTravelMin,
   resolveHomeMin,
   geoPosLabel,
+  nowMs,
 }: DaySectionsListProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ later: true });
   const today = new Date();
@@ -551,6 +561,7 @@ function DaySectionsList({
                       bucket={day.bucket}
                       navigate={navigate}
                       geoPosLabel={geoPosLabel}
+                      nowMs={nowMs}
                       tourGapTo={
                         sameDay && idx < day.items.length - 1
                           ? {
@@ -590,6 +601,9 @@ interface DayRowEntryProps {
   bucket: BucketedDay["bucket"];
   navigate: ReturnType<typeof useNavigate>;
   geoPosLabel: string;
+  /** Aktueller "Jetzt"-Wert vom Parent-Tick. Pflicht-Prop, damit memo
+   *  die 60-s-Eskalation nicht stale haengen laesst. */
+  nowMs: number;
   tourGapTo: {
     nextItem: BucketedOrder;
     nextTravel: { min: number | null; isLive: boolean };
@@ -604,6 +618,7 @@ const DayRowEntry = memo(function DayRowEntry({
   bucket,
   navigate,
   geoPosLabel,
+  nowMs,
   tourGapTo,
 }: DayRowEntryProps) {
   const o = item.order;
@@ -613,6 +628,7 @@ const DayRowEntry = memo(function DayRowEntry({
     appointmentDate: o.appointmentDate ?? null,
     travelMin,
     bufferMin: DEFAULT_BUFFER_MIN,
+    now: new Date(nowMs),
   });
 
   const source: TravelSource = prevOrder
