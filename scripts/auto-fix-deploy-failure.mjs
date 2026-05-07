@@ -27,7 +27,7 @@ import { execSync, spawnSync } from 'node:child_process';
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-opus-4-7';
+const MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 16000;
 const MAX_ITERATIONS = 20;
 const MAX_FILE_MODIFICATIONS = 5;
