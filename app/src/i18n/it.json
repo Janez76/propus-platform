@@ -1160,7 +1160,7 @@
   "resetPassword.button.requestNew": "Richiedi nuovo link di reimpostazione",
   "resetPassword.link.toLogin": "Vai al login",
   "resetPassword.error.invalidLink": "Link di reimpostazione non valido o mancante",
-  "resetPassword.error.tooShort": "La password deve contenere almeno 12 caratteri.",
+  "resetPassword.error.tooShort": "La password deve contenere almeno 8 caratteri.",
   "resetPassword.error.mismatch": "Le password non coincidono.",
   "resetPassword.error.generic": "Si è verificato un errore. Riprova.",
   "resetPassword.error.connectionFailed": "Connessione fallita. Riprova.",
