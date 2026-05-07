@@ -1,6 +1,7 @@
 /**
  * Mutierende JSON-API für das React-Kunden-Portal.
- * Gemountet unter /portal/api (wird in server.js nach den lesenden portal-api Routen registriert).
+ * Gemountet unter /portal/api (wird in server.js vor den lesenden portal-api Routen registriert,
+ * damit öffentliche Auth-Endpunkte nicht vom Read-API-Session-Guard abgefangen werden).
  *
  * Delegiert alle Businesslogik in bestehende tours/lib/* Module.
  * Kein Duplikat von portal.js-Logik – nur Transport + Validierung.
