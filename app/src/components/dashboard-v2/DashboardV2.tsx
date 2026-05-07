@@ -232,8 +232,9 @@ export function DashboardV2() {
       ) : null}
 
       {/* Sprint 13: TodayCard — Datum-Display + 7-Tage-Wetter + Termine-Timeline */}
+      {/* Sprint 17: Wetter wird gemeinsam mit BriefingCard genutzt (kein duplicate fetch) */}
       {showDas && showOrders ? (
-        <TodayCard metrics={metrics} lang={lang} onHover={setHoveredOrderNo} />
+        <TodayCard metrics={metrics} lang={lang} onHover={setHoveredOrderNo} weather={weather} />
       ) : null}
 
       {showAlerts ? <DashAlerts metrics={metrics} lang={lang} /> : null}

@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Calendar, Clock, MapPin } from 'lucide-react';
 import type { Lang } from '../../i18n';
-import { useAuthStore } from '../../store/authStore';
-import { getWeatherForecast, weatherEmoji, weatherLabel, type WeatherForecastDay } from '../../api/weather';
+import { weatherEmoji, weatherLabel, type WeatherForecastDay } from '../../api/weather';
 import type { DashboardMetrics } from './useDashboardMetrics';
 import type { Order } from '../../api/orders';
 
@@ -15,6 +13,9 @@ interface TodayCardProps {
   metrics: DashboardMetrics;
   lang: Lang;
   onHover?: (orderNo: string | null) => void;
+  /** Sprint 17: Wetter wird vom Parent (DashboardV2) durchgereicht — kein eigener Fetch mehr,
+   *  damit `BriefingCard` und `TodayCard` denselben Cache teilen. */
+  weather?: WeatherForecastDay[] | null;
 }
 
 function formatTime(isoStr: string | undefined | null): string {
@@ -30,19 +31,7 @@ function shortAddress(addr: string | undefined | null): string {
   return parts[0] ?? addr;
 }
 
-export function TodayCard({ metrics, onHover }: TodayCardProps) {
-  const token = useAuthStore((s) => s.token);
-  const [weather, setWeather] = useState<WeatherForecastDay[] | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    getWeatherForecast(token, { days: 7, region: 'zurich' })
-      .then((res) => { if (!cancelled) setWeather(res.days.slice(0, 7)); })
-      .catch(() => { if (!cancelled) setWeather([]); });
-    return () => { cancelled = true; };
-  }, [token]);
-
+export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) {
   const today = metrics.today;
   const dom = today.getDate();
   const month = MONTH_DE[today.getMonth()];
