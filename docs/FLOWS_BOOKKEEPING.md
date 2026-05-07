@@ -63,7 +63,7 @@ Sonnet 4.6 (combined classify+extract in 1 Call)
 
 URL: <https://admin-booking.propus.ch/admin/finance/bookkeeper>
 
-Backend-Proxy (Express): `booking/bookkeeper-routes.js` mit `requireAdmin`. Nutzt `PAPERLESS_BOOKKEEPER_URL` + `PAPERLESS_BOOKKEEPER_TOKEN` (in `.env.vps.secrets`).
+Backend-Proxy (Express): `booking/bookkeeper-routes.js` mit `requireAdmin`. Nutzt `PAPERLESS_BOOKKEEPER_URL` + `PAPERLESS_BOOKKEEPER_TOKEN` (in `.env.vps` auf dem VPS — single source of truth).
 
 **Endpoint-Übersicht:**
 

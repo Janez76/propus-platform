@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Ergänzt /tmp/propus-platform.env.vps (aus GitHub Secret VPS_ENV_FILE) um
- * geschützte Werte aus der aktuell auf dem VPS liegenden .env.vps, falls das
- * Secret diese Keys leer lässt oder weglässt.
+ * DEPRECATED (2026-05-07): Nicht mehr im Deploy-Flow eingehängt.
+ * Hintergrund: .env.vps ist seitdem single-source-of-truth auf dem VPS und
+ * wird vom CI-Deploy nicht mehr überschrieben (nur Bootstrap, wenn fehlend).
+ * Damit ist die Merge-/Rettungslogik überflüssig. Datei bleibt vorerst als
+ * Referenz/Rollback-Hilfe; kann in einem späteren Cleanup entfernt werden.
  *
- * So schlägt guard-vps-env.sh nicht mehr fehl, wenn das Secret veraltet ist,
- * ohne Payrexx-Konfiguration oder den Assistant-API-Key zu löschen.
+ * Originaler Zweck: Ergänzte /tmp/propus-platform.env.vps (aus GitHub Secret
+ * VPS_ENV_FILE) um geschützte Werte aus der Live-.env.vps, falls das Secret
+ * diese Keys leer ließ.
  *
  * Usage: node scripts/merge-vps-env-protected.js <incoming-path> <current-live-path>
  */

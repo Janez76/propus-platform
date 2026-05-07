@@ -685,15 +685,15 @@ Diese Endpunkte können auch manuell aus dem Admin ausgelöst werden (brauchen A
 
 | Feld | Quelle | Editierbar |
 |---|---|---|
-| `payrexxConfigured` | `process.env.PAYREXX_INSTANCE` + `PAYREXX_API_SECRET` | `.env.vps` und/oder `.env.vps.secrets` (Compose `env_file`) |
+| `payrexxConfigured` | `process.env.PAYREXX_INSTANCE` + `PAYREXX_API_SECRET` | `.env.vps` (single source of truth auf VPS) |
 | `payrexxInstance` | `process.env.PAYREXX_INSTANCE` | wie oben |
 | `vatRate` / `vatPercent` | `booking.app_settings` (key=`vat_rate`) | Ja |
 | `floorplanUnitPrice` | `booking.pricing_rules` (floorplans:tour, per_floor) | Via Rechnungsvorlage |
 | `hostingUnitPrice` | `booking.pricing_rules` (hosting, per_period) | Read-only |
 
 Hinweis zur Laufzeit-Konfiguration:
-- `platform/server.js` und `booking/server.js` laden `.env`, `.env.vps.secrets` und `.env.vps` in dieser Reihenfolge mit `override: true`.
-- Dadurch koennen produktive Werte aus `.env.vps` oder `.env.vps.secrets` lokale Defaults oder leere Werte aus `.env` gezielt ueberschreiben.
+- `platform/server.js` und `booking/server.js` laden `.env`, `.env.vps.secrets` (legacy) und `.env.vps` in dieser Reihenfolge mit `override: true` — `.env.vps` gewinnt damit am Ende, was der single-source-of-truth-Konvention entspricht.
+- Dadurch koennen produktive Werte aus `.env.vps` lokale Defaults oder leere Werte aus `.env` gezielt ueberschreiben.
 - Nach Aenderungen an Payrexx-Variablen ist ein Neustart bzw. Container-Recreate noetig, damit `process.env` neu eingelesen wird.
 
 ### Rechnungsvorlage (`GET/PATCH /api/tours/admin/invoice-template`)
@@ -1160,8 +1160,8 @@ Cloudflare Zaraz injiziert einen `Content-Security-Policy: default-src 'none'` H
 ### Env-Dateien Lade-Reihenfolge
 
 `docker-compose.vps.yml` lädt:
-1. `.env.vps` (wird bei jedem Deploy überschrieben)
-2. `.env.vps.secrets` (nur manuell auf dem VPS, nie überschrieben — enthält `PAYREXX_INSTANCE`, `PAYREXX_API_SECRET`)
+1. `.env.vps` (single source of truth seit 2026-05-07 — manuell auf dem VPS gepflegt, vom Deploy nicht überschrieben; nur Bootstrap, falls die Datei fehlt)
+2. `.env.vps.secrets` (legacy Fallback — Inhalte wurden nach `.env.vps` konsolidiert; Datei wird optional weitergeladen, falls noch vorhanden)
 
 Nach Änderungen an Env-Dateien Container neu erstellen:
 ```bash

@@ -4,7 +4,7 @@
  * Erlaubt dem Admin-UI in propus-platform die Kontrolle über die KI-Cascade-Pipeline,
  * ohne dass der Bookkeeper-Token im Frontend gehalten werden muss.
  *
- * ENV-Variablen (in .env.vps / .env.vps.secrets):
+ * ENV-Variablen (in .env.vps — single-source-of-truth auf VPS):
  *   PAPERLESS_BOOKKEEPER_URL=https://paperless.propus.ch
  *   PAPERLESS_BOOKKEEPER_TOKEN=<bookkeeper-service-Token>
  *
