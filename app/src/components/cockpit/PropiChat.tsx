@@ -173,8 +173,12 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
               title={
                 geo.position
                   ? `Standort aktiv (±${Math.round(geo.position.accuracy)}m) — Klick zum Deaktivieren`
+                  : geo.errorCode === 'denied'
+                  ? 'Standort: Browser-Berechtigung verweigert. Klick zum erneuten Anfragen, oder im Browser-Schloss-Symbol freigeben.'
+                  : geo.errorCode === 'unsupported'
+                  ? 'Standort: Browser unterstützt Geolocation nicht.'
                   : geo.error
-                  ? `Standort nicht verfügbar: ${geo.error} — erneut versuchen`
+                  ? `Standort nicht verfügbar: ${geo.error} — Klick zum erneuten Versuch.`
                   : 'Standort teilen — Propi kann dann Routen + Reisezeiten berechnen'
               }
               aria-label={geo.enabled ? 'Standort deaktivieren' : 'Standort teilen'}

@@ -201,9 +201,13 @@ export function TodayCard({ metrics, onHover, weather = null, lang }: TodayCardP
                       '{{m}}',
                       String(Math.round(dashGeo.position.accuracy)),
                     )
-                  : dashGeo.error
-                    ? `${t(lang, 'dashboardV2.todayDrive.titleError')}: ${dashGeo.error}`
-                    : t(lang, 'dashboardV2.todayDrive.titleIdle')
+                  : dashGeo.errorCode === 'denied'
+                    ? `${t(lang, 'dashboardV2.todayDrive.titleError')}: Browser-Berechtigung verweigert. Klick zum erneuten Anfragen, oder im Browser-Schloss-Symbol freigeben.`
+                    : dashGeo.errorCode === 'unsupported'
+                      ? `${t(lang, 'dashboardV2.todayDrive.titleError')}: Geolocation nicht unterstützt.`
+                      : dashGeo.error
+                        ? `${t(lang, 'dashboardV2.todayDrive.titleError')}: ${dashGeo.error} — Klick zum erneuten Versuch.`
+                        : t(lang, 'dashboardV2.todayDrive.titleIdle')
               }
               aria-label={dashGeo.enabled ? t(lang, 'dashboardV2.todayDrive.ariaOff') : t(lang, 'dashboardV2.todayDrive.ariaOn')}
               aria-pressed={dashGeo.enabled && !!dashGeo.position}
