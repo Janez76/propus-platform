@@ -824,11 +824,20 @@ router.post('/tours/:id/set-booking-order', async (req, res) => {
       booking_order_no: orderNo,
     });
     const mpId = String(tour.canonical_matterport_space_id || '').trim();
+    // Bug-Hunt LOW L01: Vorher liefen Matterport-Side-Effects komplett still.
+    // Wenn setVisibility fehlschlug, sah der Admin "ok:true" aber die Tour
+    // war noch privat und fuer den Kunden unerreichbar. Wir geben jetzt
+    // strukturierte Warnungen zurueck, damit das UI gelben Toast zeigen kann.
+    const warnings = [];
     if (mpId) {
       try {
         await matterport.patchModelInternalId(mpId, `#${orderNo}`);
       } catch (e) {
         console.warn('[admin-api] set-booking-order patchModelInternalId:', e.message);
+        warnings.push({
+          code: 'matterport_internal_id_failed',
+          message: `Matterport-Interne-ID konnte nicht gesetzt werden: ${e.message || 'unknown'}`,
+        });
       }
       // Beim Verknuepfen einer Bestellung soll die Tour automatisch
       // oeffentlich/sichtbar werden — sonst bleibt sie auf "privat" und
@@ -842,16 +851,26 @@ router.post('/tours/:id/set-booking-order', async (req, res) => {
             booking_order_no: orderNo,
           });
         } else {
-          console.warn(
-            '[admin-api] set-booking-order setVisibility:',
-            visibilityResult?.error || 'unknown',
-          );
+          const reason = visibilityResult?.error || 'unknown';
+          console.warn('[admin-api] set-booking-order setVisibility:', reason);
+          warnings.push({
+            code: 'matterport_visibility_failed',
+            message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${reason}`,
+          });
         }
       } catch (e) {
         console.warn('[admin-api] set-booking-order setVisibility:', e.message);
+        warnings.push({
+          code: 'matterport_visibility_failed',
+          message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${e.message || 'unknown'}`,
+        });
       }
     }
-    return res.json({ ok: true, booking_order_no: orderNo });
+    return res.json({
+      ok: true,
+      booking_order_no: orderNo,
+      ...(warnings.length > 0 ? { warnings } : {}),
+    });
   } catch (err) {
     console.error('[admin-api] POST /tours/:id/set-booking-order', err);
     return res.status(500).json({ ok: false, error: 'Interner Fehler' });
