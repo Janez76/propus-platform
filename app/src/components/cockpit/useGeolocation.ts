@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface GeoPosition {
   lat: number;
@@ -46,14 +46,26 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
   const [error, setError] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
 
+  /**
+   * Bug-Hunt MEDIUM M07: ohne In-Flight-Coalesce kann ein Doppel-Klick auf
+   * den «Standort teilen»-Button (oder zwei Komponenten, die gleichzeitig
+   * `request()` rufen — TodayCard + ConversationView) zwei parallele
+   * `getCurrentPosition`-Calls starten. Das spaeter resolvende Callback
+   * ueberschreibt die Position des frueheren — Lat/Lng-Snapshots in
+   * verschiedenen Komponenten driften auseinander. Mit Singleton-Promise
+   * deduplizieren wir parallele Aufrufe.
+   */
+  const inFlightRef = useRef<Promise<GeoPosition | null> | null>(null);
+
   const request = useCallback(async (): Promise<GeoPosition | null> => {
+    if (inFlightRef.current) return inFlightRef.current;
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setError('Geolocation wird nicht unterstützt');
       return null;
     }
     setLoading(true);
     setError(null);
-    return new Promise((resolve) => {
+    const promise = new Promise<GeoPosition | null>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const p: GeoPosition = {
@@ -96,6 +108,12 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
         { enableHighAccuracy: false, maximumAge: maxAgeMs, timeout: timeoutMs },
       );
     });
+    inFlightRef.current = promise;
+    try {
+      return await promise;
+    } finally {
+      inFlightRef.current = null;
+    }
   }, [storageKey, maxAgeMs, timeoutMs]);
 
   const clear = useCallback(() => {
