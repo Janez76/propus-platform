@@ -4,7 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { Footer } from "./Footer";
 import { SearchPalette } from "../search/SearchPalette";
-import { SidePanel, PropiChat, InsightsPane, ActivityPane } from "../cockpit";
+import { SidePanel, PropiChat, InsightsPane, ActivityPane, CapturePane, ToolsPane } from "../cockpit";
 import { cn } from "../../lib/utils";
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -62,6 +62,8 @@ export function AppShell({ children }: PropsWithChildren) {
           propi: <PropiChat />,
           insights: <InsightsPane />,
           activity: <ActivityPane />,
+          capture: <CapturePane />,
+          tools: <ToolsPane />,
         }}
       />
 
