@@ -110,6 +110,12 @@ export type Order = {
   exxasOrderNumber?: string | null;
   exxasStatus?: string;
   exxasError?: string | null;
+
+  /** bexio-Export (kb_order / Auftragsbestätigung) */
+  bexioOrderId?: string | null;
+  bexioOrderNumber?: string | null;
+  bexioStatus?: string;
+  bexioError?: string | null;
 };
 
 export type OrderMessage = { id: number; message: string; created_at: string };
@@ -381,6 +387,10 @@ function normalizeOrder(raw: unknown): Order {
     exxasOrderNumber: (r.exxasOrderNumber as string | null | undefined) ?? (r.exxas_order_number as string | null | undefined) ?? null,
     exxasStatus: String((r.exxasStatus as string) || (r.exxas_status as string) || "not_sent"),
     exxasError: (r.exxasError as string | null | undefined) ?? (r.exxas_error as string | null | undefined) ?? null,
+    bexioOrderId: (r.bexioOrderId as string | null | undefined) ?? (r.bexio_order_id as string | null | undefined) ?? null,
+    bexioOrderNumber: (r.bexioOrderNumber as string | null | undefined) ?? (r.bexio_order_number as string | null | undefined) ?? null,
+    bexioStatus: String((r.bexioStatus as string) || (r.bexio_status as string) || "not_sent"),
+    bexioError: (r.bexioError as string | null | undefined) ?? (r.bexio_error as string | null | undefined) ?? null,
   };
 }
 
@@ -433,6 +443,28 @@ export async function syncExxasOrderLinks(
 ): Promise<SyncExxasOrderLinksResult> {
   return apiRequest<SyncExxasOrderLinksResult>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/exxas-sync-links`,
+    "POST",
+    token,
+  );
+}
+
+export type CreateBexioSalesOrderResult = {
+  ok: boolean;
+  bexioOrderId?: string;
+  bexioOrderNumber?: string | null;
+  positionsCreated?: number;
+  positionsTotal?: number;
+  positionErrors?: Array<{ text: string; error: string }>;
+  bexioUrl?: string;
+  error?: string;
+};
+
+export async function createBexioSalesOrder(
+  token: string,
+  orderNo: string,
+): Promise<CreateBexioSalesOrderResult> {
+  return apiRequest<CreateBexioSalesOrderResult>(
+    `/api/admin/orders/${encodeURIComponent(orderNo)}/bexio-create-order`,
     "POST",
     token,
   );
