@@ -65,7 +65,15 @@ export function OrdersMap({ orders, lang, hoveredOrderNo }: OrdersMapProps) {
   const googleMapsKey = bookingConfig?.googleMapsKey?.trim() || null;
 
   const mappableOrders = useMemo(
-    () => orders.filter((o) => String(o.address || "").trim().length >= 6),
+    () =>
+      orders.filter(
+        (o) =>
+          String(o.address || "").trim().length >= 6 &&
+          // Sprint 12: cancelled/archived raus damit Ghost-Pins (z.B. von gelöschten Aufträgen)
+          // nicht mehr auf der Map erscheinen.
+          !statusMatches(o.status, "cancelled") &&
+          !statusMatches(o.status, "archived"),
+      ),
     [orders],
   );
 

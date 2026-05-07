@@ -111,6 +111,33 @@
   transform: translateY(-1px);
 }
 
+/* ── Briefing-Hero im Hauptbereich ── */
+.dv2 .dv2-briefing-hero {
+  margin: 0 0 6px;
+  /* Volle Breite, BriefingCard hat eigenen Gold-Gradient + Border */
+}
+.dv2 .dv2-briefing-hero .propus-briefing {
+  /* Etwas größere Variante als im Side-Panel */
+  padding: 16px 20px 18px;
+  border-radius: var(--propus-r-lg, 20px);
+}
+.dv2 .dv2-briefing-hero .propus-briefing-summary {
+  font-size: 16px;
+  line-height: 1.4;
+}
+.dv2 .dv2-briefing-hero .propus-briefing-list li {
+  font-size: 13px;
+}
+.dv2 .dv2-briefing-hero .propus-briefing-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.dv2 .dv2-briefing-hero .propus-briefing-action {
+  flex: 1 1 auto;
+  min-width: 240px;
+  font-size: 12.5px;
+}
+
 /* ── prefers-reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   .dv2 .dv2-kpi,

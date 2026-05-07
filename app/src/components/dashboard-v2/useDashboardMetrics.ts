@@ -44,9 +44,15 @@ function inWindow(dateStr: string | null | undefined, from: number, to: number):
   return t >= from && t < to;
 }
 
-/** Pausiert = Termin/Slot faktisch inaktiv — nicht in „heute“/Kapazitaet/Heatmap wie laufende Shootings. */
+/** Pausiert oder abgebrochen = Termin/Slot faktisch inaktiv — nicht in „heute"/Kapazität/Heatmap.
+ *  Cancelled wurde bisher nicht gefiltert: ein gelöschter (soft-delete = cancelled) Auftrag
+ *  blieb in todayOrders/upcomingOrders/Heatmap sichtbar. Fix: cancelled + archived raus. */
 function countsForScheduleDay(o: Order): boolean {
-  return !statusMatches(o.status, "paused");
+  return (
+    !statusMatches(o.status, "paused") &&
+    !statusMatches(o.status, "cancelled") &&
+    !statusMatches(o.status, "archived")
+  );
 }
 
 export type DashboardMetrics = ReturnType<typeof useDashboardMetrics>;
@@ -71,13 +77,23 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       const dayStart = todayMs - i * MS_DAY;
       const dayEnd = dayStart + MS_DAY;
       const v = orders
-        .filter((o) => !statusMatches(o.status, "cancelled") && inWindow(o.appointmentDate, dayStart, dayEnd))
+        .filter(
+          (o) =>
+            !statusMatches(o.status, "cancelled") &&
+            !statusMatches(o.status, "archived") &&
+            inWindow(o.appointmentDate, dayStart, dayEnd),
+        )
         .reduce((s, o) => s + (o.total ?? 0), 0);
       revenue30d.push(v);
     }
     const totalRevenue30d = revenue30d.reduce((s, v) => s + v, 0);
     const totalRevenuePrev30d = orders
-      .filter((o) => !statusMatches(o.status, "cancelled") && inWindow(o.appointmentDate, window60, window30))
+      .filter(
+        (o) =>
+          !statusMatches(o.status, "cancelled") &&
+          !statusMatches(o.status, "archived") &&
+          inWindow(o.appointmentDate, window60, window30),
+      )
       .reduce((s, o) => s + (o.total ?? 0), 0);
     let revenueDeltaPct: number | null = null;
     let revenueIsNew = false;
@@ -92,7 +108,14 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
     for (let i = 7; i >= 0; i--) {
       const wStart = todayMs - (i + 1) * 7 * MS_DAY;
       const wEnd = todayMs - i * 7 * MS_DAY;
-      bookingsWeekly.push(orders.filter((o) => inWindow(o.provisionalBookedAt, wStart, wEnd)).length);
+      bookingsWeekly.push(
+        orders.filter(
+          (o) =>
+            !statusMatches(o.status, "cancelled") &&
+            !statusMatches(o.status, "archived") &&
+            inWindow(o.provisionalBookedAt, wStart, wEnd),
+        ).length,
+      );
     }
     const bookingsThisWeek = bookingsWeekly[bookingsWeekly.length - 1];
     const bookingsPrevWeek = bookingsWeekly[bookingsWeekly.length - 2] ?? 0;

@@ -17,6 +17,8 @@ import { PipelineBoardV2 } from "./PipelineBoardV2";
 import { UpcomingV2 } from "./UpcomingV2";
 import { TicketsCard } from "./TicketsCard";
 import { MailsCard } from "./MailsCard";
+import { BriefingCard } from "../cockpit";
+import { getWeatherForecast, type WeatherForecastDay } from "../../api/weather";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
@@ -64,6 +66,16 @@ export function DashboardV2() {
   const [prefs, setPrefs] = useState<DashV2Preferences>(loadDashV2Preferences);
   const [displayName, setDisplayName] = useState("");
   const [hoveredOrderNo, setHoveredOrderNo] = useState<string | null>(null);
+  const [weather, setWeather] = useState<WeatherForecastDay[] | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    getWeatherForecast(token, { days: 7, region: "zurich" })
+      .then((res) => { if (!cancelled) setWeather(res.days.slice(0, 7)); })
+      .catch(() => { if (!cancelled) setWeather([]); });
+    return () => { cancelled = true; };
+  }, [token]);
 
   const setPrefsAndSave = (next: DashV2Preferences) => {
     setPrefs(next);
@@ -207,6 +219,13 @@ export function DashboardV2() {
         </div>
         {showKpi && showDas ? <HeaderKpis metrics={metrics} lang={lang} /> : null}
       </div>
+
+      {/* Sprint 12: AI-Tagesbriefing als Hero (Mockup-V3.1-Look) */}
+      {showDas ? (
+        <section className="dv2-briefing-hero">
+          <BriefingCard metrics={orders ? metrics : null} weather={weather} />
+        </section>
+      ) : null}
 
       {showAlerts ? <DashAlerts metrics={metrics} lang={lang} /> : null}
       {showOverdueList ? <AlertBar orders={metrics.overdueOrders} lang={lang} /> : null}
