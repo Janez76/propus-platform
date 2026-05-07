@@ -27,6 +27,8 @@ import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
 import { deleteOrder } from "../api/orders";
 import { useAuthStore } from "../store/authStore";
+import { useQueryStore } from "../store/queryStore";
+import { ordersQueryKey } from "../lib/queryKeys";
 
 // Lazy-load all pages from the legacy pages directory
 const LoginPage = lazy(() => import("../pages-legacy/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -148,6 +150,9 @@ function OrderDetailRoute() {
       onClose={() => navigate("/orders")}
       onDelete={async (no) => {
         await deleteOrder(token, no);
+        // Sprint 9: Cache global invalidieren — sonst zeigen Dashboard/OrdersMap den
+        // gelöschten Auftrag noch beim nächsten Besuch (eigene useQuery-Subscriber).
+        useQueryStore.getState().invalidate(ordersQueryKey(token));
         navigate("/orders");
       }}
       onOpenUpload={(no) => navigate(`/upload?orderNo=${encodeURIComponent(no)}`)}
