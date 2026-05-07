@@ -1277,9 +1277,13 @@ export function ConversationView() {
               title={
                 assistantGeo.position
                   ? `Standort aktiv (±${Math.round(assistantGeo.position.accuracy)} m) — Klick zum Deaktivieren`
-                  : assistantGeo.error
-                    ? `Standort: ${assistantGeo.error} — erneut versuchen`
-                    : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
+                  : assistantGeo.errorCode === 'denied'
+                    ? "Standort: Browser-Berechtigung verweigert. Klick zum erneuten Anfragen, oder im Browser-Schloss-Symbol freigeben."
+                    : assistantGeo.errorCode === 'unsupported'
+                      ? "Standort: Browser unterstützt Geolocation nicht."
+                      : assistantGeo.error
+                        ? `Standort: ${assistantGeo.error} — Klick zum erneuten Versuch.`
+                        : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
               }
               aria-label={assistantGeo.enabled ? "Standort deaktivieren" : "Standort teilen"}
               aria-pressed={assistantGeo.enabled && !!assistantGeo.position}
@@ -1401,9 +1405,13 @@ export function ConversationView() {
               title={
                 assistantGeo.position
                   ? `Standort aktiv (±${Math.round(assistantGeo.position.accuracy)} m) — Klick zum Deaktivieren`
-                  : assistantGeo.error
-                    ? `Standort: ${assistantGeo.error} — erneut versuchen`
-                    : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
+                  : assistantGeo.errorCode === 'denied'
+                    ? "Standort: Browser-Berechtigung verweigert. Klick zum erneuten Anfragen, oder im Browser-Schloss-Symbol freigeben."
+                    : assistantGeo.errorCode === 'unsupported'
+                      ? "Standort: Browser unterstützt Geolocation nicht."
+                      : assistantGeo.error
+                        ? `Standort: ${assistantGeo.error} — Klick zum erneuten Versuch.`
+                        : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
               }
               aria-label={assistantGeo.enabled ? "Standort deaktivieren" : "Standort teilen"}
               aria-pressed={assistantGeo.enabled && !!assistantGeo.position}

@@ -9,13 +9,44 @@ export interface GeoPosition {
   timestamp: number;
 }
 
+/**
+ * Bug-Hunt MEDIUM M09: typisierter Error-Code statt freitext-`error`-String,
+ * damit Caller (TodayCard, ConversationView) zwischen "Permission denied"
+ * (User muss Browser-Setting aendern), "Position nicht verfuegbar" (GPS-
+ * Hardware), "Timeout" (schwaches Signal) und "Browser unterstuetzt es nicht"
+ * unterscheiden und die UI gezielt formulieren koennen.
+ *
+ * `error` (Freitext) bleibt als zusaetzliches Feld bestehen — keine Caller-
+ * Aenderung noetig, wer schon `geo.error` rendert.
+ */
+export type GeoErrorCode = 'denied' | 'unavailable' | 'timeout' | 'unsupported' | 'other';
+
+export type GeoError = {
+  code: GeoErrorCode;
+  message: string;
+};
+
 interface UseGeolocationReturn {
   position: GeoPosition | null;
   loading: boolean;
   error: string | null;
+  /** Bug-Hunt M09: typisiertes Pendant zu `error` fuer kontextspezifische UI. */
+  errorCode: GeoErrorCode | null;
   /** Permission persistiert. True = User hat Standort-Sharing aktiv erlaubt. */
   enabled: boolean;
-  request: () => Promise<GeoPosition | null>;
+  /**
+   * Triggert einen frischen `getCurrentPosition`-Call.
+   *
+   * Bug-Hunt MEDIUM M10: Promise resolved *immer* — Erfolg liefert eine
+   * `GeoPosition`, jeder Fehler (Permission denied, Timeout, no GPS,
+   * Browser-Support) liefert ein typisiertes `GeoError`. Vorher resolved
+   * die Promise mit `null` und der Caller konnte Permission-denied nicht
+   * von einem Browser-Support-Fehler unterscheiden, ohne `error`/`errorCode`
+   * separat zu lesen. Die State-Felder `position`, `error`, `errorCode`,
+   * `loading` werden parallel zum Promise-Resolve aktualisiert; Caller die
+   * `void geo.request()` nutzen, brauchen nichts zu aendern.
+   */
+  request: () => Promise<{ ok: true; position: GeoPosition } | { ok: false; error: GeoError }>;
   clear: () => void;
 }
 
@@ -29,6 +60,15 @@ export type UseGeolocationOptions = {
   maximumAgeMs?: number;
   timeoutMs?: number;
 };
+
+export function mapBrowserError(err: GeolocationPositionError): GeoError {
+  // Browser GeolocationPositionError codes:
+  // 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+  if (err.code === 1) return { code: 'denied', message: 'Standort-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben.' };
+  if (err.code === 2) return { code: 'unavailable', message: 'Position nicht verfügbar.' };
+  if (err.code === 3) return { code: 'timeout', message: 'Standort-Anfrage Timeout.' };
+  return { code: 'other', message: err.message || 'Standort-Fehler' };
+}
 
 /**
  * Wrapper um navigator.geolocation (Cockpit-Propi, Dashboard, Assistant).
@@ -44,6 +84,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
   const [position, setPosition] = useState<GeoPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<GeoErrorCode | null>(null);
   const [enabled, setEnabled] = useState(false);
 
   /**
@@ -55,17 +96,24 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
    * verschiedenen Komponenten driften auseinander. Mit Singleton-Promise
    * deduplizieren wir parallele Aufrufe.
    */
-  const inFlightRef = useRef<Promise<GeoPosition | null> | null>(null);
+  type RequestResult = { ok: true; position: GeoPosition } | { ok: false; error: GeoError };
+  const inFlightRef = useRef<Promise<RequestResult> | null>(null);
 
-  const request = useCallback(async (): Promise<GeoPosition | null> => {
+  const request = useCallback(async (): Promise<RequestResult> => {
     if (inFlightRef.current) return inFlightRef.current;
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setError('Geolocation wird nicht unterstützt');
-      return null;
+      const e: GeoError = {
+        code: 'unsupported',
+        message: 'Geolocation wird von diesem Browser nicht unterstützt.',
+      };
+      setError(e.message);
+      setErrorCode(e.code);
+      return { ok: false, error: e };
     }
     setLoading(true);
     setError(null);
-    const promise = new Promise<GeoPosition | null>((resolve) => {
+    setErrorCode(null);
+    const promise = new Promise<RequestResult>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const p: GeoPosition = {
@@ -82,20 +130,19 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
           } catch {
             /* quota */
           }
-          resolve(p);
+          resolve({ ok: true, position: p });
         },
         (err) => {
-          const reason =
-            err.code === 1
-              ? 'Standort-Zugriff verweigert'
-              : err.code === 2
-                ? 'Position nicht verfügbar'
-                : err.code === 3
-                  ? 'Standort-Anfrage Timeout'
-                  : err.message || 'Standort-Fehler';
-          setError(reason);
+          const e = mapBrowserError(err);
+          setError(e.message);
+          setErrorCode(e.code);
           setLoading(false);
-          if (err.code === 1) {
+          if (e.code === 'denied') {
+            // Bug-Hunt M09: bei Permission-Denied kein Auto-Retry beim
+            // naechsten Mount — der Browser merkt sich die Verweigerung,
+            // erneutes getCurrentPosition wuerde sofort wieder den Error
+            // ausloesen. User muss explizit klicken (oder im Browser
+            // freigeben) → wir clearen den Opt-In.
             setEnabled(false);
             try {
               window.localStorage.removeItem(storageKey);
@@ -103,7 +150,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
               /* */
             }
           }
-          resolve(null);
+          resolve({ ok: false, error: e });
         },
         { enableHighAccuracy: false, maximumAge: maxAgeMs, timeout: timeoutMs },
       );
@@ -120,6 +167,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
     setPosition(null);
     setEnabled(false);
     setError(null);
+    setErrorCode(null);
     if (typeof window !== 'undefined') {
       try {
         window.localStorage.removeItem(storageKey);
@@ -146,5 +194,5 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
     };
   }, [storageKey, request]);
 
-  return { position, loading, error, enabled, request, clear };
+  return { position, loading, error, errorCode, enabled, request, clear };
 }
