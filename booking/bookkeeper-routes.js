@@ -60,13 +60,86 @@ function isConfigured() {
   return Boolean(PAPERLESS_URL && PAPERLESS_TOKEN);
 }
 
+/**
+ * Bug-Hunt MEDIUM M08: Rate-Limit fuer Feedback-Endpoint, damit ein
+ * kompromittierter oder boeswilliger Admin-Account das Self-Learning-
+ * Korpus (`core.bookkeeper_feedback`) nicht durch Massen-Korrekturen
+ * vergiften kann. Zwei Schichten:
+ *   1) In-Memory Burst (50/min/User) gegen Skript-Spam
+ *   2) DB-basiertes Per-(User,Doc,Field)-Tageslimit (3/Tag) — verhindert,
+ *      dass ein einzelner User dieselbe Korrektur immer wieder einreicht
+ *      (z. B. um Aggregator-Heuristik zu triggern).
+ *
+ * Defaults konfigurierbar via env. Exemption fuer ASSISTANT_UNLIMITED_EMAILS
+ * (selbe Liste wie /api/assistant) — Standard-Admins koennen damit Bulk-
+ * Korrekturen machen, ohne ans Burst-Limit zu stossen.
+ */
+const BOOKKEEPER_FEEDBACK_PER_MIN_LIMIT = (() => {
+  const raw = process.env.BOOKKEEPER_FEEDBACK_PER_MIN_LIMIT;
+  const n = raw ? parseInt(raw, 10) : 50;
+  return Number.isFinite(n) && n > 0 ? n : 50;
+})();
+const BOOKKEEPER_FEEDBACK_PER_DOC_FIELD_DAY_LIMIT = (() => {
+  const raw = process.env.BOOKKEEPER_FEEDBACK_PER_DOC_FIELD_DAY_LIMIT;
+  const n = raw ? parseInt(raw, 10) : 3;
+  return Number.isFinite(n) && n > 0 ? n : 3;
+})();
+const BOOKKEEPER_BURST_WINDOW_MS = 60_000;
+const _bookkeeperBurstBuckets = new Map(); // key: userId, val: { count, resetAt }
+
+function checkBookkeeperBurst(userKey) {
+  if (!userKey) return true; // wer keinen Key hat, kommt durch — DB-Constraint faengt es
+  const now = Date.now();
+  const bucket = _bookkeeperBurstBuckets.get(userKey);
+  if (!bucket || bucket.resetAt <= now) {
+    _bookkeeperBurstBuckets.set(userKey, { count: 1, resetAt: now + BOOKKEEPER_BURST_WINDOW_MS });
+    return true;
+  }
+  bucket.count += 1;
+  return bucket.count <= BOOKKEEPER_FEEDBACK_PER_MIN_LIMIT;
+}
+
+if (!global._bookkeeperBurstGC) {
+  global._bookkeeperBurstGC = true;
+  setInterval(() => {
+    const now = Date.now();
+    for (const [k, b] of _bookkeeperBurstBuckets) {
+      if (b.resetAt <= now) _bookkeeperBurstBuckets.delete(k);
+    }
+  }, 5 * 60_000).unref?.();
+}
+
+function isFeedbackRateLimitExempt(email) {
+  const list = String(process.env.ASSISTANT_UNLIMITED_EMAILS || "").trim();
+  if (!list) return false;
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) return false;
+  return list
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(e);
+}
+
 async function plFetch(path, init = {}) {
   if (!isConfigured()) {
     const err = new Error("PAPERLESS_BOOKKEEPER_URL/TOKEN nicht konfiguriert");
     err.code = "NOT_CONFIGURED";
     throw err;
   }
-  const url = path.startsWith("http") ? path : `${PAPERLESS_URL.replace(/\/$/, "")}${path}`;
+  // Bug-Hunt LOW L02: defense-in-depth gegen SSRF. Vorher akzeptierte plFetch
+  // alles, was mit "http" anfaengt — falls je ein Caller User-Input direkt
+  // durchreicht, wird der Bookkeeper-Token an einen Angreifer-Host gesendet.
+  // Heute strippt der einzige absolute-URL-Caller (recascade-Pagination,
+  // Z. ~596) Protocol+Host bevor er weiterruft, also ist das Allow-Listen
+  // auf relative Paperless-API-Pfade unkritisch. Wer doch absolute URLs
+  // braucht, muss das explizit aufmachen — und dann mit Allowlist.
+  if (typeof path !== "string" || !path.startsWith("/api/")) {
+    const err = new Error(`plFetch: ungueltiger Pfad (erwartet /api/...): ${String(path).slice(0, 80)}`);
+    err.code = "INVALID_PATH";
+    throw err;
+  }
+  const url = `${PAPERLESS_URL.replace(/\/$/, "")}${path}`;
   const headers = {
     Authorization: `Token ${PAPERLESS_TOKEN}`,
     Accept: "application/json",
@@ -400,6 +473,22 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
     const fid = parseInt(body.field_id, 10);
     if (!Number.isFinite(fid)) return res.status(400).json({ error: "ungueltige field_id" });
 
+    // Bug-Hunt MEDIUM M08: Korpus-Vergiftungs-Schutz. Burst-Limit greift
+    // unabhaengig vom DB-State; das per-(User,Doc,Field)-Tageslimit greift
+    // nach der ersten Korrektur derselben Stelle.
+    const userEmail = req.user && req.user.email ? String(req.user.email) : "";
+    const burstKey = req.user && req.user.id != null
+      ? String(req.user.id)
+      : userEmail || (req.ip || "anon");
+    const exempt = isFeedbackRateLimitExempt(userEmail);
+    if (!exempt && !checkBookkeeperBurst(burstKey)) {
+      return res.status(429).json({
+        error: "Zu viele Korrekturen pro Minute. Bitte kurz warten.",
+        persisted: false,
+        paperless_patched: false,
+      });
+    }
+
     const fieldNameMap = {
       2: "belegart", 3: "belegdatum", 4: "beleg_nr", 5: "lieferant",
       6: "betrag_brutto", 7: "waehrung", 8: "mwst_gesamt", 9: "mwst_aufteilung_json",
@@ -422,6 +511,34 @@ function registerBookkeeperRoutes(app, db, requireAdmin) {
     const rawUid = req.user && req.user.id != null ? String(req.user.id) : null;
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const userIdParam = rawUid && UUID_RE.test(rawUid) ? rawUid : null;
+
+    // Per-(User,Doc,Field)-Tageslimit — nur wenn user_id sauber als UUID
+    // attributierbar ist. Anonyme Zeilen (userIdParam=null) zaehlen wir
+    // bewusst nicht, sonst kann ein Angreifer den Cap durch Auth-Bug
+    // umgehen — Burst-Limit oben fangt das ab.
+    if (!exempt && userIdParam) {
+      try {
+        const r = await pool.query(
+          `SELECT count(*)::int AS n
+             FROM core.bookkeeper_feedback
+            WHERE user_id = $1 AND doc_id = $2 AND field_id = $3
+              AND created_at >= NOW() - INTERVAL '1 day'`,
+          [userIdParam, body.doc_id, fid],
+        );
+        const recent = r.rows[0] ? r.rows[0].n : 0;
+        if (recent >= BOOKKEEPER_FEEDBACK_PER_DOC_FIELD_DAY_LIMIT) {
+          return res.status(429).json({
+            error: `Tageslimit fuer Korrekturen an Beleg ${body.doc_id} / Feld ${fid} erreicht (${BOOKKEEPER_FEEDBACK_PER_DOC_FIELD_DAY_LIMIT}). Wenn die Korrektur stimmt, sollte sie ankommen — sonst bitte morgen erneut.`,
+            persisted: false,
+            paperless_patched: false,
+          });
+        }
+      } catch (_e) {
+        // Wenn die Count-Abfrage fehlschlaegt, lassen wir die INSERT laufen —
+        // Cap ist Defense-in-Depth, nicht Pflicht-Gate. Burst-Limit greift
+        // weiterhin.
+      }
+    }
 
     let persisted = false;
     let pgError = null;
