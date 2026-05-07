@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, MapPin } from "lucide-react";
+import { ClipboardList, MapPin, SlidersHorizontal } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
 import { getOrders, type Order } from "../../api/orders";
 import { getStatusBadgeClass, getStatusLabel } from "../../lib/status";
@@ -16,11 +16,20 @@ import {
   MobileDaySectionHeader,
   MobileDepartureChip,
   MobileHomeDivider,
+  MobileKpiPills,
+  type MobileKpiPillSpec,
   MobileObjectAddr,
   MobileTourDivider,
   MobileTravelChip,
   type TravelSource,
 } from "./MobileOrdersUI";
+import {
+  EMPTY_FILTERS,
+  MobileFilterSheet,
+  type MobileFilterState,
+  type MobileFilterStatusOption,
+  type MobileFilterPhotographerOption,
+} from "./MobileFilterSheet";
 import {
   bucketBadge,
   bucketLabel,
@@ -78,6 +87,12 @@ export function MobileOrdersTab() {
   /** Live-Geo: nur aktiv wenn User opt-in. Persistiert via storageKey. */
   const geo = useGeolocation({ storageKey: "propus.mobile.orders.geo.enabled.v1" });
 
+  /** Phase 3: Filter-Sheet + KPI-Quickfilter. */
+  const [filters, setFilters] = useState<MobileFilterState>(EMPTY_FILTERS);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  /** Aktive KPI-Pille (id) oder null = kein KPI-Quickfilter. */
+  const [activeKpi, setActiveKpi] = useState<string | null>(null);
+
   const fetchOrders = useCallback(async () => {
     if (!token) return;
     try {
@@ -125,22 +140,118 @@ export function MobileOrdersTab() {
     };
   }, [token]);
 
+  /** Suche + Filter-Sheet + KPI-Quickfilter alle gemeinsam angewendet. */
   const filteredOrders = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return orders;
+    const hasStatusFilter = filters.statuses.size > 0;
+    const today0 = new Date();
+    today0.setHours(0, 0, 0, 0);
+    const tomorrow0 = today0.getTime() + 24 * 60 * 60 * 1000;
+
     return orders.filter((o) => {
-      return (
-        o.orderNo.toLowerCase().includes(q) ||
-        (o.customerName || "").toLowerCase().includes(q) ||
-        (o.address || "").toLowerCase().includes(q)
-      );
+      // Suche
+      if (q) {
+        const match =
+          o.orderNo.toLowerCase().includes(q) ||
+          (o.customerName || "").toLowerCase().includes(q) ||
+          (o.address || "").toLowerCase().includes(q);
+        if (!match) return false;
+      }
+
+      // Filter-Sheet: Status
+      if (hasStatusFilter && !filters.statuses.has(o.status)) return false;
+
+      // Filter-Sheet: Mitarbeiter
+      if (filters.photographerKey && o.photographer?.key !== filters.photographerKey) {
+        return false;
+      }
+
+      // KPI-Quickfilter
+      if (activeKpi === "today_due") {
+        const ts = o.appointmentDate ? new Date(o.appointmentDate).getTime() : 0;
+        if (!ts || ts < today0.getTime() || ts >= tomorrow0) return false;
+      } else if (activeKpi === "no_photog") {
+        if (o.photographer?.key) return false;
+      } else if (activeKpi === "open_only") {
+        // Nur offene/ausstehende Status
+        if (["completed", "done", "cancelled", "archived", "closed"].includes(o.status)) return false;
+      }
+
+      return true;
     });
-  }, [orders, query]);
+  }, [orders, query, filters, activeKpi]);
 
   const buckets: BucketedDay[] = useMemo(
     () => bucketOrdersByDay(filteredOrders, { hideStatuses: HIDDEN_STATUSES }),
     [filteredOrders],
   );
+
+  /** KPI-Pills aus den gefilterten Orders ableiten. Kennzahlen aus dem
+   *  *ungefilterten* Bestand (orders) — Filter-State soll Zaehlung nicht
+   *  veraendern, sonst widerspruechlich (KPI sagt 5 offen, Liste zeigt 0). */
+  const kpiPills: MobileKpiPillSpec[] = useMemo(() => {
+    const today0 = new Date();
+    today0.setHours(0, 0, 0, 0);
+    const tomorrow0 = today0.getTime() + 24 * 60 * 60 * 1000;
+
+    let openCount = 0;
+    let todayDue = 0;
+    let noPhotog = 0;
+    let openTotal = 0;
+
+    for (const o of orders) {
+      if (HIDDEN_STATUSES.has(o.status)) continue;
+      const isOpen = !["completed", "done", "cancelled", "archived"].includes(o.status);
+      if (isOpen) {
+        openCount += 1;
+        openTotal += o.total || 0;
+      }
+      const ts = o.appointmentDate ? new Date(o.appointmentDate).getTime() : 0;
+      if (ts >= today0.getTime() && ts < tomorrow0) todayDue += 1;
+      if (isOpen && !o.photographer?.key) noPhotog += 1;
+    }
+
+    return [
+      {
+        id: "open_only",
+        label: "Offen",
+        value: String(openCount),
+        sub: openTotal > 0 ? `CHF ${Math.round(openTotal).toLocaleString("de-CH")}` : undefined,
+      },
+      {
+        id: "today_due",
+        label: "Heute fällig",
+        value: String(todayDue),
+        sub: todayDue > 0 ? "Tippen zum Filtern" : "Tag frei",
+      },
+      {
+        id: "no_photog",
+        label: "Ohne Fotograf",
+        value: String(noPhotog),
+        sub: noPhotog > 0 ? "Tippen zum Filtern" : "alle zugewiesen",
+      },
+    ];
+  }, [orders]);
+
+  /** Status- und Mitarbeiter-Optionen fuer das Filter-Sheet aus den Daten. */
+  const statusOptions: MobileFilterStatusOption[] = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const o of orders) {
+      if (!seen.has(o.status)) seen.set(o.status, getStatusLabel(o.status));
+    }
+    return Array.from(seen.entries()).map(([key, label]) => ({ key, label }));
+  }, [orders]);
+
+  const photographerOptions: MobileFilterPhotographerOption[] = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const o of orders) {
+      const k = o.photographer?.key;
+      if (k && !seen.has(k)) seen.set(k, o.photographer?.name || k);
+    }
+    return Array.from(seen.entries()).map(([key, label]) => ({ key, label }));
+  }, [orders]);
+
+  const activeFilterCount = filters.statuses.size + (filters.photographerKey ? 1 : 0);
 
   /** Live-Drive-Times nur fuer Heute & Morgen anfragen — Cost-Optimierung. */
   const liveLegs = useMemo(() => {
@@ -205,17 +316,42 @@ export function MobileOrdersTab() {
   return (
     <MobilePullToRefresh onRefresh={fetchOrders}>
       <div className="mob-page">
-        <MobileSearchBar
-          value={query}
-          onChange={setQuery}
-          placeholder="Auftrag, Kunde, Adresse…"
-          ariaLabel="Aufträge suchen"
+        <div className="mob-filter-bar">
+          <MobileSearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="Auftrag, Kunde, Adresse…"
+            ariaLabel="Aufträge suchen"
+          />
+          <button
+            type="button"
+            className={`mob-filter-trigger${activeFilterCount > 0 ? " mob-filter-trigger--active" : ""}`}
+            onClick={() => setSheetOpen(true)}
+            aria-label="Filter öffnen"
+            aria-haspopup="dialog"
+          >
+            <SlidersHorizontal size={18} aria-hidden />
+            {activeFilterCount > 0 && <span className="mob-filter-badge">{activeFilterCount}</span>}
+          </button>
+        </div>
+
+        <MobileKpiPills
+          pills={kpiPills}
+          activeId={activeKpi}
+          onSelect={(id) => setActiveKpi((prev) => (prev === id ? null : id))}
         />
 
         <GeoBarCompact geo={geo} />
 
         {filteredOrders.length === 0 ? (
-          <MobileState icon={ClipboardList} message="Keine Aufträge gefunden." />
+          <MobileState
+            icon={ClipboardList}
+            message={
+              orders.length === 0
+                ? "Keine Aufträge gefunden."
+                : "Keine Treffer mit aktuellen Filtern."
+            }
+          />
         ) : (
           <DaySectionsList
             buckets={buckets}
@@ -226,6 +362,15 @@ export function MobileOrdersTab() {
             geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
           />
         )}
+
+        <MobileFilterSheet
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          state={filters}
+          onChange={setFilters}
+          statusOptions={statusOptions}
+          photographerOptions={photographerOptions}
+        />
       </div>
     </MobilePullToRefresh>
   );
