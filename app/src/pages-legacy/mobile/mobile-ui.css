@@ -347,6 +347,8 @@
 @media (prefers-reduced-motion: reduce) {
   .mob-card--clickable, .mob-list-item, .mob-ptr-indicator { transition: none; }
   .mob-spinner, .mob-ptr-spinner--refreshing { animation: none; }
+  .mob-sheet-backdrop, .mob-sheet { animation: none; }
+  .mob-dep--now { animation: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
