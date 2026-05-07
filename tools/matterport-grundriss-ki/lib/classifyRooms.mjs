@@ -3,7 +3,14 @@
  *
  * Klein, fokussiert, robust: Antwort ist ein einfaches JSON-Array
  * mit { id, name, kategorie }. Kein SVG, keine Layouts.
+ *
+ * Bug-Hunt MEDIUM M06: Adresse + Roh-Beschreibung gehen NICHT mehr an
+ * Anthropic. Wir reduzieren modelMeta via redactModelMeta() auf die
+ * fuer die Raumklassifikation noetigen Strukturhints (z. B.
+ * "3.5-Zimmer; mit Buero; 122 m²"). Strassennamen / Hausnummern / PLZ
+ * / Ortsnamen leaken damit nicht mehr an einen US-LLM-Provider.
  */
+import { redactModelMeta } from './redactForLlm.mjs';
 
 const SYSTEM = `Du bist ein Schweizer Immobilien-Spezialist. Du bekommst Räume aus einem Matterport-Scan
 mit Maßen (in Metern) und vergibst pro Raum einen sinnvollen Funktionsnamen
@@ -60,8 +67,8 @@ export async function classifyRooms({ anthropic, model, modelMeta, rooms, matter
   if (!rooms.length) return new Map();
 
   const payload = {
-    adresse: modelMeta.adresse || modelMeta.name || null,
-    beschreibung: modelMeta.beschreibung || null,
+    // Bug-Hunt M06: nur strukturelle Klassifikations-Hints; keine PII.
+    ...redactModelMeta(modelMeta),
     tags: (mattertags || []).slice(0, 30).map((t) => ({
       name: t.name,
       description: t.description?.slice(0, 200) || null,

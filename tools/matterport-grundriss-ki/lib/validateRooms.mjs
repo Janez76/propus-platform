@@ -13,7 +13,12 @@
  *
  * Output: gleiche Map<id, {name, kategorie}> wie classifyRooms.
  * Bei Fehlern: gibt die Eingabe-Map unverändert zurück (graceful fallback).
+ *
+ * Bug-Hunt MEDIUM M06: dieselbe Privacy-Redaktion wie classifyRooms —
+ * Adresse + Roh-Beschreibung gehen nicht an Anthropic, nur die
+ * strukturellen Klassifikations-Hints aus redactModelMeta().
  */
+import { redactModelMeta } from './redactForLlm.mjs';
 
 const SYSTEM = `Du bist ein erfahrener Schweizer Architekt und prüfst die Klassifikation
 einer Wohnungs-Etage. Deine Aufgabe: Plausibilitäts-Check und Korrektur.
@@ -112,8 +117,8 @@ export async function validateRooms({ anthropic, model, modelMeta, rooms, naming
   });
 
   const payload = {
-    adresse: modelMeta.adresse || modelMeta.name || null,
-    beschreibung: modelMeta.beschreibung || null,
+    // Bug-Hunt M06: nur strukturelle Klassifikations-Hints; keine PII.
+    ...redactModelMeta(modelMeta),
     rooms: enriched,
   };
 

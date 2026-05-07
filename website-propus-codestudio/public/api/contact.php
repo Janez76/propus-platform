@@ -24,6 +24,17 @@ const SECRETS_FILE       = '/etc/codestudio/secrets.env';
 const TURNSTILE_VERIFY   = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TURNSTILE_TIMEOUT  = 6; // seconds
 
+/**
+ * Bug-Hunt MEDIUM M05: server-seitiges Rate-Limit pro IP. Honeypot +
+ * Cloudflare-Turnstile decken Bots ab; ohne weiteren Cap koennte ein
+ * Mensch (oder Turnstile-Bypass mit rotierenden IPs) die Inbox
+ * codestudio@propus.ch fluten. File-basiertes Bucket-Counting in
+ * sys_get_temp_dir() — kein DB- oder Redis-Setup noetig, lock via flock.
+ */
+const RATE_LIMIT_PER_HOUR = 5;
+const RATE_LIMIT_PER_DAY  = 20;
+const RATE_LIMIT_DIR_NAME = 'codestudio-contact-ratelimit';
+
 function fail(int $status, string $message): void
 {
     http_response_code($status);
@@ -62,6 +73,77 @@ function load_secret(string $key): ?string
         }
     }
     return null;
+}
+
+/**
+ * @return array{allowed: bool, hour: int, day: int}
+ *   `allowed` = false sobald hour- oder day-Cap erreicht ist (vor Increment).
+ *   Failures (kein Schreibrecht etc.) failen offen — Rate-Limit ist
+ *   defense-in-depth, nicht Pflicht-Gate.
+ */
+function check_rate_limit(string $ip): array
+{
+    $allowed = ['allowed' => true, 'hour' => 0, 'day' => 0];
+    if ($ip === '') {
+        return $allowed; // ohne IP koennen wir nichts buchen — dann nicht blocken
+    }
+
+    $dir = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . RATE_LIMIT_DIR_NAME;
+    if (!is_dir($dir)) {
+        if (!@mkdir($dir, 0700, true) && !is_dir($dir)) {
+            return $allowed; // kein Verzeichnis — fail open
+        }
+    }
+
+    // Filename: SHA1 der IP, damit wir keine rohen IPs auf der Platte haben
+    // und keine Path-Traversal-Risiken durch komische IPv6-Zeichen.
+    $bucket = $dir . DIRECTORY_SEPARATOR . sha1($ip) . '.json';
+    $fp = @fopen($bucket, 'c+');
+    if ($fp === false) {
+        return $allowed;
+    }
+    try {
+        if (!flock($fp, LOCK_EX)) {
+            return $allowed;
+        }
+        $raw = stream_get_contents($fp) ?: '';
+        $state = json_decode($raw, true);
+        if (!is_array($state)) {
+            $state = [];
+        }
+        $now = time();
+        $entries = isset($state['entries']) && is_array($state['entries']) ? $state['entries'] : [];
+        // Eintraege aelter als 24h verwerfen — verhindert unbegrenztes Wachstum.
+        $entries = array_values(array_filter(
+            $entries,
+            static fn ($t) => is_int($t) && ($now - $t) < 86400,
+        ));
+
+        $hourCount = 0;
+        $dayCount = count($entries);
+        foreach ($entries as $t) {
+            if (($now - $t) < 3600) {
+                $hourCount++;
+            }
+        }
+
+        if ($hourCount >= RATE_LIMIT_PER_HOUR || $dayCount >= RATE_LIMIT_PER_DAY) {
+            // Persistenz NICHT erweitern, damit Angreifer den Counter nicht
+            // mit Spam-Requests selbst weiterticken kann.
+            return ['allowed' => false, 'hour' => $hourCount, 'day' => $dayCount];
+        }
+
+        // Increment + persistieren
+        $entries[] = $now;
+        $state['entries'] = $entries;
+        rewind($fp);
+        ftruncate($fp, 0);
+        fwrite($fp, (string) json_encode($state));
+        return ['allowed' => true, 'hour' => $hourCount + 1, 'day' => $dayCount + 1];
+    } finally {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
 }
 
 function verify_turnstile(string $token, string $secret, string $remoteIp): array
@@ -128,6 +210,24 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $ip = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? '';
+
+// Bug-Hunt MEDIUM M05: vor Turnstile-Verify pruefen, damit blockierte
+// IPs uns nicht das Cloudflare-Quota verbrennen.
+$rateLimit = check_rate_limit($ip);
+if (!$rateLimit['allowed']) {
+    error_log(sprintf(
+        'codestudio contact: rate limit hit for ip-hash=%s (hour=%d, day=%d)',
+        $ip !== '' ? sha1($ip) : 'unknown',
+        $rateLimit['hour'],
+        $rateLimit['day'],
+    ));
+    http_response_code(429);
+    echo json_encode([
+        'ok' => false,
+        'error' => 'Zu viele Anfragen von dieser Adresse. Bitte spaeter erneut versuchen oder direkt an codestudio@propus.ch schreiben.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 $turnstileSecret = load_secret('TURNSTILE_SECRET_KEY');
 if ($turnstileSecret === null || $turnstileSecret === '') {
