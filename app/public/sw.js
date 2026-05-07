@@ -33,20 +33,18 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // API: network-first, kein Cache (Auth-Tokens, frische Daten).
-  // Nur JSON-Fallback, wenn der Aufrufer wirklich JSON erwartet — sonst
-  // fuehrt ein 503-JSON bei z. B. SSE/Stream-Endpunkten zu Folgefehlern.
+  // Bei Netzwerkfehler ein einheitliches 503-JSON liefern — die meisten
+  // App-fetch()-Calls nutzen Accept: */* und erwarten weiterhin diesen
+  // Offline-Body (status-basiertes Handling in Pages wie AdminBookkeeperPage).
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(
-      fetch(req).catch(() => {
-        const accept = req.headers.get("accept") || "";
-        if (accept.includes("application/json")) {
-          return new Response(JSON.stringify({ ok: false, offline: true }), {
+      fetch(req).catch(
+        () =>
+          new Response(JSON.stringify({ ok: false, offline: true }), {
             headers: { "Content-Type": "application/json" },
             status: 503,
-          });
-        }
-        return Response.error();
-      })
+          })
+      )
     );
     return;
   }
