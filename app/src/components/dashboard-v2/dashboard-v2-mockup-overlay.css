@@ -1,0 +1,125 @@
+/* Dashboard-V2 Mockup-Overlay (Sprint 10)
+ * --------------------------------------
+ * Wird NACH dashboard-v2.css geladen und überschreibt gezielt sichtbare
+ * Stellen mit der wärmeren Mockup-V3.1-Palette + Instrument-Serif-Display.
+ * NON-DESTRUCTIVE: setzt keine Layouts, ändert keine grid-templates,
+ * kollabiert keine Spalten — nur Typography, Farben, Shadows, Hover-Effects.
+ *
+ * Bei Bedarf einfach komplett deaktivieren via Auskommentieren des Imports
+ * in DashboardV2.tsx (Layout bleibt funktional).
+ */
+
+/* ── Greeting — der visuelle Hingucker oben ── */
+.dv2 .dv2-greeting {
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 34px;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+}
+.dv2 .dv2-greeting-name {
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  font-style: italic;
+}
+.dv2 .dv2-eyebrow {
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  letter-spacing: 0.22em;
+}
+.dv2 .dv2-eyebrow-line {
+  background: var(--propus-accent-warm, var(--propus-gold));
+}
+
+/* ── KPI-Cards — Hover-Lift + warm accent ── */
+.dv2 .dv2-kpi {
+  transition: transform var(--propus-dur-base, .25s) var(--propus-ease-spring, cubic-bezier(.34,1.56,.64,1)),
+              border-color var(--propus-dur-fast, .15s),
+              box-shadow var(--propus-dur-base, .25s);
+}
+.dv2 .dv2-kpi:hover {
+  transform: translateY(-2px);
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+  box-shadow: var(--propus-shadow-md, 0 6px 20px rgba(60,40,15,.07));
+}
+.dv2 .dv2-kpi-label-icon {
+  color: var(--propus-accent-warm, var(--propus-gold));
+  transition: transform var(--propus-dur-base, .25s) var(--propus-ease-spring);
+}
+.dv2 .dv2-kpi:hover .dv2-kpi-label-icon {
+  transform: rotate(-8deg) scale(1.08);
+}
+.dv2 .dv2-kpi-value {
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* ── Cards (allgemein) — warm hover ── */
+.dv2 .dv2-card {
+  transition: border-color var(--propus-dur-fast, .15s),
+              box-shadow var(--propus-dur-base, .25s);
+}
+.dv2 .dv2-card:hover {
+  border-color: color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 40%, var(--propus-border));
+  box-shadow: var(--propus-shadow-md, 0 6px 20px rgba(60,40,15,.07));
+}
+.dv2 .dv2-card-eyebrow {
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  letter-spacing: 0.18em;
+}
+
+/* ── Pipeline-Cards — warm hover lift ── */
+.dv2 .dv2-pcard {
+  transition: transform var(--propus-dur-fast, .15s),
+              border-color var(--propus-dur-fast, .15s),
+              box-shadow var(--propus-dur-fast, .15s);
+}
+.dv2 .dv2-pcard:hover {
+  transform: translateY(-1px);
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+  box-shadow: var(--propus-shadow-sm, 0 1px 2px rgba(60,40,15,.05));
+}
+.dv2 .dv2-pcol-count {
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+
+/* ── Buttons — warm accent ── */
+.dv2 .dv2-btn-primary {
+  background: linear-gradient(135deg, var(--propus-accent-warm, var(--propus-gold)), var(--propus-accent-warm-deep, var(--propus-gold-dark, #8a7418)));
+  box-shadow: var(--propus-shadow-glow-warm, var(--propus-shadow-glow));
+}
+.dv2 .dv2-btn-primary:hover {
+  background: linear-gradient(135deg, var(--propus-accent-warm-deep, var(--propus-gold)), var(--propus-accent-warm, var(--propus-gold)));
+  transform: translateY(-1px);
+}
+.dv2 .dv2-btn-outline:hover {
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+
+/* ── Dash Alerts — warm tint ── */
+.dv2 .dv2-dash-alerts {
+  /* Container behält Layout */
+}
+.dv2 .dv2-dash-alert {
+  transition: transform var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+}
+.dv2 .dv2-dash-alert.is-clickable:hover {
+  transform: translateY(-1px);
+}
+
+/* ── prefers-reduced-motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .dv2 .dv2-kpi,
+  .dv2 .dv2-pcard,
+  .dv2 .dv2-card,
+  .dv2 .dv2-btn-primary,
+  .dv2 .dv2-dash-alert,
+  .dv2 .dv2-kpi-label-icon {
+    transition: none !important;
+    transform: none !important;
+  }
+}

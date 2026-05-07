@@ -29,6 +29,7 @@ import {
   type DashV2SectionId,
 } from "./dashboardV2Preferences";
 import "./dashboard-v2.css";
+import "./dashboard-v2-mockup-overlay.css";
 
 const WEEKDAYS: Record<Lang, string[]> = {
   de: ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"],
