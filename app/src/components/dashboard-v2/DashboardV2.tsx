@@ -29,6 +29,7 @@ import { PerformanceV2 } from "./PerformanceV2";
 import { OrdersMap } from "./OrdersMap";
 import { GoalRings } from "./GoalRings";
 import { ServiceMixDonut } from "./ServiceMixDonut";
+import { TopCustomersTable } from "./TopCustomersTable";
 import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
 import { useGeolocation } from "../cockpit/useGeolocation";
 import {
@@ -280,6 +281,8 @@ export function DashboardV2() {
       ) : null}
 
       {showGoals ? <GoalRings metrics={metrics} orders={orders} /> : null}
+
+      {showTopCustomers ? <TopCustomersTable orders={orders} lang={lang} /> : null}
 
       {showHeat ? <HeatmapV2 metrics={metrics} orders={orders} lang={lang} /> : null}
 
