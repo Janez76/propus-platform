@@ -36,6 +36,8 @@ import {
   Check,
   Upload,
   Images,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { AbsenceCalendar } from "./AbsenceCalendar";
 import { PortraitCropDialog } from "./PortraitCropDialog";
@@ -380,6 +382,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [slotMinutes, setSlotMinutes] = useState("");
   const [earliestDeparture, setEarliestDeparture] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [logs, setLogs] = useState<EmployeeLog[]>([]);
   const [error, setError] = useState("");
@@ -569,10 +572,15 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   }
 
   async function savePassword() {
-    if (!newPassword.trim()) return;
+    const trimmed = newPassword.trim();
+    if (trimmed.length < 8) {
+      setError(t(lang, "resetPassword.error.tooShort"));
+      return;
+    }
     try {
-      await setPhotographerPassword(token, employeeKey, newPassword.trim());
+      await setPhotographerPassword(token, employeeKey, trimmed);
       setNewPassword("");
+      setShowPassword(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : t(lang, "employeeModal.error.passwordFailed"));
     }
@@ -1127,16 +1135,36 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">{t(lang, "employeeModal.label.newPassword")}</label>
-                <input
-                  type="password"
-                  className="ui-input"
-                  placeholder={t(lang, "employeeModal.label.newPassword")}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="ui-input pr-10"
+                    placeholder={t(lang, "employeeModal.label.newPassword")}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={t(lang, showPassword ? "profile.passwordHide" : "profile.passwordShow")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1"
+                    style={{ color: "var(--text-subtle)" }}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {newPassword.length > 0 && newPassword.trim().length < 8 ? (
+                  <div className="mt-1 text-xs text-red-500">{t(lang, "resetPassword.error.tooShort")}</div>
+                ) : null}
               </div>
               <div className="flex gap-2">
-                <button type="button" className="btn-primary flex-1 justify-center" onClick={savePassword}>
+                <button
+                  type="button"
+                  className="btn-primary flex-1 justify-center disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={savePassword}
+                  disabled={newPassword.trim().length < 8}
+                >
                   {t(lang, "employeeModal.button.setPassword")}
                 </button>
                 <button type="button" className="btn-secondary flex-1 justify-center" onClick={sendCredentials}>
