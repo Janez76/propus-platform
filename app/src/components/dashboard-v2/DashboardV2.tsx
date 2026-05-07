@@ -78,7 +78,8 @@ export function DashboardV2() {
   /** Live-Standort für die Mission-Timeline-Drive-Time. Eigener storage-Key,
    *  damit die Cockpit-Propi-Permission davon getrennt bleibt — UI-CTA für
    *  „Standort teilen" wird im UpcomingV2 selbst gerendert (Pill mit MapPin). */
-  const geo = useGeolocation({ storageKey: "propus.dashboard.geo.enabled.v1" });
+  // Profil-zentraler Standort-Key — Default an, deaktivierbar nur im Profil.
+  const geo = useGeolocation();
   const liveOrigin = geo.position ? { lat: geo.position.lat, lng: geo.position.lng } : null;
   const requestLocation = useCallback(() => {
     void geo.request();

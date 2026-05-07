@@ -55,7 +55,8 @@ export function TodayCard({ metrics, onHover, weather = null, lang }: TodayCardP
   const todayOrders = metrics.todayOrders;
   const todayDateStr = today.toDateString();
   const missions = useMemo(() => buildMissionTimeline(todayOrders, now), [todayOrders, now]);
-  const dashGeo = useGeolocation({ storageKey: 'propus.dashboard.geo.enabled.v1' });
+  // Profil-zentraler Standort-Key — Default an, deaktivierbar nur im Profil.
+  const dashGeo = useGeolocation();
   const [openWxDate, setOpenWxDate] = useState<string | null>(null);
   const [driveByOrder, setDriveByOrder] = useState<Record<string, DriveFromLive>>({});
   const [driveLoading, setDriveLoading] = useState(false);
