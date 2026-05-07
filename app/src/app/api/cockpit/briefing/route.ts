@@ -1,11 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { MODEL_IDS } from "@/lib/assistant/model-router";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL_ID = "claude-haiku-4-5-20251001";
+const MODEL_ID = MODEL_IDS.sonnet;
 const MAX_TOKENS = 700;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 60 min
 

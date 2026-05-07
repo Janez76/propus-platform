@@ -37,7 +37,10 @@ describe("assistant weather tools", () => {
     expect(fetch).toHaveBeenCalledOnce();
     const url = fetch.mock.calls[0][0] as string;
     expect(url).toContain("api.open-meteo.com");
-    expect(url).toContain("models=icon_d2");
+    // Kein expliziter Model-Param mehr: Open-Meteo's `best_match` deckt 0-15
+    // Tage seamless ab (ICON-D2 fuer 0-48h, dann ICON-EU/Global). icon_d2
+    // alleine cappte den Horizont auf 2 Tage.
+    expect(url).not.toContain("models=icon_d2");
     expect(result.location).toMatchObject({ zip: "8001", area: "Zürich Altstadt" });
     expect(result.attribution).toBe("Open-Meteo · MeteoSwiss ICON-CH");
     expect(Array.isArray(result.days)).toBe(true);

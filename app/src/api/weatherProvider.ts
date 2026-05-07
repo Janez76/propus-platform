@@ -202,12 +202,15 @@ async function fetchBatch(
   const dailyVars = archive
     ? "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"
     : "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max";
-  const modelParam = archive ? "" : "&models=icon_d2";
+  // Kein `&models=icon_d2`: ICON-D2 hat nur 48h-Horizont und liefert daher
+  // fuer Termine >2 Tage in der Zukunft `null`. Open-Meteo's Default
+  // `best_match` blendet ICON-D2 (0–48h) mit ICON-EU/Global (2–15d) und
+  // deckt damit FORECAST_DAYS_AHEAD=15 ab.
   const url =
     `${endpoint}?latitude=${lats}&longitude=${lngs}` +
     `&daily=${dailyVars}` +
     `&start_date=${date}&end_date=${date}` +
-    `&timezone=Europe%2FZurich${modelParam}`;
+    `&timezone=Europe%2FZurich`;
   const res = await fetchWithTimeout(url, REQUEST_TIMEOUT_MS);
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
   const json: unknown = await res.json();

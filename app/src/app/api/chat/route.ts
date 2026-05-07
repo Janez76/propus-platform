@@ -2,11 +2,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { CHAT_SYSTEM_PROMPT } from "@/lib/chat/system-prompt";
+import { MODEL_IDS } from "@/lib/assistant/model-router";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL_ID = "claude-haiku-4-5-20251001";
+const MODEL_ID = MODEL_IDS.sonnet;
 const MAX_TOKENS = 1024;
 const MAX_HISTORY = 20;
 const MAX_MESSAGE_CHARS = 4000;

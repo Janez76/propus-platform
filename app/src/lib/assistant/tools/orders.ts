@@ -88,11 +88,12 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_open_orders",
     description:
-      "Nutze dieses Tool wenn der User nach heutigen, offenen oder bevorstehenden Aufträgen fragt. Listet offene Aufträge aus booking.orders. Standard: nächste 14 Tage, max. 50 Einträge.",
+      "Nutze dieses Tool wenn der User nach heutigen, offenen oder bevorstehenden Aufträgen fragt. Listet offene Aufträge aus booking.orders ab heute (vergangene Termine werden NICHT angezeigt — dafür `include_overdue_days` setzen). Aufträge ohne Termin werden weiterhin gezeigt (Backlog). Standard: nächste 14 Tage, max. 50 Einträge.",
     input_schema: {
       type: "object",
       properties: {
         days_ahead: { type: "number", description: "Wie viele Tage in die Zukunft schauen (Default: 14, max. 365)" },
+        include_overdue_days: { type: "number", description: "Auch überfällige (vergangene) Termine bis N Tage zurück mit anzeigen. Default 0 = nur heute + Zukunft. Nutze 7 für letzte Woche überfällig." },
         limit: { type: "number", description: "Maximale Anzahl (Default: 20, max. 50)" },
       },
     },
@@ -185,16 +186,27 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
     get_open_orders: async (input: Record<string, unknown>, _ctx: ToolContext) => {
       const days = boundedNumber(input.days_ahead, 14, 365);
       const limit = boundedNumber(input.limit, 20, 50);
+      // include_overdue_days erlaubt explizit das Anzeigen vergangener Termine.
+      // Default 0 = nur heute + Zukunft. Vorher fehlte der Lower-Bound komplett,
+      // wodurch "nächster Auftrag" auch Termine aus der Vergangenheit lieferte.
+      const overdueDays = (() => {
+        const n = Number(input.include_overdue_days);
+        if (!Number.isFinite(n) || n < 0) return 0;
+        return Math.min(Math.trunc(n), 365);
+      })();
       const rows = await runQuery<OrderRow>(
         `${orderSelect}
          WHERE status NOT IN ${openOrderStatusSql}
            AND (
              NULLIF(schedule->>'date', '') IS NULL
-             OR (schedule->>'date')::date <= CURRENT_DATE + ($1::int * INTERVAL '1 day')
+             OR (
+               (schedule->>'date')::date <= CURRENT_DATE + ($1::int * INTERVAL '1 day')
+               AND (schedule->>'date')::date >= CURRENT_DATE - ($3::int * INTERVAL '1 day')
+             )
            )
          ORDER BY NULLIF(schedule->>'date', '')::date NULLS LAST, NULLIF(schedule->>'time', '') NULLS LAST, created_at DESC
          LIMIT $2`,
-        [days, limit],
+        [days, limit, overdueDays],
       );
       return { count: rows.length, orders: rows.map(normalizeOrder) };
     },

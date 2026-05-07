@@ -85,7 +85,7 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
           <h4>Propi</h4>
           <small>
             <span className="propi-chat-online" />
-            Online · Claude Haiku 4.5
+            Online · Claude Sonnet 4.6
           </small>
         </div>
         <div className="propi-chat-actions">
