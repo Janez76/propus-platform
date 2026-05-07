@@ -35,6 +35,7 @@ import {
   bucketBadge,
   bucketLabel,
   bucketOrdersByDay,
+  DEFAULT_HIDDEN_STATUSES,
   type BucketedDay,
   type BucketedOrder,
 } from "./dayBuckets";
@@ -46,7 +47,7 @@ import {
 } from "./departureLogic";
 import { useDriveTimesFromLive } from "./useDriveTimesFromLive";
 
-const HIDDEN_STATUSES = new Set(["closed"]);
+const HIDDEN_STATUSES = DEFAULT_HIDDEN_STATUSES;
 const SAME_DAY_BUCKETS = new Set<string>(["today", "tomorrow"]);
 
 interface HomeAddrPayload {
