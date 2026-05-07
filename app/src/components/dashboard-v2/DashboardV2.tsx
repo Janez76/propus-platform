@@ -19,6 +19,8 @@ import { TicketsCard } from "./TicketsCard";
 import { MailsCard } from "./MailsCard";
 import { BriefingCard } from "../cockpit";
 import { getWeatherForecast, type WeatherForecastDay } from "../../api/weather";
+import { TodayCard } from "./TodayCard";
+import "./today-card.css";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
@@ -225,6 +227,11 @@ export function DashboardV2() {
         <section className="dv2-briefing-hero">
           <BriefingCard metrics={orders ? metrics : null} weather={weather} />
         </section>
+      ) : null}
+
+      {/* Sprint 13: TodayCard — Datum-Display + 7-Tage-Wetter + Termine-Timeline */}
+      {showDas && showOrders ? (
+        <TodayCard metrics={metrics} lang={lang} onHover={setHoveredOrderNo} />
       ) : null}
 
       {showAlerts ? <DashAlerts metrics={metrics} lang={lang} /> : null}

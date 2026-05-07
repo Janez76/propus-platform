@@ -83,6 +83,12 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
           <TopbarSearch />
         </div>
 
+        {/* Sprint 13: Live-Dot Indikator (Mockup-V3.1-Match) */}
+        <div className="propus-live-dot hidden md:flex" aria-hidden>
+          <span className="propus-live-dot-pulse" />
+          <span className="propus-live-dot-text">Live</span>
+        </div>
+
         {/* Right Section - Actions */}
         <div className="flex items-center gap-1.5">
           {/* Profile */}

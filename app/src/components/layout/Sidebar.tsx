@@ -166,7 +166,7 @@ export function Sidebar({
         </div>
         <div className="propus-sidebar__brand-text">
           <span className="propus-sidebar__brand-title">Propus</span>
-          <span className="propus-sidebar__brand-sub">Platform</span>
+          <span className="propus-sidebar__brand-sub">Cockpit v3.1</span>
         </div>
       </div>
 
