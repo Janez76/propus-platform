@@ -44,8 +44,9 @@ services:
       dockerfile: platform/Dockerfile
       args:
         PLATFORM_INTERNAL_URL: http://127.0.0.1:3100
-    # .env.vps wird bei CI-Deploy überschrieben; .env.vps.secrets nur auf dem VPS,
-    # niemals aus dem Archiv — letztere überschreibt gleiche Keys (z. B. Payrexx).
+    # .env.vps ist single-source-of-truth (auf VPS manuell gepflegt; Deploy fasst sie
+    # nur als Bootstrap an, falls sie fehlt). .env.vps.secrets bleibt als optionaler
+    # Fallback aus der Migrations-Übergangsphase und kann später entfernt werden.
     env_file:
       - .env.vps
       - path: .env.vps.secrets

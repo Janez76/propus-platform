@@ -60,7 +60,7 @@
 | Docker-Pfad (NAS) | `/volume1/docker/nextcloud/` |
 | Log-Pfad (NAS) | `/volume1/docker/nextcloud/data/nextcloud.log` |
 
-**Erforderliche Env-Variablen** (in `.env.vps` / `.env.vps.secrets`):
+**Erforderliche Env-Variablen** (in `.env.vps` auf dem VPS):
 
 | Variable | Beschreibung |
 |---|---|

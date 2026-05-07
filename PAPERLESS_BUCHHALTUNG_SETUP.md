@@ -532,7 +532,7 @@ Bei diesem Fallback bleibt `paperless-gpt` ein offenes Problem — es würde Buc
 User-Edit → Tab „Token" → „Generate Token" → Token kopieren.
 
 > **WICHTIG (Secrets-Handling):**
-> - Token gehört in die `.env.bookkeeper`-Datei auf der NAS (analog zur Repo-Konvention `.env.vps.secrets`, siehe [docker-compose.vps.yml:51](docker-compose.vps.yml#L51))
+> - Token gehört in die `.env.bookkeeper`-Datei auf der NAS (analog zur VPS-Konvention: Secrets in `/opt/propus-platform/.env.vps`, single source of truth, nicht im Repo)
 > - **Niemals** in `Y:\…`-Pfade ablegen (Spiegelung) und **niemals** ins Repo committen — siehe verbindliche Regel in [docs/SSH-NAS-ZUGANG.md](docs/SSH-NAS-ZUGANG.md): "Private Keys, Passwörter oder andere Secrets sollen nicht als Markdown auf `Y:` abgelegt werden."
 > - Vor dem Commit dieses Dokuments (das hier!) prüfen, dass der echte Token-Wert NICHT eingetragen wurde — nur Platzhalter
 

@@ -187,8 +187,8 @@ Das Skript `scripts/deploy-remote.sh` wird vom GitHub-Actions-Workflow auf dem V
 
 | Exclude-Pfad        | Grund                                              |
 |----------------------|----------------------------------------------------|
-| `.env.vps`           | Produktive Umgebungsvariablen (nur auf VPS)        |
-| `.env.vps.secrets`   | VPS-lokale Secrets (z. B. Payrexx)                 |
+| `.env.vps`           | Produktive Umgebungsvariablen — single-source-of-truth, nur auf VPS, vom Deploy nicht überschrieben |
+| `.env.vps.secrets`   | Legacy-Fallback (Migration 2026-05-07: Inhalte nach `.env.vps` konsolidiert; Datei wird optional weitergeladen) |
 | `backups/`           | Lokale Backup-Daten                                |
 
 **Fallback** (kein rsync verfuegbar): Die Source-Verzeichnisse (`app`, `booking`, `core`, `platform`, `tours`, `website`) werden vor dem Overlay-Copy explizit geloescht.
@@ -223,13 +223,14 @@ Lokales Backup der Vor-Migration-Daten liegt unter:
 
 Payrexx ist optional. Ohne Konfiguration steht nur "QR-Rechnung" zur Verfügung — der Dialog zeigt die Payrexx-Option dann ausgegraut an.
 
-**Env-Variablen:** Entweder in `.env.vps` oder — empfohlen für feste VPS-Verankerung — in **`.env.vps.secrets`** (gleiche Keys). Die Datei `.env.vps.secrets` liegt nur auf dem Server, wird vom GitHub-Deploy **nicht** überschrieben und von Docker Compose nach `.env.vps` geladen (spätere Datei gewinnt). Vorlage: `.env.vps.secrets.example`.
+**Env-Variablen:** Direkt in `/opt/propus-platform/.env.vps` eintragen. Die Datei ist seit der Migration vom 2026-05-07 die einzige Konfigurationsquelle, liegt nur auf dem VPS und wird vom CI-Deploy nicht überschrieben (nur als Bootstrap angelegt, falls sie fehlt). Vorlage: `.env.vps.example` im Repo.
 
-**Einmalig auf dem VPS** (nach einem Deploy liegt das Skript unter `/opt/propus-platform/scripts/`):
+**Bearbeiten:**
 
 ```bash
-cd /opt/propus-platform && bash scripts/vps-bootstrap-env-secrets.sh
-# Werte in .env.vps.secrets eintragen, dann platform neu erstellen (siehe unten)
+ssh propus-vps
+vi /opt/propus-platform/.env.vps
+# Werte für PAYREXX_* eintragen, dann platform neu erstellen (siehe unten)
 ```
 
 ```env

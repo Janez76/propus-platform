@@ -166,34 +166,24 @@ jobs:
           cat /tmp/deploy-archive-files.txt
           tar --exclude-vcs -czf "/tmp/propus-platform-${GITHUB_SHA}.tar.gz" -T /tmp/deploy-archive-files.txt
 
-      - name: Write VPS env file
+      # ── VPS env file: single-source-of-truth auf VPS ───────────────────────
+      # Bis 2026-05-07: .env.vps wurde bei jedem Deploy aus GitHub-Secret VPS_ENV_FILE
+      # neu geschrieben (mit Payrexx-Merge-Rettung). Ab jetzt: .env.vps ist die einzige
+      # Quelle und liegt manuell auf dem VPS gepflegt. Deploy fasst sie nicht mehr an;
+      # sie wird nur als Bootstrap aus VPS_ENV_FILE geschrieben, falls sie fehlt.
+      # Hintergrund: docs/DEPLOY-FLOW.md (Abschnitt „env.vps single-source“).
+      - name: Bootstrap VPS env file (only if missing)
         run: |
-          printf '%s\n' "${{ secrets.VPS_ENV_FILE }}" > /tmp/propus-platform.env.vps
-
-      - name: Download current VPS env file
-        run: |
-          rm -f /tmp/propus-platform.current.env.vps
-          if ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} "test -f /opt/propus-platform/.env.vps"; then
-            scp -i ~/.ssh/id_ed25519_propus_vps \
-              root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps \
-              /tmp/propus-platform.current.env.vps
+          if ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} "test -s /opt/propus-platform/.env.vps"; then
+            echo "==> Live .env.vps existiert auf VPS — überspringe Upload (single-source-of-truth)."
+          else
+            echo "==> Bootstrap: schreibe .env.vps aus GitHub-Secret VPS_ENV_FILE."
+            printf '%s\n' "${{ secrets.VPS_ENV_FILE }}" > /tmp/propus-platform.env.vps
+            scp -i ~/.ssh/id_ed25519_propus_vps /tmp/propus-platform.env.vps \
+              root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps
+            ssh -i ~/.ssh/id_ed25519_propus_vps root@${{ secrets.VPS_HOST }} \
+              "chmod 600 /opt/propus-platform/.env.vps"
           fi
-
-      - name: Merge Payrexx keys from live env (when secret incomplete)
-        run: node scripts/merge-vps-env-protected.js /tmp/propus-platform.env.vps /tmp/propus-platform.current.env.vps
-
-      - name: Guard Payrexx env overwrite
-        run: |
-          bash scripts/guard-vps-env.sh \
-            /tmp/propus-platform.current.env.vps \
-            /tmp/propus-platform.env.vps
-
-      # Deploy-Archiv: Upload nur im Schritt „Deploy to VPS“ (upload_archive vor jedem Versuch inkl. Retry)
-
-      - name: Upload VPS env file
-        run: |
-          scp -i ~/.ssh/id_ed25519_propus_vps /tmp/propus-platform.env.vps \
-            root@${{ secrets.VPS_HOST }}:/opt/propus-platform/.env.vps
 
       # ── Rollback-Snapshot vor dem Deploy sichern ───────────────────────────
       - name: Save rollback snapshot

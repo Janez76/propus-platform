@@ -35,8 +35,9 @@ in [`VPS-BETRIEB.md`](VPS-BETRIEB.md).
 │   scripts/deploy-remote.sh                                           │
 │                                                                      │
 │   ▸ tar -xzf  →  rsync --delete nach /opt/propus-platform            │
-│     (preserved: .env.vps, .env.vps.secrets; Runtime ./backups/       │
-│      via --exclude='/backups/' — siehe Abschnitt unten)               │
+│     (preserved: .env.vps [single-source-of-truth seit 2026-05-07,    │
+│      Deploy nur als Bootstrap], .env.vps.secrets [legacy fallback];   │
+│      Runtime ./backups/ via --exclude='/backups/' — siehe unten)      │
 │   ▸ Symlinks: compose.yaml → docker-compose.vps.yml,  .env → .env.vps│
 │   ▸ Port-Konflikt-Check (3100, 3301, 3302, 5435, 5436, 4343)         │
 │   ▸ docker compose build  (migrate + platform + website)             │

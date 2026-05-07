@@ -6109,7 +6109,7 @@ app.post("/api/admin/orders/:orderNo/storage/nextcloud-share", requireAdmin, asy
     } = require("./nextcloud-share");
     if (!isNextcloudConfigured()) {
       return res.status(503).json({
-        error: `${getNextcloudConfigError()}. Nextcloud läuft auf dem UGREEN NAS (192.168.1.5); bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local, .env.vps oder .env.vps.secrets setzen.`,
+        error: `${getNextcloudConfigError()}. Nextcloud läuft auf dem UGREEN NAS (192.168.1.5); bei lokalem Start bitte NEXTCLOUD_URL, NEXTCLOUD_USER und NEXTCLOUD_PASS in .env, .env.local oder .env.vps setzen.`,
       });
     }
 
