@@ -28,12 +28,25 @@ export function parseClientLiveLocation(raw: unknown): AssistantLiveLocation | u
     if (a >= 0 && a < 50_000) accuracyM = a;
   }
 
-  const capturedAt =
-    typeof o.capturedAt === "string" && o.capturedAt.trim().length > 0
-      ? o.capturedAt.trim().slice(0, 48)
-      : new Date().toISOString();
+  // Strikt: capturedAt landet im System-Prompt (Bug-Hunt HIGH-2). Roh-Strings
+  // koennten Newlines/Steuerzeichen enthalten und damit aus dem
+  // LIVE-STANDORT-Block ausbrechen → Prompt-Injection. Wir parsen den Wert
+  // als Date und re-serialisieren ueber toISOString() — damit ist das Format
+  // garantiert ASCII-only und ohne CR/LF.
+  const capturedAt = parseCapturedAt(o.capturedAt);
 
   return { lat, lng, accuracyM, capturedAt };
+}
+
+function parseCapturedAt(raw: unknown): string {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim().slice(0, 64);
+    if (trimmed) {
+      const t = Date.parse(trimmed);
+      if (Number.isFinite(t)) return new Date(t).toISOString();
+    }
+  }
+  return new Date().toISOString();
 }
 
 export function liveCoordsForGoogle(loc: AssistantLiveLocation): string {

@@ -2,12 +2,25 @@ import type { APIRoute } from 'astro';
 import { createReadStream, existsSync } from 'node:fs';
 import { basename } from 'node:path';
 import { Readable } from 'node:stream';
+import { GUIDELINE_COOKIE, verifyGuidelineSessionToken } from '../../../lib/guideline-auth';
 import { GUIDELINE_DOWNLOADS } from '../../../lib/guideline-static';
 import { mimeForFilename, resolveGuidelineAssetPath } from '../../../lib/guideline-private-files';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, cookies }) => {
+	// Defense-in-Depth: middleware.ts schuetzt /api/guideline/* bereits, aber
+	// wir verifizieren das Session-Cookie auch hier (Bug-Hunt HIGH-1) — falls
+	// das Middleware-Matching irgendwann anders konfiguriert wird, bleibt der
+	// private Inhalt geschuetzt.
+	const sessionToken = cookies.get(GUIDELINE_COOKIE)?.value;
+	if (!verifyGuidelineSessionToken(sessionToken)) {
+		return new Response(JSON.stringify({ error: 'Nicht angemeldet.' }), {
+			status: 401,
+			headers: { 'Content-Type': 'application/json; charset=utf-8' },
+		});
+	}
+
 	const id = url.searchParams.get('id')?.trim();
 	if (!id) {
 		return new Response(JSON.stringify({ error: 'Parameter id fehlt.' }), {

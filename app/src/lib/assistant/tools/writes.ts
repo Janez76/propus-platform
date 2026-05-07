@@ -281,6 +281,19 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       );
       if (!customer) return { error: `Kunde ${customerId} nicht gefunden` };
 
+      // Pre-Flight: ohne Kunden-E-Mail wird die provisional_created-Mail im
+      // Workflow-Renderer leise verworfen (toAddr() returned null) und der
+      // Kunde bekommt keine Bestaetigung — exakt das Symptom #100103, das die
+      // ganze Outbox-Integration eigentlich verhindern soll (Bug-Hunt HIGH-5).
+      // Lieber das Modell zwingen, beim User nach der E-Mail zu fragen, als
+      // schweigend einen halben Workflow zu produzieren.
+      const customerEmail = (customer.email || "").trim();
+      if (!customerEmail) {
+        return {
+          error: `Kunde ${customerId} hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.`,
+        };
+      }
+
       const services = (input.services && typeof input.services === "object") ? input.services as Record<string, unknown> : {};
       const VALID_SERVICE_KEYS = new Set(["photography", "drone", "matterport", "floorplan", "video", "staging"]);
       const servicesJson: Record<string, boolean> = {};
@@ -312,7 +325,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       const photographerJson = photographerKey ? { key: photographerKey } : {};
       const billingJson = {
         name: customer.name || customer.company || "",
-        email: customer.email || "",
+        email: customerEmail,
         ...(customer.company ? { company: customer.company } : {}),
       };
       const objectJson = { type: "Immobilie" };
@@ -358,7 +371,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
           ["email.provisional_created", "email.provisional_office"],
           {
             orderNo: no,
-            customerEmail: customer.email,
+            customerEmail,
             officeEmail: process.env.OFFICE_EMAIL,
             scheduleDate,
             scheduleTime,
