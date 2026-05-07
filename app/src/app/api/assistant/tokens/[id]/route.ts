@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth.server";
-import { revokeMobileToken } from "@/lib/assistant/auth";
+import { isAssistantCookieSessionRole, revokeMobileToken } from "@/lib/assistant/auth";
 
 export const runtime = "nodejs";
-
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
 function sessionUser(session: { userKey: string | null; userName: string | null; role: string }) {
   const userId = String(session.userKey || session.userName || session.role || "admin").trim();
@@ -17,7 +15,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getAdminSession();
-  if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (!session || !isAssistantCookieSessionRole(session.role)) {
     return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   }
 

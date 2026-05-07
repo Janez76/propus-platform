@@ -15,7 +15,22 @@ export interface AssistantUser {
   source: "cookie" | "bearer";
 }
 
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
+/**
+ * Cookie-Sessions mit Zugriff auf Assistant-/Propi-APIs.
+ * Fotograf & Tour-Manager sind im Mobile-Cockpit eingeloggt, aber waren hier
+ * früher ausgeschlossen → 401 trotz gültiger admin_session.
+ */
+export const ASSISTANT_COOKIE_SESSION_ROLES = new Set([
+  "admin",
+  "super_admin",
+  "employee",
+  "photographer",
+  "tour_manager",
+]);
+
+export function isAssistantCookieSessionRole(role: string | null | undefined): boolean {
+  return ASSISTANT_COOKIE_SESSION_ROLES.has(String(role || "").toLowerCase());
+}
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -40,7 +55,7 @@ function sessionToUser(session: AdminSession): AssistantUser {
 export async function resolveAssistantUser(req: NextRequest): Promise<AssistantUser | null> {
   // 1. Try cookie-based admin session (primary path for browser)
   const session = await getAdminSession();
-  if (session && INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (session && isAssistantCookieSessionRole(session.role)) {
     return sessionToUser(session);
   }
 

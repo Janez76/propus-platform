@@ -4,9 +4,11 @@
 import type { NextRequest } from "next/server";
 import { getAdminSession, type AdminSession } from "@/lib/auth.server";
 import { isAssistantSettingsAdminUi } from "@/lib/assistant/access-env";
-import { resolveAssistantUser, type AssistantUser } from "@/lib/assistant/auth";
-
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
+import {
+  isAssistantCookieSessionRole,
+  resolveAssistantUser,
+  type AssistantUser,
+} from "@/lib/assistant/auth";
 
 export type TrainingAccessResult =
   | { ok: true; session: AdminSession; user: AssistantUser }
@@ -15,7 +17,7 @@ export type TrainingAccessResult =
 export async function requireAssistantTrainingAccess(req: NextRequest): Promise<TrainingAccessResult> {
   const session = await getAdminSession();
   const role = String(session?.role || "").toLowerCase();
-  if (!session || !INTERNAL_ROLES.has(role)) {
+  if (!session || !isAssistantCookieSessionRole(role)) {
     return { ok: false, status: 401 };
   }
   if (!isAssistantSettingsAdminUi(session)) {

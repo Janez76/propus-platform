@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth.server";
 import { isAssistantSettingsAdminUi, isAssistantSettingsSuperAdmin } from "@/lib/assistant/access-env";
+import { isAssistantCookieSessionRole } from "@/lib/assistant/auth";
 import { getAssistantSettings, updateAssistantSettings } from "@/lib/assistant/settings";
 import { getAssistantUsageToday } from "@/lib/assistant/store";
 import { allTools } from "@/lib/assistant/tools";
 import { isOpenAiWhisperConfigured } from "@/lib/assistant/whisper";
 
 export const runtime = "nodejs";
-
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
 /** Erlaubte Default-Modelle fuer Assistant-Settings. Haiku wurde im
  *  Polish-Pass aus dem Auto-Routing entfernt; soll daher auch nicht mehr
@@ -25,7 +24,7 @@ const DEFAULT_AVAILABLE_MODELS: Array<{ id: string; label: string }> = [
 
 export async function GET() {
   const session = await getAdminSession();
-  if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (!session || !isAssistantCookieSessionRole(session.role)) {
     return NextResponse.json({ error: "Nicht authentifiziert", code: "auth_failed" }, { status: 401 });
   }
 

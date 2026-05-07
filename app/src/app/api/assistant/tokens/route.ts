@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/auth.server";
-import { generateMobileToken, listMobileTokens } from "@/lib/assistant/auth";
+import {
+  generateMobileToken,
+  isAssistantCookieSessionRole,
+  listMobileTokens,
+} from "@/lib/assistant/auth";
 
 export const runtime = "nodejs";
-
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
 function sessionUser(session: { userKey: string | null; userName: string | null; role: string }) {
   const userId = String(session.userKey || session.userName || session.role || "admin").trim();
@@ -15,7 +17,7 @@ function sessionUser(session: { userKey: string | null; userName: string | null;
 /** GET: List active mobile tokens for the current user. */
 export async function GET() {
   const session = await getAdminSession();
-  if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (!session || !isAssistantCookieSessionRole(session.role)) {
     return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   }
 
@@ -27,7 +29,7 @@ export async function GET() {
 /** POST: Generate a new mobile token. Admin session only (not bearer). */
 export async function POST(req: NextRequest) {
   const session = await getAdminSession();
-  if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (!session || !isAssistantCookieSessionRole(session.role)) {
     return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   }
 
