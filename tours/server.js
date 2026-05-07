@@ -156,11 +156,13 @@ app.use('/admin', requireAdminOrRedirect, attachAdminSidebarLocals, adminRoutes)
 // Admin JSON-API für React-Admin-Panel
 app.use('/admin/api', requireAdminOrRedirect, adminApiRoutes);
 
+// Kunden-Portal JSON-API (mutierend – für React SPA).
+// Muss vor dem lesenden Router liegen, weil hier öffentliche Auth-Routen
+// wie /forgot-password und /reset-password vor dem Session-Guard registriert sind.
+app.use('/portal/api', portalApiMutationsRoutes);
+
 // Kunden-Portal JSON-API (lesend – für React SPA)
 app.use('/portal/api', portalApiRoutes);
-
-// Kunden-Portal JSON-API (mutierend – für React SPA)
-app.use('/portal/api', portalApiMutationsRoutes);
 
 // Kunden-Portal (EJS/Redirect-Legacy) + /portal/*
 app.use('/portal', portalRoutes);
