@@ -7,19 +7,15 @@ export const MODEL_IDS: Record<ModelTier, string> = {
   opus: "claude-opus-4-7",
 };
 
-const COMPLEXITY_KEYWORDS =
-  /\b(erkläre|analysiere|vergleiche|warum|zusammenfassung|plane|strategie|bewerte|überblick)\b/i;
-
 const UNCERTAINTY_PATTERNS =
   /ich (weiss|weiß) nicht|kann ich (leider )?nicht|keine (ausreichenden )?informationen|nicht sicher|kann das nicht beantworten|dazu habe ich keine/i;
 
 export function selectInitialModel(userMessage: string, maxTier: ModelTier): ModelTier {
+  // Auto-Routing startet nicht mehr bei Haiku — KI-Assistant + Propi sollen
+  // mindestens Sonnet bekommen. Wenn ein Operator maxTier=haiku explizit als
+  // Cap setzt, respektieren wir das (clampTier sorgt eh dafuer); sonst Sonnet.
   if (maxTier === "haiku") return "haiku";
-
-  if (userMessage.length > 500) return "sonnet";
-  if (COMPLEXITY_KEYWORDS.test(userMessage)) return "sonnet";
-
-  return "haiku";
+  return "sonnet";
 }
 
 export function shouldEscalate(
