@@ -5,10 +5,12 @@
  * Alle Endpunkte sind nur intern erreichbar (kein Session-Cookie nötig).
  *
  * Endpunkte:
- *   POST /sync-matterport-state   — matterport_state aller Touren aktualisieren
- *   POST /process-pending-deletions — fällige Löschvormerkungen ausführen
- *   POST /sync-posteingang        — Posteingang (Graph Delta)
- *   POST /mark-overdue-invoices   — sent-Rechnungen mit abgelaufenem due_at auf overdue setzen
+ *   POST /sync-matterport-state              — matterport_state aller Touren aktualisieren
+ *   POST /process-pending-deletions          — fällige Löschvormerkungen ausführen
+ *   POST /sync-posteingang                   — Posteingang (Graph Delta)
+ *   POST /posteingang-triggers               — Auto-Trigger Engine
+ *   POST /posteingang-subscription-ensure    — Graph-Subscription create/renew (Phase 7)
+ *   POST /mark-overdue-invoices              — sent-Rechnungen mit abgelaufenem due_at auf overdue setzen
  */
 
 'use strict';
@@ -120,6 +122,28 @@ router.post('/posteingang-triggers', requireCron, async (req, res) => {
   } catch (err) {
     const elapsed = Date.now() - start;
     console.error('[cron] posteingang-triggers Exception:', err.message);
+    return res.status(500).json({ ok: false, error: err.message, elapsed });
+  }
+});
+
+// POST /api/tours/cron/posteingang-subscription-ensure
+// Idempotent: erstellt oder verlängert Microsoft-Graph-Subscription pro Mailbox
+// für Echtzeit-Mail-Notifications (Phase 7). Tägliches Cron-Hit reicht.
+router.post('/posteingang-subscription-ensure', requireCron, async (req, res) => {
+  const start = Date.now();
+  try {
+    const { ensureSubscriptions } = require('../lib/graph-subscription');
+    const result = await ensureSubscriptions();
+    const elapsed = Date.now() - start;
+    if (!result.ok) {
+      console.warn(`[cron] posteingang-subscription-ensure FEHLER (${elapsed}ms):`, JSON.stringify(result));
+      return res.status(500).json({ ...result, elapsed });
+    }
+    console.log(`[cron] posteingang-subscription-ensure OK — ${result.results.length} mailbox(es) (${elapsed}ms)`);
+    return res.json({ ...result, elapsed });
+  } catch (err) {
+    const elapsed = Date.now() - start;
+    console.error('[cron] posteingang-subscription-ensure Exception:', err.message);
     return res.status(500).json({ ok: false, error: err.message, elapsed });
   }
 });
