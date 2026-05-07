@@ -24,11 +24,13 @@ const DEFAULT_CONFIG = {
   paymentTypeId: null,  // Pflicht, aus Config
   bankAccountId: null,  // Pflicht, aus Config
   vatTaxId: null,       // Pflicht, aus Config (z.B. tax_id für 8.1% Normal)
+  unitId: 1,            // bexio-Mengeneinheit (1 = Stk in Standard-CH-Account)
+  accountId: null,      // Pflicht, aus Config (Ertragskonto, z.B. 3400 Dienstleistungsertrag)
   headerTemplate: "{{address}} #{{orderNo}}",
   footerTemplate: "",
 };
 
-const REQUIRED_KEYS = ["paymentTypeId", "bankAccountId", "vatTaxId"];
+const REQUIRED_KEYS = ["paymentTypeId", "bankAccountId", "vatTaxId", "accountId"];
 
 function asTrimmedString(value) {
   return String(value == null ? "" : value).trim();
@@ -57,6 +59,8 @@ function loadBexioConfig(stored) {
   if (merged.paymentTypeId == null) merged.paymentTypeId = readEnvDefault("PAYMENT_TYPE_ID");
   if (merged.bankAccountId == null) merged.bankAccountId = readEnvDefault("BANK_ACCOUNT_ID");
   if (merged.vatTaxId == null) merged.vatTaxId = readEnvDefault("VAT_TAX_ID");
+  if (merged.accountId == null) merged.accountId = readEnvDefault("ACCOUNT_ID");
+  if (merged.unitId == null) merged.unitId = readEnvDefault("UNIT_ID") || 1;
   if (merged.userId == null) merged.userId = readEnvDefault("USER_ID") || 1;
   if (merged.ownerId == null) merged.ownerId = readEnvDefault("OWNER_ID") || 1;
   return merged;
@@ -228,37 +232,48 @@ function buildBexioPositions({ order, config }) {
   const services = order?.services || {};
   const positions = [];
   const taxId = Number(config.vatTaxId);
+  const unitId = Number(config.unitId) || 1;
+  const accountId = Number(config.accountId);
 
-  function addCustomLine({ text, amount, quantity = 1 }) {
+  // bexio /2.0/kb_order/{id}/kb_position_custom Required Body Fields:
+  //   amount (str)        — Menge / Anzahl Einheiten (NICHT der Preis!)
+  //   unit_id (int)       — Mengeneinheit (z.B. 1=Stk)
+  //   account_id (int)    — Ertragskonto (z.B. 178 = 3400 Dienstleistungsertrag)
+  //   tax_id (int)        — aktive Verkaufs-Steuer
+  //   text (str)
+  //   unit_price (str)    — Preis pro Einheit (max 6 Dezimalstellen)
+  //   discount_in_percent (str|null) — optional
+  // Type-Feld NICHT auf dem Subendpunkt erlaubt (nur im positions[]-Array von POST /kb_order).
+  function addCustomLine({ text, unitPrice, quantity = 1 }) {
     if (!text) return;
     positions.push({
-      type: "KbPositionCustom",
-      amount: String(Number(amount || 0).toFixed(2)),
-      unit_price: String(Number(amount || 0).toFixed(2)),
-      text: String(text).slice(0, 1000),
-      quantity: String(Number(quantity || 1).toFixed(2)),
+      amount: String(Number(quantity || 1).toFixed(6)),
+      unit_id: unitId,
+      account_id: accountId,
       tax_id: taxId,
-      discount_in_percent: "0",
+      text: String(text).slice(0, 1000),
+      unit_price: String(Number(unitPrice || 0).toFixed(6)),
+      discount_in_percent: "0.000000",
     });
   }
 
   // Package
   if (services.package) {
     const label = asTrimmedString(services.package.label) || asTrimmedString(services.package.key) || "Service";
-    addCustomLine({ text: label, amount: services.package.price });
+    addCustomLine({ text: label, unitPrice: services.package.price });
   }
 
   // Addons
   const addons = Array.isArray(services.addons) ? services.addons : [];
   for (const addon of addons) {
     const label = asTrimmedString(addon.label) || asTrimmedString(addon.id) || "Addon";
-    addCustomLine({ text: label, amount: addon.price });
+    addCustomLine({ text: label, unitPrice: addon.price });
   }
 
-  // Discount (als negative Sondermenge, falls vorhanden)
+  // Discount (negative Position, falls vorhanden)
   const discount = Number(order?.pricing?.discount || 0);
   if (discount > 0) {
-    addCustomLine({ text: "Rabatt", amount: -Math.abs(discount) });
+    addCustomLine({ text: "Rabatt", unitPrice: -Math.abs(discount) });
   }
 
   return positions;
