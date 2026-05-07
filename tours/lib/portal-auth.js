@@ -9,7 +9,7 @@ let schemaReady = false;
  * Pruefung gegen die Passwort-Policy. Wirft mit aussagekraeftiger
  * Fehlermeldung wenn das Passwort zu schwach ist (Bug-Hunt T03 MEDIUM).
  *
- * Mindestlaenge 12 + mindestens 2 Zeichen-Klassen (Lowercase/Uppercase/
+ * Mindestlaenge 8 + mindestens 2 Zeichen-Klassen (Lowercase/Uppercase/
  * Digit/Symbol).
  *
  * Wirft mit `err.code = 'PASSWORD_POLICY'` damit Routes den Fall vom
@@ -17,8 +17,8 @@ let schemaReady = false;
  */
 function validatePasswordPolicy(password) {
   const pw = String(password || '');
-  if (pw.length < 12) {
-    const err = new Error('Passwort muss mindestens 12 Zeichen lang sein.');
+  if (pw.length < 8) {
+    const err = new Error('Passwort muss mindestens 8 Zeichen lang sein.');
     err.code = 'PASSWORD_POLICY';
     throw err;
   }

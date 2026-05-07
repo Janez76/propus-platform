@@ -1160,7 +1160,7 @@
   "resetPassword.button.requestNew": "Request new reset link",
   "resetPassword.link.toLogin": "Go to login",
   "resetPassword.error.invalidLink": "Invalid or missing reset link",
-  "resetPassword.error.tooShort": "Password must be at least 12 characters long.",
+  "resetPassword.error.tooShort": "Password must be at least 8 characters long.",
   "resetPassword.error.mismatch": "Passwords do not match.",
   "resetPassword.error.generic": "An error occurred. Please try again.",
   "resetPassword.error.connectionFailed": "Connection failed. Please try again.",

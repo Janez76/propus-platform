@@ -21,9 +21,8 @@ async function scryptAsync(password, salt, keylen) {
  * Pruefung gegen die Passwort-Policy. Wirft mit aussagekraeftiger
  * Fehlermeldung wenn das Passwort zu schwach ist (Bug-Hunt T03 MEDIUM).
  *
- * Mindestlaenge 12 + mindestens 2 Zeichenklassen (Lowercase/Uppercase/
- * Digit/Symbol). 8 Zeichen waren NIST-Empfehlung von 2017 — heute
- * Brute-Force-fest erst ab 12+ mit Klassen.
+ * Mindestlaenge 8 + mindestens 2 Zeichenklassen (Lowercase/Uppercase/
+ * Digit/Symbol).
  *
  * Wirft mit `err.code = 'PASSWORD_POLICY'` damit Routes den Fall vom
  * generischen Internal-Error unterscheiden und 400 statt 500 antworten
@@ -31,8 +30,8 @@ async function scryptAsync(password, salt, keylen) {
  */
 function validatePasswordPolicy(password) {
   const pw = String(password || "");
-  if (pw.length < 12) {
-    const err = new Error("Passwort muss mindestens 12 Zeichen lang sein");
+  if (pw.length < 8) {
+    const err = new Error("Passwort muss mindestens 8 Zeichen lang sein");
     err.code = "PASSWORD_POLICY";
     throw err;
   }
