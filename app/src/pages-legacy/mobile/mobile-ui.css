@@ -345,10 +345,25 @@
 .mob-swipe-row-content { position: relative; z-index: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mob-card--clickable, .mob-list-item, .mob-ptr-indicator { transition: none; }
+  .mob-card--clickable,
+  .mob-list-item,
+  .mob-ptr-indicator,
+  .mob-day-section-h--clickable,
+  .mob-kpi-pill,
+  .mob-sheet-chip,
+  .mob-filter-trigger,
+  .mob-search-input,
+  .mob-search-icon { transition: none; }
   .mob-spinner, .mob-ptr-spinner--refreshing { animation: none; }
   .mob-sheet-backdrop, .mob-sheet { animation: none; }
   .mob-dep--now { animation: none; }
+
+  .mob-card--clickable:active,
+  .mob-list-item:active,
+  .mob-day-section-h--clickable:active,
+  .mob-kpi-pill:active,
+  .mob-sheet-chip:active,
+  .mob-filter-trigger:active { transform: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
