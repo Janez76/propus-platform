@@ -87,6 +87,9 @@ async function executeSideEffects(order, effects, deps) {
       }
     } catch (err) {
       console.error("[workflow-effects] Fehler bei Effect", effect, err && err.message);
+      // Bei Calendar-Fehlern fuehrt das geschluckte throw oft zu verwaisten
+      // Outlook-Eintraegen ohne DB-IDs. Hinweis fuer Operator:
+      console.error("[workflow-effects] Ggf. Repair noetig: node booking/scripts/repair-photographer-event.js", order && order.orderNo);
     }
   }
 }
