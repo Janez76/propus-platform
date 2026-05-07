@@ -298,7 +298,68 @@
   text-decoration-thickness: 1px;
 }
 
+/* Live-Standort → Google Fahrzeiten (Dashboard) */
+.dv2-today-drive-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 10px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--propus-r-md, 12px);
+  border: 1px dashed color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 35%, var(--propus-border));
+  background: color-mix(in srgb, var(--propus-accent-warm-soft, var(--propus-gold-soft)) 40%, transparent);
+}
+.dv2-today-drive-geo {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--propus-border);
+  background: var(--propus-bg-elev, var(--propus-bg-card));
+  color: var(--propus-text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.dv2-today-drive-geo:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 50%, var(--propus-border));
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+.dv2-today-drive-geo[data-active="true"] {
+  border-color: color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 55%, var(--propus-border));
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+.dv2-today-drive-geo:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.dv2-today-drive-spin {
+  animation: propus-spin 0.9s linear infinite;
+}
+@keyframes propus-spin {
+  to { transform: rotate(360deg); }
+}
+.dv2-today-drive-note {
+  margin: 0;
+  flex: 1 1 12rem;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--propus-text-muted);
+}
+.dv2-today-drive-err {
+  flex: 1 1 100%;
+  font-size: 11px;
+  color: var(--propus-danger, #b42318);
+}
+.dv2-today-pill--live-route {
+  border-color: color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 40%, var(--propus-border)) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dv2-today-tl-item:hover { transform: none !important; }
   .dv2-today-status--next::before { animation: none !important; }
+  .dv2-today-drive-spin { animation: none !important; }
 }

@@ -19,23 +19,22 @@ interface UseGeolocationReturn {
   clear: () => void;
 }
 
-const STORAGE_DEFAULT = "propus.cockpit.geo.enabled.v1";
+const STORAGE_DEFAULT = 'propus.cockpit.geo.enabled.v1';
 const MAX_AGE_DEFAULT_MS = 60_000;
 const TIMEOUT_DEFAULT_MS = 10_000;
 
 export type UseGeolocationOptions = {
-  /** localStorage-Key für den Opt-In (z. B. separater Key für Assistant vs. Cockpit). */
+  /** localStorage-Key für den Opt-In (z. B. Cockpit, Dashboard oder Assistant). */
   storageKey?: string;
   maximumAgeMs?: number;
   timeoutMs?: number;
 };
 
 /**
- * Wrapper um navigator.geolocation für den Cockpit-Propi-Chat.
+ * Wrapper um navigator.geolocation (Cockpit-Propi, Dashboard, Assistant).
  * Persistiert nur den Opt-In-State (`enabled`); die tatsächliche Position bleibt
  * in-Memory. Beim nächsten Mount mit `enabled=true` wird ein frischer Lookup
  * automatisch gestartet.
- * @param options Optional: eigener storageKey (z. B. Assistant), maximumAge, timeout.
  */
 export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationReturn {
   const storageKey = options?.storageKey ?? STORAGE_DEFAULT;
@@ -66,22 +65,31 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
           setPosition(p);
           setEnabled(true);
           setLoading(false);
-          try { window.localStorage.setItem(storageKey, 'true'); } catch { /* quota */ }
+          try {
+            window.localStorage.setItem(storageKey, 'true');
+          } catch {
+            /* quota */
+          }
           resolve(p);
         },
         (err) => {
-          // PERMISSION_DENIED = 1, POSITION_UNAVAILABLE = 2, TIMEOUT = 3
           const reason =
-            err.code === 1 ? 'Standort-Zugriff verweigert' :
-            err.code === 2 ? 'Position nicht verfügbar' :
-            err.code === 3 ? 'Standort-Anfrage Timeout' :
-            err.message || 'Standort-Fehler';
+            err.code === 1
+              ? 'Standort-Zugriff verweigert'
+              : err.code === 2
+                ? 'Position nicht verfügbar'
+                : err.code === 3
+                  ? 'Standort-Anfrage Timeout'
+                  : err.message || 'Standort-Fehler';
           setError(reason);
           setLoading(false);
           if (err.code === 1) {
-            // User hat verweigert -> Opt-In zurücksetzen
             setEnabled(false);
-            try { window.localStorage.removeItem(storageKey); } catch { /* */ }
+            try {
+              window.localStorage.removeItem(storageKey);
+            } catch {
+              /* */
+            }
           }
           resolve(null);
         },
@@ -94,7 +102,7 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
     setPosition(null);
     setEnabled(false);
     setError(null);
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       try {
         window.localStorage.removeItem(storageKey);
       } catch {
@@ -103,7 +111,6 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
     }
   }, [storageKey]);
 
-  // On mount: re-request if user previously opted in
   useEffect(() => {
     if (typeof window === 'undefined') return;
     let active = true;
@@ -113,7 +120,9 @@ export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationR
         setEnabled(true);
         void request();
       }
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
     return () => {
       active = false;
     };
