@@ -78,7 +78,7 @@ describe("assistant order tools", () => {
     const handlers = createOrdersHandlers({ query });
     const result = await handlers.get_open_orders({ days_ahead: 90, limit: 500 }, { userId: "u", userEmail: "u@example.com" });
 
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("booking.orders"), [90, 50]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("booking.orders"), [90, 50, 0]);
     expect(result).toEqual({
       count: 1,
       orders: [

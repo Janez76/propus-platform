@@ -9628,6 +9628,17 @@ function buildAdminSessionCookieOptions(maxAgeMs) {
 }
 
 function setAdminSessionCookieValue(res, token, maxAgeMs) {
+  // Hostonly-Hygiene: alte `admin_session`-Cookies, die noch ohne
+  // Domain-Attribut (host-only z.B. auf admin-booking.propus.ch) im Browser
+  // hängen, hier explizit räumen. Sonst sendet der Browser ALTEN+NEUEN
+  // Cookie und die Server-Middleware liest beim ersten Match in der
+  // Cookie-Header-Reihenfolge — typisch den alten/ungültigen Token, was
+  // direkt nach erfolgreichem Login einen 401-Loop produziert. Tritt seit
+  // SESSION_COOKIE_DOMAIN=.propus.ch-Migration auf bei Bestands-Browsern
+  // mit pre-domain-Cookie. Der Set-Cookie ohne Domain matched genau die
+  // host-only Variante; der danach gesetzte Cookie mit Domain überschreibt
+  // die Domain-Variante regulär.
+  res.clearCookie("admin_session", { path: "/" });
   res.cookie("admin_session", token, buildAdminSessionCookieOptions(maxAgeMs));
 }
 

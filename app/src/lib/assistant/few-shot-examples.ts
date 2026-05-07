@@ -89,6 +89,33 @@ export const FEW_SHOTS: FewShot[] = [
     assistantFinal: "Bestätigt die Korrektur und liefert Daten zu Tour 43.",
     tags: ["korrektur", "kontext"],
   },
+  {
+    id: "next-order-future-only",
+    user: "Was ist mein nächster Auftrag?",
+    assistantToolPlan:
+      "get_open_orders mit days_ahead=30 (Default-Filter blendet vergangene Termine aus). Wenn count=0, einmal mit days_ahead=90 nachreichen bevor 'kein Auftrag' geantwortet wird.",
+    assistantFinal:
+      "Ersten zukünftigen Auftrag aus dem Tool-Ergebnis nennen (Datum, Adresse, Kunde). Vergangene/überfällige Termine NICHT als 'nächster' bezeichnen — wenn der User explizit 'überfällig' fragt, separates Tool-Call mit include_overdue_days.",
+    tags: ["auftrag", "nächster", "zukunft", "open"],
+  },
+  {
+    id: "overdue-orders",
+    user: "Welche Aufträge sind überfällig?",
+    assistantToolPlan:
+      "get_open_orders mit include_overdue_days=14 und days_ahead=0 — zeigt alle Aufträge mit Termin in den letzten 14 Tagen die noch nicht abgeschlossen sind.",
+    assistantFinal:
+      "Liste der überfälligen Aufträge mit Anzahl Tage Rückstand pro Eintrag.",
+    tags: ["auftrag", "überfällig", "rückstand", "open"],
+  },
+  {
+    id: "weather-future-order",
+    user: "Wetter am 12. Mai für den Auftrag in Oberrohrdorf?",
+    assistantToolPlan:
+      "Erst get_weather_for_order (nutzt Auftragsadresse + Termin). Falls 'kein Wert' wegen Horizont (>15 Tage), zurückfallen auf get_weather_forecast mit der PLZ und days passend zur Distanz zum Termin (z.B. days=5 wenn Termin in 4 Tagen).",
+    assistantFinal:
+      "Min/Max + Bewölkung + Niederschlag aus Tool-Result. Wenn beide Tools nichts liefern weil Termin >15 Tage entfernt, ehrlich sagen 'kommt näher zum Termin'.",
+    tags: ["wetter", "auftrag", "termin", "vorhersage"],
+  },
 ];
 
 function fewShotMatchText(fs: FewShot): string {

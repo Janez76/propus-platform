@@ -950,7 +950,7 @@ export function ConversationView() {
           >
             {(
               [
-                { key: "auto" as const, labelShort: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+                { key: "auto" as const, labelShort: "Auto", title: "Standard: Sonnet startet und kann bis zum Server-Maximum eskalieren" },
                 { key: "sonnet" as const, labelShort: "Son.", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
                 { key: "opus" as const, labelShort: "Opus", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
               ] as const
@@ -1039,7 +1039,7 @@ export function ConversationView() {
             >
               {(
                 [
-                  { key: "auto" as const, label: "Auto", title: "Standard: Haiku startet und kann bis zum Server-Maximum eskalieren" },
+                  { key: "auto" as const, label: "Auto", title: "Standard: Sonnet startet und kann bis zum Server-Maximum eskalieren" },
                   { key: "sonnet" as const, label: "Sonnet fix", title: "Fix auf Sonnet (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
                   { key: "opus" as const, label: "Opus fix", title: "Fix auf Opus (oder tiefer bei Server-Limit), ohne Auto-Eskalation" },
                 ] as const

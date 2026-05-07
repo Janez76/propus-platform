@@ -28,7 +28,7 @@ function finiteNumber(value: unknown): number | null {
 function clampDays(value: unknown): number {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return 3;
-  return Math.min(Math.max(1, Math.trunc(n)), 7);
+  return Math.min(Math.max(1, Math.trunc(n)), 14);
 }
 
 function todayISOZurich(now = new Date()): string {
@@ -105,12 +105,16 @@ async function fetchForecast(
   endDate: string,
   doFetch: FetchFn,
 ): Promise<ForecastResponse> {
+  // Kein `&models=icon_d2`: ICON-D2 ist 48h-Kurzfrist und cappt den Horizont
+  // auf 2 Tage. Open-Meteo's Default `best_match` nutzt ICON-D2 fuer die
+  // ersten 48h und blendet danach auf ICON-EU/Global — gibt 15+ Tage Range
+  // mit optimaler Genauigkeit pro Horizont.
   const url =
     `${FORECAST_ENDPOINT}?latitude=${lat}&longitude=${lng}` +
     `&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,precipitation` +
     `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset` +
     `&start_date=${startDate}&end_date=${endDate}` +
-    `&models=icon_d2&timezone=Europe%2FZurich`;
+    `&timezone=Europe%2FZurich`;
   const res = await fetchWithTimeout(url, REQUEST_TIMEOUT_MS, doFetch);
   if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
   return (await res.json()) as ForecastResponse;
@@ -120,9 +124,9 @@ export const weatherTools: ToolDefinition[] = [
   {
     name: "get_weather_forecast",
     description:
-      "Wettervorhersage (MeteoSwiss ICON-CH via Open-Meteo) für einen Ort in der Schweiz. " +
+      "Wettervorhersage via Open-Meteo (Multi-Modell-Ensemble: ICON-D2 0–48h, ICON-EU/Global 2–14 Tage) für einen Ort in der Schweiz. " +
       "Gibt Aktuell-Wert plus tägliche Min/Max-Temperatur, Niederschlagswahrscheinlichkeit und Windgeschwindigkeit. " +
-      "Eingabe entweder lat/lng ODER zip (Schweizer PLZ, 4-stellig). " +
+      "Eingabe entweder lat/lng ODER zip (Schweizer PLZ, 4-stellig). Horizont 1–14 Tage. " +
       "Hinweis: Open-Meteo liefert KEINE offiziellen Warnungen/Alarme — für Unwetterwarnungen weiterhin auf https://www.meteoschweiz.admin.ch verweisen.",
     input_schema: {
       type: "object",
@@ -130,7 +134,7 @@ export const weatherTools: ToolDefinition[] = [
         lat: { type: "number", description: "Breitengrad (z. B. 47.3769 für Zürich)" },
         lng: { type: "number", description: "Längengrad (z. B. 8.5417 für Zürich)" },
         zip: { type: "string", description: "Schweizer Postleitzahl (4-stellig). Wird auf vorhandene Stadt-Koordinaten gemappt." },
-        days: { type: "number", description: "Anzahl Vorhersagetage (1–7, Default 3)" },
+        days: { type: "number", description: "Anzahl Vorhersagetage (1–14, Default 3)" },
       },
     },
   },
