@@ -1,3 +1,5 @@
+import { VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG } from "./voice-transcription-messages";
+
 const WHISPER_URL = "https://api.openai.com/v1/audio/transcriptions";
 
 export type TranscriptionResult = {
@@ -21,6 +23,12 @@ const MIME_EXTENSION_MAP: Array<[needle: string, extension: string]> = [
 
 function runtimeEnv(name: string): string | undefined {
   return (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env?.[name];
+}
+
+/** OpenAI Whisper (Spracheingabe); unabhängig vom Claude-Textchat. */
+export function isOpenAiWhisperConfigured(): boolean {
+  const v = runtimeEnv("OPENAI_API_KEY");
+  return Boolean(v?.trim());
 }
 
 export function getWhisperAudioFilename(mimeType = "audio/webm"): string {
@@ -47,7 +55,7 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType = "audio/web
   if (!validation.ok) throw new Error(validation.error);
 
   const apiKey = runtimeEnv("OPENAI_API_KEY");
-  if (!apiKey) throw new Error("OPENAI_API_KEY ist nicht gesetzt");
+  if (!apiKey?.trim()) throw new Error(VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG);
 
   const start = Date.now();
   const formData = new FormData();

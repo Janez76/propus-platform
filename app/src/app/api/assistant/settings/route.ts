@@ -4,6 +4,7 @@ import { isAssistantSettingsAdminUi, isAssistantSettingsSuperAdmin } from "@/lib
 import { getAssistantSettings, updateAssistantSettings } from "@/lib/assistant/settings";
 import { getAssistantUsageToday } from "@/lib/assistant/store";
 import { allTools } from "@/lib/assistant/tools";
+import { isOpenAiWhisperConfigured } from "@/lib/assistant/whisper";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function GET() {
   return NextResponse.json({
     settings,
     usage,
+    /** OpenAI Whisper — nur Spracheingabe; Text-Chat nutzt ANTHROPIC_API_KEY. */
+    voiceTranscriptionConfigured: isOpenAiWhisperConfigured(),
     availableTools: allTools.map((t) => ({ name: t.name, description: t.description })),
     availableModels: [
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },

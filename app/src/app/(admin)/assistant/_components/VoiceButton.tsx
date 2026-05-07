@@ -8,6 +8,8 @@ type VoiceButtonProps = {
   onError: (error: string) => void;
   disabled?: boolean;
   variant?: "default" | "icon";
+  /** Wenn gesetzt: Mikrofon deaktiviert (z. B. fehlende OPENAI_API_KEY für Whisper). */
+  voiceUnavailableHint?: string | null;
 };
 
 type RecordingState = "idle" | "recording" | "transcribing";
@@ -30,7 +32,15 @@ function audioExtensionForMimeType(mimeType: string): string {
   return "webm";
 }
 
-export function VoiceButton({ onTranscript, onError, disabled, variant = "default" }: VoiceButtonProps) {
+export function VoiceButton({
+  onTranscript,
+  onError,
+  disabled,
+  variant = "default",
+  voiceUnavailableHint,
+}: VoiceButtonProps) {
+  const blockedByVoiceConfig = Boolean(voiceUnavailableHint?.trim());
+  const effectiveDisabled = Boolean(disabled) || blockedByVoiceConfig;
   const [state, setState] = useState<RecordingState>("idle");
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -44,7 +54,7 @@ export function VoiceButton({ onTranscript, onError, disabled, variant = "defaul
   }, []);
 
   async function startRecording() {
-    if (disabled || state !== "idle") return;
+    if (effectiveDisabled || state !== "idle") return;
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         throw new Error("Audioaufnahme wird von diesem Browser nicht unterstützt");
@@ -109,11 +119,25 @@ export function VoiceButton({ onTranscript, onError, disabled, variant = "defaul
         onPointerUp={stopRecording}
         onPointerLeave={stopRecording}
         onPointerCancel={stopRecording}
-        disabled={disabled || state === "transcribing"}
+        disabled={effectiveDisabled || state === "transcribing"}
         className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-40 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)] data-[recording=true]:animate-pulse"
         data-recording={state === "recording" ? "true" : "false"}
-        aria-label={state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"}
-        title={state === "idle" ? "Halten zum Sprechen" : state === "recording" ? "Aufnahme läuft …" : "Transkribiere …"}
+        aria-label={
+          blockedByVoiceConfig
+            ? "Spracheingabe nicht verfügbar"
+            : state === "recording"
+              ? "Aufnahme läuft, loslassen zum Senden"
+              : "Halten zum Sprechen"
+        }
+        title={
+          blockedByVoiceConfig
+            ? (voiceUnavailableHint ?? "")
+            : state === "idle"
+              ? "Halten zum Sprechen"
+              : state === "recording"
+                ? "Aufnahme läuft …"
+                : "Transkribiere …"
+        }
       >
         {state === "transcribing" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
       </button>
@@ -127,13 +151,22 @@ export function VoiceButton({ onTranscript, onError, disabled, variant = "defaul
       onPointerUp={stopRecording}
       onPointerLeave={stopRecording}
       onPointerCancel={stopRecording}
-      disabled={disabled || state === "transcribing"}
+      disabled={effectiveDisabled || state === "transcribing"}
       className="inline-flex items-center gap-2 rounded-full border border-[var(--accent)]/40 bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text-main)] transition hover:border-[var(--accent)] hover:bg-[var(--surface-raised)] disabled:cursor-not-allowed disabled:opacity-50 data-[recording=true]:bg-[var(--accent)] data-[recording=true]:text-[var(--gold-on-gold)]"
       data-recording={state === "recording" ? "true" : "false"}
-      aria-label={state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"}
+      aria-label={
+        blockedByVoiceConfig ? "Spracheingabe nicht verfügbar" : state === "recording" ? "Aufnahme läuft, loslassen zum Senden" : "Halten zum Sprechen"
+      }
+      title={blockedByVoiceConfig ? (voiceUnavailableHint ?? "") : undefined}
     >
       {state === "transcribing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
-      {state === "idle" ? "Halten zum Sprechen" : state === "recording" ? "Aufnahme läuft ..." : "Transkribiere ..."}
+      {blockedByVoiceConfig && state === "idle"
+        ? "Spracheingabe nicht eingerichtet"
+        : state === "idle"
+          ? "Halten zum Sprechen"
+          : state === "recording"
+            ? "Aufnahme läuft ..."
+            : "Transkribiere ..."}
     </button>
   );
 }
