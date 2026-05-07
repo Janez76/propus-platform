@@ -30,6 +30,7 @@ const { scheduleConfirmationPending }   = require("./confirmation-pending");
 const { scheduleWebsizeSync }           = require("./websize-sync");
 const { scheduleDuplicateCandidatesNightly } = require("./duplicate-customers-nightly");
 const { scheduleOutboxDispatcher }      = require("./outbox-dispatcher");
+const { scheduleCalendarStaleIdAudit }  = require("./calendar-stale-id-audit");
 
 async function startJobs(deps) {
   const { getSetting } = deps;
@@ -62,6 +63,7 @@ async function startJobs(deps) {
   scheduleConfirmationPending(deps);
   scheduleWebsizeSync(deps);
   scheduleDuplicateCandidatesNightly(deps);
+  scheduleCalendarStaleIdAudit(deps);
 
   console.log("[jobs] alle Jobs registriert");
 }
