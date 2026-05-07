@@ -32,6 +32,7 @@ import {
   type AssistantModelMode,
   parseAssistantModelMode,
 } from "@/lib/assistant/assistant-model-mode";
+import { VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG } from "@/lib/assistant/voice-transcription-messages";
 import { formatModelLabel } from "@/lib/assistant/model-router";
 import { VoiceButton } from "./VoiceButton";
 import { TrainingPanel } from "./TrainingPanel";
@@ -275,6 +276,8 @@ export function ConversationView() {
     month: { totalTokens: 0, costChf: 0 },
   });
   const [settings, setSettings] = useState<AssistantSettings | null>(null);
+  /** null = API ohne Flag oder noch nicht geladen — Mikrofon wie bisher erlaubt. */
+  const [voiceTranscriptionConfigured, setVoiceTranscriptionConfigured] = useState<boolean | null>(null);
   const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -348,6 +351,7 @@ export function ConversationView() {
         availableTools?: ToolInfo[];
         availableModels?: ModelInfo[];
         isAdmin?: boolean;
+        voiceTranscriptionConfigured?: boolean;
       };
       const usagePayload = (await resUsage.json().catch(() => ({}))) as {
         today?: { totalTokens?: number; costChf?: number };
@@ -357,6 +361,9 @@ export function ConversationView() {
 
       if (res.ok && data.settings) {
         setSettings(data.settings);
+        if (typeof data.voiceTranscriptionConfigured === "boolean") {
+          setVoiceTranscriptionConfigured(data.voiceTranscriptionConfigured);
+        }
         const todayTotal =
           resUsage.ok && usagePayload.today?.totalTokens != null
             ? usagePayload.today.totalTokens
@@ -1242,6 +1249,9 @@ export function ConversationView() {
             <VoiceButton
               variant="icon"
               disabled={inputDisabled}
+              voiceUnavailableHint={
+                voiceTranscriptionConfigured === false ? VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG : undefined
+              }
               onTranscript={(text) => void send(text)}
               onError={(msg) => setError({ message: msg })}
             />
@@ -1334,7 +1344,14 @@ export function ConversationView() {
                 </span>
               ) : null}
             </button>
-            <VoiceButton disabled={inputDisabled} onTranscript={(text) => void send(text)} onError={(msg) => setError({ message: msg })} />
+            <VoiceButton
+              disabled={inputDisabled}
+              voiceUnavailableHint={
+                voiceTranscriptionConfigured === false ? VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG : undefined
+              }
+              onTranscript={(text) => void send(text)}
+              onError={(msg) => setError({ message: msg })}
+            />
           </div>
           <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 max-w-full overflow-x-auto [-webkit-overflow-scrolling:touch]">

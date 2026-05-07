@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { MIN_TRANSCRIPTION_AUDIO_BYTES, transcribeAudio, validateWhisperAudioBuffer } from "@/lib/assistant/whisper";
+import {
+  isOpenAiWhisperConfigured,
+  MIN_TRANSCRIPTION_AUDIO_BYTES,
+  transcribeAudio,
+  validateWhisperAudioBuffer,
+} from "@/lib/assistant/whisper";
+import { VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG } from "@/lib/assistant/voice-transcription-messages";
 import { resolveAssistantUser } from "@/lib/assistant/auth";
 
 export const runtime = "nodejs";
@@ -10,6 +16,10 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 export async function POST(req: NextRequest) {
   const user = await resolveAssistantUser(req);
   if (!user) return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
+
+  if (!isOpenAiWhisperConfigured()) {
+    return NextResponse.json({ error: VOICE_TRANSCRIPTION_UNAVAILABLE_USER_MSG }, { status: 503 });
+  }
 
   const formData = await req.formData();
   const file = formData.get("audio");
