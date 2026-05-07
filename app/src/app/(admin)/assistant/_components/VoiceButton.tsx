@@ -57,8 +57,10 @@ export function VoiceButton({ onTranscript, onError, disabled, variant = "defaul
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
+      recorder.onstart = () => {
+        recordingStartedAtRef.current = Date.now();
+      };
       recorder.onstop = () => void transcribe();
-      recordingStartedAtRef.current = Date.now();
       recorder.start();
       recorderRef.current = recorder;
       setState("recording");

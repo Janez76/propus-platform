@@ -276,14 +276,14 @@ export function TourInvoicesSection({
                 </tr>
               </thead>
               <tbody>
-                {renewalInvoices.map((inv) => {
+                {renewalInvoices.map((inv, rowIdx) => {
                   const r = inv as Record<string, unknown>;
                   const rid = r.id;
                   const isPaid = String(r.invoice_status ?? "") === "paid";
                   const invoiceLabel = String(r.invoice_number ?? r.id ?? "");
                   const isDeleting = deletingId != null && String(deletingId) === String(rid);
                   return (
-                    <tr key={String(r.id ?? Math.random())} className="border-b border-[var(--border-soft)]/40">
+                    <tr key={rid != null ? String(rid) : `renewal-${rowIdx}-${invoiceLabel}`} className="border-b border-[var(--border-soft)]/40">
                       <td className="py-2 pr-2">{invoiceLabel}</td>
                       <td className="py-2 pr-2">{String(r.invoice_status ?? "")}</td>
                       <td className="py-2 pr-2">{formatMoney(r.amount_chf ?? r.preis_brutto)}</td>
@@ -394,10 +394,11 @@ export function TourInvoicesSection({
                 </tr>
               </thead>
               <tbody>
-                {exxasInvoices.map((inv) => {
+                {exxasInvoices.map((inv, rowIdx) => {
                   const r = inv as Record<string, unknown>;
+                  const exxasKey = r.id ?? r.exxas_document_id;
                   return (
-                    <tr key={String(r.id ?? r.exxas_document_id ?? Math.random())} className="border-b border-[var(--border-soft)]/40">
+                    <tr key={exxasKey != null ? String(exxasKey) : `exxas-${rowIdx}`} className="border-b border-[var(--border-soft)]/40">
                       <td className="py-2 pr-2">{String(r.nummer ?? r.exxas_document_id ?? "")}</td>
                       <td className="py-2 pr-2">{String(r.exxas_status ?? r.sv_status ?? "")}</td>
                       <td className="py-2 pr-2">{formatMoney(r.betrag)}</td>

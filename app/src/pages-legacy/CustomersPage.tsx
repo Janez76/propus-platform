@@ -81,6 +81,7 @@ export function CustomersPage() {
   const [contactCustomer, setContactCustomer] = useState<Customer | null>(null);
   const [createContactDialogOpen, setCreateContactDialogOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"customers" | "contacts">("customers");
 
   useEffect(() => {
     const raw = searchParams.get("focusCustomerId");
@@ -104,7 +105,6 @@ export function CustomersPage() {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [customerListPage, setCustomerListPage] = useState(1);
-  const [viewMode, setViewMode] = useState<"customers" | "contacts">("customers");
   const [customerSortKey, setCustomerSortKey] = useState<CustomerSortKey>("name");
   const [customerSortDir, setCustomerSortDir] = useState<"asc" | "desc">("asc");
   const [contactSortKey, setContactSortKey] = useState<"contactId" | "customerId" | "name" | "contact" | "customer" | "role">("name");
