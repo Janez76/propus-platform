@@ -53,7 +53,8 @@ CREATE OR REPLACE VIEW tour_manager.admin_users AS
     invited_by,
     last_login_at,
     created_at,
-    updated_at
+    updated_at,
+    avatar_url
   FROM core.admin_users
   WHERE module_access IN ('booking', 'both');
 
@@ -69,6 +70,7 @@ DECLARE
 BEGIN
   INSERT INTO core.admin_users (
     email, full_name, password_hash, is_active, invited_by,
+    avatar_url,
     last_login_at, roles, module_access, created_at, updated_at
   )
   VALUES (
@@ -77,6 +79,7 @@ BEGIN
     NEW.password_hash,
     COALESCE(NEW.is_active, TRUE),
     NEW.invited_by,
+    NEW.avatar_url,
     NEW.last_login_at,
     ARRAY['admin']::TEXT[],
     'booking',
@@ -89,6 +92,7 @@ BEGIN
       password_hash = COALESCE(EXCLUDED.password_hash, core.admin_users.password_hash),
       is_active     = EXCLUDED.is_active,
       invited_by    = COALESCE(core.admin_users.invited_by, EXCLUDED.invited_by),
+      avatar_url    = COALESCE(EXCLUDED.avatar_url, core.admin_users.avatar_url),
       last_login_at = COALESCE(EXCLUDED.last_login_at, core.admin_users.last_login_at),
       updated_at    = NOW()
   RETURNING id INTO v_id;
@@ -123,6 +127,7 @@ BEGIN
   INSERT INTO core.admin_users (
     username, email, full_name, roles, password_hash, is_active,
     logto_user_id, phone, language, profile_photo_version,
+    avatar_url,
     last_login_at, module_access, created_at, updated_at
   )
   VALUES (
@@ -136,6 +141,7 @@ BEGIN
     NEW.phone,
     COALESCE(NEW.language, 'de'),
     COALESCE(NEW.profile_photo_version, 0),
+    NEW.avatar_url,
     NEW.last_login_at,
     'booking',
     COALESCE(NEW.created_at, NOW()),
@@ -156,6 +162,7 @@ BEGIN
       phone         = COALESCE(EXCLUDED.phone, core.admin_users.phone),
       language      = COALESCE(EXCLUDED.language, core.admin_users.language),
       profile_photo_version = EXCLUDED.profile_photo_version,
+      avatar_url    = COALESCE(EXCLUDED.avatar_url, core.admin_users.avatar_url),
       last_login_at = COALESCE(EXCLUDED.last_login_at, core.admin_users.last_login_at),
       updated_at    = NOW()
   RETURNING id INTO v_id;
