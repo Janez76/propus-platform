@@ -20,6 +20,7 @@ import {
   type NavItem as NavItemType,
 } from "../../config/nav.config";
 
+import { MascotSidebarCard } from "./MascotSidebarCard";
 import "../../styles/sidebar.css";
 
 /* -------------------------------------------------------------------------- */
@@ -195,6 +196,9 @@ export function Sidebar({
           />
         ))}
       </nav>
+
+      {/* Cockpit-Mascot-Card — direkter Einstieg zum Propi-Chat (Mockup V3.1) */}
+      <MascotSidebarCard />
 
       {/* Footer — authStore liefert kein Profil; Anzeigename folgt in Folge-PR */}
       <div className="propus-sidebar__footer">

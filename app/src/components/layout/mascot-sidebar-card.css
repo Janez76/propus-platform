@@ -1,0 +1,121 @@
+/* Mascot Sidebar Card — Mockup V3.1 Sprint 6
+   Direkter Einstieg ins Cockpit/Propi vom Sidebar-Footer aus. */
+
+.propus-mascot-card {
+  margin: 12px 10px 14px;
+  padding: 14px;
+  width: calc(100% - 20px);
+  background: linear-gradient(135deg, #fff8eb, #fdeec9);
+  border: 1px solid var(--propus-line-warm, var(--propus-border));
+  border-radius: var(--propus-r-md, 14px);
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--propus-font-body, 'Roboto', sans-serif);
+  color: var(--propus-text-primary);
+  transition: transform var(--propus-dur-base, .25s) var(--propus-ease-spring, cubic-bezier(.34,1.56,.64,1)),
+              box-shadow var(--propus-dur-base, .25s),
+              border-color var(--propus-dur-fast, .15s);
+}
+html.dark .propus-mascot-card {
+  background: linear-gradient(135deg, #2a2014, #322618);
+}
+.propus-mascot-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--propus-shadow-md, 0 6px 20px rgba(60,40,15,.07));
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.propus-mascot-card:focus-visible {
+  outline: 2px solid var(--propus-accent-warm, var(--propus-gold));
+  outline-offset: 2px;
+}
+
+.propus-mascot-card-avatar {
+  display: inline-block;
+  transition: transform var(--propus-dur-slow, .35s) var(--propus-ease-spring);
+}
+.propus-mascot-card:hover .propus-mascot-card-avatar {
+  animation: propus-float 1.8s ease-in-out infinite;
+}
+
+.propus-mascot-card-title {
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 400;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--propus-text-primary);
+}
+.propus-mascot-card-online {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--propus-good-warm, var(--propus-green, #4a8a52));
+  animation: propus-pulse 1.4s infinite;
+  flex-shrink: 0;
+}
+
+.propus-mascot-card-sub {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--propus-text-muted, var(--propus-ink-mute));
+  margin: 0;
+}
+
+.propus-mascot-card-cta {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, .65);
+  border: 1px solid var(--propus-line-warm, var(--propus-border));
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--propus-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  transition: background var(--propus-dur-fast, .15s);
+}
+html.dark .propus-mascot-card-cta {
+  background: rgba(255, 255, 255, .05);
+}
+.propus-mascot-card:hover .propus-mascot-card-cta {
+  background: rgba(255, 255, 255, .9);
+  color: var(--propus-text-primary);
+}
+html.dark .propus-mascot-card:hover .propus-mascot-card-cta {
+  background: rgba(255, 255, 255, .12);
+}
+.propus-mascot-card-cta kbd {
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: 3px;
+  color: var(--propus-text-muted);
+}
+
+/* Bei collapsed Sidebar verstecken (Mascot braucht Breite + Text) */
+.propus-sidebar[data-collapsed='true'] .propus-mascot-card {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .propus-mascot-card,
+  .propus-mascot-card:hover .propus-mascot-card-avatar,
+  .propus-mascot-card-online {
+    animation: none !important;
+    transition: none !important;
+  }
+}
