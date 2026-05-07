@@ -1,0 +1,228 @@
+/* TodayCard — Mockup V3.1 Sprint 13
+   Datums-Display + 7-Tage-Wetter + Heute-Timeline. */
+
+.dv2-today-card {
+  background: var(--propus-bg-elev, var(--propus-bg-card));
+  border: 1px solid var(--propus-line-warm, var(--propus-border));
+  border-radius: var(--propus-r-lg, 20px);
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: var(--propus-font-body, 'Roboto', sans-serif);
+  color: var(--propus-text-primary);
+  box-shadow: var(--propus-shadow-sm);
+}
+
+.dv2-today-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dv2-today-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+.dv2-today-eyebrow-line {
+  width: 22px;
+  height: 1px;
+  background: var(--propus-accent-warm, var(--propus-gold));
+}
+
+.dv2-today-date {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.dv2-today-dom {
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-style: italic;
+  font-size: 56px;
+  line-height: .9;
+  font-weight: 400;
+  color: var(--propus-text-primary);
+  letter-spacing: -0.02em;
+}
+.dv2-today-monyear {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.dv2-today-month {
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-style: italic;
+  font-size: 22px;
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  line-height: 1;
+}
+.dv2-today-year {
+  font-size: 11px;
+  color: var(--propus-text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+/* Weather Strip */
+.dv2-today-weather {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-md, 14px);
+}
+.dv2-today-wcell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: var(--propus-r-sm, 8px);
+  background: var(--propus-bg-card);
+  border: 1px solid transparent;
+  transition: border-color var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+}
+.dv2-today-wcell:hover {
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.dv2-today-wcell[data-today] {
+  background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.dv2-today-wcell--skeleton {
+  height: 60px;
+  background: var(--propus-bg-strip);
+  animation: propus-pulse 1.4s infinite;
+}
+.dv2-today-wcell-day {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--propus-text-muted);
+}
+.dv2-today-wcell-emoji {
+  font-size: 20px;
+  line-height: 1;
+  margin: 1px 0;
+}
+.dv2-today-wcell-temp {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--propus-text-primary);
+}
+
+/* Timeline */
+.dv2-today-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dv2-today-timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--propus-text-muted);
+  margin-bottom: 2px;
+}
+.dv2-today-timeline-count {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.dv2-today-timeline-empty {
+  padding: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--propus-text-muted);
+  background: var(--propus-bg-strip);
+  border-radius: var(--propus-r-sm, 8px);
+}
+.dv2-today-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dv2-today-tl-item {
+  display: grid;
+  grid-template-columns: 84px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: var(--propus-r-sm, 8px);
+  cursor: default;
+  transition: border-color var(--propus-dur-fast, .15s), transform var(--propus-dur-fast, .15s);
+}
+.dv2-today-tl-item:hover {
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+  transform: translateX(2px);
+}
+.dv2-today-tl-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  font-variant-numeric: tabular-nums;
+}
+.dv2-today-tl-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.dv2-today-tl-no {
+  font-size: 10px;
+  color: var(--propus-text-muted);
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+}
+.dv2-today-tl-addr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--propus-text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dv2-today-tl-photog {
+  font-size: 11px;
+  color: var(--propus-text-muted);
+  white-space: nowrap;
+}
+.dv2-today-tl-photog em {
+  color: var(--propus-text-muted);
+  font-style: italic;
+  opacity: .6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv2-today-tl-item:hover { transform: none !important; }
+}
