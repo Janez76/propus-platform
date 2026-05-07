@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { Mic, Paperclip, RotateCcw, Send, StopCircle } from 'lucide-react';
+import { CheckCircle2, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
 import { PropiAvatar } from './PropiAvatar';
 import { usePropiChat } from './usePropiChat';
 import './propi-chat.css';
@@ -28,7 +28,7 @@ const DEFAULT_PROMPTS = [
 
 export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiChatProps) {
   const initialMessage = greeting ? { role: 'assistant' as const, content: greeting } : undefined;
-  const { messages, loading, error, send, reset, abort } = usePropiChat(
+  const { messages, loading, error, send, reset, abort, activeTools } = usePropiChat(
     initialMessage ? { initialMessage } : {},
   );
   const [input, setInput] = useState('');
@@ -108,8 +108,13 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
                   <PropiAvatar size={26} followCursor={false} />
                 </div>
               )}
-              <div className="propi-msg-content">
-                {m.content || (isStreaming ? <TypingDots /> : null)}
+              <div className="propi-msg-body">
+                {isStreaming && activeTools.length > 0 && (
+                  <ToolPills tools={activeTools} />
+                )}
+                <div className="propi-msg-content">
+                  {m.content || (isStreaming && activeTools.length === 0 ? <TypingDots /> : null)}
+                </div>
               </div>
             </div>
           );
@@ -184,5 +189,29 @@ function TypingDots() {
       <span />
       <span />
     </span>
+  );
+}
+
+interface ToolPillsProps {
+  tools: { name: string; durationMs?: number; error?: string }[];
+}
+
+function ToolPills({ tools }: ToolPillsProps) {
+  return (
+    <div className="propi-tool-pills" role="status" aria-label="Propi nutzt Tools">
+      {tools.map((t, i) => {
+        const state = t.error ? 'error' : t.durationMs !== undefined ? 'done' : 'running';
+        const Icon = state === 'error' ? XCircle : state === 'done' ? CheckCircle2 : Wrench;
+        return (
+          <span key={i} className="propi-tool-pill" data-state={state} title={t.error ?? t.name}>
+            <Icon size={10} aria-hidden className={state === 'running' ? 'propi-tool-pill-spin' : undefined} />
+            <code className="propi-tool-pill-name">{t.name}</code>
+            {t.durationMs !== undefined && !t.error && (
+              <span className="propi-tool-pill-dur">{t.durationMs}ms</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
   );
 }

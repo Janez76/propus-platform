@@ -77,6 +77,7 @@ html.dark .propi-chat-head {
 /* Messages */
 .propi-msg { display: flex; gap: 8px; max-width: 92%; }
 .propi-msg-avatar { width: 26px; height: 26px; flex-shrink: 0; }
+.propi-msg-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .propi-msg-content {
   padding: 8px 12px; border-radius: 12px;
   font-size: 13px; line-height: 1.5;
@@ -98,6 +99,53 @@ html.dark .propi-chat-head {
   border-radius: 8px; font-size: 12px;
   border: 1px solid rgba(196, 74, 58, .25);
 }
+
+/* Tool-Pills (Phase B) — sichtbarer Live-Status während Propi Backend-Tools nutzt */
+.propi-tool-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 2px;
+}
+.propi-tool-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  color: var(--propus-text-muted);
+  font-family: var(--propus-font-body, inherit);
+}
+.propi-tool-pill[data-state='running'] {
+  background: var(--propus-gold-soft, rgba(182,142,32,.12));
+  border-color: var(--propus-gold);
+  color: var(--propus-gold);
+}
+.propi-tool-pill[data-state='done'] {
+  background: color-mix(in srgb, var(--propus-green) 10%, transparent);
+  border-color: color-mix(in srgb, var(--propus-green) 40%, var(--propus-border));
+  color: var(--propus-green);
+}
+.propi-tool-pill[data-state='error'] {
+  background: var(--propus-bad-soft, #fbdcd5);
+  border-color: var(--propus-bad, #c44a3a);
+  color: var(--propus-bad, #c44a3a);
+}
+.propi-tool-pill-name {
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+.propi-tool-pill-dur {
+  opacity: .7;
+  font-variant-numeric: tabular-nums;
+}
+.propi-tool-pill-spin { animation: propus-spin 1.4s linear infinite; }
 
 /* Typing */
 .propi-typing { display: inline-flex; gap: 4px; align-items: center; height: 18px; }
