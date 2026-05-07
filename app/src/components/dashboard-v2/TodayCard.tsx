@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Calendar, Clock, MapPin, Car, Banknote, CheckCircle2 } from 'lucide-react';
-import type { Lang } from '../../i18n';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Calendar, Clock, MapPin, MapPinOff, Car, Banknote, CheckCircle2, Navigation, Loader2 } from 'lucide-react';
+import { t, type Lang } from '../../i18n';
+import { useGeolocation } from '../cockpit/useGeolocation';
 import { weatherEmoji, weatherLabel, type WeatherForecastDay } from '../../api/weather';
 import type { DashboardMetrics } from './useDashboardMetrics';
 import { buildMissionTimeline, type MissionStatus } from './missionTimeline';
@@ -41,7 +42,9 @@ const STATUS_LABEL: Record<MissionStatus, string> = {
   todo: 'To-Do',
 };
 
-export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) {
+type DriveFromLive = { durationText: string; distanceText?: string | null };
+
+export function TodayCard({ metrics, onHover, weather = null, lang }: TodayCardProps) {
   const now = useNow();
   const today = metrics.today;
   const dom = today.getDate();
@@ -51,6 +54,88 @@ export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) 
   const todayOrders = metrics.todayOrders;
   const todayDateStr = today.toDateString();
   const missions = useMemo(() => buildMissionTimeline(todayOrders, now), [todayOrders, now]);
+  const dashGeo = useGeolocation({ storageKey: 'propus.dashboard.geo.enabled.v1' });
+  const [driveByOrder, setDriveByOrder] = useState<Record<string, DriveFromLive>>({});
+  const [driveLoading, setDriveLoading] = useState(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
+  const driveAbortRef = useRef<AbortController | null>(null);
+
+  const legsKey = useMemo(
+    () => missions.map((m) => `${m.order.orderNo}:${(m.order.address || '').trim()}`).join('|'),
+    [missions],
+  );
+
+  useEffect(() => {
+    driveAbortRef.current?.abort();
+    if (!dashGeo.enabled || !dashGeo.position || missions.length === 0) {
+      setDriveByOrder({});
+      setDriveError(null);
+      setDriveLoading(false);
+      return;
+    }
+    const legs = missions
+      .map((m) => ({ orderNo: String(m.order.orderNo), address: (m.order.address || '').trim() }))
+      .filter((l) => l.address.length > 2)
+      .slice(0, 25);
+    if (legs.length === 0) {
+      setDriveByOrder({});
+      setDriveError(null);
+      setDriveLoading(false);
+      return;
+    }
+
+    const ac = new AbortController();
+    driveAbortRef.current = ac;
+    const timer = window.setTimeout(() => {
+      setDriveLoading(true);
+      setDriveError(null);
+      void (async () => {
+        try {
+          const res = await fetch('/api/dashboard/drive-times', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            signal: ac.signal,
+            body: JSON.stringify({
+              lat: dashGeo.position!.lat,
+              lng: dashGeo.position!.lng,
+              legs,
+            }),
+          });
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+            legs?: Array<{ orderNo: string; durationText: string | null; distanceText?: string | null; status?: string }>;
+          };
+          if (!res.ok) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+          }
+          const next: Record<string, DriveFromLive> = {};
+          for (const row of data.legs || []) {
+            if (row.orderNo && row.durationText) {
+              next[String(row.orderNo)] = { durationText: row.durationText, distanceText: row.distanceText };
+            }
+          }
+          setDriveByOrder(next);
+        } catch (e) {
+          if (e instanceof DOMException && e.name === 'AbortError') return;
+          setDriveByOrder({});
+          setDriveError(e instanceof Error ? e.message : 'Fehler');
+        } finally {
+          if (!ac.signal.aborted) setDriveLoading(false);
+        }
+      })();
+    }, 450);
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [
+    dashGeo.enabled,
+    dashGeo.position?.lat,
+    dashGeo.position?.lng,
+    dashGeo.position?.timestamp,
+    legsKey,
+  ]);
   const todayWeather = useMemo(
     () => weather?.find((d) => new Date(d.date).toDateString() === todayDateStr) ?? null,
     [weather, todayDateStr],
@@ -102,6 +187,45 @@ export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) 
           <span>Termine heute</span>
           <span className="dv2-today-timeline-count">{todayOrders.length}</span>
         </div>
+        {missions.length > 0 ? (
+          <div className="dv2-today-drive-row">
+            <button
+              type="button"
+              className="dv2-today-drive-geo"
+              data-active={dashGeo.enabled && dashGeo.position ? 'true' : undefined}
+              disabled={dashGeo.loading}
+              onClick={() => (dashGeo.enabled ? dashGeo.clear() : void dashGeo.request())}
+              title={
+                dashGeo.position
+                  ? t(lang, 'dashboardV2.todayDrive.titleActive').replace(
+                      '{{m}}',
+                      String(Math.round(dashGeo.position.accuracy)),
+                    )
+                  : dashGeo.error
+                    ? `${t(lang, 'dashboardV2.todayDrive.titleError')}: ${dashGeo.error}`
+                    : t(lang, 'dashboardV2.todayDrive.titleIdle')
+              }
+              aria-label={dashGeo.enabled ? t(lang, 'dashboardV2.todayDrive.ariaOff') : t(lang, 'dashboardV2.todayDrive.ariaOn')}
+              aria-pressed={dashGeo.enabled && !!dashGeo.position}
+            >
+              {dashGeo.loading ? (
+                <Loader2 size={14} className="dv2-today-drive-spin" aria-hidden />
+              ) : dashGeo.enabled && dashGeo.position ? (
+                <MapPin size={14} aria-hidden />
+              ) : dashGeo.error ? (
+                <MapPinOff size={14} aria-hidden />
+              ) : (
+                <MapPin size={14} aria-hidden />
+              )}
+            </button>
+            {dashGeo.enabled && dashGeo.position ? (
+              <p className="dv2-today-drive-note">
+                {driveLoading ? t(lang, 'dashboardV2.todayDrive.loading') : t(lang, 'dashboardV2.todayDrive.note')}
+              </p>
+            ) : null}
+            {driveError ? <span className="dv2-today-drive-err">{driveError}</span> : null}
+          </div>
+        ) : null}
         {missions.length === 0 ? (
           <div className="dv2-today-timeline-empty">Keine Termine heute. ☕</div>
         ) : (
@@ -135,8 +259,19 @@ export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) 
                         </span>
                       ) : null}
                       {m.driveMinFromPrev !== null ? (
-                        <span className="dv2-today-pill" title="Geschätzte Anfahrt vom letzten Stopp (28 km/h Stadt-Schnitt)">
+                        <span className="dv2-today-pill" title={t(lang, 'dashboardV2.todayDrive.pillZipHint')}>
                           <Car size={10} aria-hidden /> ~{m.driveMinFromPrev} min
+                        </span>
+                      ) : null}
+                      {driveByOrder[String(o.orderNo)] ? (
+                        <span
+                          className="dv2-today-pill dv2-today-pill--live-route"
+                          title={t(lang, 'dashboardV2.todayDrive.pillLiveTitle')}
+                        >
+                          <Navigation size={10} aria-hidden /> {driveByOrder[String(o.orderNo)].durationText}
+                          {driveByOrder[String(o.orderNo)].distanceText
+                            ? ` · ${driveByOrder[String(o.orderNo)].distanceText}`
+                            : ''}
                         </span>
                       ) : null}
                       {wxEmoji ? (
