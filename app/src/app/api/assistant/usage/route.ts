@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
+import { isAssistantCookieSessionRole } from "@/lib/assistant/auth";
 import { getAdminSession } from "@/lib/auth.server";
 import { computeAssistantCostChf } from "@/lib/assistant/assistant-usage-cost";
 import { getAssistantUsageReport } from "@/lib/assistant/store";
 
 export const runtime = "nodejs";
-
-const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
 function withCost(slice: { inputTokens: number; outputTokens: number; totalTokens: number }) {
   return {
@@ -16,7 +15,7 @@ function withCost(slice: { inputTokens: number; outputTokens: number; totalToken
 
 export async function GET() {
   const session = await getAdminSession();
-  if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
+  if (!session || !isAssistantCookieSessionRole(session.role)) {
     return NextResponse.json({ error: "Nicht authentifiziert", code: "auth_failed" }, { status: 401 });
   }
 
