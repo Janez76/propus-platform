@@ -1,12 +1,13 @@
-import { Calendar, ClipboardList, Users } from "lucide-react";
+import { Calendar, ClipboardList, MessageCircle, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type MobileTab = "calendar" | "orders" | "contacts";
+export type MobileTab = "calendar" | "orders" | "contacts" | "propi";
 
 const TABS: { key: MobileTab; label: string; Icon: LucideIcon }[] = [
   { key: "calendar", label: "Kalender", Icon: Calendar },
   { key: "orders", label: "Aufträge", Icon: ClipboardList },
   { key: "contacts", label: "Kontakte", Icon: Users },
+  { key: "propi", label: "Propi", Icon: MessageCircle },
 ];
 
 export function MobileBottomTabs({
