@@ -1647,7 +1647,7 @@ async function insertOrder(record, customerId) {
 
 async function getOrders({ status, limit = 500, offset = 0 } = {}) {
   let sql = `
-    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
+    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.bexio_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
            c.phone AS customer_phone,
            (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
            (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
@@ -1676,7 +1676,7 @@ async function getOrders({ status, limit = 500, offset = 0 } = {}) {
 
 async function getOrderByNo(orderNo) {
   const { rows } = await query(
-    `    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.exxas_customer_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
+    `    SELECT o.*, c.email AS customer_email, c.company AS customer_company, c.exxas_contact_id, c.exxas_customer_id, c.bexio_contact_id, c.street AS customer_street, c.zipcity AS customer_zipcity,
             c.phone AS customer_phone,
             (to_jsonb(c)->>'nas_customer_folder_base') AS customer_nas_customer_folder_base,
             (to_jsonb(c)->>'nas_raw_folder_base') AS customer_nas_raw_folder_base,
@@ -2547,6 +2547,37 @@ async function setCustomerExxasContactId(email, contactId) {
   );
 }
 
+// ─── bexio-Status (analog Exxas) ──────────────────────────────────────────────
+
+async function setBexioOrderId(orderNo, bexioOrderId, bexioOrderNumber) {
+  const fields = {
+    bexio_order_id: bexioOrderId != null ? String(bexioOrderId) : null,
+    bexio_status: "sent",
+    bexio_error: null,
+  };
+  if (bexioOrderNumber !== undefined) {
+    fields.bexio_order_number = bexioOrderNumber != null ? String(bexioOrderNumber) : null;
+  }
+  await updateOrderFields(orderNo, fields);
+}
+
+async function setBexioError(orderNo, errorMsg) {
+  await updateOrderFields(orderNo, {
+    bexio_status: "error",
+    bexio_error: errorMsg ? String(errorMsg).slice(0, 500) : null,
+  });
+}
+
+async function setCustomerBexioContactId(customerId, contactId) {
+  const id = Number(customerId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  if (contactId == null || String(contactId).trim() === "") return;
+  await query(
+    "UPDATE customers SET bexio_contact_id = $1, updated_at = NOW() WHERE id = $2",
+    [String(contactId), id]
+  );
+}
+
 // Findet die Exxas-Kontakt-ID eines Customer-Contacts (core.customer_contacts)
 // anhand der E-Mail (case-insensitive) und des zugehoerigen Kunden.
 async function getOrderMatterportTourUrl(orderNo) {
@@ -2616,6 +2647,11 @@ function dbRowToRecord(row) {
     exxasOrderNumber: row.exxas_order_number || null,
     exxasStatus: row.exxas_status,
     exxasError: row.exxas_error,
+    bexioOrderId: row.bexio_order_id || null,
+    bexioOrderNumber: row.bexio_order_number || null,
+    bexioStatus: row.bexio_status || "not_sent",
+    bexioError: row.bexio_error || null,
+    bexioContactId: row.bexio_contact_id || null,
     customerId: row.customer_id,
     customerCompany: row.customer_company || null,
     customerEmail: row.customer_email,
@@ -2734,6 +2770,9 @@ module.exports = {
   setExxasOrderId,
   setExxasError,
   setCustomerExxasContactId,
+  setBexioOrderId,
+  setBexioError,
+  setCustomerBexioContactId,
   ensureProductCatalogSeeded,
   listServiceCategories,
   createServiceCategory,

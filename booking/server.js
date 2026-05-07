@@ -170,6 +170,7 @@ const {
   buildExxasServiceOrderBody,
   resolveExxasCustomerIdForOrder,
 } = require("./exxas-service-order");
+const bexioSalesOrder = require("./bexio-sales-order");
 const gbpClient = require("./gbp-client");
 const { resolveAdminSendEmails, resolveAdminEmailTargets, getEmailSendListForAdminStatus, getResendEmailEffectsForStatus, shouldSendAttendeeNotifications } = require("./admin-status-email");
 const crypto = require("crypto");
@@ -8658,6 +8659,142 @@ app.post("/api/admin/orders/:orderNo/exxas-sync-links", requireAdmin, async (req
     });
   } catch (err) {
     const msg = err && err.message ? String(err.message) : "Exxas-Sync fehlgeschlagen";
+    return res.status(500).json({ ok: false, error: msg });
+  }
+});
+
+// bexio kb_order (Auftragsbestätigung) aus einem Propus-Auftrag anlegen.
+// Spiegel-Pendant zu /exxas-create-service-order, nutzt booking/bexio-sales-order.js.
+//
+// Konfiguration:
+//   - BEXIO_API_TOKEN, BEXIO_API_BASE (env, single-source-of-truth auf VPS)
+//   - app_settings 'integration.bexio.config' (paymentTypeId, bankAccountId,
+//     vatTaxId, ...) — siehe scripts/bexio-config-apply.sql
+//   - Fallback auf BEXIO_DEFAULT_* env vars (siehe bexio-sales-order.js).
+//
+// Ablauf: Config laden → Contact-ID auflösen (Cache → EXXAS-Marker → E-Mail) →
+//         POST /2.0/kb_order → POST Positionen → DB-Status auf "sent".
+app.post("/api/admin/orders/:orderNo/bexio-create-order", requireAdmin, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      return res.status(503).json({ ok: false, error: "DB nicht verfuegbar" });
+    }
+    const orderNo = Number(req.params.orderNo);
+    if (!Number.isFinite(orderNo)) {
+      return res.status(400).json({ ok: false, error: "Ungueltige Auftragsnummer" });
+    }
+    const bexioToken = process.env.BEXIO_API_TOKEN;
+    if (!bexioToken) {
+      return res.status(503).json({
+        ok: false,
+        error:
+          "BEXIO_API_TOKEN fehlt. In .env.vps (single-source-of-truth) BEXIO_API_TOKEN setzen und " +
+          "den booking-Container neu starten.",
+      });
+    }
+    const bexioBase = String(process.env.BEXIO_API_BASE || "https://api.bexio.com").replace(/\/$/, "");
+
+    const order = await db.getOrderByNo(orderNo);
+    if (!order) {
+      return res.status(404).json({ ok: false, error: "Auftrag nicht gefunden" });
+    }
+    if (String(order.bexioStatus || "") === "sent" && String(order.bexioOrderId || "").trim()) {
+      return res.status(409).json({
+        ok: false,
+        error: "Bereits in bexio erstellt",
+        bexioOrderId: order.bexioOrderId,
+        bexioOrderNumber: order.bexioOrderNumber || null,
+      });
+    }
+
+    const stored = await db.getAppSetting("integration.bexio.config").catch(() => null);
+    const config = bexioSalesOrder.loadBexioConfig(stored);
+    const cfgErr = bexioSalesOrder.validateBexioConfig(config);
+    if (cfgErr) {
+      await db.setBexioError(orderNo, cfgErr).catch(() => {});
+      return res.status(503).json({ ok: false, error: cfgErr });
+    }
+
+    // Contact-ID auflösen (Cache → EXXAS-Marker → E-Mail)
+    const contactRes = await bexioSalesOrder.resolveBexioContactId({
+      order, db, bexioBase, bexioToken,
+    });
+    if (!contactRes.value) {
+      const error = contactRes.error || "bexio-Kontakt nicht gefunden";
+      await db.setBexioError(orderNo, error).catch(() => {});
+      return res.status(422).json({ ok: false, error });
+    }
+    const contactId = contactRes.value;
+
+    // Cache füllen, falls per Suche gefunden
+    if (contactRes.source !== "order" && contactRes.source !== "customer-cache" && order.customerId) {
+      try {
+        await db.setCustomerBexioContactId(order.customerId, contactId);
+      } catch (_) { /* non-fatal */ }
+    }
+
+    const body = bexioSalesOrder.buildBexioOrderBody({ order, contactId, config });
+    const positions = bexioSalesOrder.buildBexioPositions({ order, config });
+
+    let created;
+    try {
+      created = await bexioSalesOrder.postBexio({
+        bexioBase, bexioToken, path: "/2.0/kb_order", body,
+      });
+    } catch (e) {
+      const msg = e && e.message ? String(e.message) : "bexio kb_order Anlage fehlgeschlagen";
+      await db.setBexioError(orderNo, msg).catch(() => {});
+      return res.status(e && e.status ? e.status : 502).json({ ok: false, error: msg });
+    }
+
+    const bexioOrderId = Number(created && created.id);
+    const bexioOrderNumber = String((created && (created.document_nr || created.documentNr)) || "");
+    if (!Number.isFinite(bexioOrderId) || bexioOrderId <= 0) {
+      const msg = "bexio kb_order angelegt, aber keine id zurueckgegeben";
+      await db.setBexioError(orderNo, msg).catch(() => {});
+      return res.status(502).json({ ok: false, error: msg });
+    }
+
+    // Positionen einzeln POSTen — Fehler einzeln sammeln, nicht abbrechen.
+    const positionErrors = [];
+    for (const pos of positions) {
+      try {
+        await bexioSalesOrder.postBexio({
+          bexioBase, bexioToken,
+          path: `/2.0/kb_order/${bexioOrderId}/kb_position_custom`,
+          body: pos,
+        });
+      } catch (e) {
+        positionErrors.push({
+          text: String(pos.text || "").slice(0, 80),
+          error: e && e.message ? String(e.message).slice(0, 200) : "unbekannt",
+        });
+      }
+    }
+
+    // Auch bei teilweise gescheiterten Positionen ist der Auftrag in bexio
+    // angelegt — Status auf "sent", Fehler aber als Notiz dranlassen.
+    await db.setBexioOrderId(orderNo, bexioOrderId, bexioOrderNumber || null);
+    if (positionErrors.length > 0) {
+      const note = `Positionen: ${positions.length - positionErrors.length}/${positions.length} angelegt. Fehler: ${positionErrors.map((p) => p.text).join(", ").slice(0, 300)}`;
+      await db.setBexioError(orderNo, note).catch(() => {});
+    }
+
+    return res.json({
+      ok: true,
+      bexioOrderId: String(bexioOrderId),
+      bexioOrderNumber: bexioOrderNumber || null,
+      positionsCreated: positions.length - positionErrors.length,
+      positionsTotal: positions.length,
+      positionErrors: positionErrors.length ? positionErrors : undefined,
+      bexioUrl: `https://office.bexio.com/index.php/kb_order/show/id/${bexioOrderId}`,
+    });
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : "bexio-Aufruf fehlgeschlagen";
+    try {
+      const n = Number(req.params.orderNo);
+      if (Number.isFinite(n) && db.setBexioError) await db.setBexioError(n, msg);
+    } catch (_) { /* ignore */ }
     return res.status(500).json({ ok: false, error: msg });
   }
 });

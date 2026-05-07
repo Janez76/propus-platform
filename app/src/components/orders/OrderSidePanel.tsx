@@ -209,6 +209,11 @@ export function OrderSidePanel({
             Exxas #{order.exxasOrderNumber}
           </span>
         ) : null}
+        {order.bexioOrderNumber ? (
+          <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
+            bexio #{order.bexioOrderNumber}
+          </span>
+        ) : null}
       </div>
 
       {tab === "overview" && (
@@ -586,6 +591,37 @@ export function OrderSidePanel({
               {order.exxasError ? (
                 <Row icon={<AlertTriangle className="h-4 w-4 text-[var(--danger,#c0392b)]" />}>
                   <span className="text-[var(--danger,#c0392b)]">{order.exxasError}</span>
+                </Row>
+              ) : null}
+            </Section>
+          ) : null}
+
+          {order.bexioOrderNumber || order.bexioOrderId || (order.bexioStatus && order.bexioStatus !== "not_sent") || order.bexioError ? (
+            <Section title={tr(lang, "orders.sidePanel.section.bexio", "bexio")}>
+              {order.bexioOrderNumber ? (
+                <KeyVal k="Nr." v={order.bexioOrderNumber} />
+              ) : null}
+              {order.bexioOrderId ? (
+                <KeyVal k="ID" v={order.bexioOrderId} />
+              ) : null}
+              {order.bexioStatus ? (
+                <KeyVal k="Status" v={order.bexioStatus} />
+              ) : null}
+              {order.bexioOrderId ? (
+                <Row>
+                  <a
+                    href={`https://office.bexio.com/index.php/kb_order/show/id/${encodeURIComponent(order.bexioOrderId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs underline"
+                  >
+                    {tr(lang, "orders.sidePanel.bexio.openInBexio", "In bexio öffnen")}
+                  </a>
+                </Row>
+              ) : null}
+              {order.bexioError ? (
+                <Row icon={<AlertTriangle className="h-4 w-4 text-[var(--danger,#c0392b)]" />}>
+                  <span className="text-[var(--danger,#c0392b)]">{order.bexioError}</span>
                 </Row>
               ) : null}
             </Section>

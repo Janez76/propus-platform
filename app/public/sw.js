@@ -48,8 +48,10 @@ self.addEventListener("fetch", (event) => {
 
   // Next.js-Runtime/Chunks und normale Seiten immer aus dem Netzwerk laden.
   // Browser/Next regeln die Versionierung der hashed Assets selbst.
+  // KEIN respondWith — Browser handled die Requests nativ. Sonst rejecten
+  // transiente Fetch-Fehler die FetchEvent-Promise und der Browser zeigt
+  // "network error response: the promise was rejected" plus "Failed to fetch".
   if (url.pathname.startsWith("/_next/") || req.mode === "navigate" || !SHELL_SET.has(url.pathname)) {
-    event.respondWith(fetch(req));
     return;
   }
 
