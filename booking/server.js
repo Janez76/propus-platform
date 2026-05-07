@@ -8765,9 +8765,11 @@ app.post("/api/admin/orders/:orderNo/bexio-create-order", requireAdmin, async (r
           body: pos,
         });
       } catch (e) {
+        const msg = e && e.message ? String(e.message).slice(0, 300) : "unbekannt";
+        console.warn(`[bexio-create-order] Position "${String(pos.text || "").slice(0, 80)}" → ${msg}`);
         positionErrors.push({
           text: String(pos.text || "").slice(0, 80),
-          error: e && e.message ? String(e.message).slice(0, 200) : "unbekannt",
+          error: msg,
         });
       }
     }
@@ -8776,7 +8778,11 @@ app.post("/api/admin/orders/:orderNo/bexio-create-order", requireAdmin, async (r
     // angelegt — Status auf "sent", Fehler aber als Notiz dranlassen.
     await db.setBexioOrderId(orderNo, bexioOrderId, bexioOrderNumber || null);
     if (positionErrors.length > 0) {
-      const note = `Positionen: ${positions.length - positionErrors.length}/${positions.length} angelegt. Fehler: ${positionErrors.map((p) => p.text).join(", ").slice(0, 300)}`;
+      // Persistierte Notiz enthält pro fehlgeschlagene Position den bexio-Fehlertext
+      // (z.B. "tax_id: Diese Eingabe ist nicht korrekt"), damit Diagnose ohne
+      // Live-Logs moeglich ist.
+      const detail = positionErrors.map((p) => `${p.text}: ${p.error}`).join(" | ").slice(0, 800);
+      const note = `Positionen: ${positions.length - positionErrors.length}/${positions.length} angelegt. Fehler: ${detail}`;
       await db.setBexioError(orderNo, note).catch(() => {});
     }
 

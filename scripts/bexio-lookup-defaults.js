@@ -75,19 +75,34 @@ async function bx(method, p) {
   }
 
   // ─── taxes (MWST) ─────────────────────────────────────────────────────────
-  console.log("\n── /3.0/taxes (Filter: aktiv) ─────────────────────────────");
-  const taxes = await bx("GET", "/3.0/taxes?scope=ACTIVE");
+  // ⚠ /3.0/taxes?scope=ACTIVE&types=sales_tax filtert NICHT nach is_active —
+  // wir holen alle und filtern lokal. kb_position_custom akzeptiert nur Taxes mit
+  // is_active=true, und je nach Account-Konfiguration:
+  //   - Effektivmethode: type='sales_tax' (z.B. id 14 8.1% Normalsatz)
+  //   - Saldosteuersatz: type='net_tax'   (z.B. id 31 SSS1/53 oder id 32 SSS2/62)
+  //   - Export/steuerfrei: type='not_taxable_turnover' (z.B. id 3 Export 0%)
+  console.log("\n── /3.0/taxes (lokal gefiltert: is_active=true) ──────────");
+  const taxes = await bx("GET", "/3.0/taxes");
   if (Array.isArray(taxes)) {
-    for (const t of taxes) {
-      console.log(`  id=${String(t.id).padStart(3)}  code="${t.code}"  value=${t.value}  type=${t.type}  net_tax_type=${t.net_tax_type}  display_name="${t.display_name || t.name}"`);
+    const active = taxes.filter((t) => t.is_active === true);
+    const usable = active.filter((t) =>
+      ["sales_tax", "net_tax", "not_taxable_turnover"].includes(String(t.type || ""))
+    );
+    for (const t of usable) {
+      console.log(`  id=${String(t.id).padStart(3)}  code="${t.code}"  value=${t.value}  type=${t.type}  display_name="${t.display_name || t.name}"`);
     }
-    const m81 = taxes.find(t =>
-      Number(t.value) === 8.1 &&
-      String(t.type || "").toLowerCase() === "sales" &&
-      String(t.net_tax_type || "").toLowerCase().includes("net") === false
-    ) || taxes.find(t => Number(t.value) === 8.1);
-    if (m81) console.log(`\n  → Match 8.1% Sales: id=${m81.id}  "${m81.display_name || m81.name}"  net_tax_type=${m81.net_tax_type}`);
-    else console.log(`\n  → Kein 8.1%-Treffer — bitte manuell auswählen.`);
+    if (active.length === 0) {
+      console.log("  → KEINE Tax ist is_active=true. bexio-Account-Setup unvollstaendig.");
+    } else if (usable.length === 0) {
+      console.log("  → Keine als Verkaufs-Tax nutzbare Tax aktiv (sales_tax/net_tax/not_taxable_turnover).");
+    } else {
+      // Erst sales_tax 8.1% (Effektivmethode) suchen, dann net_tax 8.1% (Saldo)
+      const eff = usable.find((t) => Number(t.value) === 8.1 && t.type === "sales_tax");
+      const sss = usable.find((t) => Number(t.value) === 8.1 && t.type === "net_tax");
+      if (eff) console.log(`\n  → Vorschlag Effektivmethode 8.1%: id=${eff.id}  "${eff.code}"`);
+      if (sss) console.log(`  → Vorschlag Saldosteuersatz 8.1%:  id=${sss.id}  "${sss.code}"`);
+      if (!eff && !sss) console.log(`  → Kein 8.1%-Treffer in Sales/Net. Manuell auswaehlen.`);
+    }
   }
 
   // ─── units (Mengeneinheiten) ─────────────────────────────────────────────
