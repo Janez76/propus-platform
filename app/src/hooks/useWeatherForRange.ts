@@ -28,7 +28,10 @@ export function useWeatherForRange(
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!token || !fromIso || days <= 0) {
+    // Epoch-Guard: useNow liefert beim ersten Render Date(0) = 1970-01-01
+    // (Hydration-Match-Sentinel). Ohne Guard fliegt ein Forecast-Fetch fuer
+    // 1970 raus → Open-Meteo 502. Erst ab plausiblem Datum laden.
+    if (!token || !fromIso || days <= 0 || fromIso < "2000-01-01") {
       setData(new Map());
       return;
     }
