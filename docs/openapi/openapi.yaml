@@ -2970,39 +2970,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         5XX:
           $ref: '#/components/responses/ServerError'
-  /api/admin/me/change-password:
-    post:
-      tags:
-        - booking
-      summary: 'TODO: POST /api/admin/me/change-password'
-      description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:8381`. Schemas
-        noch nicht dokumentiert.
-      operationId: postApiAdminMeChangepassword
-      x-source-file: booking/server.js
-      x-source-line: 8381
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      security:
-        - bearerAuth: []
-        - sessionCookie: []
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        5XX:
-          $ref: '#/components/responses/ServerError'
   /api/dashboard/drive-times:
     post:
       tags:
@@ -3098,6 +3065,39 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '503':
           description: GOOGLE_MAPS-Konfiguration fehlt oder Provider nicht erreichbar.
+        5XX:
+          $ref: '#/components/responses/ServerError'
+  /api/admin/me/change-password:
+    post:
+      tags:
+        - booking
+      summary: 'TODO: POST /api/admin/me/change-password'
+      description: >-
+        **Auto-generierter Stub.** Quelle: `booking/server.js:8381`. Schemas
+        noch nicht dokumentiert.
+      operationId: postApiAdminMeChangepassword
+      x-source-file: booking/server.js
+      x-source-line: 8381
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         5XX:
           $ref: '#/components/responses/ServerError'
   /api/admin/mail/diagnostics:

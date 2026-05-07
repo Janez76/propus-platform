@@ -909,7 +909,7 @@ Status `closed` wird ausgeblendet (per `HIDDEN_STATUSES`). Stornierte (`cancelle
 - **Erster Termin am Tag:** Fahrtquelle = aktuelle GPS-Position (oder PLZ `8005` Studio-Fallback)
 - **Folgetermin:** Fahrtquelle = Adresse des **vorigen** Termins (chained)
 - **Tour-Divider** zwischen Same-Day-Terminen: `(next.appt - cur.appt)` als Pause-Anzeige + Hinweis auf nächste Fahrtzeit + Engpass-Warnung wenn `Pause - Fahrt - Puffer < 30 min`
-- **Heimfahrt-Divider** nach letztem Tagestermin: Fahrtzeit zur `home_address` aus `photographer_settings` (geladen via [`GET /api/admin/me/home`](#api-spec))
+- **Heimfahrt-Divider** nach letztem Tagestermin: Fahrtzeit zur `home_address` aus `photographer_settings` (geladen via `GET /api/admin/me/home`)
 
 ### Abfahrts-Eskalation ([`departureLogic.ts`](../app/src/pages-legacy/mobile/departureLogic.ts))
 
