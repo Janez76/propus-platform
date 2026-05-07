@@ -12,6 +12,10 @@ import { teamsHandlers, teamsTools } from "./teams";
 import { toursHandlers, toursTools } from "./tours";
 import { weatherHandlers, weatherTools } from "./weather";
 import { writeTools, writeHandlers } from "./writes";
+import type { AssistantLiveLocation } from "../live-location-types";
+
+export type { AssistantLiveLocation } from "../live-location-types";
+export { LIVE_ORIGIN_PLACEHOLDER, parseClientLiveLocation } from "../live-location-types";
 
 export type ToolDefinition = {
   name: string;
@@ -33,6 +37,8 @@ export type ToolContext = {
   userAgent?: string;
   /** Aktuelle Assistant-Konversation (falls schon angelegt) */
   conversationId?: string;
+  /** Pro Anfrage: geteilter Gerätestandort für Routing-Tools (optional). */
+  liveLocation?: AssistantLiveLocation | null;
 };
 
 export type ToolHandler = (input: Record<string, unknown>, ctx: ToolContext) => Promise<unknown>;

@@ -24,7 +24,7 @@ const MAX_AGE_DEFAULT_MS = 60_000;
 const TIMEOUT_DEFAULT_MS = 10_000;
 
 export type UseGeolocationOptions = {
-  /** localStorage-Key für den Opt-In (z. B. Dashboard vs. Cockpit). */
+  /** localStorage-Key für den Opt-In (z. B. Cockpit, Dashboard oder Assistant). */
   storageKey?: string;
   maximumAgeMs?: number;
   timeoutMs?: number;

@@ -13,6 +13,7 @@ import {
   buildSystemPrompt,
   type PromptInput,
 } from "@/lib/assistant/system-prompt";
+import { buildLiveLocationSystemPromptBlock } from "@/lib/assistant/live-location-types";
 import {
   getActivePromptVersion,
   listActiveNegativeExamples,
@@ -95,6 +96,10 @@ function appendDynamicContext(body: string, input: PromptInput): string {
       lines.push(`  Tool-Plan: ${ex.assistantToolPlan}`);
       lines.push(`  Antwort: ${ex.assistantFinal}`);
     }
+  }
+
+  if (input.liveLocation) {
+    lines.push(buildLiveLocationSystemPromptBlock(input.liveLocation));
   }
 
   return lines.join("\n");
