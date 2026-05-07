@@ -62,28 +62,23 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Wichtig: Body via printf in einer Variable bauen — embedded Newlines
+        # innerhalb eines mehrzeiligen `--body "..."` brechen den YAML-`run: |`-
+        # Block-Scalar (jede Zeile muss eingerueckt sein), was den ganzen
+        # Workflow als "file issue" markiert.
         run: |
           ISSUE_NUM="${{ github.event.issue.number }}"
           STATUS="${{ steps.fix.outcome }}"
           PR_URL="${{ steps.fix.outputs.pr_url }}"
           REASON="${{ steps.fix.outputs.reason }}"
+          WF_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           if [ "$STATUS" = "success" ] && [ -n "$PR_URL" ]; then
-            gh issue comment "$ISSUE_NUM" \
-              --body "🤖 **Auto-Fix-Bot:** Vorschlag erstellt — $PR_URL
-
-Bitte review + merge wenn der Fix korrekt ist. Beim erfolgreichen Re-Deploy schliesst sich dieses Issue automatisch.
-
-Workflow-Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** Vorschlag erstellt — %s\n\nBitte review + merge wenn der Fix korrekt ist. Beim erfolgreichen Re-Deploy schliesst sich dieses Issue automatisch.\n\nWorkflow-Run: %s' "$PR_URL" "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
           elif [ "$STATUS" = "success" ]; then
-            gh issue comment "$ISSUE_NUM" \
-              --body "🤖 **Auto-Fix-Bot:** kein automatischer Fix moeglich.
-
-Grund: ${REASON:-unbekannt}
-
-Workflow-Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** kein automatischer Fix moeglich.\n\nGrund: %s\n\nWorkflow-Run: %s' "${REASON:-unbekannt}" "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
           else
-            gh issue comment "$ISSUE_NUM" \
-              --body "🤖 **Auto-Fix-Bot:** Versuch fehlgeschlagen (Workflow-Error).
-
-Workflow-Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** Versuch fehlgeschlagen (Workflow-Error).\n\nWorkflow-Run: %s' "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
           fi
