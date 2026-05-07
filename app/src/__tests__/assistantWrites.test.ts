@@ -159,6 +159,10 @@ describe("create_order (Bug-Hunt HIGH-5)", () => {
     expect(result).toMatchObject({ error: expect.stringContaining("E-Mail-Adresse hinterlegt") });
     expect(deps.query).not.toHaveBeenCalled();
     expect(deps.queryOne).toHaveBeenCalledTimes(1);
+    expect(deps.queryOne).toHaveBeenCalledWith(
+      expect.stringContaining("SELECT id, name, email, company FROM core.customers WHERE id = $1"),
+      [8],
+    );
   });
 });
 
