@@ -254,7 +254,6 @@ export const navConfig: NavSection[] = [
           { id: "tours-workflow", to: "/admin/tours/workflow-settings", labelKey: "nav.item.toursWorkflow", icon: GitBranch },
           { id: "tours-cleanup", to: "/admin/tours/bereinigung", labelKey: "nav.item.toursCleanup", icon: Trash2 },
           { id: "tours-team", to: "/admin/tours/team", labelKey: "nav.item.toursTeam", icon: UserCog },
-          { id: "tours-ai", to: "/admin/tours/ai-chat", labelKey: "nav.item.toursAiChat", icon: MessageSquare },
           { id: "tours-preview", to: "/admin/tours/portal-vorschau", labelKey: "nav.item.toursPreview", icon: Eye },
         ],
       },
