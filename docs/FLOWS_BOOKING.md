@@ -899,10 +899,10 @@ Eskalations-UI                         ← passed / now / soon / ok
 |---|---|---|
 | `today` | Termin heute (start-of-day bis +24 h) | aufsteigend nach Uhrzeit |
 | `tomorrow` | Termin morgen (+24 h bis +48 h) | aufsteigend nach Uhrzeit |
-| `week` | Termin in 2..7 Tagen | aufsteigend |
-| `later` | >7 Tage, oder kein `appointmentDate`, oder Vergangenheit ohne `done` | absteigend (jüngste zuerst), per Default collapsed |
+| `week` | Termin nach Morgen, bis Ende der laufenden Kalenderwoche (So 23:59:59) | aufsteigend |
+| `later` | Ab Mo der Folgewoche, oder kein `appointmentDate`, oder Vergangenheit ohne `done` | absteigend (jüngste zuerst), per Default collapsed |
 
-Status `closed` wird ausgeblendet (per `HIDDEN_STATUSES`). Stornierte (`cancelled`) bleiben sichtbar.
+Default-versteckte Statuses (per `DEFAULT_HIDDEN_STATUSES` in `dayBuckets.ts`): `closed`, `cancelled`. Stornierte gehoeren nicht in den Tagesplan; wer sie explizit braucht, nutzt einen anderen Pfad oder hebt das Hide via Filter-Sheet auf.
 
 ### Tour-Routing (Heute & Morgen)
 

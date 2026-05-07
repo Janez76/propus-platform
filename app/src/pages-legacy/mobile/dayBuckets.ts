@@ -30,7 +30,17 @@ export interface BucketedDay {
   totalSum: number;
 }
 
-const HIDDEN_STATUSES = new Set(["closed"]);
+/**
+ * Default-versteckte Statuses in der Mobile-Ordersliste:
+ *  - `closed`:    technisch abgeschlossen, kein Handlungsbedarf
+ *  - `cancelled`: storniert — gehoert nicht in den Tagesplan
+ * (Filter-Sheet-Status ueberschreibt das nicht — wer explizit "Storniert"
+ *  filtert, gibt das ueber den Filter-Sheet ein und sieht sie via separatem
+ *  Pfad. UI-Default ist Ausblenden.)
+ */
+const HIDDEN_STATUSES = new Set(["closed", "cancelled"]);
+
+export const DEFAULT_HIDDEN_STATUSES: ReadonlySet<string> = HIDDEN_STATUSES;
 
 function startOfDay(d: Date): number {
   const x = new Date(d);
@@ -38,11 +48,21 @@ function startOfDay(d: Date): number {
   return x.getTime();
 }
 
+/**
+ * Klassifizierung in 4 Buckets. „Diese Woche" = bis Ende der aktuellen
+ * Kalenderwoche (So 23:59:59). Vorher: today + 7 Tage — fuehrte dazu, dass
+ * z.B. Di 12.05. unter „Diese Woche" angezeigt wurde, obwohl heute Do 07.05.
+ * ist und der Termin in die naechste Woche faellt.
+ */
 function classify(ts: number, now: Date): DayBucket {
   if (!ts) return "later";
   const today0 = startOfDay(now);
   const tomorrow0 = today0 + 24 * 60 * 60 * 1000;
-  const weekEnd = today0 + 7 * 24 * 60 * 60 * 1000;
+  // JS getDay(): 0=So, 1=Mo, ..., 6=Sa. Tage bis Ende des Sonntags
+  // (also Beginn des naechsten Montags) — fuer So=0 ist es 1 (heute zu Ende).
+  const dayOfWeek = now.getDay();
+  const daysUntilNextMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const weekEnd = today0 + daysUntilNextMonday * 24 * 60 * 60 * 1000;
   if (ts >= today0 && ts < tomorrow0) return "today";
   if (ts >= tomorrow0 && ts < tomorrow0 + 24 * 60 * 60 * 1000) return "tomorrow";
   if (ts > tomorrow0 && ts < weekEnd) return "week";
@@ -58,8 +78,8 @@ function fmtTime(iso: string): string {
 export interface BucketOrdersOptions {
   /** Override fuer Tests. Default: jetzt. */
   now?: Date;
-  /** Statuses die ganz ausgeblendet werden (z.B. "closed"). Default: nur "closed". */
-  hideStatuses?: Set<string>;
+  /** Statuses die ganz ausgeblendet werden. Default: `closed` + `cancelled`. */
+  hideStatuses?: ReadonlySet<string>;
 }
 
 /**

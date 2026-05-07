@@ -43,9 +43,37 @@ function haversineKmCoords(a: GeoPoint, b: GeoPoint): number {
   return 2 * EARTH_R_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
+/**
+ * Regional-Centroid pro PLZ-Anfangsziffer (CH, grobe Schaetzung). Fallback,
+ * wenn eine PLZ nicht in `ZIP_COORDS` enthalten ist — sonst zeigt die UI „—"
+ * statt einer Naeherung. Genauigkeit: Region (±30 km), reicht fuer eine
+ * Tagesplan-Vorschau.
+ */
+const REGION_CENTROIDS: Record<string, GeoPoint> = {
+  "1": { lat: 46.52, lng: 6.63 }, // Lausanne / Westschweiz
+  "2": { lat: 47.00, lng: 6.93 }, // Neuchatel / Jura
+  "3": { lat: 46.95, lng: 7.45 }, // Bern / Wallis-Nord
+  "4": { lat: 47.55, lng: 7.60 }, // Basel / Fricktal
+  "5": { lat: 47.39, lng: 8.05 }, // Aargau
+  "6": { lat: 47.05, lng: 8.31 }, // Zentralschweiz / Tessin-Nord
+  "7": { lat: 46.85, lng: 9.53 }, // Graubuenden
+  "8": { lat: 47.37, lng: 8.55 }, // Zuerich / Schaffhausen / Zug
+  "9": { lat: 47.42, lng: 9.37 }, // Ostschweiz
+};
+
+function coordsForZip(zip: string): GeoPoint | null {
+  const exact = ZIP_COORDS[zip];
+  if (exact) return exact;
+  if (zip.length >= 1) {
+    const region = REGION_CENTROIDS[zip[0]];
+    if (region) return region;
+  }
+  return null;
+}
+
 export function haversineKm(zipA: string, zipB: string): number | null {
-  const a = ZIP_COORDS[zipA];
-  const b = ZIP_COORDS[zipB];
+  const a = coordsForZip(zipA);
+  const b = coordsForZip(zipB);
   if (!a || !b) return null;
   return haversineKmCoords(a, b);
 }
@@ -61,9 +89,10 @@ export function estimateDriveMinutes(zipFrom: string, zipTo: string): number | n
 }
 
 /** Drive-Time-Schätzung von einem Live-Geo-Punkt (z. B. `useGeolocation`-Position)
- *  zu einer PLZ in unserer ZIP-Tabelle. Wenn die Ziel-PLZ unbekannt ist → null. */
+ *  zu einer PLZ. Faellt bei unbekannter exakter PLZ auf den Regional-Centroid
+ *  zurueck — sonst zeigt die UI „—" statt einer Naeherung. */
 export function estimateDriveMinutesFromGeo(from: GeoPoint, toZip: string): number | null {
-  const target = ZIP_COORDS[toZip];
+  const target = coordsForZip(toZip);
   if (!target) return null;
   return kmToDriveMinutes(haversineKmCoords(from, target));
 }
