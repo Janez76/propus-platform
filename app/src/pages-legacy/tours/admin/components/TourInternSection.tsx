@@ -68,6 +68,14 @@ function BookingDropdown({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  /**
+   * Bug-Hunt M02: Default ist Auto-Publish (= bisheriges Verhalten,
+   * backwards-compat). Admin kann hier opt-out, wenn die Tour z. B. noch
+   * ein Draft ist und nicht durch das Verknuepfen automatisch live gehen
+   * soll.
+   */
+  const [autoPublish, setAutoPublish] = useState(true);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -92,6 +100,7 @@ function BookingDropdown({
     setQuery("");
     setErr(null);
     setOk(null);
+    setWarningMessages([]);
     void load();
     setTimeout(() => searchRef.current?.focus(), 60);
   }
@@ -105,13 +114,32 @@ function BookingDropdown({
     setBusy(true);
     setErr(null);
     setOk(null);
+    setWarningMessages([]);
     try {
-      await postToursAdminTourSetBookingOrder(tourId, orderNo);
-      setOk(`Bestellung #${orderNo} verknüpft.`);
+      const result = await postToursAdminTourSetBookingOrder(tourId, orderNo, { autoPublic: autoPublish });
+      // Bug-Hunt M02: Feedback an den Admin je nach was wirklich passiert ist.
+      let message: string;
+      if (result.visibility_action === "set_public") {
+        message = `Bestellung #${orderNo} verknüpft. Tour ist jetzt öffentlich — Kunde kann sie öffnen.`;
+      } else if (result.visibility_action === "kept_private") {
+        message = `Bestellung #${orderNo} verknüpft. Tour bleibt privat (manuell veröffentlichen, sobald gewünscht).`;
+      } else if (result.visibility_action === "failed") {
+        message = `Bestellung #${orderNo} verknüpft, aber Veröffentlichung fehlgeschlagen — Details unten.`;
+      } else {
+        // no_matterport
+        message = `Bestellung #${orderNo} verknüpft.`;
+      }
+      setOk(message);
+      if (result.warnings?.length) {
+        setWarningMessages(result.warnings.map((w) => w.message));
+      }
+      // Bei Erfolg ohne Warnings autoclose; sonst sichtbar lassen damit Admin lesen kann.
+      const autoclose = !result.warnings?.length && result.visibility_action !== "failed";
+      const delay = autoclose ? 900 : 2400;
       setTimeout(() => {
         handleClose();
         onLinked();
-      }, 700);
+      }, delay);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Fehler beim Speichern");
     } finally {
@@ -235,6 +263,26 @@ function BookingDropdown({
             )}
           </div>
 
+          {/* Bug-Hunt M02: Opt-Out vom Auto-PUBLIC. Default an = bisheriges Verhalten. */}
+          <div className="border-t border-[var(--border-soft)] px-3 py-2.5">
+            <label className="flex items-start gap-2 text-xs text-[var(--text-main)] cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={autoPublish}
+                onChange={(e) => setAutoPublish(e.target.checked)}
+                disabled={busy}
+              />
+              <span>
+                <span className="font-medium">Tour beim Verknüpfen veröffentlichen</span>
+                <span className="block text-[var(--text-subtle)] leading-relaxed mt-0.5">
+                  Wenn deaktiviert, bleibt die Tour wie sie ist (typisch privat). Nutze
+                  das für Draft-Touren oder wenn du sie später manuell publizieren willst.
+                </span>
+              </span>
+            </label>
+          </div>
+
           {(err || ok) && (
             <div
               className={`border-t border-[var(--border-soft)] px-3 py-2 text-sm ${
@@ -242,6 +290,13 @@ function BookingDropdown({
               }`}
             >
               {ok ?? err}
+            </div>
+          )}
+          {warningMessages.length > 0 && (
+            <div className="border-t border-[var(--border-soft)] bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              {warningMessages.map((m, i) => (
+                <p key={i}>⚠ {m}</p>
+              ))}
             </div>
           )}
         </div>
