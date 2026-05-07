@@ -29,6 +29,7 @@ import { PerformanceV2 } from "./PerformanceV2";
 import { OrdersMap } from "./OrdersMap";
 import { GoalRings } from "./GoalRings";
 import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
+import { useGeolocation } from "../cockpit/useGeolocation";
 import {
   loadDashV2Preferences,
   saveDashV2Preferences,
@@ -72,6 +73,14 @@ export function DashboardV2() {
   const [displayName, setDisplayName] = useState("");
   const [hoveredOrderNo, setHoveredOrderNo] = useState<string | null>(null);
   const [weather, setWeather] = useState<WeatherForecastDay[] | null>(null);
+  /** Live-Standort für die Mission-Timeline-Drive-Time. Eigener storage-Key,
+   *  damit die Cockpit-Propi-Permission davon getrennt bleibt — UI-CTA für
+   *  „Standort teilen" wird im UpcomingV2 selbst gerendert (Pill mit MapPin). */
+  const geo = useGeolocation({ storageKey: "propus.dashboard.geo.enabled.v1" });
+  const liveOrigin = geo.position ? { lat: geo.position.lat, lng: geo.position.lng } : null;
+  const requestLocation = useCallback(() => {
+    void geo.request();
+  }, [geo]);
 
   useEffect(() => {
     if (!token) return;
@@ -251,6 +260,8 @@ export function DashboardV2() {
               metrics={metrics}
               lang={lang}
               weather={weather}
+              liveOrigin={liveOrigin}
+              onShareLocation={requestLocation}
               onHover={setHoveredOrderNo}
               onCreateOrder={can("orders.create") ? () => setShowCreateOrder(true) : undefined}
             />

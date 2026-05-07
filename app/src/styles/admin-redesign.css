@@ -57,7 +57,7 @@
 
 /* ── Page header ──────────────────────────────────────── */
 .padmin-shell .pad-page-header {
-  background: #fff;
+  background: var(--pad-card);
   border-bottom: 1px solid var(--pad-border);
   padding: 24px 32px 22px;
   margin: -16px -16px 0 -16px; /* full-bleed inside admin layout */
@@ -165,7 +165,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--pad-card);
   border: 1px solid var(--pad-border);
   border-radius: 10px;
   margin-bottom: 16px;
@@ -199,7 +199,7 @@
   font-family: var(--pad-mono);
   font-size: 10.5px;
   padding: 1px 6px;
-  background: #fff;
+  background: var(--pad-card);
   border: 1px solid var(--pad-border);
   border-radius: 4px;
   color: var(--ink-3);
@@ -271,7 +271,7 @@
 }
 .padmin-shell .pad-toggle svg { width: 13px; height: 13px; }
 .padmin-shell .pad-toggle.is-active {
-  background: #fff;
+  background: var(--pad-card);
   color: var(--ink);
   box-shadow: 0 0 0 1px var(--pad-border);
   font-weight: 600;
@@ -279,7 +279,7 @@
 
 /* ── Generic data table ──────────────────────────────── */
 .padmin-shell .pad-table-wrap {
-  background: #fff;
+  background: var(--pad-card);
   border: 1px solid var(--pad-border);
   border-radius: 12px;
   overflow: hidden;
@@ -367,7 +367,7 @@
   height: 28px;
   border-radius: 6px;
   border: 1px solid var(--pad-border);
-  background: #fff;
+  background: var(--pad-card);
   color: var(--ink-2);
   display: inline-grid;
   place-items: center;
@@ -466,7 +466,7 @@
   border-color: var(--gold-600);
 }
 .padmin-shell .pad-btn-outline-dark {
-  background: #fff;
+  background: var(--pad-card);
   color: var(--ink);
   border-color: var(--pad-border);
 }
@@ -488,7 +488,7 @@
 
 /* ── Card ─────────────────────────────────────────────── */
 .padmin-shell .pad-card {
-  background: #fff;
+  background: var(--pad-card);
   border: 1px solid var(--pad-border);
   border-radius: 12px;
   overflow: hidden;
@@ -566,7 +566,7 @@
   gap: 14px;
 }
 .padmin-shell .pad-staff-card {
-  background: #fff;
+  background: var(--pad-card);
   border: 1px solid var(--pad-border);
   border-radius: 12px;
   overflow: hidden;
@@ -802,3 +802,46 @@
 .padmin-shell.dv2 .dv2-summary-danger {
   color: var(--pad-danger);
 }
+
+/* ============================================================
+   Dark-mode overrides (Polish-Pass 2 · Bug-Fix)
+   .padmin-shell scopes hardcoded LIGHT tokens (--paper, --ink,
+   --pad-card …); ohne Override blieb die ganze Admin-Shell im
+   Dark-Mode hell. Hier flippen wir die Variablen-Stack — alle
+   Komponenten die var(--paper)/var(--pad-card)/var(--ink)
+   verwenden ziehen automatisch nach.
+   ============================================================ */
+html.dark .padmin-shell {
+  --paper:           #0F1012;
+  --paper-strip:     #15171A;
+  --pad-card:        #17181A;
+  --ink:             #F0ECE4;
+  --ink-2:           #C7C1B6;
+  --ink-3:           #8E8A80;
+  --ink-4:           #5C5A54;
+  --pad-border:      #2A2926;
+  --pad-border-soft: #22221F;
+
+  /* Status: hellere Foreground-Töne, Backgrounds als transparenter Tint */
+  --pad-success:    #5aaa5a;
+  --pad-success-bg: rgba(74, 138, 82, 0.18);
+  --pad-warn:       #e09b3d;
+  --pad-warn-bg:    rgba(224, 155, 61, 0.18);
+  --pad-danger:     #d65a4a;
+  --pad-danger-bg:  rgba(214, 90, 74, 0.18);
+  --pad-info:       #7aa6c8;
+  --pad-info-bg:    rgba(74, 122, 168, 0.20);
+
+  /* Gold-Skala leicht anheben, damit Brand-Akzente nicht zu dunkel wirken */
+  --gold-50:  rgba(182, 142, 32, 0.08);
+  --gold-100: rgba(182, 142, 32, 0.18);
+  --gold-600: #C9A22A;
+  --gold-700: #D4B860;
+}
+
+/* Alert-Body-Farben hatten in Light-Mode hardcoded dunkle Töne — im Dark-Mode
+   fallen die Texte sonst auf nicht-lesbarem dunklen Tint zurück. */
+html.dark .padmin-shell .pad-alert.is-success { color: #a3d3a3; }
+html.dark .padmin-shell .pad-alert.is-error   { color: #f0a899; }
+html.dark .padmin-shell .pad-alert.is-warn    { color: #f0c688; }
+html.dark .padmin-shell .pad-alert.is-info    { color: #a8c4dc; }

@@ -1,4 +1,4 @@
-import { Camera, Car, Check, ChevronRight, Circle, Coins, Plus } from "lucide-react";
+import { Camera, Car, Check, ChevronRight, Circle, Coins, MapPin, Plus, Send } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { t, type Lang } from "../../i18n";
@@ -6,7 +6,7 @@ import { formatCHF } from "../../lib/format";
 import type { DashboardMetrics } from "./useDashboardMetrics";
 import { paletteForStatus } from "../orders/mapStatusColors";
 import type { Order } from "../../api/orders";
-import { buildMissionTimeline, type MissionItem, type MissionStatus } from "./missionTimeline";
+import { buildMissionTimeline, type GeoPoint, type MissionItem, type MissionStatus } from "./missionTimeline";
 import { WxBadge } from "./WxBadge";
 import type { WeatherForecastDay } from "../../api/weather";
 
@@ -14,6 +14,12 @@ interface UpcomingV2Props {
   metrics: DashboardMetrics;
   lang: Lang;
   weather?: WeatherForecastDay[] | null;
+  /** Aktuelle Live-Position des Users — wenn gesetzt, ersetzt sie die ZIP-zu-ZIP-
+   *  Schätzung für den „next"-Slot durch eine Standort-zu-Termin-Schätzung. */
+  liveOrigin?: GeoPoint | null;
+  /** Callback, falls der User Live-Standort noch nicht freigegeben hat — Empty-/
+   *  Drive-Pill kann dann „Standort teilen"-CTA anzeigen. */
+  onShareLocation?: () => void;
   onHover?: (orderNo: string | null) => void;
   onCreateOrder?: () => void;
 }
@@ -120,7 +126,55 @@ function StatusBadge({ status, lang }: { status: MissionStatus; lang: Lang }) {
   );
 }
 
-export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: UpcomingV2Props) {
+type UpcomingGroupKey = "tomorrow" | "thisWeek" | "later";
+
+interface UpcomingGroup {
+  key: UpcomingGroupKey;
+  labelKey: string;
+  items: Order[];
+}
+
+const MS_DAY = 86_400_000;
+
+function startOfDay(d: Date): Date {
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+function groupUpcoming(orders: Order[], today: Date): UpcomingGroup[] {
+  const todayMs = startOfDay(today).getTime();
+  const tomorrowMs = todayMs + MS_DAY;
+  const dayAfterMs = todayMs + 2 * MS_DAY;
+  const nextWeekMs = todayMs + 7 * MS_DAY;
+  const groups: Record<UpcomingGroupKey, Order[]> = {
+    tomorrow: [],
+    thisWeek: [],
+    later: [],
+  };
+  for (const o of orders) {
+    if (!o.appointmentDate) continue;
+    const ts = new Date(o.appointmentDate).getTime();
+    if (ts >= tomorrowMs && ts < dayAfterMs) groups.tomorrow.push(o);
+    else if (ts >= dayAfterMs && ts < nextWeekMs) groups.thisWeek.push(o);
+    else if (ts >= nextWeekMs) groups.later.push(o);
+  }
+  const list: UpcomingGroup[] = [];
+  if (groups.tomorrow.length) list.push({ key: "tomorrow", labelKey: "dashboardV2.upcoming.tomorrow", items: groups.tomorrow });
+  if (groups.thisWeek.length) list.push({ key: "thisWeek", labelKey: "dashboardV2.upcoming.thisWeek", items: groups.thisWeek });
+  if (groups.later.length) list.push({ key: "later", labelKey: "dashboardV2.upcoming.later", items: groups.later });
+  return list;
+}
+
+export function UpcomingV2({
+  metrics,
+  lang,
+  weather,
+  liveOrigin,
+  onShareLocation,
+  onHover,
+  onCreateOrder,
+}: UpcomingV2Props) {
   const navigate = useNavigate();
   const { today, todayOrders, upcomingOrders } = metrics;
   const todayLabel = `${today.getDate()}. ${MONTHS_SHORT[today.getMonth()]}`;
@@ -134,7 +188,7 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
   }, [weather]);
 
   const missionItems = useMemo<MissionItemView[]>(() => {
-    const base = buildMissionTimeline(todayOrders, today);
+    const base = buildMissionTimeline(todayOrders, today, { liveOrigin: liveOrigin ?? null });
     return base.map((item) => {
       const dateKey = item.order.appointmentDate
         ? new Date(item.order.appointmentDate).toISOString().slice(0, 10)
@@ -145,7 +199,9 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
         weatherDay: dateKey ? (weatherByDate.get(dateKey) ?? null) : null,
       };
     });
-  }, [todayOrders, today, weatherByDate]);
+  }, [todayOrders, today, weatherByDate, liveOrigin]);
+
+  const upcomingGroups = useMemo(() => groupUpcoming(upcomingOrders, today), [upcomingOrders, today]);
 
   const goToOrder = (orderNo: string | number | undefined | null) => {
     if (orderNo == null || orderNo === "") return;
@@ -156,12 +212,20 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
     onHover(orderNo == null || orderNo === "" ? null : String(orderNo));
   };
   const onLeave = () => onHover?.(null);
+  const minLabel = t(lang, "dashboardV2.mission.minShort");
+
+  /** Live-Standort-CTA: zeigt sich auf dem `next`-Slot, wenn keine Geo-Position
+   *  vorliegt. Klick → request() im Parent (DashboardV2). */
+  const showLocateCta = !liveOrigin && Boolean(onShareLocation);
 
   return (
-    <div className="dv2-card">
-      <div className="dv2-card-title">
-        {t(lang, "dashboardV2.upcoming.today").replace("{{date}}", todayLabel)}
-      </div>
+    <div className="dv2-card dv2-mt-card">
+      <header className="dv2-mt-section-head">
+        <span className="dv2-mt-section-eyebrow">{t(lang, "dashboardV2.mission.heute.eyebrow")}</span>
+        <h3 className="dv2-mt-section-title">
+          {t(lang, "dashboardV2.upcoming.today").replace("{{date}}", todayLabel)}
+        </h3>
+      </header>
 
       {missionItems.length === 0 ? (
         <div className="dv2-mt-empty">
@@ -189,10 +253,17 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
             const locality = shortLocality(o.customerZipcity);
             const street = shortStreet(o.address);
             const photos = item.photoCount;
-            const drive = item.driveMinFromPrev;
+            const isNext = item.status === "next";
+            /** Drive-Pill priorisiert Live-Standort für „next"; sonst ZIP-zu-ZIP-
+             *  Schätzung ab Vortermin/Studio. */
+            const driveLive = item.driveMinFromLive;
+            const drivePrev = item.driveMinFromPrev;
+            const drive = isNext ? (driveLive ?? drivePrev) : drivePrev;
+            const driveSource: "live" | "prev" =
+              isNext && driveLive != null ? "live" : "prev";
+            const departAt = item.departAt;
             const total = o.total ?? null;
             const rowCls = `dv2-mt-row dv2-mt-row--${item.status}`;
-            const minLabel = t(lang, "dashboardV2.mission.minShort");
 
             return (
               <li key={o.orderNo}>
@@ -245,13 +316,53 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
                       ) : null}
                       {drive != null ? (
                         <span
-                          className="dv2-mt-pill"
+                          className={`dv2-mt-pill${driveSource === "live" ? " dv2-mt-pill--live" : ""}`}
                           aria-label={`${drive} ${minLabel} ${t(lang, "dashboardV2.mission.drive")}`}
-                          title={t(lang, "dashboardV2.mission.driveHint")}
+                          title={t(
+                            lang,
+                            driveSource === "live"
+                              ? "dashboardV2.mission.driveLiveHint"
+                              : "dashboardV2.mission.driveHint",
+                          )}
                         >
-                          <Car size={11} aria-hidden />
+                          {driveSource === "live" ? (
+                            <MapPin size={11} aria-hidden />
+                          ) : (
+                            <Car size={11} aria-hidden />
+                          )}
                           {drive} {minLabel}
                         </span>
+                      ) : null}
+                      {departAt && isNext ? (
+                        <span
+                          className="dv2-mt-pill dv2-mt-pill--depart"
+                          aria-label={t(lang, "dashboardV2.mission.depart.aria").replace(
+                            "{{time}}",
+                            departAt.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }),
+                          )}
+                          title={t(lang, "dashboardV2.mission.depart.hint")}
+                        >
+                          <Send size={11} aria-hidden />
+                          {t(lang, "dashboardV2.mission.depart.label")}{" "}
+                          {departAt.toLocaleTimeString("de-CH", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      ) : null}
+                      {isNext && showLocateCta && drive == null ? (
+                        <button
+                          type="button"
+                          className="dv2-mt-pill dv2-mt-pill--locate"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onShareLocation?.();
+                          }}
+                          title={t(lang, "dashboardV2.mission.locate.hint")}
+                        >
+                          <MapPin size={11} aria-hidden />
+                          {t(lang, "dashboardV2.mission.locate.cta")}
+                        </button>
                       ) : null}
                       {total != null && total > 0 ? (
                         <span className="dv2-mt-pill" aria-label={formatCHF(total)}>
@@ -280,51 +391,60 @@ export function UpcomingV2({ metrics, lang, weather, onHover, onCreateOrder }: U
         </ol>
       )}
 
-      {upcomingOrders.length > 0 && (
-        <>
-          <div className="dv2-upcoming-section-label">{t(lang, "dashboardV2.upcoming.next")}</div>
-          {upcomingOrders.map((o, i) => {
-            const d = o.appointmentDate ? new Date(o.appointmentDate) : null;
-            const weekday = d ? WEEKDAYS_SHORT[d.getDay()] : "";
-            const day = d ? String(d.getDate()) : "";
-            const time = d
-              ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
-              : "";
-            const dur = o.schedule?.durationMin ?? null;
-            return (
-              <button
-                key={o.orderNo}
-                type="button"
-                className={`dv2-upcoming-item${i < upcomingOrders.length - 1 ? " dv2-upcoming-item--border" : ""}`}
-                onClick={() => goToOrder(o.orderNo)}
-                onMouseEnter={() => onEnter(o.orderNo)}
-                onMouseLeave={onLeave}
-                onFocus={() => onEnter(o.orderNo)}
-                onBlur={onLeave}
-              >
-                <div className="dv2-upcoming-date-chip">
-                  <div className="dv2-upcoming-weekday">{weekday}</div>
-                  <div className="dv2-upcoming-day">{day}</div>
-                </div>
-                <div className="dv2-upcoming-info">
-                  <div className="dv2-upcoming-primary">
-                    <span className="dv2-upcoming-orderno">#{o.orderNo}</span>
-                    {o.customerName ? <span> · {o.customerName}</span> : null}
-                  </div>
-                  <div className="dv2-upcoming-meta">
-                    {o.address ?? "—"}
-                    {dur ? ` · ${dur} Min` : ""}
-                    {` · ${staffShort(o)}`}
-                  </div>
-                </div>
-                <div className="dv2-upcoming-side">
-                  <span className="dv2-upcoming-time">{time}</span>
-                  <StatusPill status={o.status} lang={lang} />
-                </div>
-              </button>
-            );
-          })}
-        </>
+      {upcomingGroups.length > 0 && (
+        <section className="dv2-mt-upcoming">
+          <header className="dv2-mt-section-head dv2-mt-section-head--sub">
+            <span className="dv2-mt-section-eyebrow dv2-mt-section-eyebrow--muted">
+              {t(lang, "dashboardV2.mission.upcoming.eyebrow")}
+            </span>
+          </header>
+          {upcomingGroups.map((g) => (
+            <div key={g.key} className="dv2-mt-upcoming-group">
+              <div className="dv2-mt-upcoming-group-label">{t(lang, g.labelKey)}</div>
+              {g.items.map((o, i) => {
+                const d = o.appointmentDate ? new Date(o.appointmentDate) : null;
+                const weekday = d ? WEEKDAYS_SHORT[d.getDay()] : "";
+                const day = d ? String(d.getDate()) : "";
+                const time = d
+                  ? d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })
+                  : "";
+                const dur = o.schedule?.durationMin ?? null;
+                return (
+                  <button
+                    key={o.orderNo}
+                    type="button"
+                    className={`dv2-upcoming-item${i < g.items.length - 1 ? " dv2-upcoming-item--border" : ""}`}
+                    onClick={() => goToOrder(o.orderNo)}
+                    onMouseEnter={() => onEnter(o.orderNo)}
+                    onMouseLeave={onLeave}
+                    onFocus={() => onEnter(o.orderNo)}
+                    onBlur={onLeave}
+                  >
+                    <div className="dv2-upcoming-date-chip">
+                      <div className="dv2-upcoming-weekday">{weekday}</div>
+                      <div className="dv2-upcoming-day">{day}</div>
+                    </div>
+                    <div className="dv2-upcoming-info">
+                      <div className="dv2-upcoming-primary">
+                        <span className="dv2-upcoming-orderno">#{o.orderNo}</span>
+                        {o.customerName ? <span> · {o.customerName}</span> : null}
+                      </div>
+                      <div className="dv2-upcoming-meta">
+                        {o.address ?? "—"}
+                        {dur ? ` · ${dur} ${minLabel}` : ""}
+                        {` · ${staffShort(o)}`}
+                      </div>
+                    </div>
+                    <div className="dv2-upcoming-side">
+                      <span className="dv2-upcoming-time">{time}</span>
+                      <StatusPill status={o.status} lang={lang} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </section>
       )}
     </div>
   );
