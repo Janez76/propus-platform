@@ -21,6 +21,8 @@ import { BriefingCard } from "../cockpit";
 import { getWeatherForecast, type WeatherForecastDay } from "../../api/weather";
 import { TodayCard } from "./TodayCard";
 import "./today-card.css";
+import { PipelineDonut } from "./PipelineDonut";
+import "./pipeline-donut.css";
 import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
@@ -241,6 +243,7 @@ export function DashboardV2() {
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
           {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
           {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} onHover={setHoveredOrderNo} /> : null}
+          {showPipeline ? <PipelineDonut metrics={metrics} /> : null}
         </div>
       ) : null}
 
