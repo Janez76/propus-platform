@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Sparkles, RefreshCw, ArrowRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PropiAvatar } from './PropiAvatar';
 import type { DashboardMetrics } from '../dashboard-v2/useDashboardMetrics';
 import type { WeatherForecastDay } from '../../api/weather';
 
@@ -116,8 +117,14 @@ export function BriefingCard({ metrics, weather }: BriefingCardProps) {
   return (
     <div className="propus-briefing" data-cached={briefing?.cached || undefined}>
       <header className="propus-briefing-head">
-        <Sparkles size={14} aria-hidden />
-        <h5>Tagesbriefing</h5>
+        <div className="propus-briefing-mascot" aria-hidden>
+          <PropiAvatar size={32} followCursor={false} />
+        </div>
+        <div className="propus-briefing-head-text">
+          <span className="propus-briefing-tag">
+            <Sparkles size={10} aria-hidden /> Tagesbriefing
+          </span>
+        </div>
         <button
           type="button"
           className="propus-briefing-refresh"
