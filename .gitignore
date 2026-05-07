@@ -28,6 +28,8 @@ Thumbs.db
 # Newsletter / MailerLite — lokale Secrets (nie committen)
 scripts/mailerlite.env
 scripts/mailchimp.env
+# bexio — lokale Token-Datei (nie committen)
+bexio.env*
 .vscode/
 dist/
 .next/

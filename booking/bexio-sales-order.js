@@ -83,25 +83,34 @@ async function searchBexioContactByExxasId(bexioBase, bexioToken, exxasCustomerI
   const id = asTrimmedString(exxasCustomerId);
   if (!id) return null;
   const marker = `EXXAS-ID:${id}`;
-  // bexio /2.0/contact/search — Volltextsuche im remarks-Feld
+  // bexio /2.0/contact/search akzeptiert "remarks" nicht als Such-Feld (HTTP 400
+  // "search parameters could not have been applied: remarks"). Wir versuchen die
+  // POST-Search trotzdem (falls sich die API mal ändert), behandeln Fehler aber
+  // als "nicht gefunden" und lassen den Resolver zur E-Mail-Suche durchfallen.
   const url = `${bexioBase}/2.0/contact/search`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${bexioToken}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify([{ field: "remarks", value: marker, criteria: "like" }]),
-    signal: AbortSignal.timeout(15_000),
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${bexioToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([{ field: "remarks", value: marker, criteria: "like" }]),
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (e) {
+    console.warn(`[bexio-sales-order] EXXAS-Marker-Suche Netz-/Timeout-Fehler: ${e.message}`);
+    return null;
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`bexio contact/search ${res.status}: ${text.slice(0, 200)}`);
+    console.warn(`[bexio-sales-order] EXXAS-Marker-Suche bexio ${res.status} (kein Hard-Fail, faellt zu E-Mail-Suche durch): ${text.slice(0, 200)}`);
+    return null;
   }
   const rows = await res.json().catch(() => []);
   if (!Array.isArray(rows) || rows.length === 0) return null;
-  // Treffer per remarks bestätigen (search ist liberal)
   for (const row of rows) {
     if (String(row?.remarks || "").includes(marker)) return Number(row.id);
   }
