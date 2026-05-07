@@ -243,7 +243,6 @@ export function DashboardV2() {
         <div className={`dv2-grid-main${mainSingleCol ? " dv2-grid-main--single" : ""}`}>
           {showPipeline ? <PipelineBoardV2 metrics={metrics} lang={lang} /> : null}
           {showUpcoming ? <UpcomingV2 metrics={metrics} lang={lang} onHover={setHoveredOrderNo} /> : null}
-          {showPipeline ? <PipelineDonut metrics={metrics} /> : null}
         </div>
       ) : null}
 
@@ -258,18 +257,22 @@ export function DashboardV2() {
 
       {showMap ? <OrdersMap orders={orders} lang={lang} hoveredOrderNo={hoveredOrderNo} /> : null}
 
-      {showFunnel || showPerf ? (
-        <div
-          className="dv2-grid-bottom"
-          style={
-            (showFunnel ? 1 : 0) + (showPerf ? 1 : 0) < 2
-              ? { gridTemplateColumns: "1fr" }
-              : { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }
-          }
-        >
-          {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
-          {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
-        </div>
+      {showFunnel || showPerf || showPipeline ? (
+        (() => {
+          const count = (showFunnel ? 1 : 0) + (showPipeline ? 1 : 0) + (showPerf ? 1 : 0);
+          const tpl =
+            count >= 3 ? "repeat(3, minmax(0, 1fr))" :
+            count === 2 ? "repeat(2, minmax(0, 1fr))" :
+            "1fr";
+          return (
+            <div className="dv2-grid-bottom dv2-grid-bottom--charts" style={{ gridTemplateColumns: tpl }}>
+              {showFunnel ? <BookingFunnelV2 metrics={metrics} lang={lang} /> : null}
+              {/* Sprint 15: Donut neben Funnel (Mockup-V3.1-Match) */}
+              {showPipeline ? <PipelineDonut metrics={metrics} /> : null}
+              {showPerf ? <PerformanceV2 metrics={metrics} lang={lang} /> : null}
+            </div>
+          );
+        })()
       ) : null}
 
       <div className="dv2-footer">

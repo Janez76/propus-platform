@@ -138,6 +138,18 @@
   font-size: 12.5px;
 }
 
+/* ── Sprint 15: Charts-Row responsive collapse ── */
+@media (max-width: 1100px) {
+  .dv2 .dv2-grid-bottom--charts {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 760px) {
+  .dv2 .dv2-grid-bottom--charts {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ── prefers-reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   .dv2 .dv2-kpi,
