@@ -27,6 +27,7 @@ import { BookingFunnelV2 } from "./BookingFunnelV2";
 import { HeatmapV2 } from "./HeatmapV2";
 import { PerformanceV2 } from "./PerformanceV2";
 import { OrdersMap } from "./OrdersMap";
+import { GoalRings } from "./GoalRings";
 import { DashboardV2TweaksModal } from "./DashboardV2TweaksModal";
 import {
   loadDashV2Preferences,
@@ -101,6 +102,7 @@ export function DashboardV2() {
   const showHeat = isSec("heatmap") && (showCal || showOrders) && showDas;
   const showPerf = isSec("perf") && showOrders;
   const showMap = isSec("map") && showOrders;
+  const showGoals = isSec("goals") && showDas && showOrders;
   const mainSingleCol = (showPipeline && !showUpcoming) || (!showPipeline && showUpcoming);
   const inboxSingleCol = (showTickets && !showMails) || (!showTickets && showMails);
 
@@ -221,15 +223,16 @@ export function DashboardV2() {
             ) : null}
           </div>
         </div>
-        {showKpi && showDas ? <HeaderKpis metrics={metrics} lang={lang} /> : null}
       </div>
 
-      {/* Sprint 12: AI-Tagesbriefing als Hero (Mockup-V3.1-Look) */}
+      {/* Polish-Pass 1: AI-Tagesbriefing als prominenter Hero (vor KPIs) */}
       {showDas ? (
         <section className="dv2-briefing-hero">
           <BriefingCard metrics={orders ? metrics : null} weather={weather} />
         </section>
       ) : null}
+
+      {showKpi && showDas ? <HeaderKpis metrics={metrics} lang={lang} /> : null}
 
       {/* Sprint 13: TodayCard — Datum-Display + 7-Tage-Wetter + Termine-Timeline */}
       {/* Sprint 17: Wetter wird gemeinsam mit BriefingCard genutzt (kein duplicate fetch) */}
@@ -253,6 +256,8 @@ export function DashboardV2() {
           {showMails ? <MailsCard lang={lang} /> : null}
         </div>
       ) : null}
+
+      {showGoals ? <GoalRings metrics={metrics} orders={orders} /> : null}
 
       {showHeat ? <HeatmapV2 metrics={metrics} orders={orders} lang={lang} /> : null}
 

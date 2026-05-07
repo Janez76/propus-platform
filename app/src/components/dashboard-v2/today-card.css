@@ -223,6 +223,82 @@
   opacity: .6;
 }
 
+/* Mission-Control-Pills (Polish-Pass 1) */
+.dv2-today-tl-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dv2-today-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  background: var(--propus-bg-card);
+  color: var(--propus-text-secondary);
+  border: 1px solid var(--propus-border);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dv2-today-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.dv2-today-status--done {
+  background: var(--propus-good-soft, rgba(42, 122, 42, .12));
+  color: var(--propus-good, #2A7A2A);
+}
+.dv2-today-status--next {
+  background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+  position: relative;
+}
+.dv2-today-status--next::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: propus-pulse 1.4s infinite;
+  flex-shrink: 0;
+}
+.dv2-today-status--planned {
+  background: var(--propus-bg-strip);
+  color: var(--propus-text-muted);
+}
+.dv2-today-status--todo {
+  background: var(--propus-warn-soft, rgba(210, 138, 42, .12));
+  color: var(--propus-warn, #d28a2a);
+}
+/* Hervorhebung des "next" Items */
+.dv2-today-tl-item[data-status="next"] {
+  border-color: color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 45%, var(--propus-border));
+  background: linear-gradient(90deg,
+    var(--propus-accent-warm-soft, var(--propus-gold-soft)) 0%,
+    var(--propus-bg-strip) 80%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--propus-accent-warm, var(--propus-gold)) 12%, transparent);
+}
+.dv2-today-tl-item[data-status="done"] {
+  opacity: 0.78;
+}
+.dv2-today-tl-item[data-status="done"] .dv2-today-tl-time {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dv2-today-tl-item:hover { transform: none !important; }
+  .dv2-today-status--next::before { animation: none !important; }
 }

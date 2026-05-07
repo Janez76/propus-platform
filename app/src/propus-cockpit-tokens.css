@@ -57,7 +57,14 @@
   --propus-side-panel-w:    400px;
   --propus-side-panel-rail:  56px;
   --propus-sidebar-w:       240px;
-  --propus-topbar-h:         56px;
+  --propus-topbar-h:         64px;
+}
+
+@media (max-width: 1440px) {
+  :root { --propus-side-panel-w: 360px; }
+}
+@media (max-width: 1280px) {
+  :root { --propus-side-panel-w: 340px; }
 }
 
 html.dark {

@@ -923,7 +923,7 @@ button.dv2-heatmap-cell:hover {
   gap: 14px;
 }
 .dv2-ph-kpi {
-  padding: 16px 18px;
+  padding: 16px 18px 28px;
   background: var(--d-card);
   border: 1px solid var(--d-border);
   border-radius: 10px;
@@ -931,6 +931,8 @@ button.dv2-heatmap-cell:hover {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+  position: relative;
+  overflow: hidden;
 }
 .dv2-ph-kpi-label {
   font-size: 10.5px;
@@ -944,12 +946,25 @@ button.dv2-heatmap-cell:hover {
 }
 .dv2-ph-kpi-label-icon { color: var(--d-gold); flex-shrink: 0; }
 .dv2-ph-kpi-value {
-  font-size: 26px;
+  font-family: var(--propus-font-heading, 'Montserrat', system-ui, sans-serif);
+  font-size: clamp(24px, 2.4vw, 32px);
   font-weight: 700;
   color: var(--d-text);
-  letter-spacing: -0.025em;
+  letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums;
-  line-height: 1.05;
+  line-height: 1;
+}
+.dv2-ph-kpi-spark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  opacity: 0.35;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv2-ph-kpi-spark { opacity: 0.4; }
 }
 .dv2-ph-kpi-value.is-gold {
   color: var(--d-gold);
@@ -2237,3 +2252,103 @@ button.dv2-heatmap-cell:hover {
 }
 .dv2-wx-pop-body dt { color: var(--d-text-muted); font-weight: 500; }
 .dv2-wx-pop-body dd { margin: 0; color: var(--d-text); font-weight: 600; }
+
+/* ─── Goal Rings (Polish-Pass 1) ────────────────────────── */
+.dv2-goal-rings {
+  background: var(--d-card);
+  border: 1px solid var(--d-border);
+  border-radius: var(--propus-r-lg, 20px);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dv2-goal-rings-head { display: flex; align-items: center; }
+.dv2-goal-rings-eyebrow {
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--d-text-dim);
+}
+.dv2-goal-rings-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.dv2-goal-ring {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: var(--propus-r-md, 14px);
+  background: var(--d-bg);
+  border: 1px solid var(--d-border);
+  position: relative;
+  min-width: 0;
+}
+.dv2-goal-ring-svg { width: 88px; height: 88px; display: block; }
+.dv2-goal-ring-pct {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.dv2-goal-ring-pct strong {
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--d-text);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.dv2-goal-ring-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dv2-goal-ring-title {
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--d-text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dv2-goal-ring-vals {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.dv2-goal-ring-current {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--d-text);
+}
+.dv2-goal-ring-sep { color: var(--d-text-dim); }
+.dv2-goal-ring-target {
+  font-size: 11px;
+  color: var(--d-text-dim);
+}
+.dv2-goal-ring-hint {
+  font-size: 10.5px;
+  color: var(--d-text-muted);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 1100px) {
+  .dv2-goal-rings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .dv2-goal-rings-grid { grid-template-columns: 1fr; }
+}

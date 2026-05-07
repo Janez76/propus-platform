@@ -117,13 +117,14 @@
   /* Volle Breite, BriefingCard hat eigenen Gold-Gradient + Border */
 }
 .dv2 .dv2-briefing-hero .propus-briefing {
-  /* Etwas größere Variante als im Side-Panel */
-  padding: 16px 20px 18px;
+  /* Polish-Pass 1: Hero-Look — ausladender als im Side-Panel */
+  padding: 24px 28px 26px;
   border-radius: var(--propus-r-lg, 20px);
+  box-shadow: var(--propus-shadow-md, 0 6px 20px rgba(60, 40, 15, 0.07), 0 2px 6px rgba(60, 40, 15, 0.04));
 }
 .dv2 .dv2-briefing-hero .propus-briefing-summary {
-  font-size: 16px;
-  line-height: 1.4;
+  font-size: 17px;
+  line-height: 1.45;
 }
 .dv2 .dv2-briefing-hero .propus-briefing-list li {
   font-size: 13px;

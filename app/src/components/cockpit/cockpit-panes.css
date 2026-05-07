@@ -49,6 +49,111 @@
   border-radius: var(--propus-r-sm, 8px);
   font-size: 12px;
 }
+.propus-pane-empty-icon {
+  display: block;
+  margin: 0 auto 6px;
+  color: var(--propus-good, #2A7A2A);
+}
+
+/* ── Smart Insights Cards (Polish-Pass 1) ──────────────── */
+.propus-insight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.propus-insight {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--propus-r-md, 14px);
+  border: 1px solid var(--propus-border);
+  background: var(--propus-bg-card);
+  transition: border-color var(--propus-dur-fast, .15s), transform var(--propus-dur-fast, .15s);
+}
+.propus-insight:hover {
+  border-color: color-mix(in srgb, var(--propus-gold) 35%, var(--propus-border));
+  transform: translateY(-1px);
+}
+.propus-insight-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.propus-insight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.propus-insight-title {
+  margin: 0;
+  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--propus-text-primary);
+  letter-spacing: -0.01em;
+}
+.propus-insight-desc {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--propus-text-secondary);
+}
+.propus-insight-cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-family: var(--propus-font-body, inherit);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--propus-gold);
+  cursor: pointer;
+  transition: gap var(--propus-dur-fast, .15s), color var(--propus-dur-fast, .15s);
+}
+.propus-insight-cta:hover { gap: 8px; }
+.propus-insight-cta:focus-visible {
+  outline: 2px solid var(--propus-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.propus-insight--urgent .propus-insight-icon {
+  background: var(--propus-bad-soft, #fbdcd5);
+  color: var(--propus-bad, #c44a3a);
+}
+.propus-insight--urgent { border-left: 3px solid var(--propus-bad, #c44a3a); }
+
+.propus-insight--opportunity .propus-insight-icon {
+  background: var(--propus-good-soft, #dff0e0);
+  color: var(--propus-good, #2A7A2A);
+}
+.propus-insight--opportunity { border-left: 3px solid var(--propus-good, #2A7A2A); }
+
+.propus-insight--info .propus-insight-icon {
+  background: var(--propus-cat-blue-soft, #dce9f5);
+  color: var(--propus-cat-blue, #4a7aa8);
+}
+.propus-insight--info { border-left: 3px solid var(--propus-cat-blue, #4a7aa8); }
+
+.propus-insight--win .propus-insight-icon {
+  background: var(--propus-cat-purple-soft, #ebdef7);
+  color: var(--propus-cat-purple, #8a5fb8);
+}
+.propus-insight--win { border-left: 3px solid var(--propus-cat-purple, #8a5fb8); }
+
+@media (prefers-reduced-motion: reduce) {
+  .propus-insight:hover { transform: none !important; }
+  .propus-insight-cta:hover { gap: 5px !important; }
+}
 
 /* ── Weather Strip ─────────────────────────────────────── */
 .propus-weather-strip {
@@ -477,3 +582,7 @@ html.dark .propus-briefing {
   animation: propus-pulse 1.4s infinite;
 }
 .propus-live-dot-text { font-variant-numeric: tabular-nums; }
+@media (max-width: 1279px) {
+  .propus-live-dot { padding: 4px 6px; }
+  .propus-live-dot-text { display: none; }
+}

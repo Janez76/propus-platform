@@ -2566,6 +2566,7 @@
   "dashboardV2.heatmap.dayEmpty": "Kein Termin geplant.",
   "dashboardV2.heatmap.minutesShort": "′",
   "dashboardV2.tweaks.section.map": "Auftragskarte",
+  "dashboardV2.tweaks.section.goals": "Ziel-Ringe",
   "dashboardV2.map.title": "Karte · Aufträge der Woche",
   "dashboardV2.map.region": "Region Zürich · Zug · Winterthur",
   "dashboardV2.map.subtitle": "{{n}} Pins",

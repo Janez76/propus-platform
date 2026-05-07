@@ -2,6 +2,7 @@ import { Calendar, ListChecks, Banknote, Zap } from "lucide-react";
 import { formatCHF } from "../../lib/format";
 import { t, type Lang } from "../../i18n";
 import type { DashboardMetrics } from "./useDashboardMetrics";
+import { Sparkline } from "./Sparkline";
 
 interface HeaderKpisProps {
   metrics: DashboardMetrics;
@@ -22,10 +23,17 @@ interface KpiTileProps {
   trendTone?: "up" | "down" | "warn";
   tone?: "gold" | "warn";
   icon: React.ComponentType<{ size?: number; className?: string }>;
+  trendData?: number[];
 }
 
-function KpiTile({ label, value, trend, trendTone, tone, icon: Icon }: KpiTileProps) {
+function KpiTile({ label, value, trend, trendTone, tone, icon: Icon, trendData }: KpiTileProps) {
   const cls = `dv2-ph-kpi${tone ? ` dv2-ph-kpi--${tone}` : ""}`;
+  const sparkColor =
+    tone === "gold"
+      ? "var(--d-gold)"
+      : tone === "warn"
+        ? "#B68E20"
+        : "var(--d-gold)";
   return (
     <div className={cls}>
       <div className="dv2-ph-kpi-label">
@@ -36,6 +44,11 @@ function KpiTile({ label, value, trend, trendTone, tone, icon: Icon }: KpiTilePr
       {trend && (
         <div className={`dv2-ph-kpi-trend${trendTone ? ` is-${trendTone}` : ""}`}>{trend}</div>
       )}
+      {trendData && trendData.length >= 2 ? (
+        <div className="dv2-ph-kpi-spark" aria-hidden="true">
+          <Sparkline data={trendData} color={sparkColor} height={28} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -76,6 +89,7 @@ export function HeaderKpis({ metrics, lang }: HeaderKpisProps) {
         value={String(metrics.todayOrders.length)}
         trend={todayTrend}
         trendTone={metrics.todayWithoutStaff > 0 ? "warn" : undefined}
+        trendData={metrics.appointments14d}
       />
       <KpiTile
         icon={ListChecks}
@@ -83,12 +97,14 @@ export function HeaderKpis({ metrics, lang }: HeaderKpisProps) {
         value={String(metrics.weekTotal)}
         trend={weekTrend}
         trendTone={weekTrendTone}
+        trendData={metrics.bookingsWeekly}
       />
       <KpiTile
         icon={Banknote}
         label={t(lang, "dashboardV2.headerKpi.monthRevenue").replace("{{month}}", monthName)}
         value={formatCHF(metrics.monthRevenue)}
         tone="gold"
+        trendData={metrics.revenue30d}
       />
       <KpiTile
         icon={Zap}
@@ -101,6 +117,7 @@ export function HeaderKpis({ metrics, lang }: HeaderKpisProps) {
         }
         trendTone={capacityIsCritical ? "warn" : "up"}
         tone={capacityIsCritical ? "warn" : undefined}
+        trendData={metrics.capacityData}
       />
     </div>
   );

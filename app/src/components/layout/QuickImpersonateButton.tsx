@@ -87,7 +87,7 @@ export function QuickImpersonateButton() {
         title={t(language, "impersonate.start")}
       >
         <LogIn className="h-4 w-4" />
-        <span className="hidden md:inline">{t(language, "impersonate.start")}</span>
+        <span className="hidden xl:inline">{t(language, "impersonate.start")}</span>
       </button>
 
       {open && (

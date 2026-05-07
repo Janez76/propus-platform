@@ -1,10 +1,13 @@
 'use client';
 
-import { Calendar, Clock, MapPin } from 'lucide-react';
+import { useMemo } from 'react';
+import { Calendar, Clock, MapPin, Car, Banknote, CheckCircle2 } from 'lucide-react';
 import type { Lang } from '../../i18n';
 import { weatherEmoji, weatherLabel, type WeatherForecastDay } from '../../api/weather';
 import type { DashboardMetrics } from './useDashboardMetrics';
-import type { Order } from '../../api/orders';
+import { buildMissionTimeline, type MissionStatus } from './missionTimeline';
+import { formatCHF } from '../../lib/format';
+import { useNow } from '../../hooks/useNow';
 
 const WEEKDAY_DE = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const MONTH_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -31,14 +34,27 @@ function shortAddress(addr: string | undefined | null): string {
   return parts[0] ?? addr;
 }
 
+const STATUS_LABEL: Record<MissionStatus, string> = {
+  done: 'Erledigt',
+  next: 'Nächster',
+  planned: 'Geplant',
+  todo: 'To-Do',
+};
+
 export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) {
+  const now = useNow();
   const today = metrics.today;
   const dom = today.getDate();
   const month = MONTH_DE[today.getMonth()];
   const year = today.getFullYear();
   const weekday = WEEKDAY_DE[today.getDay()];
-  const todayOrders: Order[] = metrics.todayOrders;
+  const todayOrders = metrics.todayOrders;
   const todayDateStr = today.toDateString();
+  const missions = useMemo(() => buildMissionTimeline(todayOrders, now), [todayOrders, now]);
+  const todayWeather = useMemo(
+    () => weather?.find((d) => new Date(d.date).toDateString() === todayDateStr) ?? null,
+    [weather, todayDateStr],
+  );
 
   return (
     <section className="dv2-today-card">
@@ -79,38 +95,71 @@ export function TodayCard({ metrics, onHover, weather = null }: TodayCardProps) 
         })}
       </div>
 
-      {/* Timeline der heutigen Termine */}
+      {/* Mission-Control-Timeline der heutigen Termine */}
       <div className="dv2-today-timeline">
         <div className="dv2-today-timeline-head">
           <Calendar size={12} aria-hidden />
           <span>Termine heute</span>
           <span className="dv2-today-timeline-count">{todayOrders.length}</span>
         </div>
-        {todayOrders.length === 0 ? (
+        {missions.length === 0 ? (
           <div className="dv2-today-timeline-empty">Keine Termine heute. ☕</div>
         ) : (
           <ul className="dv2-today-timeline-list">
-            {todayOrders.map((o) => (
-              <li
-                key={String(o.orderNo)}
-                className="dv2-today-tl-item"
-                onMouseEnter={() => onHover?.(String(o.orderNo))}
-                onMouseLeave={() => onHover?.(null)}
-              >
-                <span className="dv2-today-tl-time">
-                  <Clock size={10} aria-hidden /> {formatTime(o.appointmentDate)}
-                </span>
-                <span className="dv2-today-tl-main">
-                  <span className="dv2-today-tl-no">#{o.orderNo}</span>
-                  <span className="dv2-today-tl-addr">
-                    <MapPin size={10} aria-hidden /> {shortAddress(o.address)}
+            {missions.map((m) => {
+              const o = m.order;
+              const wxEmoji = todayWeather ? weatherEmoji(todayWeather.kind) : null;
+              const wxTitle = todayWeather
+                ? `${weatherLabel(todayWeather.kind)} · ${todayWeather.t_min}°–${todayWeather.t_max}°`
+                : undefined;
+              return (
+                <li
+                  key={String(o.orderNo)}
+                  className="dv2-today-tl-item"
+                  data-status={m.status}
+                  onMouseEnter={() => onHover?.(String(o.orderNo))}
+                  onMouseLeave={() => onHover?.(null)}
+                >
+                  <span className="dv2-today-tl-time">
+                    <Clock size={10} aria-hidden /> {formatTime(o.appointmentDate)}
                   </span>
-                </span>
-                <span className="dv2-today-tl-photog">
-                  {o.photographer?.name ?? <em>—</em>}
-                </span>
-              </li>
-            ))}
+                  <span className="dv2-today-tl-main">
+                    <span className="dv2-today-tl-no">#{o.orderNo}</span>
+                    <span className="dv2-today-tl-addr">
+                      <MapPin size={10} aria-hidden /> {shortAddress(o.address)}
+                    </span>
+                    <span className="dv2-today-tl-pills">
+                      {typeof o.total === 'number' && o.total > 0 ? (
+                        <span className="dv2-today-pill" title="Auftragsvolumen brutto">
+                          <Banknote size={10} aria-hidden /> {formatCHF(o.total)}
+                        </span>
+                      ) : null}
+                      {m.driveMinFromPrev !== null ? (
+                        <span className="dv2-today-pill" title="Geschätzte Anfahrt vom letzten Stopp (28 km/h Stadt-Schnitt)">
+                          <Car size={10} aria-hidden /> ~{m.driveMinFromPrev} min
+                        </span>
+                      ) : null}
+                      {wxEmoji ? (
+                        <span className="dv2-today-pill" title={wxTitle}>
+                          <span aria-hidden>{wxEmoji}</span>{' '}
+                          {todayWeather ? `${todayWeather.t_max}°` : null}
+                        </span>
+                      ) : null}
+                      <span
+                        className={`dv2-today-status dv2-today-status--${m.status}`}
+                        aria-label={`Status: ${STATUS_LABEL[m.status]}`}
+                      >
+                        {m.status === 'done' ? <CheckCircle2 size={10} aria-hidden /> : null}
+                        {STATUS_LABEL[m.status]}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="dv2-today-tl-photog">
+                    {o.photographer?.name ?? <em>—</em>}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
