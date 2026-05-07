@@ -146,7 +146,7 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `password_hash` | TEXT | Legacy |
 | `is_active` | BOOLEAN DEFAULT TRUE | |
 | `roles` | TEXT[] DEFAULT `ARRAY['admin']` | z.B. `['super_admin']`, `['admin']`, `['photographer']` |
-| `module_access` | TEXT DEFAULT `'booking'` | `booking`, `tour_manager`, `both` |
+| `module_access` | TEXT DEFAULT `'booking'`, CHECK in (`'booking'`,`'both'`) seit Migration 062 | Wert `'tour_manager'` ist seit 2026-05-07 deprecated. |
 | `phone` | TEXT | |
 | `language` | TEXT DEFAULT `'de'` | |
 | `profile_photo_url` | TEXT | |
@@ -155,15 +155,15 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 | `invited_by` | TEXT | |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
-**Kompatibilitäts-Views (seit Migration 040, April 2026):**
+**Kompatibilitäts-Views (seit Migration 040, April 2026; angepasst Migration 062, Mai 2026):**
 - `booking.admin_users` — VIEW mit INSTEAD-OF-Triggern (`INSERT`/`UPDATE`/`DELETE` schreiben auf `core.admin_users` zurück). Exponiert Legacy-Spaltennamen (`name` ← `full_name`, `role` ← `roles[1]`, `active` ← `is_active`). Filter: `module_access IN ('booking','both')`.
-- `tour_manager.admin_users` — VIEW mit INSTEAD-OF-Triggern. Filter: `module_access IN ('tour_manager','both')`.
+- `tour_manager.admin_users` — VIEW mit INSTEAD-OF-Triggern. Filter seit Migration 062: `module_access IN ('booking','both')` (= identisch zu booking-View; effektiv ein Mirror mit anderer Spaltenauswahl).
 - Die alten Read-Only-Views `booking.v_admin_users` / `tour_manager.v_admin_users` (aus Migration 018) wurden gelöscht.
 
-**Trigger-Funktionen (Migration 040):**
-- `core.booking_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `booking.admin_users`
-- `core.tour_manager_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `tour_manager.admin_users`
-- Bei DELETE eines Users mit `module_access = 'both'` wird nur der Modulzugang entzogen (→ Downgrade auf das andere Modul), nicht physisch gelöscht.
+**Trigger-Funktionen (Migration 040, angepasst Migration 062):**
+- `core.booking_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `booking.admin_users`. Setzt `module_access='booking'` bei neuen Usern.
+- `core.tour_manager_admin_users_insert()` / `…_update()` / `…_delete()` — INSTEAD-OF-Trigger auf `tour_manager.admin_users`. Setzt seit Migration 062 ebenfalls `module_access='booking'` (vorher `'tour_manager'`).
+- DELETE physisch (Migration 062 hat den Sonderfall „bei `'both'` nur Modul-Downgrade" entfernt, da `'tour_manager'` als Wert wegfällt).
 
 ---
 
@@ -1018,9 +1018,9 @@ Mail-Versand, Cleanup-Trigger). Wird vom `actions`-Helper geschrieben.
 
 ### `tour_manager.admin_users` (VIEW), `tour_manager.admin_invites`, `tour_manager.admin_remember_tokens`
 
-**Seit Migration 040 (April 2026):** Wie `booking.admin_users` ein VIEW über
+**Seit Migration 040 (April 2026), angepasst Migration 062 (Mai 2026):** Wie `booking.admin_users` ein VIEW über
 [`core.admin_users`](#coreadmin_users--admin-benutzer-konsolidiert) mit
-INSTEAD-OF-Triggern. Filter: `module_access IN ('tour_manager','both')`.
+INSTEAD-OF-Triggern. Filter: `module_access IN ('booking','both')` — identisch zu `booking.admin_users`, mit anderer Spaltenauswahl. Wert `'tour_manager'` ist seit 062 deprecated.
 
 | Tabelle | Feld | Typ |
 |---|---|---|
