@@ -83,3 +83,84 @@ html.dark {
 @keyframes propus-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.85)} }
 @keyframes propus-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
 @keyframes propus-spin  { to { transform: rotate(360deg); } }
+@keyframes propus-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.015)} }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Mockup V3.1 Token-Erweiterung (Sprint 5 — Cockpit-Redesign)
+ * ADDITIV — bestehende --propus-gold etc. bleiben unverändert (Customer-
+ * facing Booking/Listing/Selekto-Branding wird nicht angefasst).
+ * Cockpit + dashboard-v2 dürfen --propus-accent-warm-* nutzen für die
+ * neue verspielt-datenreiche Optik.
+ * ────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
+
+:root {
+  /* Warm accent (wärmer + orangiger als Brand-Gold #B68E20) */
+  --propus-accent-warm:        #c98a3f;
+  --propus-accent-warm-deep:   #8c5820;
+  --propus-accent-warm-soft:   #f6e3c2;
+  --propus-accent-warm-glow:   rgba(201, 138, 63, .35);
+
+  /* Tieferer Ink + abgestufte Mute-Töne */
+  --propus-ink-deep:    #1a1611;
+  --propus-ink-mid:     #5a5042;
+  --propus-ink-mute:    #8a8070;
+
+  /* Page-BG-Variants */
+  --propus-bg-warm:        #faf6ee;
+  --propus-bg-grain:       #f7f1e3;
+  --propus-bg-elev:        #ffffff;
+  --propus-bg-soft-warm:   #f3eada;
+
+  /* Lines (gold-leaning für Cockpit) */
+  --propus-line-warm:       #ebe0c9;
+  --propus-line-warm-soft:  #f3ead7;
+
+  /* Categorical (Charts, Donut, Funnel) */
+  --propus-cat-blue:        #4a7aa8;
+  --propus-cat-blue-soft:   #dce9f5;
+  --propus-cat-purple:      #8a5fb8;
+  --propus-cat-purple-soft: #ebdef7;
+  --propus-cat-pink:        #d05a87;
+  --propus-cat-pink-soft:   #fbdde7;
+  --propus-cat-amber:       #d6a447;
+
+  /* Status (Mockup heller/wärmer) */
+  --propus-good-warm:       #4a8a52;
+  --propus-good-warm-soft:  #dff0e0;
+
+  /* Radii */
+  --propus-r-xl:  28px;
+
+  /* Glow auf warm-accent-Basis */
+  --propus-shadow-glow-warm: 0 8px 32px var(--propus-accent-warm-glow);
+
+  /* Display-Font (Hero-Headlines, Datums-Display, Mascot-Card-Titel) */
+  --propus-font-display: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+}
+
+html.dark {
+  --propus-accent-warm:        #e0a55a;
+  --propus-accent-warm-deep:   #c98a3f;
+  --propus-accent-warm-soft:   #3a2c18;
+  --propus-accent-warm-glow:   rgba(224, 165, 90, .30);
+
+  --propus-ink-deep:    #f5ecd9;
+  --propus-ink-mid:     #b9ad95;
+  --propus-ink-mute:    #7a715f;
+
+  --propus-bg-warm:        #14110b;
+  --propus-bg-grain:       #181410;
+  --propus-bg-elev:        #1f1a13;
+  --propus-bg-soft-warm:   #28221a;
+
+  --propus-line-warm:       #322a1e;
+  --propus-line-warm-soft:  #28221a;
+
+  --propus-cat-blue-soft:   rgba(74, 122, 168, .18);
+  --propus-cat-purple-soft: rgba(138, 95, 184, .18);
+  --propus-cat-pink-soft:   rgba(208, 90, 135, .18);
+
+  --propus-good-warm:       #5aaa5a;
+  --propus-good-warm-soft:  rgba(74, 138, 82, .22);
+}
