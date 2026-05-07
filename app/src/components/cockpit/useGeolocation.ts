@@ -19,17 +19,29 @@ interface UseGeolocationReturn {
   clear: () => void;
 }
 
-const STORAGE_KEY = 'propus.cockpit.geo.enabled.v1';
-const MAX_AGE_MS = 60_000;
-const TIMEOUT_MS = 10_000;
+const STORAGE_DEFAULT = "propus.cockpit.geo.enabled.v1";
+const MAX_AGE_DEFAULT_MS = 60_000;
+const TIMEOUT_DEFAULT_MS = 10_000;
+
+export type UseGeolocationOptions = {
+  /** localStorage-Key für den Opt-In (z. B. separater Key für Assistant vs. Cockpit). */
+  storageKey?: string;
+  maximumAgeMs?: number;
+  timeoutMs?: number;
+};
 
 /**
  * Wrapper um navigator.geolocation für den Cockpit-Propi-Chat.
  * Persistiert nur den Opt-In-State (`enabled`); die tatsächliche Position bleibt
  * in-Memory. Beim nächsten Mount mit `enabled=true` wird ein frischer Lookup
  * automatisch gestartet.
+ * @param options Optional: eigener storageKey (z. B. Assistant), maximumAge, timeout.
  */
-export function useGeolocation(): UseGeolocationReturn {
+export function useGeolocation(options?: UseGeolocationOptions): UseGeolocationReturn {
+  const storageKey = options?.storageKey ?? STORAGE_DEFAULT;
+  const maxAgeMs = options?.maximumAgeMs ?? MAX_AGE_DEFAULT_MS;
+  const timeoutMs = options?.timeoutMs ?? TIMEOUT_DEFAULT_MS;
+
   const [position, setPosition] = useState<GeoPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +66,7 @@ export function useGeolocation(): UseGeolocationReturn {
           setPosition(p);
           setEnabled(true);
           setLoading(false);
-          try { window.localStorage.setItem(STORAGE_KEY, 'true'); } catch { /* quota */ }
+          try { window.localStorage.setItem(storageKey, 'true'); } catch { /* quota */ }
           resolve(p);
         },
         (err) => {
@@ -69,38 +81,43 @@ export function useGeolocation(): UseGeolocationReturn {
           if (err.code === 1) {
             // User hat verweigert -> Opt-In zurücksetzen
             setEnabled(false);
-            try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
+            try { window.localStorage.removeItem(storageKey); } catch { /* */ }
           }
           resolve(null);
         },
-        { enableHighAccuracy: false, maximumAge: MAX_AGE_MS, timeout: TIMEOUT_MS },
+        { enableHighAccuracy: false, maximumAge: maxAgeMs, timeout: timeoutMs },
       );
     });
-  }, []);
+  }, [storageKey, maxAgeMs, timeoutMs]);
 
   const clear = useCallback(() => {
     setPosition(null);
     setEnabled(false);
     setError(null);
-    if (typeof window !== 'undefined') {
-      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* */ }
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        /* */
+      }
     }
-  }, []);
+  }, [storageKey]);
 
   // On mount: re-request if user previously opted in
   useEffect(() => {
     if (typeof window === 'undefined') return;
     let active = true;
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const stored = window.localStorage.getItem(storageKey);
       if (stored === 'true' && active) {
         setEnabled(true);
         void request();
       }
     } catch { /* */ }
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [storageKey, request]);
 
   return { position, loading, error, enabled, request, clear };
 }

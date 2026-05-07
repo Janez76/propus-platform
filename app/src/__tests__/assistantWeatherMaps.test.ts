@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createWeatherHandlers } from "@/lib/assistant/tools/weather";
 import { createMapsHandlers } from "@/lib/assistant/tools/maps";
+import { LIVE_ORIGIN_PLACEHOLDER } from "@/lib/assistant/live-location-types";
 
 const ctx = { userId: "u", userEmail: "u@example.com" };
 
@@ -135,6 +136,51 @@ describe("assistant maps tools", () => {
     expect(result.totalDurationSeconds).toBe(720);
     expect(Array.isArray(result.steps)).toBe(true);
     expect((result.steps as Array<{ instruction: string }>)[0].instruction).toBe("Links abbiegen");
+  });
+
+  it("get_route replaces live-origin placeholder with coordinates from context", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        status: "OK",
+        routes: [
+          {
+            summary: "Test",
+            warnings: [],
+            legs: [
+              {
+                distance: { text: "1 km", value: 1000 },
+                duration: { text: "2 Min.", value: 120 },
+                start_address: "Start",
+                end_address: "End",
+                steps: [],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const handlers = createMapsHandlers({ fetch, apiKey: "K" });
+    await handlers.get_route(
+      { origin: LIVE_ORIGIN_PLACEHOLDER, destination: "Bern" },
+      {
+        ...ctx,
+        liveLocation: { lat: 47.3769, lng: 8.5417, accuracyM: 12, capturedAt: "2026-01-01T12:00:00.000Z" },
+      },
+    );
+    expect(fetch).toHaveBeenCalledOnce();
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain("origin=47.3769%2C8.5417");
+  });
+
+  it("get_route returns error when live placeholder used without context location", async () => {
+    const fetch = vi.fn();
+    const handlers = createMapsHandlers({ fetch, apiKey: "K" });
+    const result = (await handlers.get_route(
+      { origin: LIVE_ORIGIN_PLACEHOLDER, destination: "Bern" },
+      ctx,
+    )) as { error?: string };
+    expect(fetch).not.toHaveBeenCalled();
+    expect(result.error).toMatch(/Live-Standort|Platzhalter/);
   });
 
   it("get_route forwards Directions API error status", async () => {

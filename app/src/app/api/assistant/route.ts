@@ -22,6 +22,7 @@ import { isAssistantDailyLimitExempt } from "@/lib/assistant/access-env";
 import { getAssistantSettings } from "@/lib/assistant/settings";
 import { parseAssistantModelModeFromRequest, resolveAssistantModelForRequest } from "@/lib/assistant/assistant-model-mode";
 import { formatModelLabel, inferTierFromAnthropicModelId, parseTier } from "@/lib/assistant/model-router";
+import { parseClientLiveLocation } from "@/lib/assistant/live-location-types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -89,7 +90,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { userMessage?: unknown; history?: unknown; conversationId?: unknown; modelMode?: unknown };
+  let body: {
+    userMessage?: unknown;
+    history?: unknown;
+    conversationId?: unknown;
+    modelMode?: unknown;
+    liveLocation?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -104,6 +111,8 @@ export async function POST(req: NextRequest) {
   const userMessage = typeof body.userMessage === "string" ? body.userMessage.trim() : "";
   if (!userMessage) return errorResponse("userMessage fehlt", "validation_error", 400);
   if (userMessage.length > 8_000) return errorResponse("userMessage ist zu lang", "validation_error", 413);
+
+  const liveLocation = parseClientLiveLocation(body.liveLocation);
 
   const history = Array.isArray(body.history) ? (body.history as AssistantHistory) : [];
   const ipAddress = clientIp(req);
@@ -171,6 +180,7 @@ export async function POST(req: NextRequest) {
       timezone: "Europe/Zurich",
       memories,
       fewShots,
+      ...(liveLocation ? { liveLocation } : {}),
     });
 
     const modelResolution = resolveAssistantModelForRequest({
@@ -198,6 +208,7 @@ export async function POST(req: NextRequest) {
           ipAddress,
           userAgent,
           conversationId,
+          liveLocation: liveLocation ?? undefined,
         },
         model: modelResolution.streamingExplicitModel,
         autoEscalation: modelResolution.autoEscalation,
@@ -313,10 +324,8 @@ export async function POST(req: NextRequest) {
         ipAddress,
         userAgent,
         conversationId,
+        liveLocation: liveLocation ?? undefined,
       },
-      autoEscalation: modelResolution.autoEscalation,
-      maxModelTier: modelResolution.maxModelTier,
-      forceModel: modelResolution.nonStreamingForceModel,
     });
 
     const assistantMessageId = await insertAssistantMessage({

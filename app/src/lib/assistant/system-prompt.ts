@@ -1,4 +1,6 @@
 import type { FewShot } from "@/lib/assistant/few-shot-examples";
+import type { AssistantLiveLocation } from "@/lib/assistant/live-location-types";
+import { buildLiveLocationSystemPromptBlock } from "@/lib/assistant/live-location-types";
 
 export type PromptInput = {
   userName: string;
@@ -8,6 +10,8 @@ export type PromptInput = {
   memories?: string[];
   /** Max. 3 kuratierte Stil-/Tool-Muster (optional). */
   fewShots?: FewShot[];
+  /** Optional: vom Client mitgeschickter GPS-Standort für diese Anfrage (Routing). */
+  liveLocation?: AssistantLiveLocation;
 };
 
 const MAX_MEMORIES_CHARS = 3000;
@@ -34,7 +38,7 @@ export function buildSystemPrompt(input: PromptInput): string {
     "5. Für schreibende Aktionen schlägst du die Aktion vor. Der Benutzer muss sie explizit bestätigen.",
     "6. Erfinde KEINE Propus-Daten und keine IDs oder Auftrags-/Tour-Nummern. Nutze nur IDs und Namen, die aus Tool-Antworten stammen. Wenn mehrere Treffer plausibel sind, darfst du kurz „Meintest du …?“ mit diesen Kandidaten vorschlagen oder eine knappe Rückfrage stellen.",
     "7. Wetter: Nutze get_weather_forecast (Ort/PLZ/Koordinaten; Parameter days = 1–7 Tage, Standard 3) bzw. get_weather_for_order (Auftrag am Auftragstag). Rohdaten nur aus diesen Tools — keine Temperaturen, keine Tageslisten und keine Formulierungen wie „basierend auf aktuellen Daten“, wenn du nicht gerade ein Tool-Ergebnis ausgibst. Braucht der Nutzer mehr als drei Tage, setze days entsprechend (max. 7). Die Behörde MeteoSchweiz stellt **keine** einfache öffentliche Forecast-REST zum Einbinden bereit; der Chat nutzt Open-Meteo mit dem Modell MeteoSwiss ICON-CH. Für **amtliche Unwetterwarnungen** weiterhin **https://www.meteoschweiz.admin.ch**. Keine Wetter-Emojis.",
-    "7b. Routing/Fahrzeit: Für Strecken, Distanzen und Fahrzeiten zwischen Adressen nutze get_route, get_distance_matrix oder get_travel_time_for_orders. Nicht raten — immer das Tool aufrufen.",
+    "7b. Routing/Fahrzeit: Für Strecken, Distanzen und Fahrzeiten zwischen Adressen nutze get_route, get_distance_matrix oder get_travel_time_for_orders. Nicht raten — immer das Tool aufrufen. Wenn ein Live-Standort im Prompt genannt ist, für «von hier» den Platzhalter aus dem Abschnitt LIVE-STANDORT verwenden.",
     "8. Lehne nicht-propusbbezogene Fragen NICHT pauschal mit Formulierungen wie „ich habe nur Propus-Tools“ ab — sei innerhalb dieser Richtlinien trotzdem hilfreich.",
     "9. Nenne NICHT die Tool-Namen in deiner Antwort. Der Benutzer sieht die genutzten Tools als Badges. Antworte einfach mit dem Ergebnis.",
     "10. NIEMALS eine neue Begrüssung ausgeben (kein 'Hallo', 'Guten Morgen', 'Wie kann ich helfen?' o.ä.), wenn bereits Nachrichten im Gespräch vorhanden sind. Führe laufende Dialoge direkt weiter — z. B. bei einer Auftragsanlage die nächste Frage stellen oder den genannten Kunden suchen.",
@@ -106,6 +110,10 @@ export function buildSystemPrompt(input: PromptInput): string {
       lines.push(`  Tool-Plan: ${ex.assistantToolPlan}`);
       lines.push(`  Antwort: ${ex.assistantFinal}`);
     }
+  }
+
+  if (input.liveLocation) {
+    lines.push(buildLiveLocationSystemPromptBlock(input.liveLocation));
   }
 
   return lines.join("\n");

@@ -63,6 +63,10 @@ export async function transcribe(audioUri: string, mimeType: string): Promise<st
 export async function sendMessage(
   userMessage: string,
   history: unknown[] = [],
+  opts?: {
+    /** Optional: aktueller Standort (z. B. aus expo-location), wird nur an diese Anfrage angehängt. */
+    liveLocation?: { lat: number; lng: number; accuracyM: number; capturedAt: string };
+  },
 ): Promise<AssistantResponse> {
   const headers = await authHeaders();
   /** Backend streamt standardmäßig SSE (`data:…`) wenn Streaming aktiv ist — Mobile erwartet JSON. */
@@ -70,7 +74,11 @@ export async function sendMessage(
   const res = await fetch(url, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ userMessage, history }),
+    body: JSON.stringify({
+      userMessage,
+      history,
+      ...(opts?.liveLocation ? { liveLocation: opts.liveLocation } : {}),
+    }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

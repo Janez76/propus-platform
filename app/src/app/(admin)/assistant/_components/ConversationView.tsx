@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  MapPin,
+  MapPinOff,
   AlertCircle,
   Archive,
   ArchiveRestore,
@@ -37,6 +39,7 @@ import { formatModelLabel } from "@/lib/assistant/model-router";
 import { VoiceButton } from "./VoiceButton";
 import { TrainingPanel } from "./TrainingPanel";
 import { LinkifiedText } from "./LinkifiedText";
+import { useGeolocation } from "@/components/cockpit/useGeolocation";
 
 type DisplayMessage = {
   id: string;
@@ -295,6 +298,23 @@ export function ConversationView() {
   const abortRef = useRef<AbortController | null>(null);
   /** Aborts stale history GETs so an older in-flight response cannot overwrite after delete/archive. */
   const historyFetchAbortRef = useRef<AbortController | null>(null);
+
+  const assistantGeo = useGeolocation({ storageKey: "propus.assistant.geo.enabled.v1" });
+  const assistantLiveLocationRef = useRef<{
+    lat: number;
+    lng: number;
+    accuracyM: number;
+    capturedAt: string;
+  } | null>(null);
+  assistantLiveLocationRef.current =
+    assistantGeo.enabled && assistantGeo.position
+      ? {
+          lat: assistantGeo.position.lat,
+          lng: assistantGeo.position.lng,
+          accuracyM: assistantGeo.position.accuracy,
+          capturedAt: new Date(assistantGeo.position.timestamp).toISOString(),
+        }
+      : null;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -597,6 +617,7 @@ export function ConversationView() {
           history: historyRef.current,
           conversationId: conversationIdRef.current,
           modelMode,
+          ...(assistantLiveLocationRef.current ? { liveLocation: assistantLiveLocationRef.current } : {}),
         }),
         signal: controller.signal,
       });
@@ -742,6 +763,7 @@ export function ConversationView() {
           history: historyRef.current,
           conversationId: conversationIdRef.current,
           modelMode,
+          ...(assistantLiveLocationRef.current ? { liveLocation: assistantLiveLocationRef.current } : {}),
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -1246,6 +1268,32 @@ export function ConversationView() {
         {/* Mobile: Single-Pill mit Mic + Input + Send */}
         <div className="lg:hidden">
           <div className="flex min-w-0 items-center gap-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface)] py-1 pl-1 pr-1.5 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
+            <button
+              type="button"
+              disabled={inputDisabled || assistantGeo.loading}
+              onClick={() => (assistantGeo.enabled ? assistantGeo.clear() : void assistantGeo.request())}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--text-subtle)] transition hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-40 data-[active=true]:text-[var(--accent)]"
+              data-active={assistantGeo.enabled && assistantGeo.position ? "true" : undefined}
+              title={
+                assistantGeo.position
+                  ? `Standort aktiv (±${Math.round(assistantGeo.position.accuracy)} m) — Klick zum Deaktivieren`
+                  : assistantGeo.error
+                    ? `Standort: ${assistantGeo.error} — erneut versuchen`
+                    : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
+              }
+              aria-label={assistantGeo.enabled ? "Standort deaktivieren" : "Standort teilen"}
+              aria-pressed={assistantGeo.enabled && !!assistantGeo.position}
+            >
+              {assistantGeo.loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              ) : assistantGeo.enabled && assistantGeo.position ? (
+                <MapPin className="h-5 w-5" aria-hidden />
+              ) : assistantGeo.error ? (
+                <MapPinOff className="h-5 w-5" aria-hidden />
+              ) : (
+                <MapPin className="h-5 w-5 opacity-70" aria-hidden />
+              )}
+            </button>
             <VoiceButton
               variant="icon"
               disabled={inputDisabled}
@@ -1343,6 +1391,32 @@ export function ConversationView() {
                   {pendingSendQueue.length}
                 </span>
               ) : null}
+            </button>
+            <button
+              type="button"
+              disabled={inputDisabled || assistantGeo.loading}
+              onClick={() => (assistantGeo.enabled ? assistantGeo.clear() : void assistantGeo.request())}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--surface)] px-3 text-[var(--text-subtle)] transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-raised)] hover:text-[var(--text-main)] disabled:cursor-not-allowed disabled:opacity-40 data-[active=true]:border-[var(--accent)]/50 data-[active=true]:text-[var(--accent)]"
+              data-active={assistantGeo.enabled && assistantGeo.position ? "true" : undefined}
+              title={
+                assistantGeo.position
+                  ? `Standort aktiv (±${Math.round(assistantGeo.position.accuracy)} m) — Klick zum Deaktivieren`
+                  : assistantGeo.error
+                    ? `Standort: ${assistantGeo.error} — erneut versuchen`
+                    : "Standort teilen — für Routen von «hier» (nur diese Anfrage, nicht in der Historie gespeichert)"
+              }
+              aria-label={assistantGeo.enabled ? "Standort deaktivieren" : "Standort teilen"}
+              aria-pressed={assistantGeo.enabled && !!assistantGeo.position}
+            >
+              {assistantGeo.loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              ) : assistantGeo.enabled && assistantGeo.position ? (
+                <MapPin className="h-5 w-5" aria-hidden />
+              ) : assistantGeo.error ? (
+                <MapPinOff className="h-5 w-5" aria-hidden />
+              ) : (
+                <MapPin className="h-5 w-5 opacity-70" aria-hidden />
+              )}
             </button>
             <VoiceButton
               disabled={inputDisabled}

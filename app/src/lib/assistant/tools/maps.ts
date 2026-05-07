@@ -1,5 +1,6 @@
 import { query as defaultQuery } from "@/lib/db";
-import type { ToolDefinition, ToolHandler } from "./index";
+import { LIVE_ORIGIN_PLACEHOLDER, liveCoordsForGoogle } from "../live-location-types";
+import type { ToolDefinition, ToolHandler, ToolContext } from "./index";
 
 type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
 type FetchFn = typeof globalThis.fetch;
@@ -112,22 +113,49 @@ function stripHtml(html: string | undefined): string {
     .trim();
 }
 
+/** Ersetzt PROPUS_ASSISTANT_LIVE_ORIGIN durch lat,lng aus dem Request-Kontext. */
+function resolveGeoString(
+  raw: string | null | undefined,
+  ctx: ToolContext,
+  fieldLabel: string,
+): { ok: true; value: string } | { ok: false; error: string } {
+  const s = raw?.trim() ?? "";
+  if (!s) return { ok: false, error: `${fieldLabel} ist leer` };
+  if (s === LIVE_ORIGIN_PLACEHOLDER) {
+    const loc = ctx.liveLocation;
+    if (!loc) {
+      return {
+        ok: false,
+        error: `${fieldLabel}: Platzhalter für Live-Standort, aber kein Standort mitgeschickt — in der Assistant-UI «Standort teilen» aktivieren oder eine konkrete Adresse angeben.`,
+      };
+    }
+    return { ok: true, value: liveCoordsForGoogle(loc) };
+  }
+  return { ok: true, value: s };
+}
+
 export const mapsTools: ToolDefinition[] = [
   {
     name: "get_route",
     description:
       "Berechnet eine Route zwischen zwei Adressen via Google Directions API. " +
       "Liefert Distanz, Fahrzeit (mit/ohne Verkehr) und Schritt-für-Schritt-Anweisungen. " +
-      "Adressen können freitext sein ('Bahnhofstrasse 1, Zürich') oder 'lat,lng'.",
+      "Adressen können freitext sein ('Bahnhofstrasse 1, Zürich') oder 'lat,lng'. " +
+      "Wenn der Nutzer den Live-Standort geteilt hat: für Start «von hier» exakt " +
+      LIVE_ORIGIN_PLACEHOLDER +
+      " als origin (bzw. in waypoints) verwenden — wird serverseitig aufgeöst.",
     input_schema: {
       type: "object",
       properties: {
-        origin: { type: "string", description: "Startadresse oder 'lat,lng'" },
+        origin: {
+          type: "string",
+          description: `Startadresse, 'lat,lng', oder bei geteiltem Live-Standort: ${LIVE_ORIGIN_PLACEHOLDER}`,
+        },
         destination: { type: "string", description: "Zieladresse oder 'lat,lng'" },
         waypoints: {
           type: "array",
           items: { type: "string" },
-          description: "Optional: Zwischenstopps (max. 8). Reihenfolge wird beibehalten.",
+          description: `Optional: Zwischenstopps (max. 8). Einträge wie bei origin; ${LIVE_ORIGIN_PLACEHOLDER} erlaubt wenn Live-Standort aktiv.`,
         },
         mode: {
           type: "string",
@@ -149,7 +177,11 @@ export const mapsTools: ToolDefinition[] = [
     input_schema: {
       type: "object",
       properties: {
-        origins: { type: "array", items: { type: "string" }, description: "Startadressen (max. 10)" },
+        origins: {
+          type: "array",
+          items: { type: "string" },
+          description: `Startadressen (max. 10); ${LIVE_ORIGIN_PLACEHOLDER} für geteilten Live-Standort erlaubt.`,
+        },
         destinations: { type: "array", items: { type: "string" }, description: "Zieladressen (max. 10)" },
         mode: { type: "string", description: "Reisemodus: driving (Default), transit, walking, bicycling" },
         departure_time: { type: "string", description: "Optional: ISO-8601 oder 'now' für Verkehrsschätzung" },
@@ -166,7 +198,10 @@ export const mapsTools: ToolDefinition[] = [
     input_schema: {
       type: "object",
       properties: {
-        start_address: { type: "string", description: "Startadresse" },
+        start_address: {
+          type: "string",
+          description: `Startadresse oder ${LIVE_ORIGIN_PLACEHOLDER} bei geteiltem Live-Standort`,
+        },
         order_ids: {
           type: "array",
           items: { type: "string" },
@@ -184,7 +219,7 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
   const doFetch = deps.fetch || globalThis.fetch;
 
   return {
-    get_route: async (input: Record<string, unknown>) => {
+    get_route: async (input: Record<string, unknown>, ctx: ToolContext) => {
       const apiKey = getApiKey(deps);
       if (!apiKey) {
         return {
@@ -193,12 +228,22 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
         };
       }
 
-      const origin = text(input.origin);
+      const originRaw = text(input.origin);
       const destination = text(input.destination);
-      if (!origin || !destination) return { error: "origin und destination sind erforderlich" };
+      if (!originRaw || !destination) return { error: "origin und destination sind erforderlich" };
+
+      const originRes = resolveGeoString(originRaw, ctx, "origin");
+      if (!originRes.ok) return { error: originRes.error };
+      const origin = originRes.value;
 
       const mode = parseMode(input.mode);
-      const waypoints = textArray(input.waypoints, 8);
+      const waypointsRaw = textArray(input.waypoints, 8);
+      const waypointsResolved: string[] = [];
+      for (let i = 0; i < waypointsRaw.length; i++) {
+        const wr = resolveGeoString(waypointsRaw[i], ctx, `waypoint ${i + 1}`);
+        if (!wr.ok) return { error: wr.error };
+        waypointsResolved.push(wr.value);
+      }
       const departureTime = text(input.departure_time);
 
       const params = new URLSearchParams({
@@ -210,7 +255,7 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
         units: "metric",
         key: apiKey,
       });
-      if (waypoints.length > 0) params.set("waypoints", waypoints.join("|"));
+      if (waypointsResolved.length > 0) params.set("waypoints", waypointsResolved.join("|"));
       if (departureTime) {
         if (departureTime === "now") {
           params.set("departure_time", "now");
@@ -272,22 +317,28 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
       }
     },
 
-    get_distance_matrix: async (input: Record<string, unknown>) => {
+    get_distance_matrix: async (input: Record<string, unknown>, ctx: ToolContext) => {
       const apiKey = getApiKey(deps);
       if (!apiKey) {
         return { error: "GOOGLE_MAPS_SERVER_KEY (oder GOOGLE_MAPS_API_KEY) nicht konfiguriert" };
       }
 
-      const origins = textArray(input.origins, MAX_BATCH);
+      const originsRaw = textArray(input.origins, MAX_BATCH);
       const destinations = textArray(input.destinations, MAX_BATCH);
-      if (origins.length === 0 || destinations.length === 0) {
+      if (originsRaw.length === 0 || destinations.length === 0) {
         return { error: "origins und destinations dürfen nicht leer sein" };
+      }
+      const originsResolved: string[] = [];
+      for (let i = 0; i < originsRaw.length; i++) {
+        const r = resolveGeoString(originsRaw[i], ctx, `origins[${i}]`);
+        if (!r.ok) return { error: r.error };
+        originsResolved.push(r.value);
       }
       const mode = parseMode(input.mode);
       const departureTime = text(input.departure_time);
 
       const params = new URLSearchParams({
-        origins: origins.join("|"),
+        origins: originsResolved.join("|"),
         destinations: destinations.join("|"),
         mode,
         language: "de",
@@ -317,7 +368,7 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
         }
 
         const matrix = (data.rows || []).map((row, i) => ({
-          origin: data.origin_addresses?.[i] ?? origins[i],
+          origin: data.origin_addresses?.[i] ?? originsResolved[i],
           cells: (row.elements || []).map((el, j) => ({
             destination: data.destination_addresses?.[j] ?? destinations[j],
             status: el.status,
@@ -330,7 +381,7 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
         }));
 
         return {
-          originCount: origins.length,
+          originCount: originsResolved.length,
           destinationCount: destinations.length,
           matrix,
           attribution: "Routing: Google Maps Distance Matrix",
@@ -340,14 +391,17 @@ export function createMapsHandlers(deps: MapsDeps = {}): Record<string, ToolHand
       }
     },
 
-    get_travel_time_for_orders: async (input: Record<string, unknown>) => {
+    get_travel_time_for_orders: async (input: Record<string, unknown>, ctx: ToolContext) => {
       const apiKey = getApiKey(deps);
       if (!apiKey) {
         return { error: "GOOGLE_MAPS_SERVER_KEY (oder GOOGLE_MAPS_API_KEY) nicht konfiguriert" };
       }
 
-      const startAddress = text(input.start_address);
-      if (!startAddress) return { error: "start_address ist erforderlich" };
+      const startRaw = text(input.start_address);
+      if (!startRaw) return { error: "start_address ist erforderlich" };
+      const startRes = resolveGeoString(startRaw, ctx, "start_address");
+      if (!startRes.ok) return { error: startRes.error };
+      const startAddress = startRes.value;
 
       const ids = textArray(input.order_ids, MAX_BATCH);
       if (ids.length === 0) return { error: "order_ids ist erforderlich" };
