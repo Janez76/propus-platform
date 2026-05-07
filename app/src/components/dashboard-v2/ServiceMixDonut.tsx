@@ -20,8 +20,34 @@ interface ServiceBucket {
 interface ServiceArc extends ServiceBucket {
   cssVar: string;
   fraction: number;
+  /** Auf ganze Prozent gerundet via Largest-Remainder, summiert garantiert auf 100. */
+  pct: number;
   length: number;
   offset: number;
+}
+
+/**
+ * Largest-Remainder-Method (Hare/Hamilton): rundet kontinuierliche Anteile
+ * (`fractions`, summieren auf 1) zu ganzzahligen Prozentwerten so, dass die
+ * Summe exakt 100 ist. Alle naive `Math.round`-Verfahren können auf 99 oder
+ * 101 driften — sichtbar wenn die Donut-Legende "23% + 28% + …" addiert.
+ */
+function largestRemainderRound(fractions: number[]): number[] {
+  if (fractions.length === 0) return [];
+  const scaled = fractions.map((f) => f * 100);
+  const floors = scaled.map(Math.floor);
+  let remainder = 100 - floors.reduce((s, v) => s + v, 0);
+  /** Absteigend nach Bruchteil — die "verlierendsten" Buckets dürfen aufrunden. */
+  const order = scaled
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  const out = floors.slice();
+  for (const { i } of order) {
+    if (remainder <= 0) break;
+    out[i] += 1;
+    remainder -= 1;
+  }
+  return out;
 }
 
 const RADIUS = 72;
@@ -104,14 +130,18 @@ export function ServiceMixDonut({ orders, lang }: ServiceMixDonutProps) {
     }
     const totalAmount = final.reduce((s, b) => s + b.amount, 0);
     if (totalAmount === 0) return [];
+    const fractions = final.map((b) => b.amount / totalAmount);
+    /** Garantiert auf-100-summierende Prozent für die Legende. */
+    const pcts = largestRemainderRound(fractions);
     let cumulative = 0;
     return final.map((b, i) => {
-      const fraction = b.amount / totalAmount;
+      const fraction = fractions[i] ?? 0;
       const length = fraction * CIRCUMFERENCE;
       const arc: ServiceArc = {
         ...b,
         cssVar: COLORS[i % COLORS.length] ?? COLORS[0],
         fraction,
+        pct: pcts[i] ?? 0,
         length,
         offset: cumulative,
       };
@@ -198,7 +228,7 @@ export function ServiceMixDonut({ orders, lang }: ServiceMixDonutProps) {
               />
               <span className="dv2-donut-legend-label">{arc.label}</span>
               <span className="dv2-donut-legend-val">{formatCHF(arc.amount)}</span>
-              <span className="dv2-donut-legend-pct">{Math.round(arc.fraction * 100)}%</span>
+              <span className="dv2-donut-legend-pct">{arc.pct}%</span>
             </li>
           ))}
         </ul>
