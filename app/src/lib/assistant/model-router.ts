@@ -10,7 +10,7 @@ export const MODEL_IDS: Record<ModelTier, string> = {
 const UNCERTAINTY_PATTERNS =
   /ich (weiss|weiß) nicht|kann ich (leider )?nicht|keine (ausreichenden )?informationen|nicht sicher|kann das nicht beantworten|dazu habe ich keine/i;
 
-export function selectInitialModel(userMessage: string, maxTier: ModelTier): ModelTier {
+export function selectInitialModel(_userMessage: string, maxTier: ModelTier): ModelTier {
   // Auto-Routing startet nicht mehr bei Haiku — KI-Assistant + Propi sollen
   // mindestens Sonnet bekommen. Wenn ein Operator maxTier=haiku explizit als
   // Cap setzt, respektieren wir das (clampTier sorgt eh dafuer); sonst Sonnet.

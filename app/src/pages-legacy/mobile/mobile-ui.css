@@ -430,11 +430,11 @@
 .mob-dep--now {
   color: #dc2626; border-color: color-mix(in srgb, #dc2626 40%, transparent);
   background: color-mix(in srgb, #dc2626 8%, transparent);
-  animation: mobDepPulse 1.6s ease-in-out infinite;
+  animation: mob-dep-pulse 1.6s ease-in-out infinite;
 }
 .mob-dep--passed { color: var(--text-muted); border-color: var(--border-soft); background: color-mix(in srgb, var(--text-muted) 6%, transparent); text-decoration: line-through; }
 .mob-dep--unknown { color: var(--text-muted); border-color: var(--border-soft); background: transparent; opacity: 0.6; }
-@keyframes mobDepPulse {
+@keyframes mob-dep-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
   50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12); }
 }
@@ -574,9 +574,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: mobSheetFade 0.18s ease;
+  animation: mob-sheet-fade 0.18s ease;
 }
-@keyframes mobSheetFade {
+@keyframes mob-sheet-fade {
   from { opacity: 0; }
   to { opacity: 1; }
 }
@@ -593,9 +593,9 @@
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.22);
-  animation: mobSheetSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: mob-sheet-slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
-@keyframes mobSheetSlideUp {
+@keyframes mob-sheet-slide-up {
   from { transform: translateY(24px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
@@ -759,7 +759,7 @@
    stabilen Erst-Render statt blanker Spinner-Card.
    ───────────────────────────────────────────────────────────────────────── */
 
-@keyframes mobSkelShimmer {
+@keyframes mob-skel-shimmer {
   0% { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
@@ -775,7 +775,7 @@
     var(--surface-raised) 100%
   );
   background-size: 200% 100%;
-  animation: mobSkelShimmer 1.4s ease-in-out infinite;
+  animation: mob-skel-shimmer 1.4s ease-in-out infinite;
   border-radius: 10px;
 }
 

@@ -45,7 +45,7 @@ export const MobileBottomTabs = memo(function MobileBottomTabs({
         {TABS.map(({ key, label, Icon }) => {
           const active = current === key;
           return (
-            <li key={key} className={active ? "flex-2" : "flex-1"} style={{ transition: "flex-grow 220ms cubic-bezier(0.22,1,0.36,1)" }}>
+            <li key={key} className={active ? "flex-[2]" : "flex-1"} style={{ transition: "flex-grow 220ms cubic-bezier(0.22,1,0.36,1)" }}>
               <button
                 type="button"
                 onClick={() => onChange(key)}
