@@ -635,6 +635,8 @@ export function OrdersMapView({
       const svg = makeStatusPinSvg(paletteForStatus(entry.status), isHovered);
       if (useAdvancedMarkers) {
         const am = entry.marker as google.maps.marker.AdvancedMarkerElement;
+        // Maps Advanced Marker API: update pin SVG on hover (mutates marker DOM element).
+        // eslint-disable-next-line react-hooks/immutability -- Google Maps marker.content must be reassigned to update the pin.
         am.content = createSvgMarkerContent({
           svg,
           width: w,

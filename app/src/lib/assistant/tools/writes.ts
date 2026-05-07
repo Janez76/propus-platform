@@ -199,9 +199,9 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
     },
 
     create_ticket: async (input: Record<string, unknown>, ctx: ToolContext) => {
-      const module = requireString(input.module, "module").toLowerCase();
-      if (!VALID_MODULES.has(module)) {
-        return { error: `Ungültiges Modul: ${module}. Erlaubt: tours, booking` };
+      const ticketModule = requireString(input.module, "module").toLowerCase();
+      if (!VALID_MODULES.has(ticketModule)) {
+        return { error: `Ungültiges Modul: ${ticketModule}. Erlaubt: tours, booking` };
       }
       const subject = requireString(input.subject, "subject");
       const description = optionalString(input.description);
@@ -223,7 +223,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         `INSERT INTO tour_manager.tickets (module, subject, description, category, priority, reference_id, reference_type, status, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 'open', $8)
          RETURNING id`,
-        [module, subject, description, category || "sonstiges", priority || "normal", referenceId, referenceType, ctx.userEmail],
+        [ticketModule, subject, description, category || "sonstiges", priority || "normal", referenceId, referenceType, ctx.userEmail],
       );
 
       return { ok: true, ticketId: row?.id, message: `Ticket "${subject}" erstellt.` };
