@@ -149,18 +149,29 @@ html.dark .propus-briefing {
 .propus-briefing-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 2px;
 }
-.propus-briefing-head h5 {
-  margin: 0;
-  flex: 1;
-  font-family: var(--propus-font-heading, 'Montserrat', sans-serif);
-  font-size: 10px;
-  letter-spacing: .8px;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: var(--propus-gold);
+.propus-briefing-mascot {
+  display: inline-flex;
+  flex-shrink: 0;
+  animation: propus-float 4.2s ease-in-out infinite;
+}
+.propus-briefing-head-text { flex: 1; min-width: 0; }
+.propus-briefing-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--propus-font-display, 'Instrument Serif', serif);
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--propus-accent-warm-deep, var(--propus-gold));
+}
+@media (prefers-reduced-motion: reduce) {
+  .propus-briefing-mascot { animation: none !important; }
 }
 
 .propus-briefing-refresh {
