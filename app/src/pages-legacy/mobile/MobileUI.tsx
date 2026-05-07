@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 import "./mobile-ui.css";
 
@@ -125,11 +126,34 @@ export function MobileState({ icon: Icon, message, children }: MobileStateProps)
   );
 }
 
-/** Loading-Spinner für Mobile — gleiche Brand-Farbe wie Pull-to-Refresh. */
-export function MobileSpinner() {
+interface MobileListSkeletonProps {
+  /** Anzahl Skeleton-Zeilen. Default: 6. */
+  rows?: number;
+  /** Section-Header-Skeleton oben anzeigen. Default: true. */
+  withSection?: boolean;
+  /** Search-Bar-Skeleton oben anzeigen. Default: false. */
+  withSearch?: boolean;
+}
+
+/** List-Skeleton für Mobile-Tabs während des Initial-Loads.
+ *  Stabiler Erst-Render statt Spinner — User sieht das kommende Layout. */
+export function MobileListSkeleton({
+  rows = 6,
+  withSection = true,
+  withSearch = false,
+}: MobileListSkeletonProps) {
   return (
-    <div className="mob-state">
-      <div className="mob-spinner" role="status" aria-label="Laden" />
+    <div className="mob-page" aria-busy="true" aria-live="polite">
+      {withSearch && <div className="mob-skel-bar" aria-hidden />}
+      {withSection && <div className="mob-skel-section-h" aria-hidden />}
+      <ul className="mob-section-list" style={{ paddingTop: 0 }} aria-hidden>
+        {Array.from({ length: rows }).map((_, i) => (
+          <li key={i}>
+            <div className="mob-skel-row" />
+          </li>
+        ))}
+      </ul>
+      <span className="sr-only">Wird geladen…</span>
     </div>
   );
 }
@@ -155,23 +179,29 @@ export interface MobileAvatarProps {
   size?: "md" | "sm";
 }
 
-/** Initialen-Avatar mit deterministischer Brand-Gradient-Farbe. */
-export function MobileAvatar({ name, size = "md" }: MobileAvatarProps) {
-  const trimmed = name.trim();
-  const initials = trimmed
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p.charAt(0).toUpperCase())
-    .join("") || "?";
-  const bucket = avatarBucket(trimmed.toLowerCase() || "?");
+/** Initialen-Avatar mit deterministischer Brand-Gradient-Farbe.
+ *  Memoiziert: Hash + Initial-Berechnung lohnen sich bei Listen >50 Items
+ *  (Contacts kappt bei 100). Vermeidet Layout-Flicker beim Re-Render. */
+export const MobileAvatar = memo(function MobileAvatar({ name, size = "md" }: MobileAvatarProps) {
+  const { initials, gradient } = useMemo(() => {
+    const trimmed = name.trim();
+    const init =
+      trimmed
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p.charAt(0).toUpperCase())
+        .join("") || "?";
+    const bucket = avatarBucket(trimmed.toLowerCase() || "?");
+    return { initials: init, gradient: AVATAR_GRADIENTS[bucket] };
+  }, [name]);
   return (
     <span
       className={`mob-avatar${size === "sm" ? " mob-avatar--sm" : ""}`}
-      style={{ background: AVATAR_GRADIENTS[bucket] }}
+      style={{ background: gradient }}
       aria-hidden
     >
       {initials}
     </span>
   );
-}
+});

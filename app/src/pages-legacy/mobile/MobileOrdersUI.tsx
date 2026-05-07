@@ -13,6 +13,7 @@
  * Keine eigenen Farb-Hex-Werte ausser fuer die Eskalations-Stati (rot/gelb/gruen),
  * dort `color-mix` mit den definierten Status-Tokens.
  */
+import { memo } from "react";
 import type { ReactNode } from "react";
 import { ArrowDown, ArrowRight, ArrowUpRight, Car, Clock, Crosshair, House, TriangleAlert } from "lucide-react";
 import "./mobile-ui.css";
@@ -29,14 +30,14 @@ interface MobileDayBadgeProps {
   month: string;
 }
 
-export function MobileDayBadge({ bucket, day, month }: MobileDayBadgeProps) {
+export const MobileDayBadge = memo(function MobileDayBadge({ bucket, day, month }: MobileDayBadgeProps) {
   return (
     <span className={`mob-day-badge mob-day-badge--${bucket}`} aria-hidden>
       <span className="mob-day-badge-d">{day}</span>
       {month && <span className="mob-day-badge-m">{month}</span>}
     </span>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Day-Section-Header (Heute / Morgen / Diese Woche / Spaeter)
@@ -101,7 +102,7 @@ interface MobileTravelChipProps {
   isLive?: boolean;
 }
 
-export function MobileTravelChip({ durationText, source, isLive }: MobileTravelChipProps) {
+export const MobileTravelChip = memo(function MobileTravelChip({ durationText, source, isLive }: MobileTravelChipProps) {
   if (!durationText) {
     return (
       <span className="mob-travel mob-travel--unknown" aria-label="Fahrzeit unbekannt">
@@ -128,7 +129,7 @@ export function MobileTravelChip({ durationText, source, isLive }: MobileTravelC
       </span>
     </span>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Departure-Chip (eskalierende Pille)
@@ -141,7 +142,7 @@ interface MobileDepartureChipProps {
   minutesUntilLeave: number | null;
 }
 
-export function MobileDepartureChip({ status, leaveAtText, minutesUntilLeave }: MobileDepartureChipProps) {
+export const MobileDepartureChip = memo(function MobileDepartureChip({ status, leaveAtText, minutesUntilLeave }: MobileDepartureChipProps) {
   if (status === "unknown") {
     return (
       <span className="mob-dep mob-dep--unknown" aria-label="Abfahrt unbekannt">
@@ -179,7 +180,7 @@ export function MobileDepartureChip({ status, leaveAtText, minutesUntilLeave }: 
       <Clock size={11} aria-hidden /> {leaveAtText}
     </span>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tour-Divider (zwischen Same-Day-Terminen)
@@ -196,7 +197,7 @@ interface MobileTourDividerProps {
   tight?: boolean;
 }
 
-export function MobileTourDivider({
+export const MobileTourDivider = memo(function MobileTourDivider({
   gapText,
   bufferMin,
   nextTravelMin,
@@ -217,7 +218,7 @@ export function MobileTourDivider({
       )}
     </div>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Heimfahrt-Divider (Tagesende)
@@ -268,7 +269,7 @@ interface MobileObjectAddrProps {
   children?: ReactNode;
 }
 
-export function MobileObjectAddr({ street, zipcity, children }: MobileObjectAddrProps) {
+export const MobileObjectAddr = memo(function MobileObjectAddr({ street, zipcity, children }: MobileObjectAddrProps) {
   return (
     <span className="mob-obj-addr" title="Objektadresse — hier wird fotografiert">
       <span className="mob-obj-addr-tag">📷 Objekt</span>
@@ -279,7 +280,7 @@ export function MobileObjectAddr({ street, zipcity, children }: MobileObjectAddr
       {children}
     </span>
   );
-}
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // KPI-Pills (Phase 3) — horizontal scrollender Snap-Strip mit klickbaren KPIs

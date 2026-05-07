@@ -2,7 +2,28 @@
    Shared mobile UI primitives (Polish-Pass 2 · Mobile-Phase-2)
    Verwendet die globalen Propus-Tokens (--surface, --accent, --text-main,
    --border-soft, --paper-strip). Keine eigenen Farben — folgt Theme.
+
+   Lokale Mobile-Tokens (nicht überschreiben — nur ergänzend für konsistente
+   Spacings/Radii/Schatten innerhalb der /mobile-Routen). Alle Farbwerte
+   leiten sich weiter aus den globalen Propus-Tokens ab.
    ──────────────────────────────────────────────────────────────────────── */
+
+:where(.mob-page),
+:where(.mob-card),
+:where(.mob-list-item),
+:where(.mob-sheet),
+:where(.mob-kpi-pill),
+:where(.mob-day-section-h),
+:where(.mob-filter-trigger),
+:where(.mob-search-input) {
+  --mob-radius-sm: 10px;
+  --mob-radius-md: 14px;
+  --mob-radius-lg: 18px;
+  --mob-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --mob-shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.05), 0 8px 24px -12px rgba(0, 0, 0, 0.10);
+  --mob-tap-scale: 0.98;
+  --mob-motion: 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 
 .mob-page { padding: 12px; }
 .mob-page--flush { padding: 0; }
@@ -11,11 +32,12 @@
 .mob-card {
   background: var(--surface-raised);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--mob-radius-md);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: var(--mob-shadow-soft);
 }
 .mob-card--clickable {
   width: 100%;
@@ -23,10 +45,13 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: transform 0.18s ease, background 0.18s ease;
+  transition: transform var(--mob-motion), background var(--mob-motion), box-shadow var(--mob-motion);
 }
-.mob-card--clickable:hover { background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised)); }
-.mob-card--clickable:active { transform: scale(0.985); }
+.mob-card--clickable:hover {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised));
+  box-shadow: var(--mob-shadow-raised);
+}
+.mob-card--clickable:active { transform: scale(var(--mob-tap-scale)); }
 
 /* ── List-Item: Avatar + Content + Trailing ─────────────────────────── */
 .mob-list-item {
@@ -38,17 +63,27 @@
   padding: 12px 14px;
   background: var(--surface-raised);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--mob-radius-md);
   font: inherit;
   color: inherit;
   cursor: pointer;
-  transition: transform 0.18s ease, background 0.18s ease;
+  box-shadow: var(--mob-shadow-soft);
+  transition: transform var(--mob-motion), background var(--mob-motion), box-shadow var(--mob-motion), border-color var(--mob-motion);
+  min-height: 56px;
 }
-.mob-list-item:hover { background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised)); }
-.mob-list-item:active { transform: scale(0.985); }
-.mob-list-item--static { cursor: default; }
+.mob-list-item:hover {
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface-raised));
+  box-shadow: var(--mob-shadow-raised);
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border-soft));
+}
+.mob-list-item:active { transform: scale(var(--mob-tap-scale)); }
+.mob-list-item--static { cursor: default; box-shadow: var(--mob-shadow-soft); }
 .mob-list-item--static:active { transform: none; }
-.mob-list-item--static:hover { background: var(--surface-raised); }
+.mob-list-item--static:hover {
+  background: var(--surface-raised);
+  box-shadow: var(--mob-shadow-soft);
+  border-color: var(--border-soft);
+}
 
 .mob-list-leading {
   flex-shrink: 0;
@@ -196,29 +231,35 @@
 }
 .mob-search-icon {
   position: absolute;
-  left: 12px;
+  left: 14px;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
   color: var(--text-muted);
+  transition: color var(--mob-motion);
 }
 .mob-search-input {
-  height: 44px;
+  height: 46px;
   width: 100%;
-  border-radius: 12px;
-  padding: 0 12px 0 38px;
+  border-radius: var(--mob-radius-md);
+  padding: 0 12px 0 42px;
   font-size: 14px;
   outline: 0;
   background: var(--surface-raised);
   border: 1px solid var(--border-soft);
   color: var(--text-main);
   font-family: inherit;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: var(--mob-shadow-soft);
+  transition: border-color var(--mob-motion), box-shadow var(--mob-motion), background var(--mob-motion);
 }
+.mob-search-input::placeholder { color: var(--text-muted); opacity: 0.7; }
+.mob-search-input:hover { background: color-mix(in srgb, var(--accent) 3%, var(--surface-raised)); }
 .mob-search-input:focus {
   border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), var(--mob-shadow-soft);
 }
+.mob-search-input:focus + .mob-search-icon,
+.mob-search:focus-within .mob-search-icon { color: var(--accent); }
 
 /* ── Empty / Loading / Error states ─────────────────────────────────── */
 .mob-state {
@@ -338,11 +379,13 @@
   width: 100%;
   background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised));
   border: 1px solid var(--border-soft);
-  border-radius: 12px; margin: 8px 0;
+  border-radius: var(--mob-radius-md); margin: 8px 0;
   font: inherit; color: inherit; text-align: left;
+  box-shadow: var(--mob-shadow-soft);
 }
-.mob-day-section-h--clickable { cursor: pointer; transition: background 0.15s ease; }
-.mob-day-section-h--clickable:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface-raised)); }
+.mob-day-section-h--clickable { cursor: pointer; transition: background var(--mob-motion), box-shadow var(--mob-motion), transform var(--mob-motion); }
+.mob-day-section-h--clickable:hover { background: color-mix(in srgb, var(--accent) 9%, var(--surface-raised)); box-shadow: var(--mob-shadow-raised); }
+.mob-day-section-h--clickable:active { transform: scale(var(--mob-tap-scale)); }
 .mob-day-section-h--today {
   background: linear-gradient(135deg, color-mix(in srgb, #dc2626 7%, transparent), var(--surface-raised));
   border-color: color-mix(in srgb, #dc2626 18%, var(--border-soft));
@@ -485,21 +528,24 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 9px 12px;
+  padding: 10px 13px;
   background: var(--surface-raised);
   border: 1px solid var(--border-soft);
-  border-radius: 11px;
+  border-radius: var(--mob-radius-md);
   font: inherit;
   color: inherit;
   text-align: left;
-  min-width: 118px;
+  min-width: 122px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  box-shadow: var(--mob-shadow-soft);
+  transition: background var(--mob-motion), border-color var(--mob-motion), box-shadow var(--mob-motion), transform var(--mob-motion);
 }
-.mob-kpi-pill:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-kpi-pill:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); box-shadow: var(--mob-shadow-raised); }
+.mob-kpi-pill:active { transform: scale(var(--mob-tap-scale)); }
 .mob-kpi-pill--active {
   background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), var(--mob-shadow-soft);
 }
 .mob-kpi-pill-lab {
   font-size: 9px;
@@ -539,19 +585,30 @@
   width: 100%;
   max-width: 28rem;
   background: var(--surface-raised);
-  border-radius: 18px 18px 0 0;
-  padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--mob-radius-lg) var(--mob-radius-lg) 0 0;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.18);
-  animation: mobSheetSlideUp 0.22s ease;
+  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.22);
+  animation: mobSheetSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes mobSheetSlideUp {
-  from { transform: translateY(20px); opacity: 0; }
+  from { transform: translateY(24px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+/* Drag-Handle oben am Sheet — visuelles Affordance, nicht funktional. */
+.mob-sheet::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+  margin: 8px auto 4px;
+  flex-shrink: 0;
 }
 .mob-sheet-h {
   display: flex;
@@ -596,7 +653,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
+  padding: 8px 13px;
   border-radius: 999px;
   border: 1px solid var(--border-soft);
   background: var(--surface-raised);
@@ -605,9 +662,11 @@
   color: var(--text-main);
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  min-height: 36px;
+  transition: background var(--mob-motion), border-color var(--mob-motion), color var(--mob-motion), transform var(--mob-motion);
 }
 .mob-sheet-chip:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-sheet-chip:active { transform: scale(var(--mob-tap-scale)); }
 .mob-sheet-chip--active {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
@@ -658,18 +717,20 @@
 .mob-filter-trigger {
   flex-shrink: 0;
   position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--mob-radius-md);
   border: 1px solid var(--border-soft);
   background: var(--surface-raised);
   color: var(--text-main);
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background 0.12s ease;
+  box-shadow: var(--mob-shadow-soft);
+  transition: background var(--mob-motion), border-color var(--mob-motion), color var(--mob-motion), transform var(--mob-motion), box-shadow var(--mob-motion);
 }
-.mob-filter-trigger:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); }
+.mob-filter-trigger:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface-raised)); box-shadow: var(--mob-shadow-raised); }
+.mob-filter-trigger:active { transform: scale(var(--mob-tap-scale)); }
 .mob-filter-trigger--active {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));

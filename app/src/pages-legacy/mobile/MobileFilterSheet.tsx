@@ -53,20 +53,24 @@ export function MobileFilterSheet({
 }: MobileFilterSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  // Esc + click-outside.
+  // Esc + click-outside (pointerdown statt mousedown — feuert auch bei Touch
+  // direkt ohne 300ms-Delay) + body-scroll-lock waehrend Sheet offen.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    const onClick = (e: MouseEvent) => {
+    const onPointer = (e: PointerEvent) => {
       if (sheetRef.current && !sheetRef.current.contains(e.target as Node)) onClose();
     };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onPointer);
     return () => {
+      document.body.style.overflow = prevOverflow;
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("pointerdown", onPointer);
     };
   }, [open, onClose]);
 
