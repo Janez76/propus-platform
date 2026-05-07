@@ -14,6 +14,9 @@ interface UsePropiChatOptions {
   initialMessage?: PropiMessage;
   /** Maximum messages stored locally / sent to API. Default 20. */
   maxHistory?: number;
+  /** Optional: aktueller User-Standort. Wird als Kontext-Block dem userMessage vorangestellt
+   *  damit Propi (Tools wie get_route, get_distance_matrix) ihn nutzen kann. */
+  location?: { lat: number; lng: number; accuracy?: number } | null;
 }
 
 interface ToolEvent {
@@ -46,6 +49,7 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
     storageKey = 'propus.cockpit.propi.v1',
     initialMessage = DEFAULT_INITIAL,
     maxHistory = 20,
+    location = null,
   } = options;
 
   const conversationStorageKey = `${storageKey}.conv`;
@@ -111,6 +115,12 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
       const historyForApi = (baseHistory[0] === messages[0] ? baseHistory.slice(1) : baseHistory)
         .filter((m) => !!m.content);
 
+      // Sprint 11: Standort-Kontext-Block vor userMessage einbauen, falls vorhanden.
+      // UI zeigt nur den Original-Text (userMsg.content); Backend bekommt mit Standort.
+      const apiUserMessage = location
+        ? `[Aktueller Standort: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}${location.accuracy ? ` (±${Math.round(location.accuracy)}m)` : ''}]\n\n${trimmed}`
+        : trimmed;
+
       setMessages((prev) => [...prev, userMsg, { role: 'assistant', content: '' }]);
 
       const controller = new AbortController();
@@ -122,7 +132,7 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            userMessage: trimmed,
+            userMessage: apiUserMessage,
             history: historyForApi,
             ...(conversationId ? { conversationId } : {}),
           }),
@@ -209,7 +219,7 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
         abortRef.current = null;
       }
     },
-    [endpoint, loading, maxHistory, messages, conversationId, conversationStorageKey],
+    [endpoint, loading, maxHistory, messages, conversationId, conversationStorageKey, location],
   );
 
   const reset = useCallback(() => {
