@@ -75,7 +75,6 @@ const AdminExxasSyncPage = lazy(() => import("../pages-legacy/admin/invoices/Adm
 const ToursAdminDashboardPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminDashboardPage").then((m) => ({ default: m.ToursAdminDashboardPage })));
 const ToursAdminListPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminListPage").then((m) => ({ default: m.ToursAdminListPage })));
 const TourDetailPage = lazy(() => import("../pages-legacy/tours/admin/TourDetailPage").then((m) => ({ default: m.TourDetailPage })));
-const ToursAdminInvoicesPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminInvoicesPage").then((m) => ({ default: m.ToursAdminInvoicesPage })));
 const ToursAdminBankImportPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminBankImportPage").then((m) => ({ default: m.ToursAdminBankImportPage })));
 const ToursAdminLinkMatterportPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkMatterportPage").then((m) => ({ default: m.ToursAdminLinkMatterportPage })));
 const ToursAdminLinkInvoicePage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminLinkInvoicePage").then((m) => ({ default: m.ToursAdminLinkInvoicePage })));
@@ -85,8 +84,6 @@ const ToursAdminWorkflowSettingsPage = lazy(() =>
   import("../pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage").then((m) => ({ default: m.ToursAdminWorkflowSettingsPage })),
 );
 const ToursAdminTeamPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminTeamPage").then((m) => ({ default: m.ToursAdminTeamPage })));
-const ToursAdminAiChatPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminAiChatPage").then((m) => ({ default: m.ToursAdminAiChatPage })));
-const PortalPreviewPage = lazy(() => import("../pages-legacy/tours/admin/PortalPreviewPage").then((m) => ({ default: m.PortalPreviewPage })));
 const AdminTicketsPage = lazy(() => import("../pages-legacy/tours/admin/AdminTicketsPage").then((m) => ({ default: m.AdminTicketsPage })));
 const PosteingangPage = lazy(() => import("../pages-legacy/admin/posteingang/PosteingangPage").then((m) => ({ default: m.PosteingangPage })));
 const PosteingangAufgabenPage = lazy(() =>
@@ -283,8 +280,6 @@ function PrivateRoutes() {
         <Route path="/admin/tours/automations" element={<Navigate to="/admin/tours/workflow-settings?tab=workflow" replace />} />
         <Route path="/admin/tours/bereinigung" element={eg("/admin/tours", <ToursAdminCleanupPage />)} />
         <Route path="/admin/tours/team" element={eg("/admin/tours", <ToursAdminTeamPage />)} />
-        <Route path="/admin/tours/ai-chat" element={eg("/admin/tours", <ToursAdminAiChatPage />)} />
-        <Route path="/admin/tours/portal-vorschau" element={eg("/admin/tours", <PortalPreviewPage />)} />
         <Route path="/admin/tickets" element={eg("/admin/tickets", <AdminTicketsPage />)} />
         <Route path="/admin/posteingang/aufgaben" element={eg("/admin/posteingang", <PosteingangAufgabenPage />)} />
         <Route path="/admin/posteingang/:id" element={eg("/admin/posteingang", <PosteingangPage />)} />
