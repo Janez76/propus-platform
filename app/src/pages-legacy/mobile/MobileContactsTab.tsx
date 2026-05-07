@@ -6,8 +6,8 @@ import { MobilePullToRefresh } from "./MobilePullToRefresh";
 import {
   MobileAvatar,
   MobileListItem,
+  MobileListSkeleton,
   MobileSearchBar,
-  MobileSpinner,
   MobileState,
 } from "./MobileUI";
 
@@ -72,7 +72,7 @@ export function MobileContactsTab() {
         />
 
         {loading ? (
-          <MobileSpinner />
+          <MobileListSkeleton rows={6} withSection={false} />
         ) : error ? (
           <MobileState icon={Users} message={`Fehler: ${error}`} />
         ) : filtered.length === 0 ? (

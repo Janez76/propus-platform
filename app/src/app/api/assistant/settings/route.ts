@@ -10,6 +10,19 @@ export const runtime = "nodejs";
 
 const INTERNAL_ROLES = new Set(["admin", "super_admin", "employee"]);
 
+/** Erlaubte Default-Modelle fuer Assistant-Settings. Haiku wurde im
+ *  Polish-Pass aus dem Auto-Routing entfernt; soll daher auch nicht mehr
+ *  als persistierter Default-Modell-Wert gesetzt werden koennen. */
+const ALLOWED_MODEL_IDS = new Set<string>([
+  "claude-sonnet-4-6",
+  "claude-opus-4-7",
+]);
+
+const DEFAULT_AVAILABLE_MODELS: Array<{ id: string; label: string }> = [
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
+];
+
 export async function GET() {
   const session = await getAdminSession();
   if (!session || !INTERNAL_ROLES.has(String(session.role || "").toLowerCase())) {
@@ -25,17 +38,23 @@ export async function GET() {
     ? await getAssistantUsageToday(sessionId)
     : { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
+  // Fallback: Falls das aktuell persistierte settings.model nicht (mehr) in
+  // der Allowlist steht (z.B. Bestand mit "claude-haiku-4-5"), als
+  // veralteten Eintrag mit anhaengen — sonst zeigt der <select> in der
+  // Settings-UI einen leeren Wert ohne matchende <option>.
+  const availableModels = [...DEFAULT_AVAILABLE_MODELS];
+  const currentModel = typeof settings.model === "string" ? settings.model : "";
+  if (currentModel && !availableModels.some((m) => m.id === currentModel)) {
+    availableModels.push({ id: currentModel, label: `${currentModel} (veraltet)` });
+  }
+
   return NextResponse.json({
     settings,
     usage,
     /** OpenAI Whisper — nur Spracheingabe; Text-Chat nutzt ANTHROPIC_API_KEY. */
     voiceTranscriptionConfigured: isOpenAiWhisperConfigured(),
     availableTools: allTools.map((t) => ({ name: t.name, description: t.description })),
-    availableModels: [
-      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-      { id: "claude-opus-4-7", label: "Claude Opus 4.7" },
-      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
-    ],
+    availableModels,
     isAdmin: isAssistantSettingsAdminUi(session),
   });
 }
@@ -60,7 +79,15 @@ export async function PATCH(req: NextRequest) {
     streamingEnabled: boolean;
   }> = {};
 
-  if (typeof body.model === "string") patch.model = body.model;
+  if (typeof body.model === "string") {
+    if (!ALLOWED_MODEL_IDS.has(body.model)) {
+      return NextResponse.json(
+        { error: `Modell '${body.model}' ist nicht erlaubt`, code: "validation_error" },
+        { status: 400 },
+      );
+    }
+    patch.model = body.model;
+  }
   if (Array.isArray(body.enabledTools)) patch.enabledTools = body.enabledTools as string[];
   if (typeof body.dailyTokenLimit === "number") patch.dailyTokenLimit = body.dailyTokenLimit;
   if (typeof body.streamingEnabled === "boolean") patch.streamingEnabled = body.streamingEnabled;

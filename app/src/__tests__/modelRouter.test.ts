@@ -3,33 +3,24 @@ import { clampTier, parseModelMode, parseTier, selectInitialModel, shouldEscalat
 
 describe("model-router", () => {
   describe("selectInitialModel", () => {
-    it("returns haiku for short simple messages", () => {
-      expect(selectInitialModel("Hallo", "sonnet")).toBe("haiku");
-      expect(selectInitialModel("Zeig mir offene Aufträge", "sonnet")).toBe("haiku");
+    it("returns sonnet by default (Haiku ist im Auto-Routing deaktiviert)", () => {
+      expect(selectInitialModel("Hallo", "sonnet")).toBe("sonnet");
+      expect(selectInitialModel("Zeig mir offene Aufträge", "sonnet")).toBe("sonnet");
     });
 
-    it("returns sonnet for long messages (>500 chars)", () => {
+    it("returns sonnet for long messages too", () => {
       const longMessage = "a".repeat(501);
       expect(selectInitialModel(longMessage, "sonnet")).toBe("sonnet");
     });
 
-    it("returns sonnet for complexity keywords", () => {
-      expect(selectInitialModel("Erkläre mir den Unterschied", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Analysiere die Umsätze", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Warum ist das so?", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Zusammenfassung der letzten Woche", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Plane die nächsten Schritte", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Vergleiche Tour A und B", "opus")).toBe("sonnet");
+    it("returns sonnet when maxTier is opus (Auto startet trotzdem bei Sonnet)", () => {
+      expect(selectInitialModel("Erkläre mir den Unterschied", "opus")).toBe("sonnet");
+      expect(selectInitialModel("kurz", "opus")).toBe("sonnet");
     });
 
-    it("returns haiku when maxTier is haiku", () => {
+    it("returns haiku only when maxTier ist explizit auf haiku gecappt", () => {
       expect(selectInitialModel("Erkläre mir alles", "haiku")).toBe("haiku");
       expect(selectInitialModel("a".repeat(600), "haiku")).toBe("haiku");
-    });
-
-    it("keywords are case-insensitive", () => {
-      expect(selectInitialModel("ERKLÄRE mir das", "sonnet")).toBe("sonnet");
-      expect(selectInitialModel("Analysiere", "sonnet")).toBe("sonnet");
     });
   });
 

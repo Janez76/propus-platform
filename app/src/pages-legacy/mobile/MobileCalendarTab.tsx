@@ -5,7 +5,7 @@ import { useAuthStore } from "../../store/authStore";
 import { getCalendarEvents, type CalendarEvent } from "../../api/calendar";
 import { getStatusBadgeClass, getStatusLabel } from "../../lib/status";
 import { MobilePullToRefresh } from "./MobilePullToRefresh";
-import { MobileSectionHeader, MobileSpinner, MobileState } from "./MobileUI";
+import { MobileListSkeleton, MobileSectionHeader, MobileState } from "./MobileUI";
 
 const DAYS_AHEAD = 14;
 
@@ -86,7 +86,7 @@ export function MobileCalendarTab() {
     }));
   }, [events]);
 
-  if (loading) return <MobileSpinner />;
+  if (loading) return <MobileListSkeleton rows={5} />;
   if (error)
     return (
       <MobileState icon={CalendarDays} message={`Fehler: ${error}`} />

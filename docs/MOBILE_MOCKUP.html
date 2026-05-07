@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Propus Mobile · Polish-Pass Mockup</title>
+<style>
+  /* Propus-Token-Approximation (nur fuer dieses Mockup, sonst kommt's aus
+     index.css/admin-redesign.css). */
+  :root {
+    --surface: #f6f4ee;
+    --surface-raised: #ffffff;
+    --text-main: #1f1d18;
+    --text-muted: #7a7367;
+    --border-soft: rgba(0, 0, 0, 0.08);
+    --paper-strip: #efeae0;
+    --accent: #b68e20;
+    --accent-on: #ffffff;
+    --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface: #18160f;
+      --surface-raised: #1f1c14;
+      --text-main: #f4efe1;
+      --text-muted: #98907f;
+      --border-soft: rgba(255, 255, 255, 0.08);
+      --paper-strip: #25211a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #2a2820;
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+    padding: 24px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .label {
+    color: #d4cab2;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    margin: 0 0 12px;
+  }
+  .device {
+    width: 390px;
+    height: 800px;
+    background: var(--surface);
+    color: var(--text-main);
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    border: 4px solid #0a0905;
+    position: relative;
+  }
+
+  /* ── mobile-ui.css (gekuerzt: nur was das Mockup zeigt) ── */
+  .mob-radius-md { --r: 14px; }
+  .mob-shadow-soft { box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06); }
+  .mob-shadow-raised { box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 8px 24px -12px rgba(0,0,0,0.10); }
+
+  /* Header */
+  .header {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    border-bottom: 1px solid var(--border-soft);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-brand { display: flex; align-items: center; gap: 10px; }
+  .header-logo {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #d4b860);
+    color: white; display: grid; place-items: center; font-weight: 800;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .header-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.16em; color: var(--accent); text-transform: uppercase; line-height: 1; }
+  .header-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; margin-top: 2px; }
+  .header-actions { display: flex; gap: 6px; }
+  .header-btn {
+    width: 40px; height: 40px; border-radius: 10px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-raised);
+    display: grid; place-items: center;
+    color: var(--text-muted);
+  }
+  .gold-line { height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); opacity: 0.4; }
+
+  /* Body */
+  .body { flex: 1; padding: 12px; overflow-y: auto; }
+
+  /* Filter-Bar */
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .search {
+    position: relative; flex: 1; height: 46px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-raised);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    display: flex; align-items: center; padding: 0 12px 0 42px;
+    color: var(--text-muted); font-size: 14px;
+  }
+  .search-icon { position: absolute; left: 14px; color: var(--text-muted); }
+  .filter-trigger {
+    width: 46px; height: 46px; border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+    color: var(--accent);
+    display: grid; place-items: center; position: relative;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .filter-badge {
+    position: absolute; top: -4px; right: -4px;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+    background: var(--accent); color: var(--accent-on);
+    font-size: 10px; font-weight: 800; display: grid; place-items: center;
+  }
+
+  /* KPI-Pills */
+  .kpi-row { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; }
+  .kpi-row::-webkit-scrollbar { display: none; }
+  .kpi {
+    flex-shrink: 0; min-width: 122px; padding: 10px 13px;
+    border-radius: 14px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .kpi--active {
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface-raised));
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent),
+                0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi-lab { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .kpi-val { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; font-family: var(--font-mono); }
+  .kpi-sub { font-size: 10px; color: var(--text-muted); }
+
+  /* GeoBar */
+  .geo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), var(--surface-raised));
+    border: 1px solid var(--border-soft); margin-bottom: 12px; font-size: 11px;
+  }
+  .geo-pin {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-on);
+  }
+  .geo-main { flex: 1; min-width: 0; }
+  .geo-lab { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); display: block; }
+  .geo-val { font-size: 12px; font-weight: 700; }
+
+  /* Day-Section */
+  .day-h {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border-radius: 14px; margin: 8px 0;
+    background: linear-gradient(135deg, color-mix(in srgb, #dc2626 7%, transparent), var(--surface-raised));
+    border: 1px solid color-mix(in srgb, #dc2626 18%, var(--border-soft));
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .day-badge {
+    min-width: 44px; padding: 6px 8px; border-radius: 10px;
+    background: #dc2626; color: white;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .day-badge-d { font-size: 17px; font-weight: 800; line-height: 1; font-family: var(--font-mono); }
+  .day-badge-m { font-size: 9px; font-weight: 700; text-transform: uppercase; margin-top: 2px; opacity: 0.9; letter-spacing: 0.05em; }
+  .day-text { flex: 1; }
+  .day-title { font-size: 14px; font-weight: 800; letter-spacing: -0.2px; display: block; }
+  .day-meta { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+  /* List-Item */
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 14px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+    margin-bottom: 8px; min-height: 56px;
+  }
+  .time-chip {
+    width: 56px; min-height: 48px; flex-shrink: 0;
+    border-radius: 10px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    color: var(--accent); padding: 6px 4px;
+  }
+  .time-h { font-family: var(--font-mono); font-size: 14px; font-weight: 700; line-height: 1; }
+  .time-sub { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; opacity: 0.85; }
+  .item-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .item-title { font-size: 14px; font-weight: 600; }
+  .order-no { color: var(--accent); font-family: var(--font-mono); font-weight: 700; font-size: 11px; }
+  .dot { color: var(--text-muted); margin: 0 6px; }
+  .item-sub { font-size: 12px; color: var(--text-main); }
+  .obj-tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
+  .item-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+  .travel { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .dep--now { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 7px; font-size: 11px; font-weight: 700; color: #dc2626; border: 1.5px solid color-mix(in srgb, #dc2626 40%, transparent); background: color-mix(in srgb, #dc2626 8%, transparent); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12); }
+  }
+  .pill { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 600; border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  /* Tour-Divider */
+  .tour-gap {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    margin: 6px 4px; padding: 8px 12px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent);
+    border: 1.5px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    border-radius: 12px; font-size: 11px; font-weight: 600;
+  }
+  .tour-gap strong { color: var(--accent); }
+  .tour-gap-meta { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+
+  /* Bottom-Tabs */
+  .tabs {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px) saturate(140%);
+    box-shadow: 0 -1px 0 var(--border-soft), 0 -8px 24px -12px rgba(0,0,0,0.10);
+    padding: 8px;
+    display: flex; gap: 4px;
+  }
+  .tab {
+    flex: 1; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    color: var(--text-muted); font-size: 12px; font-weight: 700;
+    border: 1px solid transparent;
+  }
+  .tab--active {
+    flex: 2;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+    color: var(--accent);
+  }
+
+  /* Sheet (Filter) */
+  .sheet-stage {
+    position: relative;
+    width: 390px; height: 800px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    border-radius: 36px; overflow: hidden;
+    border: 4px solid #0a0905;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .sheet {
+    width: 100%; max-width: 28rem; margin: 0 auto;
+    background: var(--surface-raised);
+    border-radius: 18px 18px 0 0;
+    padding: 8px 16px 28px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.22);
+  }
+  .sheet::before {
+    content: ""; display: block;
+    width: 40px; height: 4px; border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 30%, transparent);
+    margin: 8px auto 4px;
+  }
+  .sheet-h { display: flex; justify-content: space-between; align-items: center; }
+  .sheet-title { font-size: 16px; font-weight: 800; letter-spacing: -0.2px; margin: 0; }
+  .sheet-sec-h { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 8px 13px; border-radius: 999px; min-height: 36px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface-raised);
+    font-size: 12px; font-weight: 600;
+    color: var(--text-main);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .chip--active {
+    background: color-mix(in srgb, var(--accent) 14%, var(--surface-raised));
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+    color: var(--accent); font-weight: 700;
+  }
+  .sheet-foot { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+  .sheet-btn { flex: 1; padding: 11px 14px; border-radius: 10px; font-size: 13px; font-weight: 700; border: 1px solid; }
+  .sheet-btn--ghost { background: var(--surface-raised); border-color: var(--border-soft); color: var(--text-main); }
+  .sheet-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+
+  /* Skeleton */
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+  .skel {
+    background: linear-gradient(90deg,
+      var(--surface-raised) 0%,
+      color-mix(in srgb, var(--accent) 6%, var(--surface-raised)) 50%,
+      var(--surface-raised) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 10px;
+  }
+  .skel-bar { height: 46px; margin-bottom: 12px; }
+  .skel-section { height: 56px; margin: 8px 0; }
+  .skel-row { height: 88px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ========================  SCREEN 1: ORDERS  ======================== -->
+<div>
+  <div class="label">Orders · neue Polish</div>
+  <div class="device">
+    <div class="header">
+      <div class="header-brand">
+        <div class="header-logo">P</div>
+        <div>
+          <div class="header-eyebrow">Propus Cockpit</div>
+          <div class="header-title">Aufträge</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="header-btn">🖥</div>
+        <div class="header-btn">⎋</div>
+      </div>
+    </div>
+    <div class="gold-line"></div>
+
+    <div class="body">
+      <!-- Filter-Bar mit aktivem Trigger + Badge -->
+      <div class="filter-bar">
+        <div class="search">
+          <span class="search-icon">⌕</span>
+          Auftrag, Kunde, Adresse…
+        </div>
+        <div class="filter-trigger">⚙
+          <div class="filter-badge">2</div>
+        </div>
+      </div>
+
+      <!-- KPI-Pills mit aktiver Glow -->
+      <div class="kpi-row">
+        <div class="kpi kpi--active">
+          <span class="kpi-lab">Offen</span>
+          <span class="kpi-val">12</span>
+          <span class="kpi-sub">CHF 8'420</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-lab">Heute fällig</span>
+          <span class="kpi-val">3</span>
+          <span class="kpi-sub">Tippen zum Filtern</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-lab">Ohne Fotograf</span>
+          <span class="kpi-val">2</span>
+          <span class="kpi-sub">Tippen zum Filtern</span>
+        </div>
+      </div>
+
+      <!-- GeoBar -->
+      <div class="geo">
+        <div class="geo-pin">📍</div>
+        <div class="geo-main">
+          <span class="geo-lab">Live-Standort</span>
+          <span class="geo-val">47.3769, 8.5417 · ±12 m</span>
+        </div>
+      </div>
+
+      <!-- Day-Section: Heute -->
+      <div class="day-h">
+        <div class="day-badge">
+          <span class="day-badge-d">07</span>
+          <span class="day-badge-m">Mai</span>
+        </div>
+        <div class="day-text">
+          <span class="day-title">Heute · Mittwoch</span>
+          <span class="day-meta">3 Termine · CHF 2'340 · Tour-Routing aktiv</span>
+        </div>
+      </div>
+
+      <!-- Order-Item -->
+      <div class="item">
+        <div class="time-chip">
+          <span class="time-h">14:00</span>
+          <span class="time-sub">Heute</span>
+        </div>
+        <div class="item-content">
+          <div class="item-title">
+            <span class="order-no">#100384</span>
+            <span class="dot">·</span>
+            Müller Immobilien AG
+          </div>
+          <div class="item-sub">
+            <span class="obj-tag">📷 Objekt</span><br>
+            <strong>Bahnhofstrasse 21</strong>
+            <span style="color: var(--text-muted); font-weight: 500;"> · 8001 Zürich</span>
+          </div>
+          <div class="item-meta">
+            <span class="travel">🚗 18 min</span>
+            <span class="dep--now">⚠ Jetzt los · 13:42</span>
+            <span class="pill">Bestätigt</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tour-Divider -->
+      <div class="tour-gap">
+        ↓ <strong>1 h 30 min</strong> bis nächster Termin
+        <span class="tour-gap-meta"> · inkl. 15 min Puffer · 22 min Fahrt zu <span style="color: var(--text-main); font-weight: 700;">Limmatquai 4</span></span>
+      </div>
+
+      <!-- Order-Item 2 -->
+      <div class="item">
+        <div class="time-chip">
+          <span class="time-h">16:00</span>
+          <span class="time-sub">Heute</span>
+        </div>
+        <div class="item-content">
+          <div class="item-title">
+            <span class="order-no">#100387</span>
+            <span class="dot">·</span>
+            Wohnbau Zentrum
+          </div>
+          <div class="item-sub">
+            <span class="obj-tag">📷 Objekt</span><br>
+            <strong>Limmatquai 4</strong>
+            <span style="color: var(--text-muted); font-weight: 500;"> · 8001 Zürich</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom-Tabs Glass -->
+    <div class="tabs">
+      <div class="tab">📅</div>
+      <div class="tab tab--active">📋 Aufträge</div>
+      <div class="tab">👥</div>
+      <div class="tab">💬</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================  SCREEN 2: FILTER-SHEET  ======================== -->
+<div>
+  <div class="label">Filter-Sheet · Drag-Handle</div>
+  <div class="sheet-stage">
+    <div class="sheet">
+      <!-- Drag-Handle wird via ::before automatisch gerendert -->
+      <div class="sheet-h">
+        <h2 class="sheet-title">Filter</h2>
+        <div style="font-size: 18px; color: var(--text-muted);">×</div>
+      </div>
+      <div>
+        <div class="sheet-sec-h">Status</div>
+        <div class="chips">
+          <span class="chip chip--active">✓ Bestätigt</span>
+          <span class="chip">Offen</span>
+          <span class="chip chip--active">✓ Termin gesetzt</span>
+          <span class="chip">In Bearbeitung</span>
+          <span class="chip">Abgeschlossen</span>
+        </div>
+      </div>
+      <div>
+        <div class="sheet-sec-h">Mitarbeiter</div>
+        <div class="chips">
+          <span class="chip">Alle</span>
+          <span class="chip chip--active">✓ Janez</span>
+          <span class="chip">Marco</span>
+          <span class="chip">Sara</span>
+        </div>
+      </div>
+      <div class="sheet-foot">
+        <div class="sheet-btn sheet-btn--ghost">Zurücksetzen</div>
+        <div class="sheet-btn sheet-btn--primary">3 Filter aktiv · Anwenden</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================  SCREEN 3: SKELETON  ======================== -->
+<div>
+  <div class="label">Skeleton · Calendar/Contacts Initial-Load</div>
+  <div class="device">
+    <div class="header">
+      <div class="header-brand">
+        <div class="header-logo">P</div>
+        <div>
+          <div class="header-eyebrow">Propus Cockpit</div>
+          <div class="header-title">Kalender</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="header-btn">🖥</div>
+        <div class="header-btn">⎋</div>
+      </div>
+    </div>
+    <div class="gold-line"></div>
+
+    <div class="body">
+      <div class="skel skel-section"></div>
+      <div class="skel skel-row"></div>
+      <div class="skel skel-row"></div>
+      <div class="skel skel-row"></div>
+      <div class="skel skel-section"></div>
+      <div class="skel skel-row"></div>
+      <div class="skel skel-row"></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab tab--active">📅 Kalender</div>
+      <div class="tab">📋</div>
+      <div class="tab">👥</div>
+      <div class="tab">💬</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
