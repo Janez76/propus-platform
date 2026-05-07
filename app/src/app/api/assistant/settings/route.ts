@@ -17,8 +17,13 @@ export async function GET() {
   }
 
   const settings = await getAssistantSettings();
-  const userId = String(session.userKey || session.userName || "admin").trim() || "admin";
-  const usage = await getAssistantUsageToday(userId);
+  // Bug-Hunt LOW L03: Vorher liefen Sessions ohne userKey/userName auf einen
+  // gemeinsamen "admin"-Bucket. Lieber leere Usage zurueckgeben als
+  // Bucket-Pollution zwischen fehlkonfigurierten Sessions zu riskieren.
+  const sessionId = String(session.userKey || session.userName || "").trim();
+  const usage = sessionId
+    ? await getAssistantUsageToday(sessionId)
+    : { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
 
   return NextResponse.json({
     settings,

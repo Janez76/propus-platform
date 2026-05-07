@@ -20,8 +20,17 @@ export async function GET() {
     return NextResponse.json({ error: "Nicht authentifiziert", code: "auth_failed" }, { status: 401 });
   }
 
-  const userId = String(session.userKey || session.userName || "admin").trim() || "admin";
-  const report = await getAssistantUsageReport(userId);
+  // Bug-Hunt LOW L03: kein "admin"-Fallback mehr — Sessions ohne userKey/
+  // userName bekommen leere Slices zurueck statt einen Sammel-Bucket, der
+  // ueber mehrere fehlkonfigurierte Sessions hinweg leakt.
+  const sessionId = String(session.userKey || session.userName || "").trim();
+  const report = sessionId
+    ? await getAssistantUsageReport(sessionId)
+    : {
+        today: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        week: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        month: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      };
 
   return NextResponse.json({
     today: withCost(report.today),
