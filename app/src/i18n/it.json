@@ -2553,6 +2553,7 @@
   "dashboardV2.heatmap.dayEmpty": "Nessun appuntamento.",
   "dashboardV2.heatmap.minutesShort": "′",
   "dashboardV2.tweaks.section.map": "Mappa ordini",
+  "dashboardV2.tweaks.section.goals": "Anelli obiettivi",
   "dashboardV2.map.title": "Mappa · Ordini della settimana",
   "dashboardV2.map.region": "Regione Zurigo · Zugo · Winterthur",
   "dashboardV2.map.subtitle": "{{n}} segnaposti",

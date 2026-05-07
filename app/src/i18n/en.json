@@ -2565,6 +2565,7 @@
   "dashboardV2.heatmap.dayEmpty": "No appointment scheduled.",
   "dashboardV2.heatmap.minutesShort": "′",
   "dashboardV2.tweaks.section.map": "Orders map",
+  "dashboardV2.tweaks.section.goals": "Goal rings",
   "dashboardV2.map.title": "Map · Orders this week",
   "dashboardV2.map.region": "Zürich · Zug · Winterthur region",
   "dashboardV2.map.subtitle": "{{n}} pins",

@@ -15,6 +15,9 @@
   cursor: text;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+@media (max-width: 1399px) {
+  .propus-topbar-search { max-width: 320px; }
+}
 .propus-topbar-search:hover {
   border-color: color-mix(in oklab, var(--accent, #5B8FF9) 40%, var(--border-soft, rgba(0, 0, 0, 0.1)));
 }

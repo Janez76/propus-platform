@@ -132,6 +132,18 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       );
     }
 
+    // Appointments last 14 days — daily count (für KPI-Sparkline "Heute")
+    const appointments14d: number[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const dayStart = todayMs - i * MS_DAY;
+      const dayEnd = dayStart + MS_DAY;
+      appointments14d.push(
+        orders.filter(
+          (o) => countsForScheduleDay(o) && inWindow(o.appointmentDate, dayStart, dayEnd),
+        ).length,
+      );
+    }
+
     // Capacity last 10 weeks — shootings * 90min / (5days * 540min)
     const capacityData: number[] = [];
     for (let i = 9; i >= 0; i--) {
@@ -286,6 +298,7 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       bookingsDelta,
       ordersOverTime,
       capacityData,
+      appointments14d,
       currentKW,
       currentCapacity,
       openOrdersCount: orders.filter(isOpen).length,

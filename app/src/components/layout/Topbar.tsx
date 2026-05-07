@@ -96,9 +96,11 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             onClick={() => setShowProfile(true)}
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-(--accent) focus:outline-none"
             style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
+            aria-label={t(language, "profile.title")}
+            title={t(language, "profile.title")}
           >
             <User className="h-4 w-4" />
-            <span>{t(language, "profile.title")}</span>
+            <span className="hidden xl:inline">{t(language, "profile.title")}</span>
           </button>
 
           {/* Language Selector */}
@@ -139,7 +141,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             title="Mobile-Ansicht"
           >
             <Smartphone className="h-4 w-4" />
-            <span className="hidden md:inline">Mobile</span>
+            <span className="hidden xl:inline">Mobile</span>
           </button>
           )}
 
@@ -148,16 +150,19 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all duration-200 hover:text-(--accent) focus:outline-none"
             style={{ background: "var(--surface)", borderColor: "var(--border-soft)", color: "var(--text-main)" }}
             aria-label={t(language, "landing.nav.cta")}
+            title={t(language, "landing.nav.cta")}
           >
             <ExternalLink className="h-4 w-4" />
-            <span>{t(language, "landing.nav.cta")}</span>
+            <span className="hidden xl:inline">{t(language, "landing.nav.cta")}</span>
           </button>
 
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-transparent text-sm font-medium transition-all duration-200 focus:outline-none"
+            className="hidden sm:inline-flex items-center gap-2 px-3 xl:px-4 py-2 rounded-lg border border-transparent text-sm font-medium transition-all duration-200 focus:outline-none"
             style={{ background: "var(--surface-raised)", color: "var(--text-muted)" }}
+            aria-label={t(language, "auth.logout")}
+            title={t(language, "auth.logout")}
             onMouseEnter={(e) => {
               const el = e.currentTarget as HTMLButtonElement;
               el.style.background = "color-mix(in srgb, #e74c3c 8%, transparent)";
@@ -172,7 +177,7 @@ export function Topbar({ onMenuToggle }: TopbarProps) {
             }}
           >
             <LogOut className="h-4 w-4" />
-            <span>{t(language, "auth.logout")}</span>
+            <span className="hidden xl:inline">{t(language, "auth.logout")}</span>
           </button>
 
           {!isKiAssistantHost && (

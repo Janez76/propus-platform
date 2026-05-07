@@ -1,9 +1,14 @@
 /* Propus Cockpit · Side Panel — erwartet propus-cockpit-tokens.css (geladen via index.css) */
 
 .propus-side-panel {
-  height: 100vh;
+  /* Offset unter der Topbar (Sprint 18 — Polish-Pass 1):
+   * margin-top schiebt den Flex-Item visuell nach unten, height passt die Spalte an.
+   * top:var(--propus-topbar-h) hält das Verhalten korrekt, falls die Spalte je in
+   * einen scrollbaren Container kommt (sticky-Offset). */
+  margin-top: var(--propus-topbar-h, 64px);
+  height: calc(100vh - var(--propus-topbar-h, 64px));
   position: sticky;
-  top: 0;
+  top: var(--propus-topbar-h, 64px);
   background: var(--propus-bg-card);
   border-left: 1px solid var(--propus-border);
   display: flex;
