@@ -11,7 +11,7 @@ import {
   extractZip,
 } from "../../components/dashboard-v2/missionTimeline";
 import { MobilePullToRefresh } from "./MobilePullToRefresh";
-import { MobileSearchBar, MobileSpinner, MobileState } from "./MobileUI";
+import { MobileSearchBar, MobileState } from "./MobileUI";
 import {
   MobileDaySectionHeader,
   MobileDepartureChip,
@@ -19,6 +19,7 @@ import {
   MobileKpiPills,
   type MobileKpiPillSpec,
   MobileObjectAddr,
+  MobileOrdersSkeleton,
   MobileTourDivider,
   MobileTravelChip,
   type TravelSource,
@@ -92,6 +93,46 @@ export function MobileOrdersTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   /** Aktive KPI-Pille (id) oder null = kein KPI-Quickfilter. */
   const [activeKpi, setActiveKpi] = useState<string | null>(null);
+
+  /**
+   * Phase 5 Polish: 60-s-Tick fuer Departure-Eskalation.
+   * Re-render alle 60 s erzwingt computeDeparture()-Neuberechnung mit
+   * frischem `now`, damit die Eskalation now/soon/ok/passed live wechselt
+   * ohne dass der User die Seite reload muss. Mobile haengt evtl. 30+ min
+   * im Hintergrund — ohne Tick wuerden Termine hinter ihrer "now"-Schwelle
+   * weiter als "soon" angezeigt.
+   * Respektiert Document-Visibility: pausiert bei `hidden`, springt sofort
+   * an beim `visible`-Event (Battery-Friendly).
+   */
+  const [, setNowTick] = useState(0);
+  useEffect(() => {
+    let timerId: number | null = null;
+    const tick = () => setNowTick((n) => (n + 1) % 1_000_000);
+    const start = () => {
+      if (timerId != null) return;
+      timerId = window.setInterval(tick, 60_000);
+    };
+    const stop = () => {
+      if (timerId != null) {
+        window.clearInterval(timerId);
+        timerId = null;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        tick();
+        start();
+      } else {
+        stop();
+      }
+    };
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     if (!token) return;
@@ -310,7 +351,7 @@ export function MobileOrdersTab() {
     [home.homeAddress],
   );
 
-  if (loading) return <MobileSpinner />;
+  if (loading) return <MobileOrdersSkeleton />;
   if (error) return <MobileState icon={ClipboardList} message={`Fehler: ${error}`} />;
 
   return (

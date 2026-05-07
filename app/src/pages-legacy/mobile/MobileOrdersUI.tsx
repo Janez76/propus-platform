@@ -299,6 +299,32 @@ interface MobileKpiPillsProps {
   onSelect?: (id: string) => void;
 }
 
+/**
+ * Phase 5: Skeleton-Loader fuer den Mobile-Orders-Tab.
+ * Wird waehrend des initialen Daten-Fetches angezeigt — visualisiert
+ * Day-Section-Header + 3 Listen-Items, damit der User weiss, was kommt
+ * (vs. blanker Spinner).
+ */
+export function MobileOrdersSkeleton() {
+  return (
+    <div className="mob-page" aria-busy="true" aria-live="polite">
+      <div className="mob-skel-bar" aria-hidden />
+      <div className="mob-skel-kpi-row" aria-hidden>
+        <div className="mob-skel-kpi" />
+        <div className="mob-skel-kpi" />
+        <div className="mob-skel-kpi" />
+      </div>
+      <div className="mob-skel-section-h" aria-hidden />
+      <ul className="mob-section-list" style={{ paddingTop: 0 }} aria-hidden>
+        <li><div className="mob-skel-row" /></li>
+        <li><div className="mob-skel-row" /></li>
+        <li><div className="mob-skel-row" /></li>
+      </ul>
+      <span className="sr-only">Aufträge werden geladen…</span>
+    </div>
+  );
+}
+
 export function MobileKpiPills({ pills, activeId, onSelect }: MobileKpiPillsProps) {
   return (
     <div className="mob-kpi-row" role="group" aria-label="Schnellfilter-Kennzahlen">
