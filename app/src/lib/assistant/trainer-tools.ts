@@ -58,7 +58,7 @@ export const trainerTools: ToolDefinition[] = [
   {
     name: "add_few_shot",
     description:
-      "Speichert ein neues positives Beispiel (Few-Shot) für den Hauptassistenten. Nutze das, wenn der Trainer-User ein gutes Antwortmuster festhalten will. Pflichtfelder: user_message, assistant_tool_plan, assistant_final. Tags optional. Slug wird automatisch generiert wenn fehlt.",
+      "Speichert ein neues positives Beispiel (Few-Shot) für den Hauptassistenten. Nutze das, wenn der Trainer-User ein gutes Antwortmuster festhalten will. Pflichtfelder: user_message, assistant_tool_plan, assistant_final. Tags optional. Slug wird automatisch generiert wenn fehlt. Diese Aktion erfordert Bestätigung des Users.",
     input_schema: {
       type: "object",
       properties: {
@@ -71,16 +71,20 @@ export const trainerTools: ToolDefinition[] = [
       required: ["user_message", "assistant_tool_plan", "assistant_final"],
     },
     kind: "write",
+    // Bug-Hunt LOW L05: Trainings-Korpus-Aenderungen brauchen User-Confirm
+    // — nur das System-Prompt-Update hatte das vorher.
+    requiresConfirmation: true,
   },
   {
     name: "deactivate_few_shot",
-    description: "Deaktiviert ein Few-Shot-Beispiel anhand seines slug.",
+    description: "Deaktiviert ein Few-Shot-Beispiel anhand seines slug. Diese Aktion erfordert Bestätigung des Users.",
     input_schema: {
       type: "object",
       properties: { slug: { type: "string" } },
       required: ["slug"],
     },
     kind: "write",
+    requiresConfirmation: true,
   },
   {
     name: "list_few_shots",
@@ -94,7 +98,7 @@ export const trainerTools: ToolDefinition[] = [
   {
     name: "add_negative_example",
     description:
-      "Speichert ein 'so NICHT antworten'-Beispiel. Nutze das, wenn der Hauptassistent etwas falsch gemacht hat und du ihm zeigen willst, was nicht akzeptabel ist. Pflicht: user_message, bad_response, why_bad. better_hint optional.",
+      "Speichert ein 'so NICHT antworten'-Beispiel. Nutze das, wenn der Hauptassistent etwas falsch gemacht hat und du ihm zeigen willst, was nicht akzeptabel ist. Pflicht: user_message, bad_response, why_bad. better_hint optional. Diese Aktion erfordert Bestätigung des Users.",
     input_schema: {
       type: "object",
       properties: {
@@ -107,6 +111,7 @@ export const trainerTools: ToolDefinition[] = [
       required: ["user_message", "bad_response", "why_bad"],
     },
     kind: "write",
+    requiresConfirmation: true,
   },
   {
     name: "get_active_system_prompt",

@@ -50,6 +50,12 @@ export function VoiceButton({
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      // Bug-Hunt LOW L04: Falls die Komponente mid-recording unmountet,
+      // halten wir keine Blob-Chunks mehr im Ref fest. Der Ref selbst stirbt
+      // mit der Komponente, aber explizites Leeren signalisiert die
+      // Aufraum-Pflicht klarer und vermeidet, dass Blob-Backing-Stores
+      // unnoetig leben (Browser-spezifisch).
+      chunksRef.current = [];
     };
   }, []);
 
@@ -101,6 +107,11 @@ export function VoiceButton({
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
       recorderRef.current = null;
+      // Bug-Hunt LOW L04: Chunks immer leeren — bisher passierte das nur
+      // beim naechsten startRecording(). Zwischen einer abgebrochenen oder
+      // erfolgreichen Transkription und dem naechsten Start hingen die
+      // Blobs damit unnoetig im Ref.
+      chunksRef.current = [];
       setState("idle");
     }
   }
