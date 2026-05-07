@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, Clock, MapPin, MapPinOff, Car, Banknote, CheckCircle2, Navigation, Loader2 } from 'lucide-react';
 import { t, type Lang } from '../../i18n';
 import { useGeolocation } from '../cockpit/useGeolocation';
+import { HourlyPanel } from '../cockpit/WeatherStrip';
 import { weatherEmoji, weatherLabel, type WeatherForecastDay } from '../../api/weather';
 import type { DashboardMetrics } from './useDashboardMetrics';
 import { buildMissionTimeline, type MissionStatus } from './missionTimeline';
@@ -55,6 +56,7 @@ export function TodayCard({ metrics, onHover, weather = null, lang }: TodayCardP
   const todayDateStr = today.toDateString();
   const missions = useMemo(() => buildMissionTimeline(todayOrders, now), [todayOrders, now]);
   const dashGeo = useGeolocation({ storageKey: 'propus.dashboard.geo.enabled.v1' });
+  const [openWxDate, setOpenWxDate] = useState<string | null>(null);
   const [driveByOrder, setDriveByOrder] = useState<Record<string, DriveFromLive>>({});
   const [driveLoading, setDriveLoading] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
@@ -156,28 +158,43 @@ export function TodayCard({ metrics, onHover, weather = null, lang }: TodayCardP
         </div>
       </header>
 
-      {/* 7-Tage Wetter-Strip */}
-      <div className="dv2-today-weather" role="list" aria-label="7-Tage-Wetter Zürich">
-        {weather === null && Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="dv2-today-wcell dv2-today-wcell--skeleton" aria-hidden />
-        ))}
-        {weather?.map((day, i) => {
-          const d = new Date(day.date);
-          const isToday = d.toDateString() === todayDateStr;
-          return (
-            <div
-              key={day.date}
-              role="listitem"
-              className="dv2-today-wcell"
-              data-today={isToday || undefined}
-              title={`${WEEKDAY_DE[d.getDay()]} ${d.getDate()}. · ${weatherLabel(day.kind)} · ${day.t_min}°–${day.t_max}°`}
-            >
-              <span className="dv2-today-wcell-day">{isToday ? 'Heute' : WEEKDAY_DE[d.getDay()]}</span>
-              <span className="dv2-today-wcell-emoji" aria-hidden>{weatherEmoji(day.kind)}</span>
-              <span className="dv2-today-wcell-temp">{day.t_max}°</span>
-            </div>
-          );
-        })}
+      {/* 7-Tage Wetter-Strip — Klick auf einen Tag öffnet die Stundenansicht. */}
+      <div className="dv2-today-weather-wrap">
+        <div className="dv2-today-weather" role="list" aria-label="7-Tage-Wetter Zürich">
+          {weather === null && Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="dv2-today-wcell dv2-today-wcell--skeleton" aria-hidden />
+          ))}
+          {weather?.map((day) => {
+            const d = new Date(day.date);
+            const isToday = d.toDateString() === todayDateStr;
+            const open = openWxDate === day.date;
+            return (
+              <button
+                key={day.date}
+                type="button"
+                role="listitem"
+                className="dv2-today-wcell"
+                data-today={isToday || undefined}
+                data-open={open || undefined}
+                onClick={() => setOpenWxDate(open ? null : day.date)}
+                aria-expanded={open}
+                title={`${WEEKDAY_DE[d.getDay()]} ${d.getDate()}. · ${weatherLabel(day.kind)} · ${day.t_min}°–${day.t_max}° — Klicken für Stundenansicht`}
+              >
+                <span className="dv2-today-wcell-day">{isToday ? 'Heute' : WEEKDAY_DE[d.getDay()]}</span>
+                <span className="dv2-today-wcell-emoji" aria-hidden>{weatherEmoji(day.kind)}</span>
+                <span className="dv2-today-wcell-temp">{day.t_max}°</span>
+              </button>
+            );
+          })}
+        </div>
+        {openWxDate && weather ? (
+          <HourlyPanel
+            date={openWxDate}
+            region="zurich"
+            dayMeta={weather.find((d) => d.date === openWxDate) ?? null}
+            onClose={() => setOpenWxDate(null)}
+          />
+        ) : null}
       </div>
 
       {/* Mission-Control-Timeline der heutigen Termine */}

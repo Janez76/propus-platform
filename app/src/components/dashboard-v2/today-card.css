@@ -79,6 +79,11 @@
   border: 1px solid var(--propus-border);
   border-radius: var(--propus-r-md, 14px);
 }
+.dv2-today-weather-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .dv2-today-wcell {
   display: flex;
   flex-direction: column;
@@ -89,6 +94,12 @@
   background: var(--propus-bg-card);
   border: 1px solid transparent;
   transition: border-color var(--propus-dur-fast, .15s), background var(--propus-dur-fast, .15s);
+  /* button-Reset, da wir aus a11y-Gründen <button> statt <div> rendern */
+  appearance: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-family: inherit;
 }
 .dv2-today-wcell:hover {
   border-color: var(--propus-accent-warm, var(--propus-gold));
@@ -96,6 +107,11 @@
 .dv2-today-wcell[data-today] {
   background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
   border-color: var(--propus-accent-warm, var(--propus-gold));
+}
+.dv2-today-wcell[data-open] {
+  border-color: var(--propus-accent-warm, var(--propus-gold));
+  background: var(--propus-accent-warm-soft, var(--propus-gold-soft));
+  box-shadow: 0 0 0 1px var(--propus-accent-warm, var(--propus-gold));
 }
 .dv2-today-wcell--skeleton {
   height: 60px;
