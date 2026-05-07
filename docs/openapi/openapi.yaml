@@ -2924,6 +2924,52 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         5XX:
           $ref: '#/components/responses/ServerError'
+  /api/admin/me/home:
+    get:
+      tags:
+        - booking
+      summary: Heim-Adresse des eingeloggten Mitarbeiters
+      description: >-
+        Liefert die in `photographer_settings.home_address` (+ optional
+        Lat/Lng) hinterlegte Heim-Adresse des Fotografen. Wird vom
+        Mobile-Orders-Tab fuer den Heimfahrt-Divider am Tagesende verwendet
+        (Routing ab letztem Termin → home).
+        Match via `LOWER(photographers.email) = LOWER(session.email)`.
+        Fuer Admins ohne Mitarbeiter-Verknuepfung sind alle Felder `null`;
+        UI faellt dann auf "Heimfahrt nicht verfuegbar".
+
+        Siehe `docs/FLOWS_BOOKING.md` §20 Mobile Tagesplan & Live-Routing.
+      operationId: getApiAdminMeHome
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, homeAddress, homeLat, homeLng]
+                properties:
+                  ok:
+                    type: boolean
+                  homeAddress:
+                    type: [string, "null"]
+                    description: Volltext-Adresse (z.B. "Bahnhofstrasse 12, 8038 Zürich") oder null.
+                    example: "8038 Zürich"
+                  homeLat:
+                    type: [number, "null"]
+                    format: float
+                    description: Breitengrad — falls geocodiert. null sonst.
+                  homeLng:
+                    type: [number, "null"]
+                    format: float
+                    description: Längengrad — falls geocodiert. null sonst.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        5XX:
+          $ref: '#/components/responses/ServerError'
   /api/admin/me/change-password:
     post:
       tags:
@@ -2955,6 +3001,103 @@ paths:
                 additionalProperties: true
         '401':
           $ref: '#/components/responses/Unauthorized'
+        5XX:
+          $ref: '#/components/responses/ServerError'
+  /api/dashboard/drive-times:
+    post:
+      tags:
+        - booking
+      summary: Live-Fahrzeiten von einer GPS-Position zu mehreren Zieladressen
+      description: >-
+        **Manueller Eintrag** — Next.js-Route in `app/src/app/api/dashboard/drive-times/route.ts`,
+        wird vom Auto-Scanner (`extract-routes.js`) nicht erfasst.
+
+        Liefert Live-Verkehrs-Fahrzeiten von einer Origin-Koordinate zu bis
+        zu 25 Ziel-Adressen via Google Distance Matrix API. Pro Element
+        ~$0.005 → Rate-Limits aus Bug-Hunt M01:
+
+        **Rate-Limit:** 30 Anfragen/Minute pro Session, 1000/Tag (konfigurierbar
+        via `DRIVE_TIMES_PER_MIN_LIMIT`/`DRIVE_TIMES_PER_DAY_LIMIT`).
+        Ausnahmen: `ASSISTANT_UNLIMITED_EMAILS`-Liste.
+
+        Genutzt von: `dashboard-v2/TodayCard` und `MobileOrdersTab`
+        (Mobile-Phase 2 Live-Routing).
+
+        Siehe `docs/FLOWS_BOOKING.md` §20 Mobile Tagesplan & Live-Routing.
+      operationId: postApiDashboardDriveTimes
+      security:
+        - bearerAuth: []
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lat, lng, legs]
+              properties:
+                lat:
+                  type: number
+                  format: float
+                  minimum: -90
+                  maximum: 90
+                  description: Origin-Breitengrad (z.B. aus useGeolocation).
+                lng:
+                  type: number
+                  format: float
+                  minimum: -180
+                  maximum: 180
+                  description: Origin-Längengrad.
+                legs:
+                  type: array
+                  description: Bis zu 25 Ziele (MAX_LEGS); weitere werden ignoriert.
+                  maxItems: 25
+                  items:
+                    type: object
+                    required: [orderNo, address]
+                    properties:
+                      orderNo:
+                        type: string
+                      address:
+                        type: string
+                        minLength: 3
+      responses:
+        '200':
+          description: OK — pro Leg ein Eintrag mit Fahrzeit + Distanz aus Google Maps.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [legs]
+                properties:
+                  legs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        orderNo:
+                          type: string
+                        durationText:
+                          type: [string, "null"]
+                          description: 'z.B. "12 mins" oder "1 hour 5 mins" — Google-Maps-Format mit Live-Verkehr.'
+                          example: "32 mins"
+                        distanceText:
+                          type: [string, "null"]
+                          example: "8.4 km"
+                        status:
+                          type: string
+                          description: 'OK / ZERO_RESULTS / NOT_FOUND / etc.'
+                          example: OK
+        '400':
+          description: 'Ungültiges JSON, lat/lng ausserhalb Range, leere legs, Maps-Provider-Fehler.'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Portal-only Rolle ohne Impersonation.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          description: GOOGLE_MAPS-Konfiguration fehlt oder Provider nicht erreichbar.
         5XX:
           $ref: '#/components/responses/ServerError'
   /api/admin/mail/diagnostics:

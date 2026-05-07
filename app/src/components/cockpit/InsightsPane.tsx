@@ -13,12 +13,14 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '../../hooks/useQuery';
-import { getOrders } from '../../api/orders';
+import { getOrders, type Order } from '../../api/orders';
 import { ordersQueryKey } from '../../lib/queryKeys';
 import { useAuthStore } from '../../store/authStore';
 import { useNow } from '../../hooks/useNow';
 import { useDashboardMetrics } from '../dashboard-v2/useDashboardMetrics';
 import { getWeatherForecast, type WeatherForecastDay } from '../../api/weather';
+import { useWeatherForMissions, type MissionLocationKey } from '../../hooks/useWeatherForMissions';
+import { extractZip } from '../dashboard-v2/missionTimeline';
 import { WeatherStrip } from './WeatherStrip';
 import { BriefingCard } from './BriefingCard';
 import '../dashboard-v2/dashboard-v2.css';
@@ -84,6 +86,32 @@ export function InsightsPane() {
     return () => { cancelled = true; };
   }, [token]);
 
+  // Per-Auftrags-Wetter: für jeden anstehenden Auftrag (heute + die nächsten
+  // ~16 Tage = Open-Meteo-Horizont) fragen wir den Forecast an seiner PLZ ab.
+  // Damit kann das Smart-Insight-Panel pro Auftrag individuell raten, statt
+  // pauschal „Regen in Zürich" zu sagen.
+  const upcomingMissionKeys = useMemo<MissionLocationKey[]>(() => {
+    if (!metrics) return [];
+    const HORIZON_DAYS = 16;
+    const todayMs = new Date(now);
+    todayMs.setHours(0, 0, 0, 0);
+    const horizonMs = todayMs.getTime() + HORIZON_DAYS * 86_400_000;
+    const all: Order[] = [...metrics.todayOrders, ...metrics.upcomingOrders];
+    return all.flatMap((o) => {
+      if (!o.appointmentDate || o.orderNo == null || o.orderNo === '') return [];
+      const ts = new Date(o.appointmentDate).getTime();
+      if (!Number.isFinite(ts) || ts > horizonMs) return [];
+      const zip = extractZip(o.address) ?? extractZip(o.customerZipcity ?? null);
+      return [{
+        key: String(o.orderNo),
+        zip,
+        dateIso: new Date(ts).toISOString().slice(0, 10),
+      }];
+    });
+  }, [metrics, now]);
+
+  const perOrderWeather = useWeatherForMissions(upcomingMissionKeys);
+
   const insights: SmartInsight[] = useMemo(() => {
     if (!orders || !metrics) return [];
     const out: SmartInsight[] = [];
@@ -120,22 +148,54 @@ export function InsightsPane() {
         onCta: () => navigate('/admin/invoices?type=exxas&status=open'),
       });
     }
-    const todayWeather = weather?.find(
-      (d) => new Date(d.date).toDateString() === now.toDateString(),
-    );
-    if (
-      todayWeather &&
-      /(rain|showers|thunder)/i.test(todayWeather.kind ?? '') &&
-      metrics.todayOrders.length > 0
-    ) {
+    // Per-Auftrags-Wetter-Insights: max 3 Karten, chronologisch sortiert,
+    // nur für Aufträge mit besorgniserregendem Wetter (Regen/Schnee/Gewitter
+    // ODER Niederschlag ≥ 50 %). Greift jetzt pro Auftragsadresse, nicht mehr
+    // pauschal über Zürich.
+    const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const todayMs = (() => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); })();
+    const concerning = ([...metrics.todayOrders, ...metrics.upcomingOrders] as Order[])
+      .filter((o) => o.appointmentDate && o.orderNo != null && o.orderNo !== '')
+      .map((o) => ({ order: o, wx: perOrderWeather.get(String(o.orderNo)) }))
+      .filter((x): x is { order: Order; wx: WeatherForecastDay } =>
+        Boolean(x.wx) && (
+          /^(rain|storm|snow)$/.test((x.wx as WeatherForecastDay).kind) ||
+          (x.wx as WeatherForecastDay).precip >= 50
+        )
+      )
+      .sort((a, b) => {
+        const at = new Date(a.order.appointmentDate as string).getTime();
+        const bt = new Date(b.order.appointmentDate as string).getTime();
+        return at - bt;
+      })
+      .slice(0, 3);
+
+    for (const { order, wx } of concerning) {
+      const apptMs = new Date(order.appointmentDate as string).getTime();
+      const apptD = new Date(apptMs);
+      const daysOut = Math.round((apptMs - todayMs) / 86_400_000);
+      const hh = String(apptD.getHours()).padStart(2, '0');
+      const mm = String(apptD.getMinutes()).padStart(2, '0');
+      let dateLabel: string;
+      if (daysOut <= 0) dateLabel = `Heute ${hh}:${mm}`;
+      else if (daysOut === 1) dateLabel = `Morgen ${hh}:${mm}`;
+      else dateLabel = `${WD[apptD.getDay()]} ${apptD.getDate()}.${String(apptD.getMonth() + 1).padStart(2, '0')}. · ${hh}:${mm}`;
+
+      const ortRaw = (order.customerZipcity ?? order.address ?? '').toString().trim();
+      const ortMatch = /^\s*\d{4,5}\s+(.+)$/.exec(ortRaw);
+      const ortLabel = ortMatch ? ortMatch[1] : (order.address?.split(',')[0]?.trim() ?? '');
+
+      const kindLabel = wx.kind === 'storm' ? 'Gewitter' : wx.kind === 'snow' ? 'Schnee' : 'Regen';
+      const tone: InsightTone = daysOut <= 0 ? 'urgent' : daysOut <= 2 ? 'opportunity' : 'info';
+
       out.push({
-        id: 'weather',
-        tone: 'urgent',
+        id: `wx-${order.orderNo}`,
+        tone,
         icon: CloudRain,
-        title: `Regen in Zürich heute`,
-        description: `${metrics.todayOrders.length} Termine heute. Aussen-Shoots ggf. mit Kunden absprechen oder verschieben.`,
-        ctaLabel: '🔄 Heute prüfen',
-        onCta: () => navigate('/orders?range=today'),
+        title: `${kindLabel} für #${order.orderNo}${ortLabel ? ` · ${ortLabel}` : ''}`,
+        description: `${dateLabel} · ${wx.precip}% Niederschlag · ${wx.t_max}° / ${wx.t_min}°. Outdoor-Shoot ggf. mit Kunden absprechen.`,
+        ctaLabel: '🔄 Auftrag öffnen',
+        onCta: () => navigate(`/orders/${order.orderNo}`),
       });
     }
     if (metrics.currentCapacity >= 80) {
@@ -150,7 +210,7 @@ export function InsightsPane() {
       });
     }
     return out;
-  }, [orders, metrics, weather, now, navigate]);
+  }, [orders, metrics, perOrderWeather, now, navigate]);
 
   return (
     <div className="propus-pane-stack">

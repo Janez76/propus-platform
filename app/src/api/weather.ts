@@ -28,10 +28,13 @@ export interface WeatherForecastResponse {
 export interface GetWeatherForecastOpts {
   /** ISO-Datum (YYYY-MM-DD). Default: heute */
   from?: string;
-  /** Anzahl Tage ab `from`. Default: 42 (~6 Wochen). */
+  /** Anzahl Tage ab `from`. Default backend = 7. Open-Meteo-Limit: 16. */
   days?: number;
-  /** Region-Key (siehe Backend). Default: "zurich". */
+  /** Region-Key (siehe Backend). Default: "zurich". Wird ignoriert, wenn lat+lng gesetzt sind. */
   region?: string;
+  /** Freie Koordinaten (überschreiben `region`). Beide müssen gesetzt sein. */
+  lat?: number;
+  lng?: number;
 }
 
 export async function getWeatherForecast(
@@ -41,11 +44,59 @@ export async function getWeatherForecast(
   const params = new URLSearchParams();
   if (opts.from) params.set("from", opts.from);
   if (opts.days != null) params.set("days", String(opts.days));
-  if (opts.region) params.set("region", opts.region);
+  if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
+    params.set("lat", String(opts.lat));
+    params.set("lng", String(opts.lng));
+  } else if (opts.region) {
+    params.set("region", opts.region);
+  }
   const qs = params.toString();
   const path = `/api/admin/weather/forecast${qs ? `?${qs}` : ""}`;
   const data = await apiRequest<WeatherForecastResponse>(path, "GET", token);
   return data;
+}
+
+export interface WeatherHourlyEntry {
+  /** ISO-Local (Europe/Zurich), z. B. "2026-05-07T14:00" */
+  time: string;
+  kind: WeatherKind;
+  /** Temperatur in °C, gerundet */
+  t: number;
+  /** Niederschlagswahrscheinlichkeit in % */
+  precip: number;
+}
+
+export interface WeatherHourlyResponse {
+  ok: true;
+  region: WeatherForecastRegion;
+  /** YYYY-MM-DD */
+  date: string;
+  hours: WeatherHourlyEntry[];
+}
+
+export interface GetWeatherHourlyOpts {
+  /** Pflicht: Tag im Format YYYY-MM-DD */
+  date: string;
+  /** Region-Key. Wird ignoriert, wenn lat+lng gesetzt sind. */
+  region?: string;
+  lat?: number;
+  lng?: number;
+}
+
+export async function getWeatherHourly(
+  token: string,
+  opts: GetWeatherHourlyOpts,
+): Promise<WeatherHourlyResponse> {
+  const params = new URLSearchParams();
+  params.set("date", opts.date);
+  if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
+    params.set("lat", String(opts.lat));
+    params.set("lng", String(opts.lng));
+  } else if (opts.region) {
+    params.set("region", opts.region);
+  }
+  const path = `/api/admin/weather/hourly?${params.toString()}`;
+  return apiRequest<WeatherHourlyResponse>(path, "GET", token);
 }
 
 /** Emoji-Zuordnung für eine Wetterart. */
