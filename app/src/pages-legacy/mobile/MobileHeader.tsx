@@ -1,4 +1,5 @@
 import { LogOut, Monitor } from "lucide-react";
+import { memo, useCallback } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { API_BASE } from "../../api/client";
 
@@ -8,23 +9,31 @@ import { API_BASE } from "../../api/client";
  * - Gold-Brand-Accent als 1px Gradient-Linie unten
  * - Logo + Titel weichen einer kompakteren Zeile mit Eyebrow + H1-Stil
  * - Action-Buttons als Outline-Pills (Desktop / Logout)
+ * - Touch-Target ≥ 44px, Hover-Background statt nur Border
  */
-export function MobileHeader({ title }: { title: string }) {
+export const MobileHeader = memo(function MobileHeader({ title }: { title: string }) {
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     clearAuth();
     const redirect = encodeURIComponent(
       new URL(process.env.NEXT_PUBLIC_BASE_URL || "/", window.location.origin).toString(),
     );
     window.location.href = `${API_BASE}/auth/logout?redirect=${redirect}`;
-  };
+  }, [clearAuth]);
 
-  const handleDesktop = () => {
+  const handleDesktop = useCallback(() => {
     try {
       window.sessionStorage.setItem("prefer_desktop", "1");
     } catch {}
     window.location.href = "/dashboard";
+  }, []);
+
+  const actionBtn: React.CSSProperties = {
+    color: "var(--text-muted)",
+    border: "1px solid var(--border-soft)",
+    background: "var(--surface-raised)",
+    transition: "background 220ms cubic-bezier(0.22,1,0.36,1), color 220ms cubic-bezier(0.22,1,0.36,1), border-color 220ms cubic-bezier(0.22,1,0.36,1), transform 200ms cubic-bezier(0.22,1,0.36,1)",
   };
 
   return (
@@ -54,7 +63,7 @@ export function MobileHeader({ title }: { title: string }) {
             </span>
             <h1
               className="truncate text-base font-semibold leading-tight"
-              style={{ color: "var(--text-main)", fontFamily: "Montserrat, inherit" }}
+              style={{ color: "var(--text-main)", fontFamily: "Montserrat, inherit", letterSpacing: "-0.01em" }}
             >
               {title}
             </h1>
@@ -66,11 +75,8 @@ export function MobileHeader({ title }: { title: string }) {
             onClick={handleDesktop}
             aria-label="Desktop-Ansicht"
             title="Desktop-Ansicht"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors active:scale-95"
-            style={{
-              color: "var(--text-muted)",
-              border: "1px solid var(--border-soft)",
-            }}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg active:scale-95"
+            style={actionBtn}
           >
             <Monitor className="h-4 w-4" />
           </button>
@@ -79,11 +85,8 @@ export function MobileHeader({ title }: { title: string }) {
             onClick={handleLogout}
             aria-label="Abmelden"
             title="Abmelden"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors active:scale-95"
-            style={{
-              color: "var(--text-muted)",
-              border: "1px solid var(--border-soft)",
-            }}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg active:scale-95"
+            style={actionBtn}
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -100,4 +103,4 @@ export function MobileHeader({ title }: { title: string }) {
       />
     </header>
   );
-}
+});

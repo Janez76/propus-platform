@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, MapPin, SlidersHorizontal } from "lucide-react";
 import { useAuthStore } from "../../store/authStore";
@@ -596,7 +596,7 @@ interface DayRowEntryProps {
   } | null;
 }
 
-function DayRowEntry({
+const DayRowEntry = memo(function DayRowEntry({
   item,
   prevOrder,
   travelMin,
@@ -693,4 +693,4 @@ function DayRowEntry({
       )}
     </li>
   );
-}
+});
