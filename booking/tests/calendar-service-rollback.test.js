@@ -188,24 +188,30 @@ test("upgradeToFinal: PATCH scheitert → Fallback-POST gelingt → bei Office-F
 });
 
 // ─── repairCalendarEvents ────────────────────────────────────────────────────
+// Hinweis: repairCalendarEvents verifiziert seit dem Stale-ID-Fix gesetzte IDs
+// per GET. Tests muessen daher entsprechende GET-Routen mocken.
+
+const HTTP_404 = () => Object.assign(new Error("not found"), { statusCode: 404 });
 
 test("repairCalendarEvents: nur Photog fehlt, kein Orphan im Postfach → POST", async () => {
   const order = buildOrder({ photographerEventId: null, officeEventId: "office-existing" });
   const { client, calls } = buildGraphMock({
-    "GET /users/janez.smirmaul@propus.ch/events": { response: { value: [] } },
+    "GET /users/office@propus.ch/events/office-existing": { response: { id: "office-existing" } }, // verify office: existiert
+    "GET /users/janez.smirmaul@propus.ch/events": { response: { value: [] } },                      // orphan-search: leer
     "POST /users/janez.smirmaul@propus.ch/events": { response: { id: "new-photog" } },
   });
   const result = await repairCalendarEvents(order, DEPS(client));
   assert.equal(result.updateFields.photographer_event_id, "new-photog");
   assert.ok(!("office_event_id" in result.updateFields), "Office bleibt unangetastet");
   assert.equal(result.orphans.photographer.length, 0);
-  // Es darf KEIN Office-Call passieren
-  assert.equal(calls.filter((c) => c.path.includes("office@propus.ch")).length, 0);
+  // Office erhaelt Verify-GET, aber keinen POST/PATCH/DELETE
+  assert.equal(calls.filter((c) => c.path.includes("office@propus.ch") && c.method !== "GET").length, 0);
 });
 
 test("repairCalendarEvents: nur Photog fehlt, Orphan im Postfach → POST wird uebersprungen, Orphan gemeldet", async () => {
   const order = buildOrder({ photographerEventId: null, officeEventId: "office-existing" });
   const { client, calls } = buildGraphMock({
+    "GET /users/office@propus.ch/events/office-existing": { response: { id: "office-existing" } },
     "GET /users/janez.smirmaul@propus.ch/events": {
       response: { value: [{ id: "orphan-1", subject: "#4711 etc", start: { dateTime: "2026-05-07T10:00" } }] },
     },
@@ -213,20 +219,70 @@ test("repairCalendarEvents: nur Photog fehlt, Orphan im Postfach → POST wird u
   const result = await repairCalendarEvents(order, DEPS(client));
   assert.equal(result.orphans.photographer.length, 1);
   assert.equal(result.orphans.photographer[0].id, "orphan-1");
-  // KEIN POST wegen Orphan-Schutz
   assert.equal(calls.filter((c) => c.method === "POST").length, 0);
-  // updateFields leer
   assert.equal(Object.keys(result.updateFields).length, 0);
 });
 
-test("repairCalendarEvents: beide vorhanden → no-op", async () => {
+test("repairCalendarEvents: beide vorhanden + Outlook bestaetigt → no-op", async () => {
   const order = buildOrder({ photographerEventId: "p-1", officeEventId: "o-1" });
-  const { client, calls } = buildGraphMock({});
+  const { client, calls } = buildGraphMock({
+    "GET /users/janez.smirmaul@propus.ch/events/p-1": { response: { id: "p-1" } },
+    "GET /users/office@propus.ch/events/o-1": { response: { id: "o-1" } },
+  });
   const result = await repairCalendarEvents(order, DEPS(client));
-  assert.equal(calls.length, 0, "Kein Graph-Call wenn beide IDs gesetzt");
+  // Nur 2 Verify-GETs, kein Schreib-Call
+  assert.equal(calls.filter((c) => c.method !== "GET").length, 0);
   assert.equal(Object.keys(result.updateFields).length, 0);
   assert.equal(result.actions.length, 2);
-  assert.match(result.actions[0], /bereits vorhanden/);
+  assert.match(result.actions[0], /bereits vorhanden \+ verifiziert/);
+});
+
+test("repairCalendarEvents: Stale-ID Photographer (Outlook 404) → erkannt + neu angelegt", async () => {
+  // Genau der Fall von Order #100101: DB-ID ist gesetzt, Outlook gibt 404.
+  const order = buildOrder({ photographerEventId: "stale-p", officeEventId: "o-1" });
+  const { client, calls } = buildGraphMock({
+    "GET /users/janez.smirmaul@propus.ch/events/stale-p": { error: HTTP_404() }, // verify: 404
+    "GET /users/office@propus.ch/events/o-1": { response: { id: "o-1" } },        // verify: ok
+    "GET /users/janez.smirmaul@propus.ch/events": { response: { value: [] } },    // orphan-search: leer
+    "POST /users/janez.smirmaul@propus.ch/events": { response: { id: "fresh-p" } },
+  });
+  const result = await repairCalendarEvents(order, DEPS(client));
+  assert.equal(result.updateFields.photographer_event_id, "fresh-p");
+  assert.equal(result.updateFields.calendar_sync_status, "final");
+  assert.ok(!("office_event_id" in result.updateFields), "Office wird nicht angefasst");
+  // Genau ein POST: das Recreate
+  assert.equal(calls.filter((c) => c.method === "POST").length, 1);
+  // Und Stale-Action wurde gemeldet
+  assert.ok(result.actions.some((a) => /stale ID.*neu angelegt/.test(a)));
+});
+
+test("repairCalendarEvents: Stale-ID beide → beide neu angelegt", async () => {
+  const order = buildOrder({ photographerEventId: "stale-p", officeEventId: "stale-o" });
+  const { client, calls } = buildGraphMock({
+    "GET /users/janez.smirmaul@propus.ch/events/stale-p": { error: HTTP_404() },
+    "GET /users/office@propus.ch/events/stale-o": { error: HTTP_404() },
+    "GET /users/janez.smirmaul@propus.ch/events": { response: { value: [] } },
+    "GET /users/office@propus.ch/events": { response: { value: [] } },
+    "POST /users/janez.smirmaul@propus.ch/events": { response: { id: "fresh-p" } },
+    "POST /users/office@propus.ch/events": { response: { id: "fresh-o" } },
+  });
+  const result = await repairCalendarEvents(order, DEPS(client));
+  assert.equal(result.updateFields.photographer_event_id, "fresh-p");
+  assert.equal(result.updateFields.office_event_id, "fresh-o");
+  assert.equal(calls.filter((c) => c.method === "POST").length, 2);
+});
+
+test("repairCalendarEvents: Verify-GET mit anderem Fehler (z.B. 500) → behandelt als vorhanden, kein Recreate", async () => {
+  // Defensives Verhalten: nicht jeder GET-Fehler bedeutet Stale. Nur 404 ist
+  // klares Stale-Signal. Alles andere (5xx, Throttle) → konservativ stehenlassen.
+  const order = buildOrder({ photographerEventId: "p-1", officeEventId: "o-1" });
+  const { client, calls } = buildGraphMock({
+    "GET /users/janez.smirmaul@propus.ch/events/p-1": { error: Object.assign(new Error("throttled"), { statusCode: 503 }) },
+    "GET /users/office@propus.ch/events/o-1": { response: { id: "o-1" } },
+  });
+  const result = await repairCalendarEvents(order, DEPS(client));
+  assert.equal(calls.filter((c) => c.method === "POST").length, 0, "503 darf nicht zu Recreate fuehren");
+  assert.equal(Object.keys(result.updateFields).length, 0);
 });
 
 test("repairCalendarEvents: beide fehlen, keine Orphans → beide POST", async () => {

@@ -649,17 +649,35 @@ async function deleteCalendarEvents(order, deps) {
 }
 
 /**
- * Repariert eine Order, bei der durch geschluckte Graph-Fehler in einem
- * frueheren Lauf nur eines der beiden Events tatsaechlich angelegt wurde
- * (verwaiste Eintraege im Outlook-Postfach, NULL-IDs in der DB).
+ * Verifiziert ob ein Outlook-Event mit der gegebenen ID im Postfach existiert.
+ * Returns true (existiert), false (404), oder wirft bei anderen Fehlern.
+ */
+async function eventExistsInMailbox(graphClient, mailbox, eventId) {
+  try {
+    await graphClient.api("/users/" + mailbox + "/events/" + eventId).select("id").get();
+    return true;
+  } catch (err) {
+    if (err && err.statusCode === 404) return false;
+    throw err;
+  }
+}
+
+/**
+ * Repariert eine Order, bei der die Calendar-Events nicht im erwarteten Zustand sind.
+ * Deckt zwei Bug-Klassen ab:
+ *
+ *   1) NULL-ID-Drift: DB hat keine event_id, durch geschluckte Graph-Fehler
+ *      (siehe historisches createProvisional-Bug) — Event wird angelegt, ID
+ *      persistiert, sofern kein verwaister Eintrag im Postfach existiert.
+ *
+ *   2) Stale-ID-Drift: DB hat eine event_id, aber Outlook gibt 404 zurueck
+ *      (Event wurde manuell oder durch Sync-Tool geloescht). Stale-ID wird
+ *      lokal genullt, Event wird neu angelegt, neue ID persistiert.
  *
  * Idempotent:
- *   - Bestehende Event-IDs werden NICHT angefasst.
- *   - Fehlende Event-IDs werden via POST nachgezogen.
- *
- * Sucht zusaetzlich nach verwaisten Events im Postfach (gleiche Order-Nr im
- * Subject), die nicht in der DB referenziert sind, und meldet sie. Loescht sie
- * NICHT automatisch — manuelle Pruefung erforderlich.
+ *   - Existierende Events bleiben unangetastet (Verifikation per GET).
+ *   - Verwaiste Postfach-Eintraege (Order-Nr im Subject, kein DB-Bezug) werden
+ *     nur gemeldet, NICHT automatisch geloescht.
  *
  * Wirft CalendarServiceError bei nicht behebbaren Fehlern.
  *
@@ -695,6 +713,39 @@ async function repairCalendarEvents(order, deps) {
   const actions = [];
   const orphans = { photographer: [], office: [] };
 
+  // ── Stale-ID-Detection: gesetzte IDs gegen Outlook verifizieren ────────────
+  // Lokaler Schatten-Zustand; Original-Order wird nicht mutiert. Wenn das Event
+  // 404 ist, behandeln wir die ID wie NULL und lassen die nachfolgende Logik
+  // ein neues Event anlegen + die DB updaten.
+  let effectivePhotogId = order.photographerEventId;
+  let effectiveOfficeId = order.officeEventId;
+
+  if (effectivePhotogId && photographerEmail) {
+    try {
+      const exists = await eventExistsInMailbox(graphClient, photographerEmail, effectivePhotogId);
+      if (!exists) {
+        actions.push("photographer_event: stale ID in DB — Outlook 404, wird neu angelegt");
+        updateFields.photographer_event_id = null; // wird gleich von der POST-Logik ueberschrieben
+        effectivePhotogId = null;
+      }
+    } catch (err) {
+      console.warn("[calendar-service][repair] photog event verify failed (Graph-Fehler), behandle als vorhanden", { orderNo: order.orderNo, error: err && err.message });
+    }
+  }
+
+  if (effectiveOfficeId && OFFICE_EMAIL) {
+    try {
+      const exists = await eventExistsInMailbox(graphClient, OFFICE_EMAIL, effectiveOfficeId);
+      if (!exists) {
+        actions.push("office_event: stale ID in DB — Outlook 404, wird neu angelegt");
+        updateFields.office_event_id = null;
+        effectiveOfficeId = null;
+      }
+    } catch (err) {
+      console.warn("[calendar-service][repair] office event verify failed (Graph-Fehler), behandle als vorhanden", { orderNo: order.orderNo, error: err && err.message });
+    }
+  }
+
   // Verwaiste Events suchen (nach Order-Nr im Subject)
   // Subject-Format aus templates/calendar.js: enthaelt order.orderNo
   async function searchOrphans(mailbox) {
@@ -715,11 +766,14 @@ async function repairCalendarEvents(order, deps) {
   }
 
   // Fotograf-Event nachziehen
-  if (!order.photographerEventId) {
+  if (!effectivePhotogId) {
     if (!photographerEmail) {
       actions.push("photographer_event: SKIPPED (keine Fotografen-Mail auf Order)");
     } else {
       const found = await searchOrphans(photographerEmail);
+      // Stale-ID rausfiltern: das gerade als 404 verifizierte Event taucht
+      // nicht in der Suche auf, aber falls es einen gleichnamigen anderen
+      // Eintrag gibt, war das vermutlich der vorherige (manuell duplizierte).
       const orphansHere = found.filter(e => e && e.id);
       if (orphansHere.length) {
         // Nicht automatisch loeschen — nur melden. Falls genau 1 Event existiert,
@@ -742,11 +796,11 @@ async function repairCalendarEvents(order, deps) {
       }
     }
   } else {
-    actions.push("photographer_event: bereits vorhanden (" + order.photographerEventId + ")");
+    actions.push("photographer_event: bereits vorhanden + verifiziert (" + effectivePhotogId + ")");
   }
 
   // Office-Event nachziehen
-  if (!order.officeEventId) {
+  if (!effectiveOfficeId) {
     if (!OFFICE_EMAIL) {
       actions.push("office_event: SKIPPED (kein OFFICE_EMAIL gesetzt)");
     } else {
@@ -771,7 +825,7 @@ async function repairCalendarEvents(order, deps) {
       }
     }
   } else {
-    actions.push("office_event: bereits vorhanden (" + order.officeEventId + ")");
+    actions.push("office_event: bereits vorhanden + verifiziert (" + effectiveOfficeId + ")");
   }
 
   if (Object.keys(updateFields).length) {
@@ -796,4 +850,5 @@ module.exports = {
   deleteBlock,
   deleteCalendarEvents,
   repairCalendarEvents,
+  eventExistsInMailbox,
 };

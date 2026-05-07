@@ -3,20 +3,26 @@
 /**
  * repair-photographer-event.js
  *
- * Repariert Orders, bei denen durch geschluckte Graph-Fehler entweder das
- * Fotografen- oder das Office-Kalender-Event fehlt (NULL in DB), waehrend
- * das jeweils andere existiert. Typischer Fall: Bestellung confirmed, im
- * Office-Postfach taucht ein Termin auf, im Fotografen-Postfach nicht.
+ * Repariert Orders mit zwei Klassen von Calendar-Inkonsistenzen:
+ *
+ *   1) NULL-ID-Drift: DB-event_id ist NULL, sollte aber gesetzt sein
+ *      (durch geschluckte Graph-Fehler beim Statuswechsel).
+ *
+ *   2) Stale-ID-Drift: DB-event_id ist gesetzt, aber Outlook gibt 404 zurueck
+ *      (manuell oder durch Sync-Tool geloescht). Erkennt --verify Modus.
  *
  * Usage:
- *   node scripts/repair-photographer-event.js                  # listet betroffene Orders
- *   node scripts/repair-photographer-event.js <orderNo>        # repariert eine
+ *   node scripts/repair-photographer-event.js                  # NULL-ID-Liste (schnell, nur SQL)
+ *   node scripts/repair-photographer-event.js --verify         # PLUS Stale-ID-Check (langsam, GET pro ID)
+ *   node scripts/repair-photographer-event.js <orderNo>        # repariert eine (deckt beide Klassen)
  *   node scripts/repair-photographer-event.js <orderNo> --dry-run
- *   node scripts/repair-photographer-event.js --all            # repariert alle
+ *   node scripts/repair-photographer-event.js --all            # repariert alle (NULL-ID-Liste)
+ *   node scripts/repair-photographer-event.js --all --verify   # repariert alle (NULL-ID + Stale-ID)
  *   node scripts/repair-photographer-event.js --all --dry-run
  *
  * Beispiel:
  *   node scripts/repair-photographer-event.js
+ *   node scripts/repair-photographer-event.js --verify
  *   node scripts/repair-photographer-event.js 100101
  *   node scripts/repair-photographer-event.js --all
  */
@@ -32,7 +38,7 @@ dotenv.config({ path: path.join(__dirname, "..", ".env") });
 const { ClientSecretCredential } = require("@azure/identity");
 const { Client } = require("@microsoft/microsoft-graph-client");
 const db = require("../db");
-const { repairCalendarEvents, CalendarServiceError } = require("../calendar-service");
+const { repairCalendarEvents, eventExistsInMailbox, CalendarServiceError } = require("../calendar-service");
 const PHOTOGRAPHERS_CONFIG = require("../photographers.config.js");
 
 // Status, in denen ein Kalender-Event aktiv existieren MUSS (vgl. state-machine.js):
@@ -46,9 +52,10 @@ function parseArgs() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
   const all = args.includes("--all");
+  const verify = args.includes("--verify");
   const orderNoArg = args.find((a) => /^\d+$/.test(a));
   const orderNo = orderNoArg ? parseInt(orderNoArg, 10) : null;
-  return { orderNo, dryRun, all };
+  return { orderNo, dryRun, all, verify };
 }
 
 function buildGraphClient() {
@@ -151,9 +158,9 @@ async function repairOne(orderNo, deps) {
   if (!order.schedule || !order.schedule.date || !order.schedule.time) {
     return { orderNo, error: "no_schedule" };
   }
-  if (order.photographerEventId && order.officeEventId) {
-    return { orderNo, skipped: "already_complete" };
-  }
+  // Hinweis: kein "already_complete" short-circuit mehr — repairCalendarEvents
+  // verifiziert intern auch gesetzte IDs (Stale-ID-Check). Diese Funktion ist
+  // jetzt idempotent und sicher fuer alle Orders aufrufbar.
   try {
     const result = await repairCalendarEvents(order, deps);
     return { orderNo, result };
@@ -165,8 +172,86 @@ async function repairOne(orderNo, deps) {
   }
 }
 
+/**
+ * Findet zusaetzlich Stale-ID-Drift via Graph-GET pro Event-ID. Langsam!
+ * Eine Outlook-API-Roundtrip pro gesetzte ID. Nur fuer --verify Modus.
+ *
+ * @returns Liste von { orderNo, status, photographerStale, officeStale, ... }
+ */
+async function findStaleIdOrders(pool, graphClient, OFFICE_EMAIL) {
+  const placeholders = STATUSES_REQUIRING_EVENT.map((_, i) => "$" + (i + 1)).join(",");
+  const { rows } = await pool.query(
+    `SELECT o.order_no,
+            o.status,
+            o.schedule->>'date' AS schedule_date,
+            o.schedule->>'time' AS schedule_time,
+            o.photographer->>'key'   AS photographer_key,
+            o.photographer->>'email' AS photographer_email,
+            o.photographer_event_id,
+            o.office_event_id
+       FROM orders o
+      WHERE o.status IN (${placeholders})
+        AND (o.photographer_event_id IS NOT NULL OR o.office_event_id IS NOT NULL)
+      ORDER BY o.order_no DESC`,
+    STATUSES_REQUIRING_EVENT
+  );
+
+  const stale = [];
+  let checked = 0;
+  for (const r of rows) {
+    checked++;
+    if (checked % 25 === 0) {
+      process.stderr.write("[verify] " + checked + "/" + rows.length + " Orders geprueft...\r");
+    }
+    const photogStale = r.photographer_event_id && r.photographer_email
+      ? !(await eventExistsInMailbox(graphClient, r.photographer_email, r.photographer_event_id).catch(() => true))
+      : false;
+    const officeStale = r.office_event_id && OFFICE_EMAIL
+      ? !(await eventExistsInMailbox(graphClient, OFFICE_EMAIL, r.office_event_id).catch(() => true))
+      : false;
+    if (photogStale || officeStale) {
+      stale.push({
+        orderNo: r.order_no,
+        status: r.status,
+        scheduleDate: r.schedule_date,
+        scheduleTime: r.schedule_time,
+        photographerKey: r.photographer_key,
+        photographerStale: photogStale,
+        officeStale,
+      });
+    }
+  }
+  if (checked >= 25) process.stderr.write("\n");
+  return stale;
+}
+
+function printStaleTable(rows) {
+  if (!rows.length) {
+    console.log("Keine Stale-ID-Drifts gefunden — alle gesetzten Event-IDs existieren in Outlook.");
+    return;
+  }
+  console.log("Stale-ID-Drift (DB hat ID, Outlook gibt 404):");
+  console.log("");
+  console.log("OrderNo".padEnd(10) + "Status".padEnd(14) + "Termin".padEnd(20) + "Fotograf".padEnd(12) + "Stale");
+  console.log("-".repeat(72));
+  for (const r of rows) {
+    const stale = [];
+    if (r.photographerStale) stale.push("photographer");
+    if (r.officeStale) stale.push("office");
+    console.log(
+      String(r.orderNo).padEnd(10) +
+      String(r.status || "—").padEnd(14) +
+      String((r.scheduleDate || "—") + " " + (r.scheduleTime || "")).padEnd(20) +
+      String(r.photographerKey || "—").padEnd(12) +
+      stale.join(", ")
+    );
+  }
+  console.log("");
+  console.log("Total: " + rows.length);
+}
+
 async function main() {
-  const { orderNo, dryRun, all } = parseArgs();
+  const { orderNo, dryRun, all, verify } = parseArgs();
 
   if (!process.env.DATABASE_URL) {
     console.error("DATABASE_URL nicht gesetzt (.env.local/.env).");
@@ -189,11 +274,21 @@ async function main() {
   if (!orderNo && !all) {
     const affected = await findAffectedOrders(pool);
     printAffectedTable(affected);
-    if (affected.length) {
+
+    if (verify) {
+      console.log("\n--verify aktiv: pruefe gesetzte Event-IDs gegen Outlook (langsam)...");
+      const graphClient = buildGraphClient();
+      const stale = await findStaleIdOrders(pool, graphClient, OFFICE_EMAIL);
+      console.log("");
+      printStaleTable(stale);
+    }
+
+    const totalRepairTargets = affected.length + (verify ? 1 : 0); // hint
+    if (totalRepairTargets) {
       console.log("\nReparatur einer einzelnen Order:");
       console.log("  node scripts/repair-photographer-event.js <orderNo>");
-      console.log("Reparatur aller Orders:");
-      console.log("  node scripts/repair-photographer-event.js --all");
+      console.log("Reparatur aller (NULL-ID + Stale-ID):");
+      console.log("  node scripts/repair-photographer-event.js --all --verify");
     }
     return;
   }
@@ -202,19 +297,37 @@ async function main() {
   if (all) {
     const affected = await findAffectedOrders(pool);
     printAffectedTable(affected);
-    if (!affected.length) return;
+
+    let staleSet = [];
+    if (verify) {
+      console.log("\n--verify aktiv: pruefe gesetzte Event-IDs gegen Outlook (langsam)...");
+      const graphForVerify = buildGraphClient();
+      staleSet = await findStaleIdOrders(pool, graphForVerify, OFFICE_EMAIL);
+      printStaleTable(staleSet);
+    }
+
+    // Vereinige Order-Nummern aus beiden Listen (NULL-ID-Drift + Stale-ID-Drift)
+    const orderNos = new Set([
+      ...affected.map((r) => r.orderNo),
+      ...staleSet.map((r) => r.orderNo),
+    ]);
+
+    if (!orderNos.size) {
+      console.log("\nNichts zu reparieren.");
+      return;
+    }
 
     if (dryRun) {
-      console.log("\n[dry-run] Wuerde " + affected.length + " Order(s) reparieren — kein Graph-Call.");
+      console.log("\n[dry-run] Wuerde " + orderNos.size + " Order(s) reparieren — kein Schreib-Call.");
       return;
     }
 
     const graphClient = buildGraphClient();
     const deps = { graphClient, OFFICE_EMAIL, PHOTOG_PHONES, db };
     const summary = { ok: 0, error: 0, skipped: 0 };
-    for (const row of affected) {
-      process.stdout.write("\nRepair Order #" + row.orderNo + " ... ");
-      const r = await repairOne(row.orderNo, deps);
+    for (const no of orderNos) {
+      process.stdout.write("\nRepair Order #" + no + " ... ");
+      const r = await repairOne(no, deps);
       if (r.error) {
         summary.error++;
         console.log("ERROR (" + r.error + ") " + (r.message || ""));
@@ -252,22 +365,21 @@ async function main() {
     office_event_id: order.officeEventId || null,
   });
 
-  if (order.photographerEventId && order.officeEventId) {
-    console.log("Beide Event-IDs sind in der DB gesetzt — nichts zu reparieren.");
-    return;
-  }
   if (!order.schedule || !order.schedule.date || !order.schedule.time) {
     console.error("Kein Termin auf Order — Repair nicht moeglich.");
     process.exit(2);
   }
+  // Hinweis: kein Short-Circuit auf "beide IDs gesetzt" — repairCalendarEvents
+  // verifiziert intern via Graph-GET ob die IDs noch valide sind (Stale-ID-Fix).
 
   if (dryRun) {
     console.log("\n[dry-run] Wuerde repairCalendarEvents() aufrufen mit:");
     console.log({
       OFFICE_EMAIL,
       photographer_email: order.photographer && order.photographer.email,
-      missing_photographer_event: !order.photographerEventId,
-      missing_office_event: !order.officeEventId,
+      photographer_event_id_set: !!order.photographerEventId,
+      office_event_id_set: !!order.officeEventId,
+      note: "Repair prueft intern auch Stale-IDs (Outlook-GET pro gesetzter ID).",
     });
     console.log("\n[dry-run] Kein Graph-API-Call ausgefuehrt.");
     return;
