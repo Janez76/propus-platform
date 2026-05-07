@@ -135,7 +135,7 @@ export function ServiceMixDonut({ orders, lang }: ServiceMixDonutProps) {
   }
 
   return (
-    <section className="dv2-card dv2-donut-card">
+    <section className="dv2-card dv2-donut-card dv2-service-mix">
       <div className="dv2-card-head">
         <div className="dv2-card-title">{t(lang, 'dashboardV2.serviceMix.title')}</div>
         <div className="dv2-donut-total-pill">{totalCount} {t(lang, 'dashboardV2.serviceMix.items')}</div>
@@ -176,9 +176,15 @@ export function ServiceMixDonut({ orders, lang }: ServiceMixDonutProps) {
             )}
           </svg>
           <div className="dv2-donut-center">
-            <span className="dv2-donut-center-value">{formatCHF(totalAmount)}</span>
+            {/* Kompakte Darstellung im Donut-Hole: nur Tausender-Trennzeichen,
+             *  keine Decimals — sonst wird "CHF 29'542.00" zu lang fürs Loch. */}
+            <span className="dv2-donut-center-value">
+              {new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 }).format(
+                Math.round(totalAmount),
+              )}
+            </span>
             <span className="dv2-donut-center-label">
-              {t(lang, 'dashboardV2.serviceMix.totalLabel')}
+              CHF · {t(lang, 'dashboardV2.serviceMix.totalLabel')}
             </span>
           </div>
         </div>

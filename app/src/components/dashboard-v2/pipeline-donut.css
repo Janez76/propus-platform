@@ -135,3 +135,68 @@
 @media (prefers-reduced-motion: reduce) {
   .dv2-donut-svg circle { transition: none !important; }
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * ServiceMixDonut overrides — die CHF-Beträge im Service-Mix sind viel
+ * länger als die Pipeline-Counts (3 Stellen). Italic-Serif passt nicht
+ * ins Donut-Hole, Labels wie "THE FULL VIEW" / "20 Bodenfotos" wrappen
+ * auf 4-Spalten-Layout. Hier kompaktere Variante.
+ * ──────────────────────────────────────────────────────────────────── */
+.dv2-service-mix .dv2-donut-body {
+  /* Gesamten Block schmaler aufstellen, damit Legend mehr Platz bekommt */
+  grid-template-columns: minmax(140px, 180px) 1fr;
+  gap: 16px;
+}
+.dv2-service-mix .dv2-donut-svg-wrap {
+  max-width: 180px;
+}
+.dv2-service-mix .dv2-donut-center-value {
+  /* Statt italic-serif: tabular-mono, kompakter Font für lange Geldbeträge */
+  font-family: ui-monospace, 'JetBrains Mono', monospace;
+  font-style: normal;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.dv2-service-mix .dv2-donut-center-label {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+}
+.dv2-service-mix .dv2-donut-legend {
+  gap: 4px;
+}
+.dv2-service-mix .dv2-donut-legend-item {
+  /* minmax(0,1fr) erlaubt der Label-Spalte zu schrumpfen + ellipsis */
+  grid-template-columns: 9px minmax(0, 1fr) auto auto;
+  gap: 8px;
+  padding: 4px 8px;
+}
+.dv2-service-mix .dv2-donut-legend-dot {
+  width: 9px;
+  height: 9px;
+}
+.dv2-service-mix .dv2-donut-legend-label {
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.dv2-service-mix .dv2-donut-legend-val {
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.dv2-service-mix .dv2-donut-legend-pct {
+  font-size: 10.5px;
+  min-width: 32px;
+}
+
+@media (max-width: 720px) {
+  .dv2-service-mix .dv2-donut-body {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+  .dv2-service-mix .dv2-donut-svg-wrap {
+    margin: 0 auto;
+  }
+}
