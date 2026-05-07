@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import { Building2, MapPin, Users, KeyRound } from "lucide-react";
+import { Building2, Camera, FileText, KeyRound, MapPin, Users } from "lucide-react";
 import { Section, InfoItem, Empty } from "../_shared";
 import { ObjektForm } from "./objekt-form";
 import { loadOrderContext } from "../_order-context";
+import { splitAddressLine } from "@/lib/parseOrderAddress";
 
 type OnsiteContact = { name?: string; phone?: string; email?: string; role?: string; calendarInvite?: boolean };
 type KeyPickup = { enabled?: boolean; address?: string; floor?: string; info?: string };
@@ -52,13 +53,76 @@ export default async function ObjektPage({ params, searchParams }: Props) {
     );
   }
 
+  // Mobile-Orders-Redesign Phase 4: Objektadresse vs. Rechnungsadresse klar
+  // trennen. Wir vergleichen normalisiert (Strasse/PLZ/Stadt) — bewusst
+  // tolerant gegen Whitespace und Case-Unterschiede.
+  const objAddrParts = splitAddressLine(o.address);
+  const billingStreet = (o.billing_street ?? "").trim();
+  const billingZip = (o.billing_zip ?? "").trim();
+  const billingCity = (o.billing_city ?? "").trim();
+  const hasBillingAddr = billingStreet.length > 0 || billingZip.length > 0 || billingCity.length > 0;
+
+  function normaliseFragment(s: string | null | undefined): string {
+    return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+  const billingMatchesObjekt =
+    hasBillingAddr &&
+    normaliseFragment(billingStreet) === normaliseFragment(objAddrParts.street) &&
+    normaliseFragment(billingZip) === normaliseFragment(objAddrParts.zip) &&
+    normaliseFragment(billingCity) === normaliseFragment(objAddrParts.city);
+
+  const billingFullAddress = hasBillingAddr
+    ? [billingStreet, [billingZip, billingCity].filter(Boolean).join(" ")].filter(Boolean).join(", ")
+    : null;
+
   return (
     <div className="space-y-6">
-      <Section title="Adresse" icon={<MapPin className="h-4 w-4" />}>
-        {order.address
-          ? <p className="text-sm">{order.address}</p>
-          : <Empty>Keine Adresse hinterlegt</Empty>}
+      <Section title="Objektadresse" icon={<Camera className="h-4 w-4" />}>
+        {order.address ? (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--accent-soft,rgba(158,134,73,0.12))] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)]">
+                <Camera className="h-3 w-3" aria-hidden /> Foto-Standort
+              </span>
+              <p className="text-sm">{order.address}</p>
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              Hier wird fotografiert.{" "}
+              {hasBillingAddr ? (
+                billingMatchesObjekt ? (
+                  <span className="inline-flex items-center gap-1 font-semibold text-[#16a34a]">
+                    <span aria-hidden>=</span> Rechnungsadresse identisch
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-semibold text-[#b8860b]">
+                    <span aria-hidden>≠</span> Rechnung weicht ab — siehe unten
+                  </span>
+                )
+              ) : (
+                <span className="text-[var(--text-muted)]">Keine separate Rechnungsadresse hinterlegt.</span>
+              )}
+            </p>
+          </div>
+        ) : (
+          <Empty>Keine Adresse hinterlegt</Empty>
+        )}
       </Section>
+
+      {hasBillingAddr && !billingMatchesObjekt && (
+        <Section title="Rechnungsadresse" icon={<FileText className="h-4 w-4" />}>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--paper-strip)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                <FileText className="h-3 w-3" aria-hidden /> Rechnung geht an
+              </span>
+              <p className="text-sm">{billingFullAddress}</p>
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              Bewusst abweichend vom Foto-Standort (z.B. Maklerbüro, Treuhand, Postfach).
+            </p>
+          </div>
+        </Section>
+      )}
 
       <Section title="Objekt" icon={<Building2 className="h-4 w-4" />}>
         {hasObject ? (
