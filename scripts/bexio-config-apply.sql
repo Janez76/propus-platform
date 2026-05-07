@@ -17,11 +17,15 @@ BEGIN;
 \i booking/migrations/091_customers_bexio_contact_id.sql
 
 -- ─── 2) bexio-Runtime-Config in app_settings setzen ─────────────────────────
--- IDs ermittelt via scripts/bexio-lookup-defaults.js am 2026-05-06:
---   bankAccountId = 1   (UBS Propus, einziges Bankkonto)
---   vatTaxId      = 17  (opted_sales_tax_205.303 / 8.10% — CH ESTV Code 205/303)
---   paymentTypeId = 4   (Rechnung — bexio kennt keine "14 Tage netto"-payment_type;
---                        die Frist wird via footerTemplate auf das Dokument geschrieben)
+-- IDs ermittelt via scripts/bexio-lookup-defaults.js:
+--   bankAccountId = 1    (UBS Propus, einziges Bankkonto; 2026-05-06)
+--   vatTaxId      = 17   (opted_sales_tax_205.303 / 8.10% CH ESTV; 2026-05-06)
+--   paymentTypeId = 4    (Rechnung — bexio hat keine "14 Tage netto"-payment_type;
+--                         Frist via footerTemplate aufs Dokument)
+--   unitId        = 1    (Stk; 2026-05-08)
+--   accountId     = 178  (3400 "Dienstleistungsertrag Sammelkonto"; 2026-05-08)
+--                        Granulare Konten 3401–3407 existieren (Foto/Drohne/Matterport/
+--                        Floor-Plan/Post-Production/Schulungen) — per-Service-Mapping = Phase 2.
 
 INSERT INTO app_settings (key, value_json, updated_at) VALUES (
   'integration.bexio.config',
@@ -34,6 +38,8 @@ INSERT INTO app_settings (key, value_json, updated_at) VALUES (
     "paymentTypeId": 4,
     "bankAccountId": 1,
     "vatTaxId": 17,
+    "unitId": 1,
+    "accountId": 178,
     "mwstType": 0,
     "mwstIsNet": true,
     "headerTemplate": "{{address}} #{{orderNo}}",

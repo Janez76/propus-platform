@@ -20,6 +20,7 @@ function loadEnv(filePath, override = false) {
 loadEnv(path.resolve(__dirname, "..", ".env"));
 loadEnv(path.resolve(__dirname, "..", ".env.vps"));
 loadEnv(path.resolve(__dirname, "..", ".env.vps.secrets"));
+loadEnv(path.resolve(__dirname, "..", "bexio.env.txt"));
 
 const TOKEN = process.env.BEXIO_API_TOKEN;
 const BASE = (process.env.BEXIO_API_BASE || process.env.BEXIO_API_URL || "https://api.bexio.com").replace(/\/$/, "");
@@ -87,5 +88,34 @@ async function bx(method, p) {
     ) || taxes.find(t => Number(t.value) === 8.1);
     if (m81) console.log(`\n  → Match 8.1% Sales: id=${m81.id}  "${m81.display_name || m81.name}"  net_tax_type=${m81.net_tax_type}`);
     else console.log(`\n  → Kein 8.1%-Treffer — bitte manuell auswählen.`);
+  }
+
+  // ─── units (Mengeneinheiten) ─────────────────────────────────────────────
+  console.log("\n── /2.0/unit ──────────────────────────────────────────────");
+  const units = await bx("GET", "/2.0/unit");
+  if (Array.isArray(units)) {
+    for (const u of units) {
+      console.log(`  id=${String(u.id).padStart(3)}  name="${u.name}"`);
+    }
+    const stk = units.find(u => /^(stk|stueck|st\.|piece|pcs|each)/i.test(String(u.name || "")));
+    if (stk) console.log(`\n  → Match "Stk/Stück": id=${stk.id}  "${stk.name}"`);
+    else console.log(`\n  → Kein Stk-Treffer — bitte manuell auswählen.`);
+  }
+
+  // ─── accounts (Kontenrahmen) ─────────────────────────────────────────────
+  console.log("\n── /2.0/accounts (Filter: Ertrag, KMU-typisch 3xxx) ──────");
+  const accounts = await bx("GET", "/2.0/accounts");
+  if (Array.isArray(accounts)) {
+    const ertrag = accounts.filter(a =>
+      String(a.account_type || "").toLowerCase().includes("revenue") ||
+      String(a.account_type || "").toLowerCase().includes("ertrag") ||
+      /^3\d{3}$/.test(String(a.account_no || ""))
+    ).slice(0, 30);
+    for (const a of ertrag) {
+      console.log(`  id=${String(a.id).padStart(3)}  no=${a.account_no}  name="${a.name}"  type=${a.account_type || "?"}  active=${a.is_active ?? "?"}`);
+    }
+    const dienst = accounts.find(a => /3200|3400|dienstleist/i.test(`${a.account_no} ${a.name}`));
+    if (dienst) console.log(`\n  → Vorschlag Dienstleistungs-Ertrag: id=${dienst.id}  no=${dienst.account_no}  "${dienst.name}"`);
+    else console.log(`\n  → Kein Dienstleistungs-Konto eindeutig — manuell auswählen.`);
   }
 })().catch((e) => { console.error("ABBRUCH:", e.message); process.exit(1); });
