@@ -2,11 +2,14 @@
  * Aggregator: verdichtet Roh-Signale aus `assistant_implicit_signals` zu
  * konkreten Suggestions in `assistant_self_learning_suggestions`.
  *
- * Faustregeln:
- *  - 1× klare Korrektur mit confidence ≥ 0.85 → suggestion(kind=add_negative)
- *  - 2+ Korrekturen mit ähnlichem User-Topic-Token-Set in 24h → tune_prompt
- *  - 1× Dank+Folge-Frage zur selben Entität → add_few_shot
- *  - Tool-Error-Loop ≥1 → add_negative + tune_prompt
+ * Faustregeln (alle Schwellen über `opts.minConfidence` aus Settings,
+ * default 0.7 — symmetrisch positiv/negativ):
+ *  - 1× klares Negativ-Signal (correction, repeat, tool_error_loop) →
+ *    suggestion(kind=add_negative)
+ *  - 2+ negative Signale mit ähnlichem User-Topic-Token-Set → tune_prompt
+ *    (umfasst correction, repeat, topic_shift, tool_error_loop — damit auch
+ *     Frust-Marker und Themen-Wechsel nach Tool-Fehler einfließen)
+ *  - 1× Folge-Frage zur selben Entität → add_few_shot
  *
  * Runs idempotent (markiert Signale als processed_at).
  */
@@ -43,22 +46,32 @@ export async function runAggregator(opts: { minConfidence: number }): Promise<{
   const signals = await listUnprocessedSignals(500);
   if (signals.length === 0) return { signalsProcessed: 0, suggestionsCreated: 0 };
 
-  // 1) Klare Korrekturen / Tool-Loops → 1:1 add_negative
+  // 1) Klare Negativ-Signale → 1:1 add_negative
+  // Schwelle: opts.minConfidence (Settings, default 0.7) — symmetrisch zu Positiv.
+  // Vorher hartcodiert 0.85 → 3 Daumen runter erzeugten in der Praxis nichts.
+  // `repeat` mit hoher Jaccard-Ähnlichkeit ist ein klares Negativ-Signal:
+  // User stellt dieselbe Frage erneut, weil die Antwort nicht half.
   const negatives = signals.filter(
     (s) =>
-      (s.signalType === "correction" && s.confidence >= 0.85) ||
-      (s.signalType === "tool_error_loop" && s.confidence >= 0.85),
+      s.polarity === -1 &&
+      s.confidence >= opts.minConfidence &&
+      (s.signalType === "correction" ||
+        s.signalType === "tool_error_loop" ||
+        s.signalType === "repeat"),
   );
 
-  // 2) Klare Folge-Frage mit Dank → add_few_shot
+  // 2) Klare Folge-Frage zur selben Entität → add_few_shot
   const positives = signals.filter(
-    (s) => s.signalType === "follow_up" && s.confidence >= 0.6,
+    (s) => s.signalType === "follow_up" && s.confidence >= opts.minConfidence,
   );
   const thanksSignals = signals.filter((s) => s.signalType === "thanks" && s.confidence >= opts.minConfidence);
 
-  // 3) Cluster aus Korrekturen → tune_prompt
-  const corrections = signals.filter((s) => s.signalType === "correction");
-  const clusters = clusterByTopic(corrections);
+  // 3) Cluster aller Negativ-Signale → tune_prompt
+  // Vorher: nur `correction`. Jetzt: alle polarity=-1 Typen, damit auch
+  // Frust-Marker (low-conf correction), Wiederholungen, Tool-Loops und
+  // Topic-Shifts in denselben Topic-Cluster wandern können.
+  const negativeAll = signals.filter((s) => s.polarity === -1);
+  const clusters = clusterByTopic(negativeAll);
 
   let created = 0;
   const usedSignalIds = new Set<string>();

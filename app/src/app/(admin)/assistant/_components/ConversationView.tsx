@@ -299,7 +299,8 @@ export function ConversationView() {
   /** Aborts stale history GETs so an older in-flight response cannot overwrite after delete/archive. */
   const historyFetchAbortRef = useRef<AbortController | null>(null);
 
-  const assistantGeo = useGeolocation({ storageKey: "propus.assistant.geo.enabled.v1" });
+  // Profil-zentraler Standort-Key — Default an, deaktivierbar nur im Profil.
+  const assistantGeo = useGeolocation();
   const assistantLiveLocationRef = useRef<{
     lat: number;
     lng: number;

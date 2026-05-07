@@ -1,0 +1,84 @@
+name: Auto-Fix Deploy Failure
+
+# Wenn der Deploy-Workflow ein Issue mit Label "deploy-failure" erstellt,
+# laeuft dieser Workflow Claude (Anthropic API) im Agentic-Modus mit Read/
+# Write/Shell-Tool-Zugriff auf eine frische Master-Checkout-Kopie. Ziel:
+# Fehler analysieren + Fix vorschlagen + PR oeffnen. KEIN Auto-Merge.
+#
+# Sicherheits-Constraints (im Script enforced):
+#   - Hard-Deny-Liste fuer Schreib-Pfade (.env*, .github/workflows/*, secrets)
+#   - Maximal 5 File-Modifikationen pro Lauf
+#   - Maximal 20 Tool-Use-Iterationen
+#   - Shell-Whitelist (nur lesende Befehle: ls, cat, head, grep, node --check, ...)
+#   - Cost-Limit via max_tokens
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  auto-fix:
+    name: Claude Auto-Fix
+    runs-on: ubuntu-latest
+    if: ${{ contains(github.event.issue.labels.*.name, 'deploy-failure') && github.event.issue.state == 'open' }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          # Personal token noetig damit der erstellte Branch + PR
+          # nicht den default GITHUB_TOKEN verwenden (sonst keine
+          # Workflow-Trigger fuer den Folge-Deploy).
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Anthropic SDK
+        run: npm install --no-save --prefix /tmp/auto-fix @anthropic-ai/sdk@^0.40.0
+
+      - name: Run Claude Auto-Fix
+        id: fix
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_PATH: /tmp/auto-fix/node_modules
+        run: node scripts/auto-fix-deploy-failure.mjs
+
+      - name: Comment on issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Wichtig: Body via printf in einer Variable bauen — embedded Newlines
+        # innerhalb eines mehrzeiligen `--body "..."` brechen den YAML-`run: |`-
+        # Block-Scalar (jede Zeile muss eingerueckt sein), was den ganzen
+        # Workflow als "file issue" markiert.
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number }}"
+          STATUS="${{ steps.fix.outcome }}"
+          PR_URL="${{ steps.fix.outputs.pr_url }}"
+          REASON="${{ steps.fix.outputs.reason }}"
+          WF_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "$STATUS" = "success" ] && [ -n "$PR_URL" ]; then
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** Vorschlag erstellt — %s\n\nBitte review + merge wenn der Fix korrekt ist. Beim erfolgreichen Re-Deploy schliesst sich dieses Issue automatisch.\n\nWorkflow-Run: %s' "$PR_URL" "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
+          elif [ "$STATUS" = "success" ]; then
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** kein automatischer Fix moeglich.\n\nGrund: %s\n\nWorkflow-Run: %s' "${REASON:-unbekannt}" "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
+          else
+            BODY=$(printf '🤖 **Auto-Fix-Bot:** Versuch fehlgeschlagen (Workflow-Error).\n\nWorkflow-Run: %s' "$WF_URL")
+            gh issue comment "$ISSUE_NUM" --body "$BODY"
+          fi

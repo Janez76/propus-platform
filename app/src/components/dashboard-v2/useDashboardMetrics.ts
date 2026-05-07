@@ -204,8 +204,19 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
       .sort(byAppt)
       .slice(0, 3);
 
-    // Funnel — last 30 days (using provisionalBookedAt as entry point)
-    const recentOrders = orders.filter((o) => inWindow(o.provisionalBookedAt, window30, todayMs + MS_DAY));
+    // Funnel — last 30 days. `provisionalBookedAt` als Primary Entry-Date,
+    // mit Fallback auf `appointmentDate`: Admin-erstellte Aufträge haben
+    // typischerweise kein `provisionalBookedAt` (entsteht nur via Booking-
+    // System); ohne Fallback war der Funnel für viele Studios komplett
+    // leer (alle Stages 0).
+    const funnelEntryDate = (o: Order): string | null | undefined =>
+      o.provisionalBookedAt ?? o.appointmentDate;
+    const recentOrders = orders.filter(
+      (o) =>
+        !statusMatches(o.status, "cancelled") &&
+        !statusMatches(o.status, "archived") &&
+        inWindow(funnelEntryDate(o), window30, todayMs + MS_DAY),
+    );
     const funnelInquiries = recentOrders.length;
     const funnelOffers = recentOrders.filter(
       (o) =>

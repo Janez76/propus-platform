@@ -8,12 +8,15 @@ import {
   EyeOff,
   Key,
   Loader2,
+  MapPin,
+  MapPinOff,
   Monitor,
   Moon,
   ShieldCheck,
   Sun,
   X,
 } from "lucide-react";
+import { useGeolocation } from "../cockpit/useGeolocation";
 import {
   changeAdminPassword,
   getAdminProfile,
@@ -96,6 +99,11 @@ export function ProfileModal({ open, onClose }: Props) {
   const setLanguage = useAuthStore((s) => s.setLanguage);
   const theme = useThemeStore((s) => s.theme);
   const setTheme = useThemeStore((s) => s.setTheme);
+
+  /** Profil-zentraler Standort-Toggle. Default an; aus → kein Auto-Request,
+   *  alle Drive-Time-/Live-Standort-Features sind deaktiviert. */
+  const geo = useGeolocation();
+  const geoBlockedByBrowser = geo.errorCode === "denied";
 
   const [profile, setProfile] = useState<ProfileForm>({ name: "", email: "", phone: "", language });
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -487,6 +495,50 @@ export function ProfileModal({ open, onClose }: Props) {
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* ── Standort-Sharing (profilweit) ── */}
+            <div>
+              <span className={labelClass}>Standort teilen</span>
+              <div
+                className="mt-1.5 flex items-start justify-between gap-3 rounded-xl border p-3"
+                style={{ borderColor: "var(--border-soft)", background: "var(--surface-raised)" }}
+              >
+                <div className="min-w-0 flex items-start gap-2">
+                  {geo.enabled ? (
+                    <MapPin className="h-5 w-5 shrink-0" style={{ color: "var(--propus-gold)" }} />
+                  ) : (
+                    <MapPinOff className="h-5 w-5 shrink-0" style={{ color: "var(--text-subtle)" }} />
+                  )}
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold p-text-main">
+                      {geo.enabled ? "Aktiv" : "Deaktiviert"}
+                    </div>
+                    <div className="text-xs p-text-subtle">
+                      Wird für Drive-Time-Schätzung („vom Standort zum Termin") und Live-Standort-Pills im Dashboard genutzt. Default: aktiv.
+                    </div>
+                    {geoBlockedByBrowser ? (
+                      <div className="mt-1 text-xs" style={{ color: "var(--propus-bad, #c44a3a)" }}>
+                        Im Browser blockiert — bitte in den Browser-Einstellungen erlauben.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={geo.enabled}
+                  onClick={() => geo.setEnabled(!geo.enabled)}
+                  className="shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
+                  style={{
+                    borderColor: geo.enabled ? "var(--propus-gold)" : "var(--border-soft)",
+                    color: geo.enabled ? "var(--propus-gold)" : "var(--text-subtle)",
+                    background: geo.enabled ? "rgba(182, 142, 32, 0.12)" : "transparent",
+                  }}
+                >
+                  {geo.enabled ? "Deaktivieren" : "Aktivieren"}
+                </button>
               </div>
             </div>
 

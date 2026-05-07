@@ -828,7 +828,17 @@ router.post('/tours/:id/set-booking-order', async (req, res) => {
     // Wenn setVisibility fehlschlug, sah der Admin "ok:true" aber die Tour
     // war noch privat und fuer den Kunden unerreichbar. Wir geben jetzt
     // strukturierte Warnungen zurueck, damit das UI gelben Toast zeigen kann.
+    //
+    // Bug-Hunt MEDIUM M02: Vorher wurde *unbedingt* setVisibility('PUBLIC')
+    // gerufen — eine versehentlich verlinkte Draft-Tour ging damit sofort
+    // live. Jetzt opt-out via Body `auto_public:false`. Default bleibt
+    // `true` (backwards-compat); das UI muss bei Draft-Tours einen
+    // Confirm-Dialog zeigen und ggf. `auto_public:false` mitschicken.
+    // `visibility_action` im Response macht den Effekt fuer das UI explizit
+    // sichtbar (Toast / Banner), egal welcher Pfad genommen wurde.
+    const autoPublic = req.body?.auto_public !== false; // default true
     const warnings = [];
+    let visibilityAction = 'no_matterport'; // für die Response
     if (mpId) {
       try {
         await matterport.patchModelInternalId(mpId, `#${orderNo}`);
@@ -839,36 +849,52 @@ router.post('/tours/:id/set-booking-order', async (req, res) => {
           message: `Matterport-Interne-ID konnte nicht gesetzt werden: ${e.message || 'unknown'}`,
         });
       }
-      // Beim Verknuepfen einer Bestellung soll die Tour automatisch
-      // oeffentlich/sichtbar werden — sonst bleibt sie auf "privat" und
-      // ist im Listing fuer den Kunden nicht erreichbar.
-      try {
-        const visibilityResult = await matterport.setVisibility(mpId, 'PUBLIC');
-        if (visibilityResult?.success) {
-          await logAction(id, 'admin', adminEmail(req), 'ADMIN_VISIBILITY', {
-            visibility: 'PUBLIC',
-            source: 'auto_on_set_booking_order',
-            booking_order_no: orderNo,
-          });
-        } else {
-          const reason = visibilityResult?.error || 'unknown';
-          console.warn('[admin-api] set-booking-order setVisibility:', reason);
+      if (autoPublic) {
+        // Beim Verknuepfen einer Bestellung soll die Tour automatisch
+        // oeffentlich/sichtbar werden — sonst bleibt sie auf "privat" und
+        // ist im Listing fuer den Kunden nicht erreichbar.
+        try {
+          const visibilityResult = await matterport.setVisibility(mpId, 'PUBLIC');
+          if (visibilityResult?.success) {
+            visibilityAction = 'set_public';
+            await logAction(id, 'admin', adminEmail(req), 'ADMIN_VISIBILITY', {
+              visibility: 'PUBLIC',
+              source: 'auto_on_set_booking_order',
+              booking_order_no: orderNo,
+            });
+          } else {
+            const reason = visibilityResult?.error || 'unknown';
+            console.warn('[admin-api] set-booking-order setVisibility:', reason);
+            visibilityAction = 'failed';
+            warnings.push({
+              code: 'matterport_visibility_failed',
+              message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${reason}`,
+            });
+          }
+        } catch (e) {
+          console.warn('[admin-api] set-booking-order setVisibility:', e.message);
+          visibilityAction = 'failed';
           warnings.push({
             code: 'matterport_visibility_failed',
-            message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${reason}`,
+            message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${e.message || 'unknown'}`,
           });
         }
-      } catch (e) {
-        console.warn('[admin-api] set-booking-order setVisibility:', e.message);
-        warnings.push({
-          code: 'matterport_visibility_failed',
-          message: `Tour konnte nicht automatisch auf PUBLIC gesetzt werden (Tour bleibt privat — Kunde sieht sie noch nicht): ${e.message || 'unknown'}`,
+      } else {
+        // Admin hat explizit auto_public:false geschickt — Tour bleibt
+        // wie sie ist (typisch private/draft). Trotzdem audit-loggen,
+        // damit nachvollziehbar ist, dass die Verknuepfung *ohne*
+        // Auto-Publish gemacht wurde.
+        visibilityAction = 'kept_private';
+        await logAction(id, 'admin', adminEmail(req), 'ADMIN_VISIBILITY_SKIPPED', {
+          source: 'auto_on_set_booking_order_optout',
+          booking_order_no: orderNo,
         });
       }
     }
     return res.json({
       ok: true,
       booking_order_no: orderNo,
+      visibility_action: visibilityAction,
       ...(warnings.length > 0 ? { warnings } : {}),
     });
   } catch (err) {

@@ -9,6 +9,7 @@ import type { Order } from "../../api/orders";
 import { buildMissionTimeline, type GeoPoint, type MissionItem, type MissionStatus } from "./missionTimeline";
 import { WxBadge } from "./WxBadge";
 import type { WeatherForecastDay } from "../../api/weather";
+import { useWeatherForMissions, type MissionLocationKey } from "../../hooks/useWeatherForMissions";
 
 interface UpcomingV2Props {
   metrics: DashboardMetrics;
@@ -187,19 +188,45 @@ export function UpcomingV2({
     return m;
   }, [weather]);
 
-  const missionItems = useMemo<MissionItemView[]>(() => {
-    const base = buildMissionTimeline(todayOrders, today, { liveOrigin: liveOrigin ?? null });
-    return base.map((item) => {
-      const dateKey = item.order.appointmentDate
+  const missionTimeline = useMemo(
+    () => buildMissionTimeline(todayOrders, today, { liveOrigin: liveOrigin ?? null }),
+    [todayOrders, today, liveOrigin],
+  );
+
+  const missionLocationKeys = useMemo<MissionLocationKey[]>(() => {
+    return missionTimeline.map((item) => {
+      const orderNo = item.order.orderNo;
+      const dateIso = item.order.appointmentDate
         ? new Date(item.order.appointmentDate).toISOString().slice(0, 10)
         : null;
       return {
-        ...item,
-        photoCount: extractPhotoCount(item.order),
-        weatherDay: dateKey ? (weatherByDate.get(dateKey) ?? null) : null,
+        key: orderNo == null ? "" : String(orderNo),
+        zip: item.zip,
+        dateIso,
       };
     });
-  }, [todayOrders, today, weatherByDate, liveOrigin]);
+  }, [missionTimeline]);
+
+  const perOrderWeather = useWeatherForMissions(missionLocationKeys);
+
+  const missionItems = useMemo<MissionItemView[]>(() => {
+    return missionTimeline.map((item) => {
+      const orderKey = item.order.orderNo == null ? "" : String(item.order.orderNo);
+      const dateKey = item.order.appointmentDate
+        ? new Date(item.order.appointmentDate).toISOString().slice(0, 10)
+        : null;
+      // Per-Order-Wetter (von der Auftragsadresse) hat Vorrang; nur wenn die
+      // PLZ unbekannt oder der Forecast (noch) nicht geladen ist, fallen wir
+      // auf das globale Zürich-Wetter zurück.
+      const orderWx = orderKey ? perOrderWeather.get(orderKey) ?? null : null;
+      const fallbackWx = dateKey ? (weatherByDate.get(dateKey) ?? null) : null;
+      return {
+        ...item,
+        photoCount: extractPhotoCount(item.order),
+        weatherDay: orderWx ?? fallbackWx,
+      };
+    });
+  }, [missionTimeline, weatherByDate, perOrderWeather]);
 
   const upcomingGroups = useMemo(() => groupUpcoming(upcomingOrders, today), [upcomingOrders, today]);
 

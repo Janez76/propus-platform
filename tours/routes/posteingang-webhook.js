@@ -15,6 +15,14 @@ const router = express.Router();
 
 const WEBHOOK_SECRET = process.env.GRAPH_WEBHOOK_SECRET || '';
 
+if (!WEBHOOK_SECRET) {
+  // Bug-Hunt: silent-fail-Pfad. Wenn Secret leer ist, akzeptiert verifyClientState()
+  // jeden Webhook — nur OK weil Microsoft Graph der einzige Sender ist und der
+  // Endpunkt hinter Cloudflare läuft. Sobald GRAPH_WEBHOOK_SECRET gesetzt wird,
+  // muss die Graph-Subscription den gleichen clientState mitliefern.
+  console.warn('[posteingang-webhook] GRAPH_WEBHOOK_SECRET nicht gesetzt — clientState-Validierung deaktiviert');
+}
+
 function verifyClientState(notification) {
   if (!WEBHOOK_SECRET) return true;
   return notification.clientState === WEBHOOK_SECRET;

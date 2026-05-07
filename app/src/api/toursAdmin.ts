@@ -77,8 +77,31 @@ export function getToursAdminTourCustomerOrders(tourId: string | number) {
   );
 }
 
-export function postToursAdminTourSetBookingOrder(tourId: string | number, orderNo: number) {
-  return toursAdminPost(`/tours/${tourId}/set-booking-order`, { orderNo });
+export type SetBookingOrderResult = {
+  ok: true;
+  booking_order_no: number;
+  /**
+   * Bug-Hunt M02: Was passierte mit der Matterport-Visibility?
+   * - 'set_public': Tour wurde automatisch auf PUBLIC gesetzt
+   * - 'kept_private': Admin hat opt-out via auto_public:false geschickt; Tour
+   *   bleibt wie sie ist (typisch privat — Kunde sieht sie noch nicht).
+   * - 'failed': Visibility-Aenderung scheiterte; Details in `warnings`.
+   * - 'no_matterport': Tour hat keine canonical_matterport_space_id.
+   */
+  visibility_action: 'set_public' | 'kept_private' | 'failed' | 'no_matterport';
+  warnings?: Array<{ code: string; message: string }>;
+};
+
+export function postToursAdminTourSetBookingOrder(
+  tourId: string | number,
+  orderNo: number,
+  options?: { autoPublic?: boolean },
+): Promise<SetBookingOrderResult> {
+  // Bug-Hunt M02: opt-out vom Auto-PUBLIC. Default bleibt undefined (Backend
+  // sieht das als true), damit bestehende Caller unveraendert funktionieren.
+  const body: Record<string, unknown> = { orderNo };
+  if (options?.autoPublic === false) body.auto_public = false;
+  return toursAdminPost(`/tours/${tourId}/set-booking-order`, body) as Promise<SetBookingOrderResult>;
 }
 
 export function getToursAdminRenewalInvoices(status?: string) {
