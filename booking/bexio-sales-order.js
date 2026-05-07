@@ -205,7 +205,9 @@ function buildBexioOrderBody({ order, contactId, config }) {
     title: header,
     contact_id: Number(contactId),
     user_id: Number(config.userId) || 1,
-    owner_id: Number(config.ownerId) || 1,
+    // owner_id wird vom bexio /2.0/kb_order Endpunkt nicht akzeptiert
+    // ("Unexpected extra form field named owner_id"). config.ownerId bleibt
+    // im Settings-Schema fuer kuenftige Endpunkte, aber nicht im Body.
     currency_id: Number(config.currencyId) || 1,
     language_id: Number(config.languageId) || 1,
     payment_type_id: Number(config.paymentTypeId),
