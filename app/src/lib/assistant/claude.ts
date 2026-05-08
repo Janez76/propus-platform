@@ -25,6 +25,9 @@ export type AssistantTurnInput = {
   systemPrompt: string;
   history: AssistantHistory;
   userMessage: string;
+  /** Voll aufgeloester Content fuer den User-Turn (text + image/document
+   *  Bloecke). Wenn gesetzt, hat Vorrang vor userMessage. Siehe claude-stream.ts. */
+  userContentBlocks?: Anthropic.Messages.ContentBlockParam[];
   tools: ToolDefinition[];
   toolHandlers: Record<string, ToolHandler>;
   context: ToolContext;
@@ -113,7 +116,14 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
   }
 
   const executeWithModel = async (model: string): Promise<AssistantTurnResult & { _tier: ModelTier }> => {
-    const history: AssistantHistory = [...input.history, { role: "user", content: input.userMessage }];
+    const userTurnContent: string | Anthropic.Messages.ContentBlockParam[] =
+      input.userContentBlocks && input.userContentBlocks.length > 0
+        ? input.userContentBlocks
+        : input.userMessage;
+    const history: AssistantHistory = [
+      ...input.history,
+      { role: "user", content: userTurnContent },
+    ];
     const toolCallsExecuted: AssistantTurnResult["toolCallsExecuted"] = [];
     let totalInputTokens = 0;
     let totalOutputTokens = 0;

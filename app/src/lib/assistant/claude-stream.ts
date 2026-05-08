@@ -23,6 +23,13 @@ export type StreamingTurnInput = {
   systemPrompt: string;
   history: Anthropic.Messages.MessageParam[];
   userMessage: string;
+  /**
+   * Optional: voll aufgeloester User-Turn-Content (z.B. text + image/document
+   * Bloecke). Wenn gesetzt, wird damit `content` befuellt; sonst faellt der
+   * Code auf `userMessage` als Plain-String zurueck. Der Plain-String-Pfad
+   * bleibt der dominante Fall und wird unveraendert behandelt.
+   */
+  userContentBlocks?: Anthropic.Messages.ContentBlockParam[];
   tools: ToolDefinition[];
   toolHandlers: Record<string, ToolHandler>;
   context: ToolContext;
@@ -108,7 +115,14 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
 
   const model = selectedModel;
   const escalated = autoEscalation && model !== MODEL_IDS[maxTier] ? false : false;
-  const history: Anthropic.Messages.MessageParam[] = [...input.history, { role: "user", content: input.userMessage }];
+  const userTurnContent: string | Anthropic.Messages.ContentBlockParam[] =
+    input.userContentBlocks && input.userContentBlocks.length > 0
+      ? input.userContentBlocks
+      : input.userMessage;
+  const history: Anthropic.Messages.MessageParam[] = [
+    ...input.history,
+    { role: "user", content: userTurnContent },
+  ];
   const toolCallsExecuted: StreamingTurnMeta["toolCallsExecuted"] = [];
   let totalInputTokens = 0;
   let totalOutputTokens = 0;

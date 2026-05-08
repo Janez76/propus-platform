@@ -23,6 +23,7 @@ import { getAssistantSettings } from "@/lib/assistant/settings";
 import { parseAssistantModelModeFromRequest, resolveAssistantModelForRequest } from "@/lib/assistant/assistant-model-mode";
 import { formatModelLabel, inferTierFromAnthropicModelId, parseTier } from "@/lib/assistant/model-router";
 import { parseClientLiveLocation } from "@/lib/assistant/live-location-types";
+import { buildUserContentForAnthropic, validateAttachments } from "@/lib/assistant/attachments";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
     conversationId?: unknown;
     modelMode?: unknown;
     liveLocation?: unknown;
+    attachments?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -109,7 +111,21 @@ export async function POST(req: NextRequest) {
   );
 
   const userMessage = typeof body.userMessage === "string" ? body.userMessage.trim() : "";
-  if (!userMessage) return errorResponse("userMessage fehlt", "validation_error", 400);
+  // userMessage darf leer sein wenn Anhaenge dabei sind ("Was siehst du auf
+  // diesem Bild?"-Use-Case ohne expliziten Text). Wenn beides leer ist → 400.
+  const attachmentsValidation = validateAttachments(body.attachments);
+  if (!attachmentsValidation.ok) {
+    const status = attachmentsValidation.error.code === "too_large_single" ||
+                   attachmentsValidation.error.code === "too_large_total" ||
+                   attachmentsValidation.error.code === "too_many"
+      ? 413
+      : 400;
+    return errorResponse(attachmentsValidation.error.message, "validation_error", status);
+  }
+  const attachments = attachmentsValidation.attachments;
+  if (!userMessage && attachments.length === 0) {
+    return errorResponse("userMessage fehlt", "validation_error", 400);
+  }
   if (userMessage.length > 8_000) return errorResponse("userMessage ist zu lang", "validation_error", 413);
 
   const liveLocation = parseClientLiveLocation(body.liveLocation);
@@ -166,7 +182,21 @@ export async function POST(req: NextRequest) {
       userEmail: user.email,
       title: userMessage.slice(0, 120),
     });
-    await insertAssistantMessage({ conversationId, role: "user", content: { text: userMessage } });
+    // User-Turn persistieren — nur Text + Anhang-Metadaten (Dateinamen/Typ),
+    // KEINE base64-Bytes (waeren riesige BLOB-Eintraege).
+    const userContentForDb: Record<string, unknown> = { text: userMessage };
+    if (attachments.length > 0) {
+      userContentForDb.attachments = attachments.map((a) => ({
+        type: a.type,
+        mediaType: a.mediaType,
+        ...(a.filename ? { filename: a.filename } : {}),
+      }));
+    }
+    await insertAssistantMessage({ conversationId, role: "user", content: userContentForDb });
+
+    // Voller Anthropic-Content fuer den User-Turn (Text + Bild-/PDF-Bloecke).
+    const userContentBlocks = buildUserContentForAnthropic(userMessage, attachments);
+    const userContentBlocksParam = Array.isArray(userContentBlocks) ? userContentBlocks : undefined;
 
     const [memories, fewShots, now] = await Promise.all([
       selectMemoriesForPrompt(user.id, userMessage, 40),
@@ -199,6 +229,7 @@ export async function POST(req: NextRequest) {
         systemPrompt,
         history,
         userMessage,
+        ...(userContentBlocksParam ? { userContentBlocks: userContentBlocksParam } : {}),
         tools: filteredTools,
         toolHandlers: filteredHandlers,
         context: {
@@ -315,6 +346,7 @@ export async function POST(req: NextRequest) {
       systemPrompt,
       history,
       userMessage,
+      ...(userContentBlocksParam ? { userContentBlocks: userContentBlocksParam } : {}),
       tools: filteredTools,
       toolHandlers: filteredHandlers,
       context: {

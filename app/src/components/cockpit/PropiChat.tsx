@@ -8,11 +8,52 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { CheckCircle2, Loader2, MapPin, MapPinOff, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
+import { CheckCircle2, FileText, ImageIcon, Loader2, MapPin, MapPinOff, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, X, XCircle } from 'lucide-react';
 import { PropiAvatar } from './PropiAvatar';
-import { usePropiChat } from './usePropiChat';
+import { usePropiChat, type PropiAttachment } from './usePropiChat';
 import { useGeolocation } from './useGeolocation';
 import './propi-chat.css';
+
+// Limits MIRRORN was das Backend in src/lib/assistant/attachments.ts erlaubt
+// — Server-Validierung bleibt der Source-of-Truth, hier nur fuer fruehe UX-Fehler.
+const MAX_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const MAX_ATTACHMENTS_TOTAL_BYTES = 15 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+const ALLOWED_DOCUMENT_TYPES = ['application/pdf'];
+const ACCEPT_ATTR = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES].join(',');
+
+function fileToAttachment(file: File): Promise<PropiAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Konnte ${file.name} nicht lesen`));
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') {
+        reject(new Error(`Unerwartetes FileReader-Format fuer ${file.name}`));
+        return;
+      }
+      // result ist "data:<mime>;base64,<b64>" — Prefix abschneiden
+      const commaIdx = result.indexOf(',');
+      const data = commaIdx >= 0 ? result.slice(commaIdx + 1) : result;
+      const isImage = ALLOWED_IMAGE_TYPES.includes(file.type);
+      resolve({
+        type: isImage ? 'image' : 'document',
+        mediaType: file.type,
+        data,
+        filename: file.name,
+        size: file.size,
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 
 interface PropiChatProps {
   quickPrompts?: string[];
@@ -128,6 +169,69 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
     }
   };
 
+  // ── Datei-Anhaenge: Picker, Chips, Validierung ─────────────────────────
+  const [attachments, setAttachments] = useState<PropiAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!attachmentError) return;
+    const id = setTimeout(() => setAttachmentError(null), 5000);
+    return () => clearTimeout(id);
+  }, [attachmentError]);
+
+  const openFilePicker = () => fileInputRef.current?.click();
+
+  const onFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    setAttachmentError(null);
+
+    const remainingSlots = MAX_ATTACHMENTS - attachments.length;
+    if (remainingSlots <= 0) {
+      setAttachmentError(`Maximal ${MAX_ATTACHMENTS} Anhaenge`);
+      return;
+    }
+    const accepted = files.slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+      setAttachmentError(`Nur die ersten ${remainingSlots} Datei(en) genommen — Limit ${MAX_ATTACHMENTS}.`);
+    }
+
+    let runningTotal = attachments.reduce((sum, a) => sum + a.size, 0);
+    const valid: File[] = [];
+    for (const f of accepted) {
+      const ok =
+        ALLOWED_IMAGE_TYPES.includes(f.type) || ALLOWED_DOCUMENT_TYPES.includes(f.type);
+      if (!ok) {
+        setAttachmentError(`${f.name}: Typ ${f.type || 'unbekannt'} nicht unterstützt`);
+        continue;
+      }
+      if (f.size > MAX_ATTACHMENT_BYTES) {
+        setAttachmentError(`${f.name}: ${formatBytes(f.size)} > Limit ${formatBytes(MAX_ATTACHMENT_BYTES)}`);
+        continue;
+      }
+      if (runningTotal + f.size > MAX_ATTACHMENTS_TOTAL_BYTES) {
+        setAttachmentError(`Gesamtgroesse ueber ${formatBytes(MAX_ATTACHMENTS_TOTAL_BYTES)}`);
+        break;
+      }
+      runningTotal += f.size;
+      valid.push(f);
+    }
+
+    if (valid.length === 0) return;
+    try {
+      const results = await Promise.all(valid.map(fileToAttachment));
+      setAttachments((prev) => [...prev, ...results]);
+    } catch (err) {
+      setAttachmentError(err instanceof Error ? err.message : 'Datei konnte nicht eingelesen werden');
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const transcribeRecording = async () => {
     setVoiceState('transcribing');
     try {
@@ -167,9 +271,11 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && attachments.length === 0) || loading) return;
+    const toSendAttachments = attachments.length > 0 ? attachments : undefined;
     setInput('');
-    void send(text);
+    setAttachments([]);
+    void send(text, toSendAttachments);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -263,6 +369,31 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
           {voiceError}
         </div>
       )}
+      {attachmentError && (
+        <div className="propi-msg-error" role="alert" style={{ margin: '0 12px 6px' }}>
+          {attachmentError}
+        </div>
+      )}
+      {attachments.length > 0 && (
+        <div className="propi-chat-attachments" role="list" aria-label="Ausgewählte Anhänge">
+          {attachments.map((a, i) => (
+            <div key={`${a.filename}-${i}`} className="propi-chat-attachment-chip" role="listitem">
+              {a.type === 'image' ? <ImageIcon size={12} aria-hidden /> : <FileText size={12} aria-hidden />}
+              <span className="propi-chat-attachment-name" title={a.filename}>{a.filename}</span>
+              <span className="propi-chat-attachment-size">{formatBytes(a.size)}</span>
+              <button
+                type="button"
+                className="propi-chat-attachment-remove"
+                onClick={() => removeAttachment(i)}
+                aria-label={`${a.filename} entfernen`}
+                title="Entfernen"
+              >
+                <X size={11} aria-hidden />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <form className="propi-chat-input" onSubmit={handleSubmit}>
         <div className="propi-chat-input-field">
           <textarea
@@ -304,7 +435,28 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
                 <MapPin size={14} aria-hidden />
               )}
             </button>
-            <button type="button" className="propi-chat-tool" title="Datei anhängen (bald)" aria-label="Datei anhängen" disabled>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPT_ATTR}
+              multiple
+              onChange={onFilesSelected}
+              style={{ display: 'none' }}
+              aria-hidden
+            />
+            <button
+              type="button"
+              className="propi-chat-tool"
+              data-active={attachments.length > 0 ? 'true' : undefined}
+              onClick={openFilePicker}
+              disabled={loading || attachments.length >= MAX_ATTACHMENTS}
+              title={
+                attachments.length >= MAX_ATTACHMENTS
+                  ? `Maximal ${MAX_ATTACHMENTS} Anhänge`
+                  : 'Datei anhängen (Bilder oder PDF)'
+              }
+              aria-label="Datei anhängen"
+            >
               <Paperclip size={14} aria-hidden />
             </button>
             <button
@@ -343,7 +495,13 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
             <StopCircle size={16} aria-hidden />
           </button>
         ) : (
-          <button type="submit" className="propi-chat-send" disabled={!input.trim()} title="Senden (Enter)" aria-label="Senden">
+          <button
+            type="submit"
+            className="propi-chat-send"
+            disabled={!input.trim() && attachments.length === 0}
+            title="Senden (Enter)"
+            aria-label="Senden"
+          >
             <Send size={16} aria-hidden />
           </button>
         )}
