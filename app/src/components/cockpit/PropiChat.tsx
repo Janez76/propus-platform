@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import { CheckCircle2, MapPin, MapPinOff, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, MapPin, MapPinOff, Mic, Paperclip, RotateCcw, Send, StopCircle, Wrench, XCircle } from 'lucide-react';
 import { PropiAvatar } from './PropiAvatar';
 import { usePropiChat } from './usePropiChat';
 import { useGeolocation } from './useGeolocation';
@@ -37,10 +37,23 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  // Stick-to-bottom-Flag: Auto-Scroll nur wenn der User ohnehin am Ende ist.
+  // Sobald er hochscrollt um aelteres zu lesen, bleibt seine Scroll-Position
+  // erhalten, statt vom naechsten Streaming-Tick wieder runtergesnappt zu
+  // werden.
+  const stickToBottomRef = useRef(true);
+  const SCROLL_BOTTOM_TOLERANCE = 64;
+  const handleBodyScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distance <= SCROLL_BOTTOM_TOLERANCE;
+  };
 
   useLayoutEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
+    if (!stickToBottomRef.current) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
@@ -56,6 +69,100 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
   useEffect(() => {
     if (!loading) inputRef.current?.focus();
   }, [loading]);
+
+  // ── Sprachnachricht: Halten zum Sprechen → Whisper /api/assistant/transcribe ──
+  // Transkript landet im Eingabefeld (kein Auto-Send), damit der User noch
+  // korrigieren kann bevor er auf Enter drueckt.
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle');
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordingStartedAtRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      chunksRef.current = [];
+    };
+  }, []);
+  useEffect(() => {
+    if (!voiceError) return;
+    const id = setTimeout(() => setVoiceError(null), 4000);
+    return () => clearTimeout(id);
+  }, [voiceError]);
+
+  const startRecording = async () => {
+    if (voiceState !== 'idle' || loading) return;
+    setVoiceError(null);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        throw new Error('Audioaufnahme von diesem Browser nicht unterstützt');
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      const mimeType =
+        typeof MediaRecorder.isTypeSupported === 'function'
+          ? candidates.find((m) => MediaRecorder.isTypeSupported(m))
+          : undefined;
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstart = () => { recordingStartedAtRef.current = Date.now(); };
+      recorder.onstop = () => void transcribeRecording();
+      recorder.start();
+      recorderRef.current = recorder;
+      setVoiceState('recording');
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : 'Mikrofon-Zugriff fehlgeschlagen');
+      setVoiceState('idle');
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const stopRecording = () => {
+    if (voiceState === 'recording' && recorderRef.current?.state === 'recording') {
+      recorderRef.current.stop();
+    }
+  };
+
+  const transcribeRecording = async () => {
+    setVoiceState('transcribing');
+    try {
+      const durationMs = Date.now() - recordingStartedAtRef.current;
+      const blobType = recorderRef.current?.mimeType || chunksRef.current.find((c) => c.type)?.type || 'audio/webm';
+      const blob = new Blob(chunksRef.current, { type: blobType });
+      if (durationMs < 300 || blob.size < 1024) {
+        setVoiceError('Aufnahme zu kurz — bitte länger halten.');
+        return;
+      }
+      const ext = blobType.toLowerCase().includes('mp4')
+        ? 'm4a'
+        : blobType.toLowerCase().includes('ogg')
+          ? 'ogg'
+          : 'webm';
+      const form = new FormData();
+      form.append('audio', blob, `audio.${ext}`);
+      const res = await fetch('/api/assistant/transcribe', { method: 'POST', body: form });
+      const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || `Transkription fehlgeschlagen (${res.status})`);
+      const text = data.text?.trim();
+      if (text) {
+        setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+        requestAnimationFrame(() => inputRef.current?.focus());
+      }
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : 'Transkription fehlgeschlagen');
+    } finally {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      recorderRef.current = null;
+      chunksRef.current = [];
+      setVoiceState('idle');
+    }
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -102,7 +209,7 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
         </div>
       </header>
 
-      <div className="propi-chat-body" ref={bodyRef}>
+      <div className="propi-chat-body" ref={bodyRef} onScroll={handleBodyScroll}>
         {messages.map((m, i) => {
           const isLast = i === messages.length - 1;
           const isStreaming = loading && isLast && m.role === 'assistant';
@@ -151,6 +258,11 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
         </div>
       )}
 
+      {voiceError && (
+        <div className="propi-msg-error" role="alert" style={{ margin: '0 12px 6px' }}>
+          {voiceError}
+        </div>
+      )}
       <form className="propi-chat-input" onSubmit={handleSubmit}>
         <div className="propi-chat-input-field">
           <textarea
@@ -195,8 +307,34 @@ export function PropiChat({ quickPrompts = DEFAULT_PROMPTS, greeting }: PropiCha
             <button type="button" className="propi-chat-tool" title="Datei anhängen (bald)" aria-label="Datei anhängen" disabled>
               <Paperclip size={14} aria-hidden />
             </button>
-            <button type="button" className="propi-chat-tool" title="Sprachnachricht (bald)" aria-label="Sprachnachricht" disabled>
-              <Mic size={14} aria-hidden />
+            <button
+              type="button"
+              className="propi-chat-tool"
+              data-active={voiceState === 'recording' ? 'true' : undefined}
+              onPointerDown={startRecording}
+              onPointerUp={stopRecording}
+              onPointerLeave={stopRecording}
+              onPointerCancel={stopRecording}
+              disabled={voiceState === 'transcribing' || loading}
+              title={
+                voiceState === 'recording'
+                  ? 'Aufnahme läuft, loslassen zum Senden'
+                  : voiceState === 'transcribing'
+                  ? 'Transkribiere…'
+                  : 'Halten zum Sprechen'
+              }
+              aria-label={
+                voiceState === 'recording'
+                  ? 'Aufnahme läuft, loslassen zum Senden'
+                  : 'Halten zum Sprechen'
+              }
+              aria-pressed={voiceState === 'recording'}
+            >
+              {voiceState === 'transcribing' ? (
+                <Loader2 size={14} aria-hidden style={{ animation: 'propi-spin 1s linear infinite' }} />
+              ) : (
+                <Mic size={14} aria-hidden />
+              )}
             </button>
           </div>
         </div>

@@ -276,10 +276,23 @@ html.dark .propi-chat-head {
 /* Avatar */
 .propi-avatar { display: block; flex-shrink: 0; }
 
+/* Voice-Aufnahme: Mic-Button pulsiert in Recording-State (Reuse von data-active). */
+@keyframes propi-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes propi-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.propi-chat-tool[data-active="true"][aria-pressed="true"] {
+  animation: propi-pulse 1.2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .propi-chat-online,
   .propi-typing span,
-  .propi-chat-send {
+  .propi-chat-send,
+  .propi-chat-tool[data-active="true"][aria-pressed="true"] {
     animation: none !important;
     transition: none !important;
   }
