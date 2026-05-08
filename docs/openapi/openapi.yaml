@@ -51,6 +51,7 @@ tags:
   - name: next-cockpit
   - name: next-core
   - name: next-cron
+  - name: next-openapi
   - name: next-teams-oauth
   - name: system
     description: Health-Check, Build-Info, Feature-Flags
@@ -3491,11 +3492,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/logout'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:9978`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:9989`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminLogout
       x-source-file: booking/server.js
-      x-source-line: 9978
+      x-source-line: 9989
       requestBody:
         required: true
         content:
@@ -3524,11 +3525,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/me'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:9990`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10001`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminMe
       x-source-file: booking/server.js
-      x-source-line: 9990
+      x-source-line: 10001
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3549,11 +3550,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/me'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10018`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10029`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminMe
       x-source-file: booking/server.js
-      x-source-line: 10018
+      x-source-line: 10029
       requestBody:
         required: true
         content:
@@ -3582,11 +3583,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/me/change-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10130`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10141`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminMeChangepassword
       x-source-file: booking/server.js
-      x-source-line: 10130
+      x-source-line: 10141
       requestBody:
         required: true
         content:
@@ -3615,11 +3616,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/me/avatar'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10170`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10181`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminMeAvatar
       x-source-file: booking/server.js
-      x-source-line: 10170
+      x-source-line: 10181
       requestBody:
         required: true
         content:
@@ -3648,11 +3649,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/mail/diagnostics'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10203`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10214`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminMailDiagnostics
       x-source-file: booking/server.js
-      x-source-line: 10203
+      x-source-line: 10214
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3674,11 +3675,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/photographer/login'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10214`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10225`. Schemas
         noch nicht dokumentiert.
       operationId: postApiPhotographerLogin
       x-source-file: booking/server.js
-      x-source-line: 10214
+      x-source-line: 10225
       requestBody:
         required: true
         content:
@@ -3702,11 +3703,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/photographer/logout'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10218`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10229`. Schemas
         noch nicht dokumentiert.
       operationId: postApiPhotographerLogout
       x-source-file: booking/server.js
-      x-source-line: 10218
+      x-source-line: 10229
       requestBody:
         required: true
         content:
@@ -3730,11 +3731,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/photographer/me'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10223`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10234`. Schemas
         noch nicht dokumentiert.
       operationId: getApiPhotographerMe
       x-source-file: booking/server.js
-      x-source-line: 10223
+      x-source-line: 10234
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3756,11 +3757,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/catalog/products'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10294`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10305`. Schemas
         noch nicht dokumentiert.
       operationId: getApiCatalogProducts
       x-source-file: booking/server.js
-      x-source-line: 10294
+      x-source-line: 10305
       responses:
         '200':
           description: OK
@@ -3777,11 +3778,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/catalog/photographers'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10306`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10317`. Schemas
         noch nicht dokumentiert.
       operationId: getApiCatalogPhotographers
       x-source-file: booking/server.js
-      x-source-line: 10306
+      x-source-line: 10317
       responses:
         '200':
           description: OK
@@ -3798,11 +3799,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/address-suggest'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10361`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10372`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAddresssuggest
       x-source-file: booking/server.js
-      x-source-line: 10361
+      x-source-line: 10372
       responses:
         '200':
           description: OK
@@ -3819,11 +3820,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/zip-city-suggest'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10526`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10537`. Schemas
         noch nicht dokumentiert.
       operationId: getApiZipcitysuggest
       x-source-file: booking/server.js
-      x-source-line: 10526
+      x-source-line: 10537
       responses:
         '200':
           description: OK
@@ -3840,11 +3841,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/config'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10602`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10613`. Schemas
         noch nicht dokumentiert.
       operationId: getApiConfig
       x-source-file: booking/server.js
-      x-source-line: 10602
+      x-source-line: 10613
       responses:
         '200':
           description: OK
@@ -3861,11 +3862,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/reverse-geocode'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10649`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10660`. Schemas
         noch nicht dokumentiert.
       operationId: getApiReversegeocode
       x-source-file: booking/server.js
-      x-source-line: 10649
+      x-source-line: 10660
       responses:
         '200':
           description: OK
@@ -3882,11 +3883,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/reviews'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10700`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10711`. Schemas
         noch nicht dokumentiert.
       operationId: getApiReviews
       x-source-file: booking/server.js
-      x-source-line: 10700
+      x-source-line: 10711
       responses:
         '200':
           description: OK
@@ -3903,11 +3904,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/gbp/status'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10758`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10769`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminGbpStatus
       x-source-file: booking/server.js
-      x-source-line: 10758
+      x-source-line: 10769
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3929,11 +3930,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/gbp/auth-url'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10770`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10781`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminGbpAuthurl
       x-source-file: booking/server.js
-      x-source-line: 10770
+      x-source-line: 10781
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -3955,11 +3956,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/gbp/callback'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10781`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10792`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminGbpCallback
       x-source-file: booking/server.js
-      x-source-line: 10781
+      x-source-line: 10792
       responses:
         '200':
           description: OK
@@ -3976,11 +3977,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/gbp/reviews'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10848`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10859`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminGbpReviews
       x-source-file: booking/server.js
-      x-source-line: 10848
+      x-source-line: 10859
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4002,11 +4003,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/gbp/reviews/reply'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10870`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10881`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminGbpReviewsReply
       x-source-file: booking/server.js
-      x-source-line: 10870
+      x-source-line: 10881
       requestBody:
         required: true
         content:
@@ -4034,11 +4035,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/gbp/reviews/reply'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10885`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10896`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminGbpReviewsReply
       x-source-file: booking/server.js
-      x-source-line: 10885
+      x-source-line: 10896
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4060,11 +4061,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/gbp/disconnect'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10899`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10910`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminGbpDisconnect
       x-source-file: booking/server.js
-      x-source-line: 10899
+      x-source-line: 10910
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4086,11 +4087,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/gbp/resolve'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10911`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10922`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminGbpResolve
       x-source-file: booking/server.js
-      x-source-line: 10911
+      x-source-line: 10922
       requestBody:
         required: true
         content:
@@ -4119,11 +4120,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/products'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10954`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10965`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminProducts
       x-source-file: booking/server.js
-      x-source-line: 10954
+      x-source-line: 10965
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4144,11 +4145,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/products'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10975`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10986`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminProducts
       x-source-file: booking/server.js
-      x-source-line: 10975
+      x-source-line: 10986
       requestBody:
         required: true
         content:
@@ -4177,11 +4178,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/products/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10965`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10976`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminProductsId
       x-source-file: booking/server.js
-      x-source-line: 10965
+      x-source-line: 10976
       parameters:
         - in: path
           name: id
@@ -4208,11 +4209,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/products/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10985`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:10996`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminProductsId
       x-source-file: booking/server.js
-      x-source-line: 10985
+      x-source-line: 10996
       parameters:
         - in: path
           name: id
@@ -4247,11 +4248,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/products/:id/active'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:10995`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11006`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminProductsIdActive
       x-source-file: booking/server.js
-      x-source-line: 10995
+      x-source-line: 11006
       parameters:
         - in: path
           name: id
@@ -4286,11 +4287,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/travel-zone'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11083`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11094`. Schemas
         noch nicht dokumentiert.
       operationId: getApiTravelzone
       x-source-file: booking/server.js
-      x-source-line: 11083
+      x-source-line: 11094
       responses:
         '200':
           description: OK
@@ -4307,11 +4308,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/catalog/travel-zones'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11093`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11104`. Schemas
         noch nicht dokumentiert.
       operationId: getApiCatalogTravelzones
       x-source-file: booking/server.js
-      x-source-line: 11093
+      x-source-line: 11104
       responses:
         '200':
           description: OK
@@ -4328,11 +4329,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/orders/backfill-travel-zones'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11141`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11152`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminOrdersBackfilltravelzones
       x-source-file: booking/server.js
-      x-source-line: 11141
+      x-source-line: 11152
       requestBody:
         required: true
         content:
@@ -4361,11 +4362,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/service-categories'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11204`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11215`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminServicecategories
       x-source-file: booking/server.js
-      x-source-line: 11204
+      x-source-line: 11215
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4386,11 +4387,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/service-categories'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11215`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11226`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminServicecategories
       x-source-file: booking/server.js
-      x-source-line: 11215
+      x-source-line: 11226
       requestBody:
         required: true
         content:
@@ -4419,11 +4420,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/service-categories/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11225`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11236`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminServicecategoriesKey
       x-source-file: booking/server.js
-      x-source-line: 11225
+      x-source-line: 11236
       parameters:
         - in: path
           name: key
@@ -4457,11 +4458,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/service-categories/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11235`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11246`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminServicecategoriesKey
       x-source-file: booking/server.js
-      x-source-line: 11235
+      x-source-line: 11246
       parameters:
         - in: path
           name: key
@@ -4489,11 +4490,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/pricing/preview'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11245`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11256`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPricingPreview
       x-source-file: booking/server.js
-      x-source-line: 11245
+      x-source-line: 11256
       requestBody:
         required: true
         content:
@@ -4522,11 +4523,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/calendar-events'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11289`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11300`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCalendarevents
       x-source-file: booking/server.js
-      x-source-line: 11289
+      x-source-line: 11300
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4548,11 +4549,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/weather/forecast'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11453`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11464`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminWeatherForecast
       x-source-file: booking/server.js
-      x-source-line: 11453
+      x-source-line: 11464
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4574,11 +4575,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/weather/hourly'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11468`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11479`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminWeatherHourly
       x-source-file: booking/server.js
-      x-source-line: 11468
+      x-source-line: 11479
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4600,11 +4601,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/customers'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11484`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11495`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCustomers
       x-source-file: booking/server.js
-      x-source-line: 11484
+      x-source-line: 11495
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4625,11 +4626,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11906`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11917`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomers
       x-source-file: booking/server.js
-      x-source-line: 11906
+      x-source-line: 11917
       requestBody:
         required: true
         content:
@@ -4658,11 +4659,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/customers/duplicate-candidates'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11577`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11588`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCustomersDuplicatecandidates
       x-source-file: booking/server.js
-      x-source-line: 11577
+      x-source-line: 11588
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -4684,11 +4685,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers/duplicate-candidates/:id/dismiss'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11610`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11621`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomersDuplicatecandidatesIdDismiss
       x-source-file: booking/server.js
-      x-source-line: 11610
+      x-source-line: 11621
       parameters:
         - in: path
           name: id
@@ -4723,11 +4724,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/customers/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11634`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11645`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCustomersId
       x-source-file: booking/server.js
-      x-source-line: 11634
+      x-source-line: 11645
       parameters:
         - in: path
           name: id
@@ -4754,11 +4755,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/customers/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11949`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11960`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminCustomersId
       x-source-file: booking/server.js
-      x-source-line: 11949
+      x-source-line: 11960
       parameters:
         - in: path
           name: id
@@ -4792,11 +4793,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/customers/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12135`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12146`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminCustomersId
       x-source-file: booking/server.js
-      x-source-line: 12135
+      x-source-line: 12146
       parameters:
         - in: path
           name: id
@@ -4824,11 +4825,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/customers/:id/orders'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11659`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11670`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCustomersIdOrders
       x-source-file: booking/server.js
-      x-source-line: 11659
+      x-source-line: 11670
       parameters:
         - in: path
           name: id
@@ -4856,11 +4857,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/customers/:id/team-members'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11678`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11689`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminCustomersIdTeammembers
       x-source-file: booking/server.js
-      x-source-line: 11678
+      x-source-line: 11689
       parameters:
         - in: path
           name: id
@@ -4888,11 +4889,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers/:id/impersonate-panel'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11714`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11725`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomersIdImpersonatepanel
       x-source-file: booking/server.js
-      x-source-line: 11714
+      x-source-line: 11725
       parameters:
         - in: path
           name: id
@@ -4927,11 +4928,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/impersonate/stop'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11805`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11816`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminImpersonateStop
       x-source-file: booking/server.js
-      x-source-line: 11805
+      x-source-line: 11816
       requestBody:
         required: true
         content:
@@ -4955,11 +4956,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers/:id/impersonate'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:11879`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:11890`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomersIdImpersonate
       x-source-file: booking/server.js
-      x-source-line: 11879
+      x-source-line: 11890
       parameters:
         - in: path
           name: id
@@ -4994,11 +4995,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/customers/:id/email'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12006`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12017`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminCustomersIdEmail
       x-source-file: booking/server.js
-      x-source-line: 12006
+      x-source-line: 12017
       parameters:
         - in: path
           name: id
@@ -5033,11 +5034,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/customers/:id/email-aliases'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12034`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12045`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminCustomersIdEmailaliases
       x-source-file: booking/server.js
-      x-source-line: 12034
+      x-source-line: 12045
       parameters:
         - in: path
           name: id
@@ -5072,11 +5073,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/customers/:id/blocked'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12061`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12072`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminCustomersIdBlocked
       x-source-file: booking/server.js
-      x-source-line: 12061
+      x-source-line: 12072
       parameters:
         - in: path
           name: id
@@ -5111,11 +5112,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/customers/:id/admin'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12081`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12092`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminCustomersIdAdmin
       x-source-file: booking/server.js
-      x-source-line: 12081
+      x-source-line: 12092
       parameters:
         - in: path
           name: id
@@ -5150,11 +5151,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers/:id/reset-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12106`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12117`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomersIdResetpassword
       x-source-file: booking/server.js
-      x-source-line: 12106
+      x-source-line: 12117
       parameters:
         - in: path
           name: id
@@ -5189,11 +5190,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/customers/:id/nas-folder-bases'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12162`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12173`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminCustomersIdNasfolderbases
       x-source-file: booking/server.js
-      x-source-line: 12162
+      x-source-line: 12173
       parameters:
         - in: path
           name: id
@@ -5228,11 +5229,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/customers/merge'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12178`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12189`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminCustomersMerge
       x-source-file: booking/server.js
-      x-source-line: 12178
+      x-source-line: 12189
       requestBody:
         required: true
         content:
@@ -5261,11 +5262,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/settings'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12224`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12235`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminSettings
       x-source-file: booking/server.js
-      x-source-line: 12224
+      x-source-line: 12235
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -5286,11 +5287,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/settings'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12233`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12244`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminSettings
       x-source-file: booking/server.js
-      x-source-line: 12233
+      x-source-line: 12244
       requestBody:
         required: true
         content:
@@ -5318,11 +5319,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/settings'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12247`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12258`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminSettings
       x-source-file: booking/server.js
-      x-source-line: 12247
+      x-source-line: 12258
       requestBody:
         required: true
         content:
@@ -5351,11 +5352,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/settings/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12263`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12274`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminSettingsKey
       x-source-file: booking/server.js
-      x-source-line: 12263
+      x-source-line: 12274
       parameters:
         - in: path
           name: key
@@ -5390,11 +5391,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/integrations/exxas/fields'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12277`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12288`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminIntegrationsExxasFields
       x-source-file: booking/server.js
-      x-source-line: 12277
+      x-source-line: 12288
       requestBody:
         required: true
         content:
@@ -5423,11 +5424,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/discount-codes'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12299`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12310`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminDiscountcodes
       x-source-file: booking/server.js
-      x-source-line: 12299
+      x-source-line: 12310
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -5448,11 +5449,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/discount-codes'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12340`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12351`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminDiscountcodes
       x-source-file: booking/server.js
-      x-source-line: 12340
+      x-source-line: 12351
       requestBody:
         required: true
         content:
@@ -5481,11 +5482,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/shadow-log'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12310`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12321`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminShadowlog
       x-source-file: booking/server.js
-      x-source-line: 12310
+      x-source-line: 12321
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -5507,11 +5508,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/shadow-log/flags'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12326`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12337`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminShadowlogFlags
       x-source-file: booking/server.js
-      x-source-line: 12326
+      x-source-line: 12337
       requestBody:
         required: true
         content:
@@ -5540,11 +5541,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/discount-codes/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12350`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12361`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminDiscountcodesId
       x-source-file: booking/server.js
-      x-source-line: 12350
+      x-source-line: 12361
       parameters:
         - in: path
           name: id
@@ -5578,11 +5579,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/discount-codes/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12360`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12371`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminDiscountcodesId
       x-source-file: booking/server.js
-      x-source-line: 12360
+      x-source-line: 12371
       parameters:
         - in: path
           name: id
@@ -5610,11 +5611,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/discount-codes/:id/usages'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12369`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12380`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminDiscountcodesIdUsages
       x-source-file: booking/server.js
-      x-source-line: 12369
+      x-source-line: 12380
       parameters:
         - in: path
           name: id
@@ -5642,11 +5643,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/internal-users'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12387`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12398`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminInternalusers
       x-source-file: booking/server.js
-      x-source-line: 12387
+      x-source-line: 12398
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -5667,11 +5668,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/internal-users'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12428`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12439`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminInternalusers
       x-source-file: booking/server.js
-      x-source-line: 12428
+      x-source-line: 12439
       requestBody:
         required: true
         content:
@@ -5700,11 +5701,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/internal-users/:id/roles'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12408`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12419`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminInternalusersIdRoles
       x-source-file: booking/server.js
-      x-source-line: 12408
+      x-source-line: 12419
       parameters:
         - in: path
           name: id
@@ -5739,11 +5740,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/internal-users/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12462`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12473`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminInternalusersId
       x-source-file: booking/server.js
-      x-source-line: 12462
+      x-source-line: 12473
       parameters:
         - in: path
           name: id
@@ -5771,11 +5772,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/internal-users/:id/suspend'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12473`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12484`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminInternalusersIdSuspend
       x-source-file: booking/server.js
-      x-source-line: 12473
+      x-source-line: 12484
       parameters:
         - in: path
           name: id
@@ -5810,11 +5811,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/internal-users/:id/reset-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12486`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12497`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminInternalusersIdResetpassword
       x-source-file: booking/server.js
-      x-source-line: 12486
+      x-source-line: 12497
       parameters:
         - in: path
           name: id
@@ -5849,11 +5850,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/internal-users/:id/send-welcome'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12519`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12530`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminInternalusersIdSendwelcome
       x-source-file: booking/server.js
-      x-source-line: 12519
+      x-source-line: 12530
       parameters:
         - in: path
           name: id
@@ -5888,11 +5889,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/internal-users/:id/send-credentials'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12538`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12549`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminInternalusersIdSendcredentials
       x-source-file: booking/server.js
-      x-source-line: 12538
+      x-source-line: 12549
       parameters:
         - in: path
           name: id
@@ -5927,11 +5928,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/roles'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12558`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12569`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminRoles
       x-source-file: booking/server.js
-      x-source-line: 12558
+      x-source-line: 12569
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -5953,11 +5954,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/photographers'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12568`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12579`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPhotographers
       x-source-file: booking/server.js
-      x-source-line: 12568
+      x-source-line: 12579
       requestBody:
         required: true
         content:
@@ -5985,11 +5986,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12667`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12678`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographers
       x-source-file: booking/server.js
-      x-source-line: 12667
+      x-source-line: 12678
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6011,11 +6012,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers/portraits/library'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12625`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12636`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographersPortraitsLibrary
       x-source-file: booking/server.js
-      x-source-line: 12625
+      x-source-line: 12636
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6037,11 +6038,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/photographers/portraits/upload'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12642`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12653`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPhotographersPortraitsUpload
       x-source-file: booking/server.js
-      x-source-line: 12642
+      x-source-line: 12653
       requestBody:
         required: true
         content:
@@ -6070,11 +6071,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12769`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12780`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographersKey
       x-source-file: booking/server.js
-      x-source-line: 12769
+      x-source-line: 12780
       parameters:
         - in: path
           name: key
@@ -6101,11 +6102,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/photographers/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13010`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13021`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminPhotographersKey
       x-source-file: booking/server.js
-      x-source-line: 13010
+      x-source-line: 13021
       parameters:
         - in: path
           name: key
@@ -6133,11 +6134,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers/:key/settings'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12809`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12820`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographersKeySettings
       x-source-file: booking/server.js
-      x-source-line: 12809
+      x-source-line: 12820
       parameters:
         - in: path
           name: key
@@ -6164,11 +6165,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/photographers/:key/settings'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12869`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:12880`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminPhotographersKeySettings
       x-source-file: booking/server.js
-      x-source-line: 12869
+      x-source-line: 12880
       parameters:
         - in: path
           name: key
@@ -6203,11 +6204,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers/:key/activity-log'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:12992`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13003`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographersKeyActivitylog
       x-source-file: booking/server.js
-      x-source-line: 12992
+      x-source-line: 13003
       parameters:
         - in: path
           name: key
@@ -6235,11 +6236,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/photographers/:key/reactivate'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13022`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13033`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminPhotographersKeyReactivate
       x-source-file: booking/server.js
-      x-source-line: 13022
+      x-source-line: 13033
       parameters:
         - in: path
           name: key
@@ -6274,11 +6275,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/photographers/:key/absence-calendar'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13034`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13045`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminPhotographersKeyAbsencecalendar
       x-source-file: booking/server.js
-      x-source-line: 13034
+      x-source-line: 13045
       parameters:
         - in: path
           name: key
@@ -6305,11 +6306,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/photographers/:key/absence-calendar'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13050`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13061`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPhotographersKeyAbsencecalendar
       x-source-file: booking/server.js
-      x-source-line: 13050
+      x-source-line: 13061
       parameters:
         - in: path
           name: key
@@ -6344,11 +6345,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/photographers/:key/absence-calendar/:eventId'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13117`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13128`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminPhotographersKeyAbsencecalendarEventId
       x-source-file: booking/server.js
-      x-source-line: 13117
+      x-source-line: 13128
       parameters:
         - in: path
           name: key
@@ -6381,11 +6382,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/photographers/:key/set-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13157`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13168`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPhotographersKeySetpassword
       x-source-file: booking/server.js
-      x-source-line: 13157
+      x-source-line: 13168
       parameters:
         - in: path
           name: key
@@ -6420,11 +6421,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/photographers/:key/send-credentials'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13187`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13198`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminPhotographersKeySendcredentials
       x-source-file: booking/server.js
-      x-source-line: 13187
+      x-source-line: 13198
       parameters:
         - in: path
           name: key
@@ -6459,11 +6460,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/photographer/forgot-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13260`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13271`. Schemas
         noch nicht dokumentiert.
       operationId: postApiPhotographerForgotpassword
       x-source-file: booking/server.js
-      x-source-line: 13260
+      x-source-line: 13271
       requestBody:
         required: true
         content:
@@ -6487,11 +6488,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/photographer/reset-password'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13263`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13274`. Schemas
         noch nicht dokumentiert.
       operationId: postApiPhotographerResetpassword
       x-source-file: booking/server.js
-      x-source-line: 13263
+      x-source-line: 13274
       requestBody:
         required: true
         content:
@@ -6515,11 +6516,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/bug-report'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13707`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13718`. Schemas
         noch nicht dokumentiert.
       operationId: postApiBugreport
       x-source-file: booking/server.js
-      x-source-line: 13707
+      x-source-line: 13718
       requestBody:
         required: true
         content:
@@ -6543,11 +6544,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/bug-reports'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13733`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13744`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminBugreports
       x-source-file: booking/server.js
-      x-source-line: 13733
+      x-source-line: 13744
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6569,11 +6570,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/bug-reports/:id/status'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13747`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13758`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminBugreportsIdStatus
       x-source-file: booking/server.js
-      x-source-line: 13747
+      x-source-line: 13758
       parameters:
         - in: path
           name: id
@@ -6608,11 +6609,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/bug-reports/:id/file'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13761`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13772`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminBugreportsIdFile
       x-source-file: booking/server.js
-      x-source-line: 13761
+      x-source-line: 13772
       parameters:
         - in: path
           name: id
@@ -6640,11 +6641,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/bug-reports/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13779`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13790`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminBugreportsId
       x-source-file: booking/server.js
-      x-source-line: 13779
+      x-source-line: 13790
       parameters:
         - in: path
           name: id
@@ -6672,11 +6673,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/bug-reports/:id/send-email'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13791`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13802`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminBugreportsIdSendemail
       x-source-file: booking/server.js
-      x-source-line: 13791
+      x-source-line: 13802
       parameters:
         - in: path
           name: id
@@ -6711,11 +6712,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/backup-config'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13847`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13858`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminBackupconfig
       x-source-file: booking/server.js
-      x-source-line: 13847
+      x-source-line: 13858
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6737,11 +6738,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/backups'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13884`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13895`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminBackups
       x-source-file: booking/server.js
-      x-source-line: 13884
+      x-source-line: 13895
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6763,11 +6764,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/backups/create'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:13968`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:13979`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminBackupsCreate
       x-source-file: booking/server.js
-      x-source-line: 13968
+      x-source-line: 13979
       requestBody:
         required: true
         content:
@@ -6796,11 +6797,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/backups/:name/download'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14006`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14017`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminBackupsNameDownload
       x-source-file: booking/server.js
-      x-source-line: 14006
+      x-source-line: 14017
       parameters:
         - in: path
           name: name
@@ -6828,11 +6829,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/backups/:name'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14033`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14044`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminBackupsName
       x-source-file: booking/server.js
-      x-source-line: 14033
+      x-source-line: 14044
       parameters:
         - in: path
           name: name
@@ -6860,11 +6861,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/backups/:name/restore'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14052`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14063`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminBackupsNameRestore
       x-source-file: booking/server.js
-      x-source-line: 14052
+      x-source-line: 14063
       parameters:
         - in: path
           name: name
@@ -6899,11 +6900,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/email-templates'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14195`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14206`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminEmailtemplates
       x-source-file: booking/server.js
-      x-source-line: 14195
+      x-source-line: 14206
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -6925,11 +6926,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/email-templates/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14207`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14218`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminEmailtemplatesKey
       x-source-file: booking/server.js
-      x-source-line: 14207
+      x-source-line: 14218
       parameters:
         - in: path
           name: key
@@ -6956,11 +6957,11 @@ paths:
         - booking
       summary: 'TODO: PUT /api/admin/email-templates/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14284`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14295`. Schemas
         noch nicht dokumentiert.
       operationId: putApiAdminEmailtemplatesKey
       x-source-file: booking/server.js
-      x-source-line: 14284
+      x-source-line: 14295
       parameters:
         - in: path
           name: key
@@ -6994,11 +6995,11 @@ paths:
         - booking
       summary: 'TODO: DELETE /api/admin/email-templates/:key'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14473`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14484`. Schemas
         noch nicht dokumentiert.
       operationId: deleteApiAdminEmailtemplatesKey
       x-source-file: booking/server.js
-      x-source-line: 14473
+      x-source-line: 14484
       parameters:
         - in: path
           name: key
@@ -7026,11 +7027,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/email-workflow-config'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14223`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14234`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminEmailworkflowconfig
       x-source-file: booking/server.js
-      x-source-line: 14223
+      x-source-line: 14234
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -7052,11 +7053,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/email-workflow-config/:id'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14239`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14250`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminEmailworkflowconfigId
       x-source-file: booking/server.js
-      x-source-line: 14239
+      x-source-line: 14250
       parameters:
         - in: path
           name: id
@@ -7091,11 +7092,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/email-templates/:key/toggle'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14317`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14328`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminEmailtemplatesKeyToggle
       x-source-file: booking/server.js
-      x-source-line: 14317
+      x-source-line: 14328
       parameters:
         - in: path
           name: key
@@ -7130,11 +7131,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/email-templates/:key/preview'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14333`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14344`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminEmailtemplatesKeyPreview
       x-source-file: booking/server.js
-      x-source-line: 14333
+      x-source-line: 14344
       parameters:
         - in: path
           name: key
@@ -7169,11 +7170,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/email-templates/:key/test-send'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14371`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14382`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminEmailtemplatesKeyTestsend
       x-source-file: booking/server.js
-      x-source-line: 14371
+      x-source-line: 14382
       parameters:
         - in: path
           name: key
@@ -7208,11 +7209,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/admin/email-templates/:key/restore/:historyId'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14461`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14472`. Schemas
         noch nicht dokumentiert.
       operationId: postApiAdminEmailtemplatesKeyRestoreHistoryId
       x-source-file: booking/server.js
-      x-source-line: 14461
+      x-source-line: 14472
       parameters:
         - in: path
           name: key
@@ -7252,11 +7253,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/reviews/kpi'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14494`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14505`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminReviewsKpi
       x-source-file: booking/server.js
-      x-source-line: 14494
+      x-source-line: 14505
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -7278,11 +7279,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/admin/reviews'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14528`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14539`. Schemas
         noch nicht dokumentiert.
       operationId: getApiAdminReviews
       x-source-file: booking/server.js
-      x-source-line: 14528
+      x-source-line: 14539
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -7304,11 +7305,11 @@ paths:
         - booking
       summary: 'TODO: PATCH /api/admin/orders/:orderNo/review/google-flag'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14663`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14674`. Schemas
         noch nicht dokumentiert.
       operationId: patchApiAdminOrdersOrderNoReviewGoogleflag
       x-source-file: booking/server.js
-      x-source-line: 14663
+      x-source-line: 14674
       parameters:
         - in: path
           name: orderNo
@@ -7343,11 +7344,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/review/:token'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14683`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14694`. Schemas
         noch nicht dokumentiert.
       operationId: getApiReviewToken
       x-source-file: booking/server.js
-      x-source-line: 14683
+      x-source-line: 14694
       parameters:
         - in: path
           name: token
@@ -7369,11 +7370,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/review/:token'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14700`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14711`. Schemas
         noch nicht dokumentiert.
       operationId: postApiReviewToken
       x-source-file: booking/server.js
-      x-source-line: 14700
+      x-source-line: 14711
       parameters:
         - in: path
           name: token
@@ -7403,11 +7404,11 @@ paths:
         - booking
       summary: 'TODO: GET /__propus-pdf-inline'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14799`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14810`. Schemas
         noch nicht dokumentiert.
       operationId: getPropuspdfinline
       x-source-file: booking/server.js
-      x-source-line: 14799
+      x-source-line: 14810
       responses:
         '200':
           description: OK
@@ -7424,11 +7425,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/weiterfuehren'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14833`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14844`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupWeiterfuehren
       x-source-file: booking/server.js
-      x-source-line: 14833
+      x-source-line: 14844
       responses:
         '200':
           description: OK
@@ -7445,11 +7446,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/weiterfuehren/online'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14930`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14941`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupWeiterfuehrenOnline
       x-source-file: booking/server.js
-      x-source-line: 14930
+      x-source-line: 14941
       responses:
         '200':
           description: OK
@@ -7466,11 +7467,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/weiterfuehren/qr'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:14979`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:14990`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupWeiterfuehrenQr
       x-source-file: booking/server.js
-      x-source-line: 14979
+      x-source-line: 14990
       responses:
         '200':
           description: OK
@@ -7487,11 +7488,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/archivieren'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15036`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15047`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupArchivieren
       x-source-file: booking/server.js
-      x-source-line: 15036
+      x-source-line: 15047
       responses:
         '200':
           description: OK
@@ -7508,11 +7509,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/uebertragen'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15073`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15084`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupUebertragen
       x-source-file: booking/server.js
-      x-source-line: 15073
+      x-source-line: 15084
       responses:
         '200':
           description: OK
@@ -7529,11 +7530,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/loeschen'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15104`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15115`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupLoeschen
       x-source-file: booking/server.js
-      x-source-line: 15104
+      x-source-line: 15115
       responses:
         '200':
           description: OK
@@ -7550,11 +7551,11 @@ paths:
         - booking
       summary: 'TODO: GET /cleanup/preview'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15149`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15160`. Schemas
         noch nicht dokumentiert.
       operationId: getCleanupPreview
       x-source-file: booking/server.js
-      x-source-line: 15149
+      x-source-line: 15160
       responses:
         '200':
           description: OK
@@ -7571,11 +7572,11 @@ paths:
         - booking
       summary: 'TODO: GET /api/cleanup/dashboard'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15168`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15179`. Schemas
         noch nicht dokumentiert.
       operationId: getApiCleanupDashboard
       x-source-file: booking/server.js
-      x-source-line: 15168
+      x-source-line: 15179
       responses:
         '200':
           description: OK
@@ -7592,11 +7593,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/cleanup/dashboard/action'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15183`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15194`. Schemas
         noch nicht dokumentiert.
       operationId: postApiCleanupDashboardAction
       x-source-file: booking/server.js
-      x-source-line: 15183
+      x-source-line: 15194
       requestBody:
         required: true
         content:
@@ -7620,11 +7621,11 @@ paths:
         - booking
       summary: 'TODO: POST /api/cleanup/dashboard/payment'
       description: >-
-        **Auto-generierter Stub.** Quelle: `booking/server.js:15204`. Schemas
+        **Auto-generierter Stub.** Quelle: `booking/server.js:15215`. Schemas
         noch nicht dokumentiert.
       operationId: postApiCleanupDashboardPayment
       x-source-file: booking/server.js
-      x-source-line: 15204
+      x-source-line: 15215
       requestBody:
         required: true
         content:
@@ -19489,6 +19490,12 @@ paths:
       operationId: getApiAssistantHistoryId
       x-source-file: app/src/app/api/assistant/history/[id]/route.ts
       x-source-line: 12
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -19515,6 +19522,12 @@ paths:
       operationId: patchApiAssistantHistoryId
       x-source-file: app/src/app/api/assistant/history/[id]/route.ts
       x-source-line: 35
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -19548,6 +19561,12 @@ paths:
       operationId: deleteApiAssistantHistoryId
       x-source-file: app/src/app/api/assistant/history/[id]/route.ts
       x-source-line: 63
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -19635,6 +19654,12 @@ paths:
       operationId: deleteApiAssistantMemoriesId
       x-source-file: app/src/app/api/assistant/memories/[id]/route.ts
       x-source-line: 7
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -19816,6 +19841,12 @@ paths:
       operationId: deleteApiAssistantTokensId
       x-source-file: app/src/app/api/assistant/tokens/[id]/route.ts
       x-source-line: 13
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       security:
         - bearerAuth: []
         - sessionCookie: []
@@ -20310,11 +20341,11 @@ paths:
         - next-chat
       summary: 'TODO: POST /api/chat'
       description: >-
-        **Auto-generierter Stub.** Quelle: `app/src/app/api/chat/route.ts:27`.
+        **Auto-generierter Stub.** Quelle: `app/src/app/api/chat/route.ts:28`.
         Schemas noch nicht dokumentiert.
       operationId: postApiChat
       x-source-file: app/src/app/api/chat/route.ts
-      x-source-line: 27
+      x-source-line: 28
       requestBody:
         required: true
         content:
@@ -20339,11 +20370,11 @@ paths:
       summary: 'TODO: POST /api/cockpit/briefing'
       description: >-
         **Auto-generierter Stub.** Quelle:
-        `app/src/app/api/cockpit/briefing/route.ts:104`. Schemas noch nicht
+        `app/src/app/api/cockpit/briefing/route.ts:105`. Schemas noch nicht
         dokumentiert.
       operationId: postApiCockpitBriefing
       x-source-file: app/src/app/api/cockpit/briefing/route.ts
-      x-source-line: 104
+      x-source-line: 105
       requestBody:
         required: true
         content:
@@ -20423,6 +20454,28 @@ paths:
       operationId: getApiCronSelflearning
       x-source-file: app/src/app/api/cron/self-learning/route.ts
       x-source-line: 41
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        5XX:
+          $ref: '#/components/responses/ServerError'
+  /api/openapi/spec:
+    get:
+      tags:
+        - next-openapi
+      summary: 'TODO: GET /api/openapi/spec'
+      description: >-
+        **Auto-generierter Stub.** Quelle:
+        `app/src/app/api/openapi/spec/route.ts:40`. Schemas noch nicht
+        dokumentiert.
+      operationId: getApiOpenapiSpec
+      x-source-file: app/src/app/api/openapi/spec/route.ts
+      x-source-line: 40
       responses:
         '200':
           description: OK
@@ -20584,7 +20637,7 @@ x-generator:
     Auto-Stubs via `node scripts/extract-routes.js` gemerget. Kuratierte
     Einträge (mit echten Schemas) bleiben unangetastet; Stubs haben `summary:
     TODO` und sind an `x-source-file`/`x-source-line` erkennbar.
-  lastRun: '2026-05-08T00:00:43.368Z'
-  routesScanned: 630
+  lastRun: '2026-05-08T00:24:09.214Z'
+  routesScanned: 631
   curatedSkipped: 8
-  autoAdded: 612
+  autoAdded: 613

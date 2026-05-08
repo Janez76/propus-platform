@@ -216,15 +216,24 @@ function convertPath(p) {
 }
 function extractParams(p) {
   const out = [];
-  const re = /:([a-zA-Z0-9_]+)/g;
-  let m;
-  while ((m = re.exec(p)) !== null) {
-    out.push({
-      in: "path",
-      name: m[1],
-      required: true,
-      schema: { type: "string" },
-    });
+  // Express `:name` UND OpenAPI `{name}` — letzteres entsteht bereits beim
+  // Next.js-Scanner, wo wir [name] direkt zu {name} umschreiben.
+  const seen = new Set();
+  const expressRe = /:([a-zA-Z0-9_]+)/g;
+  const openapiRe = /\{([a-zA-Z0-9_]+)\}/g;
+  for (const re of [expressRe, openapiRe]) {
+    let m;
+    while ((m = re.exec(p)) !== null) {
+      const name = m[1];
+      if (seen.has(name)) continue;
+      seen.add(name);
+      out.push({
+        in: "path",
+        name,
+        required: true,
+        schema: { type: "string" },
+      });
+    }
   }
   return out;
 }
