@@ -2,6 +2,14 @@
   "mcpServers": {
     "higgsfield": {
       "url": "https://mcp.higgsfield.ai/mcp"
+    },
+    "publer": {
+      "command": "npx",
+      "args": ["-y", "publer-mcp-server"],
+      "env": {
+        "PUBLER_API_KEY": "${PUBLER_API_KEY}",
+        "PUBLER_WORKSPACE_ID": "${PUBLER_WORKSPACE_ID}"
+      }
     }
   }
 }
