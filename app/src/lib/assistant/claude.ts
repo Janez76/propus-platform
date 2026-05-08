@@ -118,12 +118,23 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
+    const anthropicTools = toAnthropicTools(input.tools) as Anthropic.Messages.Tool[];
+    if (anthropicTools.length > 0) {
+      anthropicTools[anthropicTools.length - 1] = {
+        ...anthropicTools[anthropicTools.length - 1],
+        cache_control: { type: "ephemeral" },
+      };
+    }
+    const cachedSystem: Anthropic.Messages.TextBlockParam[] = [
+      { type: "text", text: input.systemPrompt, cache_control: { type: "ephemeral" } },
+    ];
+
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
       const response = await client.messages.create({
         model,
         max_tokens: MAX_TOKENS,
-        system: input.systemPrompt,
-        tools: toAnthropicTools(input.tools) as Anthropic.Messages.Tool[],
+        system: cachedSystem,
+        tools: anthropicTools,
         messages: history,
       });
 

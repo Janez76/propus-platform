@@ -141,12 +141,23 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         ...(tierResolved ? { tier: tierResolved } : {}),
       });
 
+      const anthropicTools = toAnthropicTools(input.tools) as Anthropic.Messages.Tool[];
+      if (anthropicTools.length > 0) {
+        anthropicTools[anthropicTools.length - 1] = {
+          ...anthropicTools[anthropicTools.length - 1],
+          cache_control: { type: "ephemeral" },
+        };
+      }
+      const cachedSystem: Anthropic.Messages.TextBlockParam[] = [
+        { type: "text", text: input.systemPrompt, cache_control: { type: "ephemeral" } },
+      ];
+
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
         const stream = client.messages.stream({
           model,
           max_tokens: MAX_TOKENS,
-          system: input.systemPrompt,
-          tools: toAnthropicTools(input.tools) as Anthropic.Messages.Tool[],
+          system: cachedSystem,
+          tools: anthropicTools,
           messages: history,
         });
 
