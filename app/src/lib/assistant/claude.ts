@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
-import { isWriteTool, toAnthropicTools, toolRequiresConfirmation } from "./tools";
+import { isWriteTool, toolRequiresConfirmation } from "./tools";
+import { buildCachedRequestParts } from "./anthropic-cache";
 import { type ModelTier, MODEL_IDS, selectInitialModel, shouldEscalate, parseTier } from "./model-router";
 
 const MAX_TOKENS = 4096;
@@ -118,16 +119,10 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
-    const anthropicTools = toAnthropicTools(input.tools) as Anthropic.Messages.Tool[];
-    if (anthropicTools.length > 0) {
-      anthropicTools[anthropicTools.length - 1] = {
-        ...anthropicTools[anthropicTools.length - 1],
-        cache_control: { type: "ephemeral" },
-      };
-    }
-    const cachedSystem: Anthropic.Messages.TextBlockParam[] = [
-      { type: "text", text: input.systemPrompt, cache_control: { type: "ephemeral" } },
-    ];
+    const { tools: anthropicTools, system: cachedSystem } = buildCachedRequestParts(
+      input.tools,
+      input.systemPrompt,
+    );
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
       const response = await client.messages.create({
