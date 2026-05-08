@@ -15,7 +15,11 @@ on:
       - master
     paths-ignore:
       - "**/*.md"
-      - "docs/**"
+      # docs/**/*.md statt docs/** — docs/openapi/openapi.yaml ist funktional
+      # (wird zur Laufzeit von /api/openapi/spec gelesen) und MUSS deployen.
+      - "docs/**/*.md"
+      - "docs/**/*.png"
+      - "docs/**/*.jpg"
       - ".github/ISSUE_TEMPLATE/**"
       - "PORTING-INVENTORY.md"
       - "AGENTS.md"
