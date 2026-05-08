@@ -141,6 +141,13 @@ const AUTH_MIDDLEWARES = {
   requireAdminOrRedirect: "admin",
   requirePortalAuth: "portal",
   requirePortalSession: "portal",
+  // Next.js App-Router Auth-Helpers — werden im Route-Body als Funktion
+  // aufgerufen (nicht als Middleware), aber das Sicherheits-Modell ist
+  // identisch zum Express-Pendant.
+  resolveAssistantUser: "admin-or-photographer-or-tour-manager",
+  getAdminSession: "admin",
+  requireAdminLayoutSession: "admin",
+  requireAssistantTrainingAccess: "super_admin",
 };
 // API-Key-Guards (separates Scheme, z. B. Cron-Endpoints).
 const API_KEY_MIDDLEWARES = ["requireApiKey"];
@@ -209,15 +216,24 @@ function convertPath(p) {
 }
 function extractParams(p) {
   const out = [];
-  const re = /:([a-zA-Z0-9_]+)/g;
-  let m;
-  while ((m = re.exec(p)) !== null) {
-    out.push({
-      in: "path",
-      name: m[1],
-      required: true,
-      schema: { type: "string" },
-    });
+  // Express `:name` UND OpenAPI `{name}` — letzteres entsteht bereits beim
+  // Next.js-Scanner, wo wir [name] direkt zu {name} umschreiben.
+  const seen = new Set();
+  const expressRe = /:([a-zA-Z0-9_]+)/g;
+  const openapiRe = /\{([a-zA-Z0-9_]+)\}/g;
+  for (const re of [expressRe, openapiRe]) {
+    let m;
+    while ((m = re.exec(p)) !== null) {
+      const name = m[1];
+      if (seen.has(name)) continue;
+      seen.add(name);
+      out.push({
+        in: "path",
+        name,
+        required: true,
+        schema: { type: "string" },
+      });
+    }
   }
   return out;
 }
@@ -400,6 +416,91 @@ function makeOperationId(route) {
   return unique;
 }
 
+// ── Next.js App Router Scanner ─────────────────────────────────────────────
+//
+// Scannt `app/src/app/api/**/route.ts(x)` und mapped Datei-Pfad → URL-Pfad
+// nach Next.js App-Router-Konventionen:
+//   - `[name]`        → `{name}` (single segment)
+//   - `[...slug]`     → `{slug}` (catch-all, wir nehmen es als ein Segment)
+//   - `(group)`       → wird ignoriert (Route-Group, beeinflusst URL nicht)
+// HTTP-Methoden ergeben sich aus `export async function GET|POST|...`.
+// Auth wird aus den importierten/aufgerufenen Helpers abgeleitet
+// (resolveAssistantUser, getAdminSession, requireAssistantTrainingAccess).
+function scanNextJsRoutes() {
+  const apiRoot = path.join(REPO_ROOT, "app/src/app/api");
+  if (!fs.existsSync(apiRoot)) return [];
+
+  const routes = [];
+  function deriveTag(segments) {
+    // segments[0] === "api". Erste Sub-Section ist die Tag-Quelle.
+    const seg = segments[1];
+    if (!seg) return "next";
+    return `next-${seg.replace(/[{}]/g, "")}`;
+  }
+
+  function walk(dir, urlSegments) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        let segment = entry.name;
+        // Route-Groups (parens) beeinflussen die URL nicht
+        if (segment.startsWith("(") && segment.endsWith(")")) {
+          walk(fullPath, urlSegments);
+          continue;
+        }
+        // Dynamic-Segmente
+        if (segment.startsWith("[...") && segment.endsWith("]")) {
+          segment = `{${segment.slice(4, -1)}}`;
+        } else if (segment.startsWith("[[...") && segment.endsWith("]]")) {
+          // Optional catch-all
+          segment = `{${segment.slice(5, -2)}}`;
+        } else if (segment.startsWith("[") && segment.endsWith("]")) {
+          segment = `{${segment.slice(1, -1)}}`;
+        }
+        walk(fullPath, [...urlSegments, segment]);
+        continue;
+      }
+      if (entry.name !== "route.ts" && entry.name !== "route.tsx") continue;
+
+      const src = fs.readFileSync(fullPath, "utf8");
+      const lines = src.split("\n");
+      const fileRel = path
+        .relative(REPO_ROOT, fullPath)
+        .replace(/\\/g, "/");
+      const apiPath = "/" + urlSegments.join("/");
+      const tag = deriveTag(urlSegments);
+
+      // Auth aus Imports/Body ableiten — der "middleware"-String wird vom
+      // bestehenden deriveSecurity konsumiert, daher konkatenieren wir die
+      // gefundenen Helper-Namen wie eine Middleware-Liste.
+      const authHits = [];
+      for (const helper of Object.keys(AUTH_MIDDLEWARES)) {
+        if (src.includes(helper)) authHits.push(helper);
+      }
+      const middleware = authHits.join(" ");
+
+      // Pro HTTP-Methode eine Route. Zeilennummer zeigt auf den export.
+      const methodRe =
+        /^\s*export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b/;
+      for (let i = 0; i < lines.length; i++) {
+        const m = methodRe.exec(lines[i]);
+        if (!m) continue;
+        routes.push({
+          file: fileRel,
+          line: i + 1,
+          method: m[1].toLowerCase(),
+          path: apiPath,
+          rawPath: apiPath,
+          middleware,
+          tag,
+        });
+      }
+    }
+  }
+  walk(apiRoot, ["api"]);
+  return routes;
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 function main() {
   if (!YAML) {
@@ -413,6 +514,8 @@ function main() {
   for (const t of TARGETS) {
     allRoutes.push(...scanFile(t));
   }
+  // Next.js App-Router Routes (app/src/app/api/**/route.ts)
+  allRoutes.push(...scanNextJsRoutes());
 
   // Kuratierte Spec laden — wir MERGEN in diese Datei, kein Überschreiben
   // der manuellen Einträge. Auto-Stubs (erkennbar an `x-source-file`) werden
