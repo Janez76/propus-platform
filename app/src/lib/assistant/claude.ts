@@ -138,8 +138,12 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
         messages: history,
       });
 
-      totalInputTokens += response.usage?.input_tokens || 0;
-      totalOutputTokens += response.usage?.output_tokens || 0;
+      const usage = response.usage;
+      totalInputTokens +=
+        (usage?.input_tokens || 0) +
+        (usage?.cache_creation_input_tokens || 0) +
+        (usage?.cache_read_input_tokens || 0);
+      totalOutputTokens += usage?.output_tokens || 0;
       history.push({ role: "assistant", content: response.content });
 
       const toolUseBlocks = response.content.filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use");

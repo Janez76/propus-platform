@@ -179,8 +179,12 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         });
 
         const finalMessage = await stream.finalMessage();
-        totalInputTokens += finalMessage.usage?.input_tokens || 0;
-        totalOutputTokens += finalMessage.usage?.output_tokens || 0;
+        const usage = finalMessage.usage;
+        totalInputTokens +=
+          (usage?.input_tokens || 0) +
+          (usage?.cache_creation_input_tokens || 0) +
+          (usage?.cache_read_input_tokens || 0);
+        totalOutputTokens += usage?.output_tokens || 0;
 
         history.push({ role: "assistant", content: finalMessage.content });
 
