@@ -335,20 +335,32 @@ export async function updateConversationTokens(input: {
   conversationId: string;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
 }): Promise<void> {
   await query(
     `UPDATE tour_manager.assistant_conversations
      SET input_tokens = COALESCE(input_tokens, 0) + $2,
          output_tokens = COALESCE(output_tokens, 0) + $3,
+         cache_creation_input_tokens = COALESCE(cache_creation_input_tokens, 0) + $4,
+         cache_read_input_tokens = COALESCE(cache_read_input_tokens, 0) + $5,
          updated_at = NOW()
      WHERE id = $1`,
-    [input.conversationId, input.inputTokens, input.outputTokens],
+    [
+      input.conversationId,
+      input.inputTokens,
+      input.outputTokens,
+      input.cacheCreationInputTokens || 0,
+      input.cacheReadInputTokens || 0,
+    ],
   );
 }
 
 export type AssistantUsageSlice = {
   inputTokens: number;
   outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
   totalTokens: number;
 };
 
@@ -367,10 +379,16 @@ export async function getAssistantUsageReport(userId: string): Promise<{
   const row = await queryOne<{
     today_input: string;
     today_output: string;
+    today_cache_creation: string;
+    today_cache_read: string;
     week_input: string;
     week_output: string;
+    week_cache_creation: string;
+    week_cache_read: string;
     month_input: string;
     month_output: string;
+    month_cache_creation: string;
+    month_cache_read: string;
   }>(
     `WITH b AS (
        SELECT
@@ -381,10 +399,16 @@ export async function getAssistantUsageReport(userId: string): Promise<{
      SELECT
        COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.input_tokens ELSE 0 END), 0) AS today_input,
        COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.output_tokens ELSE 0 END), 0) AS today_output,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.cache_creation_input_tokens ELSE 0 END), 0) AS today_cache_creation,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.day_start THEN c.cache_read_input_tokens ELSE 0 END), 0) AS today_cache_read,
        COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.input_tokens ELSE 0 END), 0) AS week_input,
        COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.output_tokens ELSE 0 END), 0) AS week_output,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.cache_creation_input_tokens ELSE 0 END), 0) AS week_cache_creation,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.week_start THEN c.cache_read_input_tokens ELSE 0 END), 0) AS week_cache_read,
        COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.input_tokens ELSE 0 END), 0) AS month_input,
-       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.output_tokens ELSE 0 END), 0) AS month_output
+       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.output_tokens ELSE 0 END), 0) AS month_output,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.cache_creation_input_tokens ELSE 0 END), 0) AS month_cache_creation,
+       COALESCE(SUM(CASE WHEN c.created_at >= b.month_start THEN c.cache_read_input_tokens ELSE 0 END), 0) AS month_cache_read
      FROM tour_manager.assistant_conversations c
      CROSS JOIN b
      WHERE c.user_id = $1`,
@@ -392,20 +416,39 @@ export async function getAssistantUsageReport(userId: string): Promise<{
   );
 
   if (!row) {
-    const empty: AssistantUsageSlice = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    const empty: AssistantUsageSlice = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      totalTokens: 0,
+    };
     return { today: empty, week: empty, month: empty };
   }
 
-  const slice = (inputRaw: string, outputRaw: string): AssistantUsageSlice => {
+  const slice = (
+    inputRaw: string,
+    outputRaw: string,
+    cacheCreationRaw: string,
+    cacheReadRaw: string,
+  ): AssistantUsageSlice => {
     const inputTokens = Number(inputRaw || 0);
     const outputTokens = Number(outputRaw || 0);
-    return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+    const cacheCreationInputTokens = Number(cacheCreationRaw || 0);
+    const cacheReadInputTokens = Number(cacheReadRaw || 0);
+    return {
+      inputTokens,
+      outputTokens,
+      cacheCreationInputTokens,
+      cacheReadInputTokens,
+      totalTokens: inputTokens + outputTokens + cacheCreationInputTokens + cacheReadInputTokens,
+    };
   };
 
   return {
-    today: slice(row.today_input, row.today_output),
-    week: slice(row.week_input, row.week_output),
-    month: slice(row.month_input, row.month_output),
+    today: slice(row.today_input, row.today_output, row.today_cache_creation, row.today_cache_read),
+    week: slice(row.week_input, row.week_output, row.week_cache_creation, row.week_cache_read),
+    month: slice(row.month_input, row.month_output, row.month_cache_creation, row.month_cache_read),
   };
 }
 

@@ -35,7 +35,7 @@ export async function GET() {
   const sessionId = String(session.userKey || session.userName || "").trim();
   const usage = sessionId
     ? await getAssistantUsageToday(sessionId)
-    : { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    : { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, totalTokens: 0 };
 
   // Fallback: Falls das aktuell persistierte settings.model nicht (mehr) in
   // der Allowlist steht (z.B. Bestand mit "claude-haiku-4-5"), als

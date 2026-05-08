@@ -5,9 +5,15 @@
  * converted with a rough FX and rounded; override with:
  * - ASSISTANT_PRICE_INPUT_PER_MTOK_CHF
  * - ASSISTANT_PRICE_OUTPUT_PER_MTOK_CHF
+ *
+ * Cache tokens are weighted relative to the base input rate per Anthropic pricing:
+ *   cache_creation_input_tokens: 1.25x (write)
+ *   cache_read_input_tokens:     0.10x (read)
  */
 const DEFAULT_INPUT_PER_MTOK_CHF = 2.75;
 const DEFAULT_OUTPUT_PER_MTOK_CHF = 13.75;
+const CACHE_WRITE_MULTIPLIER = 1.25;
+const CACHE_READ_MULTIPLIER = 0.1;
 
 function parseRate(raw: string | undefined, fallback: number): number {
   if (raw == null || String(raw).trim() === "") return fallback;
@@ -22,9 +28,25 @@ export function getAssistantTokenRatesChfPerMillion(): { input: number; output: 
   };
 }
 
-export function computeAssistantCostChf(inputTokens: number, outputTokens: number): number {
+function safe(n: number): number {
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+export function computeAssistantCostChf(
+  inputTokens: number,
+  outputTokens: number,
+  cacheCreationInputTokens: number = 0,
+  cacheReadInputTokens: number = 0,
+): number {
   const { input, output } = getAssistantTokenRatesChfPerMillion();
-  const safeIn = Number.isFinite(inputTokens) ? Math.max(0, inputTokens) : 0;
-  const safeOut = Number.isFinite(outputTokens) ? Math.max(0, outputTokens) : 0;
-  return (safeIn / 1_000_000) * input + (safeOut / 1_000_000) * output;
+  const safeIn = safe(inputTokens);
+  const safeOut = safe(outputTokens);
+  const safeCacheWrite = safe(cacheCreationInputTokens);
+  const safeCacheRead = safe(cacheReadInputTokens);
+  return (
+    (safeIn / 1_000_000) * input +
+    (safeOut / 1_000_000) * output +
+    (safeCacheWrite / 1_000_000) * input * CACHE_WRITE_MULTIPLIER +
+    (safeCacheRead / 1_000_000) * input * CACHE_READ_MULTIPLIER
+  );
 }

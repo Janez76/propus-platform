@@ -6,10 +6,21 @@ import { getAssistantUsageReport } from "@/lib/assistant/store";
 
 export const runtime = "nodejs";
 
-function withCost(slice: { inputTokens: number; outputTokens: number; totalTokens: number }) {
+function withCost(slice: {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  totalTokens: number;
+}) {
   return {
     ...slice,
-    costChf: computeAssistantCostChf(slice.inputTokens, slice.outputTokens),
+    costChf: computeAssistantCostChf(
+      slice.inputTokens,
+      slice.outputTokens,
+      slice.cacheCreationInputTokens,
+      slice.cacheReadInputTokens,
+    ),
   };
 }
 
@@ -26,9 +37,9 @@ export async function GET() {
   const report = sessionId
     ? await getAssistantUsageReport(sessionId)
     : {
-        today: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        week: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
-        month: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        today: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, totalTokens: 0 },
+        week: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, totalTokens: 0 },
+        month: { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0, totalTokens: 0 },
       };
 
   return NextResponse.json({
@@ -38,6 +49,6 @@ export async function GET() {
     /** Boundaries for today/week/month aggregates */
     timezone: "Europe/Zurich",
     /** Sum over conversations with created_at in period; tokens updated on the conversation row */
-    metric: "sum(input_tokens)+sum(output_tokens) on assistant_conversations",
+    metric: "sum(input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens) on assistant_conversations",
   });
 }

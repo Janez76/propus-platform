@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ToolDefinition, ToolHandler, ToolContext } from "./tools";
-import { toAnthropicTools } from "./tools";
+import { buildCachedRequestParts } from "./anthropic-cache";
 import {
   type ModelTier,
   MODEL_IDS,
@@ -55,6 +55,8 @@ export type StreamingTurnMeta = {
   }>;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
   modelUsed: string;
   escalated: boolean;
 };
@@ -126,6 +128,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
   const toolCallsExecuted: StreamingTurnMeta["toolCallsExecuted"] = [];
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let totalCacheCreationTokens = 0;
+  let totalCacheReadTokens = 0;
 
   let resolveMetaPromise: (meta: StreamingTurnMeta) => void;
   let rejectMetaPromise: (err: Error) => void;
@@ -155,12 +159,17 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         ...(tierResolved ? { tier: tierResolved } : {}),
       });
 
+      const { tools: anthropicTools, system: cachedSystem } = buildCachedRequestParts(
+        input.tools,
+        input.systemPrompt,
+      );
+
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
         const stream = client.messages.stream({
           model,
           max_tokens: MAX_TOKENS,
-          system: input.systemPrompt,
-          tools: toAnthropicTools(input.tools) as Anthropic.Messages.Tool[],
+          system: cachedSystem,
+          tools: anthropicTools,
           messages: history,
         });
 
@@ -182,8 +191,11 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         });
 
         const finalMessage = await stream.finalMessage();
-        totalInputTokens += finalMessage.usage?.input_tokens || 0;
-        totalOutputTokens += finalMessage.usage?.output_tokens || 0;
+        const usage = finalMessage.usage;
+        totalInputTokens += usage?.input_tokens || 0;
+        totalOutputTokens += usage?.output_tokens || 0;
+        totalCacheCreationTokens += usage?.cache_creation_input_tokens || 0;
+        totalCacheReadTokens += usage?.cache_read_input_tokens || 0;
 
         history.push({ role: "assistant", content: finalMessage.content });
 
@@ -258,6 +270,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         toolCallsExecuted,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        cacheCreationInputTokens: totalCacheCreationTokens,
+        cacheReadInputTokens: totalCacheReadTokens,
         modelUsed: model,
         escalated,
       };
@@ -281,6 +295,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         })),
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        cacheCreationInputTokens: totalCacheCreationTokens,
+        cacheReadInputTokens: totalCacheReadTokens,
         model,
         modelUsed: model,
         modelLabel: formatModelLabel(model),
