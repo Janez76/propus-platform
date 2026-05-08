@@ -26,8 +26,7 @@ info:
   contact:
     name: Propus Platform Team
   license:
-    name: Proprietary
-    identifier: LicenseRef-Proprietary
+    name: Proprietary — interne Nutzung Propus GmbH
 servers:
   - url: https://booking.propus.ch
     description: Produktion (Public Booking Frontend)
