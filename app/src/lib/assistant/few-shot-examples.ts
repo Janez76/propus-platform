@@ -17,6 +17,25 @@ export type FewShot = {
  * Code-Defaults ein, damit die Trainer-UI ohne Deploy neue Beispiele aktivieren
  * kann.
  */
+
+/**
+ * Gepflegter Stichwort-Katalog zu den Code-Defaults (ID → Synonyme/Topics).
+ * Dient Dokumentation, Seeds und Abgleich; die gleichen Stichwörter stehen in
+ * jedem Shot unter `tags` und fliessen zusätzlich über `fewShotMatchText()` ins Ranking.
+ *
+ * typo-search · tippfehler, rechnung, suche
+ * multi-tool · tour, kunde, kombination
+ * no-regreet · dialog, kein hallo
+ * email-direct · email, direkt
+ * order-slotfill · auftrag, booking
+ * weather-honest-ch · wetter, schweiz
+ * routing-honest-ch · routing, distanz, fahrtzeit, km, auto, zürich, mettmenstetten
+ * smalltalk-no-tools · smalltalk, ohne tools
+ * correction · korrektur, kontext
+ * next-order-future-only · auftrag, nächster, zukunft, open
+ * overdue-orders · auftrag, überfällig, rückstand, open
+ * weather-future-order · wetter, auftrag, termin, vorhersage
+ */
 export const FEW_SHOTS: FewShot[] = [
   {
     id: "typo-search",
@@ -116,10 +135,67 @@ export const FEW_SHOTS: FewShot[] = [
       "Min/Max + Bewölkung + Niederschlag aus Tool-Result. Wenn beide Tools nichts liefern weil Termin >15 Tage entfernt, ehrlich sagen 'kommt näher zum Termin'.",
     tags: ["wetter", "auftrag", "termin", "vorhersage"],
   },
+  {
+    id: "report-overdue-invoices",
+    user: "Welche Rechnungen sind überfällig?",
+    assistantToolPlan:
+      "propus_report mit report=invoices_overdue_summary — oder bei Detailzugriff get_overdue_invoices / search_invoices nach Kontext.",
+    assistantFinal:
+      "Betrag und Liste nur aus Tool-Daten; keine erfundenen Zahlen.",
+    tags: ["report", "propus_report", "rechnung", "überfällig"],
+  },
+  {
+    id: "report-week-orders",
+    user: "Welche Aufträge sind diese Woche geplant?",
+    assistantToolPlan:
+      "propus_report orders_week_calendar oder get_open_orders je nach gewünschter Tiefe.",
+    assistantFinal:
+      "Termine kompakt aus dem Tool-Ergebnis.",
+    tags: ["report", "propus_report", "auftrag", "woche"],
+  },
+  {
+    id: "report-no-query-database-shortcut",
+    user: "Welche Benutzer haben Admin-Rechte?",
+    assistantToolPlan:
+      "propus_report admin_users_roles — nicht query_database für dieselbe Auswertung.",
+    assistantFinal:
+      "Nur bei Erfolg ausgeben; bei Berechtigungsfehler die Tool-Meldung ehrlich weitergeben.",
+    tags: ["report", "admin", "rollen", "berechtigung"],
+  },
+  {
+    id: "report-top-customers",
+    user: "Wer sind unsere Umsatz-Top-Kunden?",
+    assistantToolPlan: "propus_report customers_top_volume (limit aus Parameter oder Default).",
+    assistantFinal: "Rangliste nur aus Tool-Zeilen.",
+    tags: ["report", "kunden", "umsatz"],
+  },
+  {
+    id: "report-platform-activity",
+    user: "Was hat sich auf der Plattform in den letzten 24 Stunden geändert?",
+    assistantToolPlan:
+      "propus_report platform_activity_24h (Admin-Tier) oder get_recent_posteingang_messages wenn der Fokus Posteingang ist.",
+    assistantFinal: "Zusammenfassung aus Tool-Daten, ohne zu raten.",
+    tags: ["report", "aktivität", "audit"],
+  },
+  {
+    id: "report-region-open-orders",
+    user: "Zeig mir offene Aufträge im Kanton Zürich.",
+    assistantToolPlan:
+      "propus_report orders_region_search mit region=Zürich oder search_orders mit sinnvollem Filter.",
+    assistantFinal: "Trefferliste aus Tools; wenn leer, klar kommunizieren.",
+    tags: ["report", "region", "auftrag", "zürich"],
+  },
 ];
 
+/** Stichworte je Few-Shot-ID für Doku, Seeds, externe Tools — spiegelt `FEW_SHOTS[].tags`. */
+export const FEW_SHOT_KNOWLEDGE_BY_ID: Record<string, readonly string[]> = Object.fromEntries(
+  FEW_SHOTS.map((f) => [f.id, f.tags] as const),
+);
+
+/** Textbasis für Keyword-Overlap: inkl. Slug-Wörter (z. B. typo-search → „typo search“). */
 function fewShotMatchText(fs: FewShot): string {
-  return [fs.user, ...fs.tags, fs.assistantToolPlan, fs.assistantFinal].join(" ");
+  const slugWords = fs.id.replace(/-/g, " ");
+  return [fs.user, ...fs.tags, slugWords, fs.assistantToolPlan, fs.assistantFinal].join(" ");
 }
 
 /**

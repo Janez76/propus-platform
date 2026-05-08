@@ -4,7 +4,7 @@ Workflow für Few-Shots, Eval, Memory-Seeds und Produktions-Replay — **ohne** 
 
 ## Empfohlener Ablauf
 
-1. **Eval** (`eval:assistant`) — Regression gegen gemockte Tools.
+1. **Eval** (`eval:assistant`) — Regression gegen gemockte Tools (inkl. 50 Business-Coverage-Fälle; Fixtures für Reporting und gängige Tools in `scripts/eval-assistant.ts`).
 2. **Tune** (`tune:assistant`) — bei Rot: Opus schlägt JSON-Patches vor; Reports unter `scripts/tuning-report-*`.
 3. **Manuell** — Prompt anpassen oder einen Patch mit `--apply <id>` nach Bestätigung anwenden.
 4. **Eval erneut** — bis grün.
@@ -30,7 +30,8 @@ npm run eval:assistant
 - `--json` — maschinenlesbare Ausgabe inkl. `failedCases`.
 - `--replay` — lädt `scripts/replay-cases.json` und merged Zusatzfälle; Drift: `observedTools` muss Teilfolge der Eval-Tools sein.
 - `--replay-file=C:\pfad\replay-cases.json` — gleiches Merge aus beliebigem Pfad (impliziert Replay wie `--replay`; Standarddatei entfällt).
-- `--case=<id>` — nur ein Fall (z. B. für schnelle Iteration).
+- `--case=<id>` — nur ein Fall (z. B. `biz-01` oder Basisfälle wie `weather-honest`).
+- `--no-business` — nur die Kern-Basisfälle (`BASE_TEST_CASES`), ohne die 50 Business-Coverage-Fälle aus `eval-business-cases.ts` (schneller). Standard: volle Suite inkl. Business.
 
 **Wetter & Routing:** Wetter über `get_weather_forecast` (Open-Meteo / ICON-CH); amtliche Warnungen weiterhin MeteoSchweiz-Web. Routing über `get_route` / `get_distance_matrix` (Google), bei Nichterreichbarkeit grobe Schätzung + Karten-App — siehe `src/lib/assistant/system-prompt.ts` und `few-shot-examples.ts`. Regression: `weather-honest`, `routing-honest` in `scripts/eval-assistant.ts`.
 
