@@ -1,6 +1,6 @@
 /**
  * Standalone eval: Anthropic Messages API + gemockte Tools (kein DB).
- * Run: npm run eval:assistant [--json] [--replay] [--replay-file=<path>] [--case=<id>]
+ * Run: npm run eval:assistant [--json] [--replay] [--replay-file=<path>] [--case=<id>] [--no-business]
  * Key: `ANTHROPIC_API_KEY` aus der Umgebung oder aus `app/.env.local` / `app/.env`.
  */
 import fs from "fs";
@@ -19,6 +19,7 @@ import { selectFewShots } from "../src/lib/assistant/few-shot-examples";
 import { allTools, toAnthropicTools } from "../src/lib/assistant/tools/index";
 import { MODEL_IDS } from "../src/lib/assistant/model-router";
 import { loadAppEnv } from "./load-local-env";
+import { BUSINESS_COVERAGE_CASES } from "./eval-business-cases";
 
 loadAppEnv(import.meta.url);
 
@@ -163,6 +164,339 @@ const FIXTURES: Record<string, (input: Record<string, unknown>) => unknown> = {
       },
     ],
   }),
+  propus_report: (input) => ({
+    report: typeof input.report === "string" ? input.report : "mock",
+    count: 2,
+    rows: [
+      { order_no: 9001, status: "open", demo: true },
+      { order_no: 9002, status: "scheduled", demo: true },
+    ],
+    note: "eval-fixture",
+  }),
+  get_open_orders: () => ({
+    count: 2,
+    orders: [
+      {
+        orderNo: 501,
+        status: "in_progress",
+        address: "Bahnhofstrasse 1, 8001 Zürich",
+        customerId: 1,
+        customerName: "Muster AG",
+        scheduledDate: "2026-05-12",
+        scheduledTime: "10:00",
+        photographerName: "Ivan",
+        services: ["Fotografie"],
+        createdAt: "2026-05-01T08:00:00.000Z",
+      },
+      {
+        orderNo: 502,
+        status: "scheduled",
+        address: "Seestrasse 2, 8700 Küsnacht",
+        customerId: 2,
+        customerName: "Beispiel GmbH",
+        scheduledDate: null,
+        scheduledTime: null,
+        photographerName: null,
+        services: [],
+        createdAt: "2026-05-02T09:00:00.000Z",
+      },
+    ],
+  }),
+  search_orders: () => ({
+    count: 1,
+    orders: [
+      {
+        orderNo: 601,
+        status: "open",
+        address: "Zürich",
+        customerId: 3,
+        customerName: "Suche-Treffer AG",
+        scheduledDate: "2026-05-15",
+        scheduledTime: null,
+        photographerName: null,
+        services: ["Drohne"],
+        createdAt: "2026-05-03T10:00:00.000Z",
+      },
+    ],
+  }),
+  get_today_schedule: () => ({
+    count: 1,
+    orders: [
+      {
+        orderNo: 701,
+        status: "open",
+        address: "Heute-Strasse 1",
+        customerId: 4,
+        customerName: "Termin Kunde",
+        scheduledDate: "2026-05-08",
+        scheduledTime: "14:00",
+        photographerName: "Marijana",
+        services: [],
+        createdAt: null,
+      },
+    ],
+  }),
+  get_tours_expiring_soon: () => ({
+    count: 1,
+    tours: [
+      {
+        id: 101,
+        label: "Objekt Alpha",
+        customerName: "Polletti AG",
+        customerEmail: "info@polletti.ch",
+        customerId: 10,
+        status: "ACTIVE",
+        matterportSpaceId: "abc123",
+        termEndDate: "2026-06-01",
+        bookingOrderNo: 501,
+      },
+    ],
+  }),
+  count_active_tours: () => ({ count: 42 }),
+  get_cleanup_selections: () => ({
+    count: 1,
+    cleanupSelections: [
+      {
+        tour: {
+          id: 202,
+          label: "Archivierte Demo-Tour",
+          customerName: "Firma XY",
+          customerEmail: "xy@example.com",
+          customerId: 20,
+          status: "ACTIVE",
+          matterportSpaceId: "mp-99",
+          termEndDate: "2026-12-31",
+          bookingOrderNo: null,
+        },
+        confirmationRequired: false,
+        cleanupAction: "archivieren",
+        cleanupActionLabel: "Archivieren",
+        cleanupCompleted: true,
+        customerIntent: null,
+        latestSession: null,
+        latestCleanupLog: null,
+      },
+    ],
+  }),
+  get_overdue_invoices: () => ({
+    count: 1,
+    invoices: [
+      {
+        number: "R-900",
+        status: "open",
+        amount: 450,
+        dueAt: "2026-04-01",
+        customerName: "Firma XY",
+        customerEmail: "xy@example.com",
+        tourId: 101,
+        tourLabel: "Tour A",
+      },
+    ],
+  }),
+  get_invoice_stats: () => ({
+    renewal: {
+      byStatus: [
+        { status: "paid", count: 120 },
+        { status: "open", count: 15 },
+      ],
+      overdue: 3,
+    },
+    exxas: { byStatus: [{ status: "bz", count: 8 }] },
+  }),
+  get_open_tasks: () => ({
+    count: 2,
+    tasks: [
+      {
+        id: 1,
+        title: "Rückruf Kunde",
+        description: null,
+        status: "open",
+        priority: "high",
+        due_at: null,
+        conversation_id: 10,
+        customer_id: 1,
+        order_id: null,
+        tour_id: null,
+        assigned_admin_user_id: null,
+      },
+      {
+        id: 2,
+        title: "Rechnung prüfen",
+        description: null,
+        status: "in_progress",
+        priority: "normal",
+        due_at: "2026-05-10",
+        conversation_id: null,
+        customer_id: null,
+        order_id: 501,
+        tour_id: null,
+        assigned_admin_user_id: 1,
+      },
+    ],
+  }),
+  get_posteingang_stats: () => ({
+    conversations: { open: 8, closed: 120, archived: 5 },
+    openTasks: 5,
+    avgResponseTimeHours: 4.2,
+  }),
+  get_recent_posteingang_messages: () => ({
+    requested_limit: 20,
+    returned_count: 2,
+    conversation_count: 2,
+    summary_note: "eval-fixture",
+    count: 2,
+    messages: [
+      {
+        id: 1001,
+        conversationId: 50,
+        direction: "inbound",
+        fromName: "Kunde",
+        fromEmail: "k@example.com",
+        subject: "Termin",
+        bodyPreview: "Kurzer Text…",
+        sentAt: "2026-05-07T12:00:00.000Z",
+        conversationStatus: "open",
+      },
+      {
+        id: 1002,
+        conversationId: 51,
+        direction: "outbound",
+        fromName: "Büro",
+        fromEmail: "office@propus.local",
+        subject: "Antwort",
+        bodyPreview: "Bestätigung…",
+        sentAt: "2026-05-07T13:00:00.000Z",
+        conversationStatus: "open",
+      },
+    ],
+  }),
+  search_posteingang_conversations: () => ({
+    count: 1,
+    conversations: [{ id: 50, subject: "Follow-up", status: "open", customer_name: "Test AG" }],
+  }),
+  matterport_list_spaces: () => ({
+    ok: true,
+    total: 3,
+    returned: 2,
+    spaces: [
+      {
+        id: "space-1",
+        name: "Showroom Zürich",
+        state: "active",
+        visibility: "public",
+        address: "8001 Zürich",
+        shareUrl: "https://my.matterport.com/show/?m=space-1",
+        externalUrl: null,
+        published: true,
+        created: null,
+        modified: null,
+      },
+      {
+        id: "space-2",
+        name: "Archiviert Alt",
+        state: "inactive",
+        visibility: "private",
+        address: null,
+        shareUrl: null,
+        externalUrl: null,
+        published: false,
+        created: null,
+        modified: null,
+      },
+    ],
+  }),
+  get_customer_detail: () => ({
+    customer: {
+      id: 99,
+      name: "Historie Kunde AG",
+      email: "hist@example.com",
+      emailAliases: null,
+      phone: "+41 44 111 22 33",
+      company: null,
+      address: "Testweg 1, 8001 Zürich, CH",
+      note: null,
+      exxasCustomerId: null,
+      createdAt: "2024-01-01T00:00:00.000Z",
+    },
+    contacts: [{ id: 1, name: "Hauptkontakt", email: "haupt@firma.ch", phone: null, role: "primary", sortOrder: 0 }],
+    companies: [],
+    recentOrders: [{ orderNo: 801, status: "done", address: "Alt-Strasse 1", createdAt: "2025-01-10T10:00:00.000Z" }],
+    activeTours: [{ tourId: 55, label: "Tour Alt", status: "ACTIVE", termEndDate: "2026-06-01" }],
+  }),
+  get_customer_contacts: () => ({
+    customerId: 88,
+    count: 1,
+    contacts: [
+      {
+        id: 1,
+        name: "Hauptkontakt",
+        email: "haupt@firma.ch",
+        phone: null,
+        role: "primary",
+        sortOrder: 0,
+        createdAt: "2025-06-01T00:00:00.000Z",
+      },
+    ],
+  }),
+  search_contacts: () => ({
+    count: 1,
+    contacts: [
+      {
+        id: 2,
+        name: "Suchtreffer",
+        email: "s@firma.ch",
+        phone: null,
+        role: null,
+        customer: { id: 88, name: "Firma XY", email: "firma@example.com" },
+      },
+    ],
+  }),
+  list_available_services: () => ({
+    count: 2,
+    services: [
+      { id: 1, code: "photo", name: "Fotografie", kind: "service", categoryKey: "shooting", description: null },
+      { id: 2, code: "drone", name: "Drohne", kind: "service", categoryKey: "shooting", description: null },
+    ],
+  }),
+  list_photographers: () => ({
+    count: 2,
+    photographers: [
+      { key: "ivan", displayName: "Ivan", homeAddress: null, skills: null },
+      { key: "marijana", displayName: "Marijana", homeAddress: null, skills: null },
+    ],
+  }),
+  get_travel_time_for_orders: () => ({
+    startAddress: "Zürich HB",
+    mode: "driving",
+    count: 1,
+    orders: [
+      {
+        orderNo: 501,
+        address: "Artherstrasse 1, 6315 Oberägeri",
+        status: "OK",
+        distanceText: "35 km",
+        durationText: "38 Minuten",
+        durationSeconds: 2280,
+      },
+    ],
+    attribution: "Routing: Google Maps Distance Matrix",
+  }),
+  get_weather_for_order: () => ({
+    orderNo: 501,
+    date: "2026-05-12",
+    location: { area: "Zug", lat: 47.1662, lng: 8.5155 },
+    weather: { kind: "partly_cloudy", tMax: 22, tMin: 12, precipProb: 15, source: "eval-fixture" },
+  }),
+  query_database: (input) => ({
+    rowCount: 2,
+    fields: ["email", "roles"],
+    rows: [
+      { email: "admin@propus.local", roles: "{admin,super_admin}" },
+      { email: "user@propus.local", roles: "{employee}" },
+    ],
+    note: "eval-fixture — echtes Tool nur super_admin",
+    sqlEcho: typeof input.sql === "string" ? input.sql.slice(0, 120) : null,
+  }),
 };
 
 function defaultFixture(_input: Record<string, unknown>) {
@@ -200,7 +534,26 @@ export function isSubsequence(needle: string[], haystack: string[]): boolean {
   return i === needle.length;
 }
 
-export const TEST_CASES: EvalTestCase[] = [
+export function mergeEvalCases(base: EvalTestCase[], extra: EvalTestCase[]): EvalTestCase[] {
+  const seen = new Set(base.map((c) => c.id));
+  const out = [...base];
+  for (const c of extra) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push(c);
+  }
+  return out;
+}
+
+const BUSINESS_EVAL_CASES: EvalTestCase[] = BUSINESS_COVERAGE_CASES.map((c) => ({
+  id: c.id,
+  userMessage: c.userMessage,
+  expectToolAnyOf: c.expectToolAnyOf,
+  maxTurns: 8,
+}));
+
+/** Kernregression ohne die 50 Business-Coverage-Fälle (schneller). CLI: `--no-business`. */
+export const BASE_TEST_CASES: EvalTestCase[] = [
   {
     id: "smalltalk-greeting",
     userMessage: "Hallo!",
@@ -289,6 +642,9 @@ export const TEST_CASES: EvalTestCase[] = [
   },
 ];
 
+/** Basis-Suite plus 50 Business-Fragen aus `eval-business-cases.ts`. */
+export const TEST_CASES = mergeEvalCases(BASE_TEST_CASES, BUSINESS_EVAL_CASES);
+
 type ReplayFileV1 = {
   version?: number;
   cases?: EvalTestCase[];
@@ -300,17 +656,6 @@ export function loadReplayCaseFile(filePath: string): EvalTestCase[] {
   if (Array.isArray(data)) return data;
   if (data && Array.isArray(data.cases)) return data.cases;
   return [];
-}
-
-export function mergeEvalCases(base: EvalTestCase[], extra: EvalTestCase[]): EvalTestCase[] {
-  const seen = new Set(base.map((c) => c.id));
-  const out = [...base];
-  for (const c of extra) {
-    if (seen.has(c.id)) continue;
-    seen.add(c.id);
-    out.push(c);
-  }
-  return out;
 }
 
 export async function runEvalCase(client: Anthropic, tc: EvalTestCase): Promise<EvalCaseResult> {
@@ -546,6 +891,9 @@ async function main() {
   }
 
   let cases = [...TEST_CASES];
+  if (process.argv.includes("--no-business")) {
+    cases = [...BASE_TEST_CASES];
+  }
   if (replay) {
     if (!fs.existsSync(replayPath)) {
       if (replayFileArg) {

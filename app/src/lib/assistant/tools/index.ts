@@ -12,6 +12,7 @@ import { teamsHandlers, teamsTools } from "./teams";
 import { toursHandlers, toursTools } from "./tours";
 import { weatherHandlers, weatherTools } from "./weather";
 import { writeTools, writeHandlers } from "./writes";
+import { reportingHandlers, reportingTools } from "./reporting";
 import type { AssistantLiveLocation } from "../live-location-types";
 
 export type { AssistantLiveLocation } from "../live-location-types";
@@ -45,6 +46,7 @@ export type ToolHandler = (input: Record<string, unknown>, ctx: ToolContext) => 
 
 export const allTools: ToolDefinition[] = [
   ...memoriesTools,
+  ...reportingTools,
   ...ordersTools,
   ...toursTools,
   ...invoicesTools,
@@ -62,6 +64,7 @@ export const allTools: ToolDefinition[] = [
 
 export const allHandlers: Record<string, ToolHandler> = {
   ...memoriesHandlers,
+  ...reportingHandlers,
   ...ordersHandlers,
   ...toursHandlers,
   ...invoicesHandlers,
