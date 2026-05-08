@@ -7,6 +7,15 @@ export interface PropiMessage {
   role: PropiRole;
   content: string;
 }
+/** Frontend-seitiger Anhang vor dem Send: bereits base64-encoded. */
+export interface PropiAttachment {
+  type: 'image' | 'document';
+  mediaType: string;
+  data: string;
+  filename: string;
+  /** decoded byte size — fuers UI (Anzeige) und client-seitige Validierung. */
+  size: number;
+}
 
 interface UsePropiChatOptions {
   endpoint?: string;
@@ -29,7 +38,7 @@ interface UsePropiChatReturn {
   messages: PropiMessage[];
   loading: boolean;
   error: string | null;
-  send: (text: string) => Promise<void>;
+  send: (text: string, attachments?: PropiAttachment[]) => Promise<void>;
   reset: () => void;
   abort: () => void;
   /** Tool-Calls die Propi aktuell oder zuletzt ausgeführt hat (Phase A: read-only Status, Phase B: Confirms). */
@@ -100,15 +109,24 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
   }, [messages, hydrated, loading, storageKey, maxHistory]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, attachments?: PropiAttachment[]) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      const hasAttachments = !!attachments && attachments.length > 0;
+      if ((!trimmed && !hasAttachments) || loading) return;
 
       setError(null);
       setLoading(true);
       setActiveTools([]);
 
-      const userMsg: PropiMessage = { role: 'user', content: trimmed };
+      // Im Cockpit-UI zeigen wir den Original-Text + optional einen kurzen
+      // "(N Anhang/Anhaenge)"-Hinweis. Die Bilder selbst werden NICHT inline
+      // gerendert (sparen wir uns + LocalStorage haette sonst riesige Eintraege).
+      const visibleContent = hasAttachments
+        ? trimmed
+          ? `${trimmed}\n\n📎 ${attachments!.length} ${attachments!.length === 1 ? 'Anhang' : 'Anhänge'}`
+          : `📎 ${attachments!.length} ${attachments!.length === 1 ? 'Anhang' : 'Anhänge'}`
+        : trimmed;
+      const userMsg: PropiMessage = { role: 'user', content: visibleContent };
       // Phase A: /api/assistant erwartet { userMessage, history, conversationId? }.
       // History exkludiert das initialMessage-Greeting (kein DB-Echo nötig).
       const baseHistory = messages.slice(-maxHistory + 1);
@@ -135,6 +153,16 @@ export function usePropiChat(options: UsePropiChatOptions = {}): UsePropiChatRet
             userMessage: apiUserMessage,
             history: historyForApi,
             ...(conversationId ? { conversationId } : {}),
+            ...(hasAttachments
+              ? {
+                  attachments: attachments!.map((a) => ({
+                    type: a.type,
+                    mediaType: a.mediaType,
+                    data: a.data,
+                    filename: a.filename,
+                  })),
+                }
+              : {}),
           }),
           signal: controller.signal,
         });

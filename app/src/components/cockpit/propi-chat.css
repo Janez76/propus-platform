@@ -276,6 +276,54 @@ html.dark .propi-chat-head {
 /* Avatar */
 .propi-avatar { display: block; flex-shrink: 0; }
 
+/* Anhang-Chips ueber dem Input */
+.propi-chat-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 6px;
+}
+.propi-chat-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 8px;
+  background: var(--propus-bg-strip);
+  border: 1px solid var(--propus-border);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--propus-text-primary);
+}
+.propi-chat-attachment-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.propi-chat-attachment-size {
+  color: var(--propus-text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+}
+.propi-chat-attachment-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--propus-text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+}
+.propi-chat-attachment-remove:hover {
+  background: var(--propus-border);
+  color: var(--propus-text-primary);
+}
+
 /* Voice-Aufnahme: Mic-Button pulsiert in Recording-State (Reuse von data-active). */
 @keyframes propi-spin {
   to { transform: rotate(360deg); }
