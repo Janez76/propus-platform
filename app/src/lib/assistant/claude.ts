@@ -49,6 +49,8 @@ export type AssistantTurnResult = {
   pendingConfirmation?: PendingConfirmation;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
   modelUsed: string;
   escalated: boolean;
 };
@@ -118,6 +120,8 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     const toolCallsExecuted: AssistantTurnResult["toolCallsExecuted"] = [];
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCacheCreationTokens = 0;
+    let totalCacheReadTokens = 0;
 
     const { tools: anthropicTools, system: cachedSystem } = buildCachedRequestParts(
       input.tools,
@@ -134,11 +138,10 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
       });
 
       const usage = response.usage;
-      totalInputTokens +=
-        (usage?.input_tokens || 0) +
-        (usage?.cache_creation_input_tokens || 0) +
-        (usage?.cache_read_input_tokens || 0);
+      totalInputTokens += usage?.input_tokens || 0;
       totalOutputTokens += usage?.output_tokens || 0;
+      totalCacheCreationTokens += usage?.cache_creation_input_tokens || 0;
+      totalCacheReadTokens += usage?.cache_read_input_tokens || 0;
       history.push({ role: "assistant", content: response.content });
 
       const toolUseBlocks = response.content.filter((block): block is Anthropic.Messages.ToolUseBlock => block.type === "tool_use");
@@ -148,7 +151,18 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
           .map((block) => block.text)
           .join("\n")
           .trim();
-        return { finalText, history, toolCallsExecuted, inputTokens: totalInputTokens, outputTokens: totalOutputTokens, modelUsed: model, escalated: false, _tier: currentTier };
+        return {
+          finalText,
+          history,
+          toolCallsExecuted,
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          cacheCreationInputTokens: totalCacheCreationTokens,
+          cacheReadInputTokens: totalCacheReadTokens,
+          modelUsed: model,
+          escalated: false,
+          _tier: currentTier,
+        };
       }
 
       const writeBlock = toolUseBlocks.find((b) => isWriteTool(b.name) && toolRequiresConfirmation(b.name));
@@ -172,6 +186,8 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
           },
           inputTokens: totalInputTokens,
           outputTokens: totalOutputTokens,
+          cacheCreationInputTokens: totalCacheCreationTokens,
+          cacheReadInputTokens: totalCacheReadTokens,
           modelUsed: model,
           escalated: false,
           _tier: currentTier,
@@ -240,6 +256,8 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
       toolCallsExecuted,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
+      cacheCreationInputTokens: totalCacheCreationTokens,
+      cacheReadInputTokens: totalCacheReadTokens,
       modelUsed: model,
       escalated: false,
       _tier: currentTier,
@@ -273,6 +291,10 @@ export async function runAssistantTurn(input: AssistantTurnInput): Promise<Assis
     pendingConfirmation: escalatedResult.pendingConfirmation,
     inputTokens: firstResult.inputTokens + escalatedResult.inputTokens,
     outputTokens: firstResult.outputTokens + escalatedResult.outputTokens,
+    cacheCreationInputTokens:
+      firstResult.cacheCreationInputTokens + escalatedResult.cacheCreationInputTokens,
+    cacheReadInputTokens:
+      firstResult.cacheReadInputTokens + escalatedResult.cacheReadInputTokens,
     modelUsed: MODEL_IDS[nextTier],
     escalated: true,
   };

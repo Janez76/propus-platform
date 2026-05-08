@@ -48,6 +48,8 @@ export type StreamingTurnMeta = {
   }>;
   inputTokens: number;
   outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
   modelUsed: string;
   escalated: boolean;
 };
@@ -112,6 +114,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
   const toolCallsExecuted: StreamingTurnMeta["toolCallsExecuted"] = [];
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
+  let totalCacheCreationTokens = 0;
+  let totalCacheReadTokens = 0;
 
   let resolveMetaPromise: (meta: StreamingTurnMeta) => void;
   let rejectMetaPromise: (err: Error) => void;
@@ -174,11 +178,10 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
 
         const finalMessage = await stream.finalMessage();
         const usage = finalMessage.usage;
-        totalInputTokens +=
-          (usage?.input_tokens || 0) +
-          (usage?.cache_creation_input_tokens || 0) +
-          (usage?.cache_read_input_tokens || 0);
+        totalInputTokens += usage?.input_tokens || 0;
         totalOutputTokens += usage?.output_tokens || 0;
+        totalCacheCreationTokens += usage?.cache_creation_input_tokens || 0;
+        totalCacheReadTokens += usage?.cache_read_input_tokens || 0;
 
         history.push({ role: "assistant", content: finalMessage.content });
 
@@ -253,6 +256,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         toolCallsExecuted,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        cacheCreationInputTokens: totalCacheCreationTokens,
+        cacheReadInputTokens: totalCacheReadTokens,
         modelUsed: model,
         escalated,
       };
@@ -276,6 +281,8 @@ export function runAssistantTurnStreaming(input: StreamingTurnInput): {
         })),
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
+        cacheCreationInputTokens: totalCacheCreationTokens,
+        cacheReadInputTokens: totalCacheReadTokens,
         model,
         modelUsed: model,
         modelLabel: formatModelLabel(model),

@@ -243,7 +243,13 @@ export async function POST(req: NextRequest) {
         });
         await insertAssistantToolCalls({ conversationId, messageId: assistantMessageId, toolCalls: meta.toolCallsExecuted });
         await updateConversationLinksFromToolCalls({ conversationId, toolCalls: meta.toolCallsExecuted });
-        await updateConversationTokens({ conversationId, inputTokens: meta.inputTokens, outputTokens: meta.outputTokens });
+        await updateConversationTokens({
+          conversationId,
+          inputTokens: meta.inputTokens,
+          outputTokens: meta.outputTokens,
+          cacheCreationInputTokens: meta.cacheCreationInputTokens,
+          cacheReadInputTokens: meta.cacheReadInputTokens,
+        });
 
         for (const call of meta.toolCallsExecuted) {
           if (/^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/.test(call.name)) {
@@ -335,7 +341,13 @@ export async function POST(req: NextRequest) {
     });
     await insertAssistantToolCalls({ conversationId, messageId: assistantMessageId, toolCalls: result.toolCallsExecuted });
     await updateConversationLinksFromToolCalls({ conversationId, toolCalls: result.toolCallsExecuted });
-    await updateConversationTokens({ conversationId, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+    await updateConversationTokens({
+      conversationId,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      cacheCreationInputTokens: result.cacheCreationInputTokens,
+      cacheReadInputTokens: result.cacheReadInputTokens,
+    });
 
     for (const call of result.toolCallsExecuted) {
       if (/^(create_|update_|delete_|send_|ha_call_service|mailerlite_add)/.test(call.name)) {
