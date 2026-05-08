@@ -14,7 +14,8 @@
     "eval:assistant": "tsx scripts/eval-assistant.ts",
     "tune:assistant": "tsx scripts/tune-assistant.ts",
     "seed:memories": "tsx scripts/seed-memories.ts",
-    "replay:conversations": "tsx scripts/replay-conversations.ts"
+    "replay:conversations": "tsx scripts/replay-conversations.ts",
+    "harvest:few-shots": "tsx scripts/harvest-few-shot-candidates.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

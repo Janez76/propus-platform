@@ -1,0 +1,217 @@
+/**
+ * Harvest Few-Shot-Kandidaten aus echten Konversationen.
+ *
+ * Findet Turn-Tripel (user → assistant → user) bei denen die Folge-User-Nachricht
+ * ein klares Positiv-Signal enthält ("danke", "perfekt", "passt", …) und gibt
+ * den vorhergehenden Assistant-Turn als Few-Shot-Kandidat aus.
+ *
+ * Read-only: schreibt nichts in die DB. Output ist eine JSON-Datei zum Review,
+ * die danach manuell oder via /api/assistant/training/few-shots eingespielt
+ * werden kann.
+ *
+ * ENV:
+ *   DATABASE_URL              — Postgres-Connection (Pflicht)
+ *   ASSISTANT_REPLAY_USER_ID  — User-UUID dessen History gelesen wird (Pflicht
+ *                                falls nicht via --user-id übergeben)
+ *
+ * CLI:
+ *   --limit=N        Max. Konversationen (default 20, cap 100)
+ *   --user-id=UUID   überschreibt ASSISTANT_REPLAY_USER_ID
+ *   --out=PATH       Output-Datei (default: scripts/few-shot-candidates.json)
+ */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { query } from "../src/lib/db";
+import { anonymizeReplayText } from "../src/lib/assistant/replay-anonymize";
+import {
+  listAssistantHistory,
+  listConversationMessages,
+  type AssistantMessageRow,
+} from "../src/lib/assistant/store";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_OUT = path.join(SCRIPT_DIR, "few-shot-candidates.json");
+
+// Kopiert aus implicit-detector.ts — bewusst dupliziert, damit der Harvester
+// als read-only-Script ohne Module-Side-Effects läuft. Bei Drift dort nachziehen.
+const THANKS_REGEX =
+  /\b(danke|danke\s*sch[öo]n|merci|perfekt|passt|super|grossartig|großartig|alles\s*klar|okay\s*danke|stimmt\s*so)\b/i;
+
+type Args = { limit: number; userId: string | null; outPath: string };
+
+function parseArgs(argv: string[]): Args {
+  let limit = 20;
+  let userId: string | null = null;
+  let outPath = DEFAULT_OUT;
+  for (const a of argv.slice(2)) {
+    if (a.startsWith("--limit=")) limit = Math.max(1, Math.min(100, Number(a.slice(8)) || 20));
+    else if (a.startsWith("--user-id=")) userId = a.slice(10).trim() || null;
+    else if (a.startsWith("--out=")) outPath = path.resolve(a.slice(6));
+  }
+  return { limit, userId, outPath };
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (content && typeof content === "object" && "text" in content) {
+    const t = (content as { text?: unknown }).text;
+    return typeof t === "string" ? t : "";
+  }
+  return "";
+}
+
+type ToolCallRow = { tool_name: string; message_id: string | null };
+
+/**
+ * Wir gruppieren über `message_id`, nicht über Timestamps: tool_calls werden in
+ * `route.ts` *nach* der Assistant-Message persistiert (siehe insertAssistantMessage
+ * → insertAssistantToolCalls), wodurch tc.created_at > a.created_at ist und ein
+ * Zeitfenster bis a.createdAt die Tools systematisch verpasst.
+ */
+async function listToolCallsByMessage(
+  conversationId: string,
+  userId: string,
+): Promise<Map<string, string[]>> {
+  const rows = await query<ToolCallRow>(
+    `SELECT tc.tool_name, tc.message_id
+     FROM tour_manager.assistant_tool_calls tc
+     JOIN tour_manager.assistant_conversations c ON c.id = tc.conversation_id
+     WHERE tc.conversation_id = $1
+       AND c.user_id = $2
+       AND tc.status = 'success'
+     ORDER BY tc.created_at ASC`,
+    [conversationId, userId],
+  );
+  const byMessage = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!r.message_id) continue;
+    const list = byMessage.get(r.message_id) ?? [];
+    list.push(r.tool_name);
+    byMessage.set(r.message_id, list);
+  }
+  return byMessage;
+}
+
+type Candidate = {
+  id: string;
+  conversationId: string;
+  userMessageId: string;
+  assistantMessageId: string;
+  followUpMessageId: string;
+  signalMatch: string;
+  userMessage: string;
+  assistantFinal: string;
+  observedTools: string[];
+  capturedAt: string;
+};
+
+async function main() {
+  const args = parseArgs(process.argv);
+  const userId = args.userId ?? process.env.ASSISTANT_REPLAY_USER_ID?.trim() ?? null;
+  if (!userId) {
+    console.error("ASSISTANT_REPLAY_USER_ID (User-UUID) ist erforderlich (env oder --user-id=).");
+    process.exit(1);
+  }
+
+  const convs = await listAssistantHistory({
+    userId,
+    limit: args.limit,
+    limitCap: 100,
+    filter: "active",
+  });
+
+  const candidates: Candidate[] = [];
+  let scannedTriples = 0;
+
+  for (const c of convs) {
+    const msgs = await listConversationMessages({ conversationId: c.id, userId });
+    if (msgs.length < 3) continue;
+
+    const toolsByMessage = await listToolCallsByMessage(c.id, userId);
+
+    for (let i = 0; i < msgs.length - 2; i += 1) {
+      const u1 = msgs[i];
+      const a = msgs[i + 1];
+      const u2 = msgs[i + 2];
+      if (u1.role !== "user" || a.role !== "assistant" || u2.role !== "user") continue;
+
+      scannedTriples += 1;
+
+      const followUpRaw = extractText(u2.content).trim();
+      // Nur kurze, klare Bestätigungen — lange Follow-Ups sind oft Folgefragen
+      // und kein Daumen-hoch.
+      if (followUpRaw.length === 0 || followUpRaw.length >= 80) continue;
+      const match = followUpRaw.match(THANKS_REGEX);
+      if (!match) continue;
+
+      const userMessage = anonymizeReplayText(extractText(u1.content)).trim();
+      const assistantFinal = anonymizeReplayText(extractText(a.content)).trim();
+      if (!userMessage || !assistantFinal) continue;
+
+      const tools = toolsByMessage.get(a.id) ?? [];
+
+      candidates.push({
+        id: `harvest-${c.id.slice(0, 8)}-${a.id.slice(0, 8)}`,
+        conversationId: c.id,
+        userMessageId: u1.id,
+        assistantMessageId: a.id,
+        followUpMessageId: u2.id,
+        signalMatch: match[0],
+        userMessage,
+        assistantFinal,
+        observedTools: tools,
+        capturedAt: typeof a.createdAt === "string" ? a.createdAt : a.createdAt.toISOString(),
+      });
+    }
+  }
+
+  // Dedup: gleiche Frage + gleiche Antwort nur einmal (häufigster Tool-Plan gewinnt).
+  const seen = new Map<string, Candidate>();
+  for (const c of candidates) {
+    const key = `${c.userMessage.toLowerCase()}\u0000${c.assistantFinal.toLowerCase()}`;
+    const existing = seen.get(key);
+    if (!existing || c.observedTools.length > existing.observedTools.length) seen.set(key, c);
+  }
+  const deduped = Array.from(seen.values());
+
+  const payload = {
+    version: 1 as const,
+    generatedAt: new Date().toISOString(),
+    conversationsScanned: convs.length,
+    triplesScanned: scannedTriples,
+    candidates: deduped,
+  };
+
+  fs.writeFileSync(args.outPath, JSON.stringify(payload, null, 2), "utf8");
+
+  console.log(`Conversations scanned: ${convs.length}`);
+  console.log(`User→Assistant→User triples: ${scannedTriples}`);
+  console.log(`Positiv-Signal-Matches: ${candidates.length}`);
+  console.log(`After dedup: ${deduped.length}`);
+  console.log(`Output: ${args.outPath}`);
+
+  if (deduped.length > 0) {
+    console.log("\nTop 5 Kandidaten:");
+    for (const c of deduped.slice(0, 5)) {
+      const q = c.userMessage.length > 70 ? `${c.userMessage.slice(0, 67)}...` : c.userMessage;
+      console.log(`  • [${c.signalMatch}] ${q}`);
+    }
+  }
+}
+
+function isCliEntry(): boolean {
+  const script = path.normalize(fileURLToPath(import.meta.url));
+  const argv1 = process.argv[1];
+  if (!argv1) return false;
+  return path.normalize(argv1) === script;
+}
+
+if (isCliEntry()) {
+  main()
+    .then(() => process.exit(0))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
+}
