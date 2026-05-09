@@ -454,7 +454,7 @@ export const useBookingWizardStore = create<BookingWizardState>()(
       removeAddonGroup: (group) => set((s) => ({ addons: s.addons.filter((a) => a.group !== group) })),
       removeAddon: (id) => set((s) => ({ addons: s.addons.filter((a) => a.id !== id) })),
       setPhotographer: (photographer) => set({ photographer }),
-      setDate: (date) => set({ date, time: "", availableSlots: [] }),
+      setDate: (date) => set((s) => (s.date === date ? {} : { date, time: "", availableSlots: [] })),
       setTime: (time) => set({ time }),
       setProvisional: (provisional) => set({ provisional }),
       setBookingKind: (bookingKind) => set({ bookingKind }),
