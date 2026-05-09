@@ -10,7 +10,7 @@
 
 1. [Haupt-Buchungsfluss (POST /api/booking)](#1-haupt-buchungsfluss)
 2. [Provisorische Buchung](#2-provisorische-buchung)
-2b. [Flexible Buchung mit Deadline](#2b-flexible-buchung-mit-deadline)
+    - [2b. Flexible Buchung mit Deadline](#2b-flexible-buchung-mit-deadline)
 3. [Status-Übergänge](#3-status-übergänge)
 4. [Kalender-Sync (MS Graph)](#4-kalender-sync-ms-graph)
 5. [Reschedule-Flow](#5-reschedule-flow)
@@ -161,7 +161,7 @@ Flex-Buchung. Bei flex reserviert das Buchen **keinen Slot** und es findet
 später Fotograf+Termin und der Statuswechsel `disposition_offen → confirmed`
 schickt eine Disposition-Mail mit dem konkreten Termin.
 
-```
+```text
 POST /api/booking { schedule: { bookingKind: "flexible", deadlineAt, flexibleEarliestAt? } }
   │
   ├── 1. Diskriminator früh prüfen (server.js:4607ff) → handleFlexibleBookingSubmit()
@@ -188,7 +188,7 @@ POST /api/booking { schedule: { bookingKind: "flexible", deadlineAt, flexibleEar
 
 **Disposition durch Office:**
 
-```
+```text
 PATCH /api/admin/orders/:orderNo/status  (status="confirmed", schedule.date+time, photographer)
   │
   ├── getTransitionError() prüft: photographer + schedule.date + schedule.time gesetzt
@@ -261,7 +261,7 @@ Beide de-CH (Schweizer Spelling, "ss" statt "ß"), idempotent via
 
 **Mögliche Status-Werte:**
 
-```
+```text
 pending           → provisional       → confirmed → completed → done → archived
    │                    │                  │            │
    ├→ disposition_offen ├→ paused          ├→ paused    └→ archived
