@@ -38,14 +38,27 @@ async function mergeCustomerRecords(client, keepId, mergeId) {
     throw e;
   }
 
-  try {
-    await client.query(
-      `UPDATE tour_manager.portal_users SET core_customer_id = $1 WHERE core_customer_id = $2`,
-      [keepId, mergeId],
-    );
-  } catch (err) {
-    const msg = String(err?.message || "");
-    if (err?.code !== "42P01" && !/relation .* does not exist/i.test(msg)) throw err;
+  // Tabellen ausserhalb des aktuellen search_path: try/catch für ältere DBs ohne die Relation.
+  // FK-Spalten mit ON DELETE SET NULL würden sonst beim finalen DELETE auf NULL gesetzt
+  // und die Verknüpfung zum Zielkunden geht still verloren (siehe CSL-Merge 2026-05-09).
+  const optionalUpdates = [
+    `UPDATE tour_manager.portal_users SET core_customer_id = $1 WHERE core_customer_id = $2`,
+    `UPDATE tour_manager.tours SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE tour_manager.posteingang_conversations SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE tour_manager.posteingang_tasks SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE tour_manager.tickets SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE tour_manager.galleries SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE tour_manager.assistant_conversations SET customer_id = $1 WHERE customer_id = $2`,
+    `UPDATE core.companies SET billing_customer_id = $1, updated_at = NOW() WHERE billing_customer_id = $2`,
+    `UPDATE core.company_members SET customer_id = $1 WHERE customer_id = $2`,
+  ];
+  for (const sql of optionalUpdates) {
+    try {
+      await client.query(sql, [keepId, mergeId]);
+    } catch (err) {
+      const msg = String(err?.message || "");
+      if (err?.code !== "42P01" && !/relation .* does not exist/i.test(msg)) throw err;
+    }
   }
 
   await client.query(`UPDATE orders SET customer_id = $1 WHERE customer_id = $2`, [keepId, mergeId]);
