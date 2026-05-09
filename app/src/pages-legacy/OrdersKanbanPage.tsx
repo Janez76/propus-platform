@@ -15,6 +15,7 @@ import { t as translate } from "../i18n";
 import "../styles/orders-kanban.css";
 
 const LS_COLUMNS = "propus.orders.kanban.columns.v1";
+const LS_SHOW_CANCELLED = "propus.orders.kanban.showCancelled.v1";
 const LS_CARD_COLUMN = "propus.orders.kanban.cardColumn.v1";
 
 type KanbanColumn = { id: string; label: string };
@@ -34,6 +35,7 @@ const DEFAULT_COLUMN_KEYS = [
   "versendet",
   "bereit-verrechnung",
   "abgeschlossen",
+  "storniert",
 ] as const;
 
 type DefaultColumnKey = (typeof DEFAULT_COLUMN_KEYS)[number];
@@ -53,6 +55,7 @@ const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
   "versendet": "orders.kanban.col.versendet",
   "bereit-verrechnung": "orders.kanban.col.bereitVerrechnung",
   "abgeschlossen": "orders.kanban.col.abgeschlossen",
+  "storniert": "orders.kanban.col.storniert",
 };
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -110,6 +113,7 @@ function defaultColumnFor(order: Order): DefaultColumnKey {
     case "archived":
       return "abgeschlossen";
     case "cancelled":
+      return "storniert";
     default:
       return "neu";
   }
@@ -151,6 +155,7 @@ export function OrdersKanbanPage() {
   const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"created" | "appointment">("created");
+  const [showCancelled, setShowCancelled] = useState<boolean>(false);
   const [sidePanelNo, setSidePanelNo] = useState<string | null>(null);
   const [draggedOrderNo, setDraggedOrderNo] = useState<string | null>(null);
   const [dropTargetCol, setDropTargetCol] = useState<string | null>(null);
@@ -166,6 +171,7 @@ export function OrdersKanbanPage() {
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
     setCardOverrides(overrides);
+    setShowCancelled(readLocal<boolean>(LS_SHOW_CANCELLED, false));
     setHydrated(true);
   }, []);
 
@@ -179,6 +185,11 @@ export function OrdersKanbanPage() {
     if (!hydrated) return;
     writeLocal(LS_CARD_COLUMN, cardOverrides);
   }, [cardOverrides, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    writeLocal(LS_SHOW_CANCELLED, showCancelled);
+  }, [showCancelled, hydrated]);
 
   // Re-translate default columns when language changes — only for column ids
   // that still match a default key. User-renamed/added columns keep their label.
@@ -236,7 +247,7 @@ export function OrdersKanbanPage() {
     };
 
     for (const o of filteredOrders) {
-      if (normalizeStatusKey(o.status) === "cancelled") continue;
+      if (!showCancelled && normalizeStatusKey(o.status) === "cancelled") continue;
       const override = cardOverrides[o.orderNo];
       const targetId =
         override && columnIdSet.has(override)
@@ -279,7 +290,7 @@ export function OrdersKanbanPage() {
       buckets.set(k, [...list].sort(sorter));
     }
     return buckets;
-  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort]);
+  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort, showCancelled]);
 
   const sidePanelOrder = useMemo(
     () => (sidePanelNo ? allOrders.find((o) => o.orderNo === sidePanelNo) ?? null : null),
@@ -401,6 +412,15 @@ export function OrdersKanbanPage() {
             className="pkanban__search-input"
           />
         </div>
+        <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)]">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => setShowCancelled(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-[var(--border-strong)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
+          />
+          {t("orders.kanban.showCancelled")}
+        </label>
         <div className="pkanban__toolbar-spacer" />
         <button
           type="button"
@@ -424,6 +444,11 @@ export function OrdersKanbanPage() {
         style={{ scrollbarGutter: "stable" } as CSSProperties}
       >
         {columns.map((col) => {
+          // "storniert"-Spalte nur anzeigen wenn der Toggle aktiv ist —
+          // ansonsten visuell ausblenden (cancelled-Auftraege werden bereits
+          // in ordersByColumn gefiltert, aber die leere Spalte wuerde sonst
+          // immer Platz beanspruchen).
+          if (col.id === "storniert" && !showCancelled) return null;
           const rows = ordersByColumn.get(col.id) ?? [];
           const dropActive = dropTargetCol === col.id;
           return (
