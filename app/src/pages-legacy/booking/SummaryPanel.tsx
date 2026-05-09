@@ -75,7 +75,7 @@ export function SummaryPanel({
     selectedPackage ||
     addons.length > 0 ||
     photographer ||
-    date ||
+    (!isFlex && date) ||
     (isFlex && (deadlineAt || flexibleEarliestAt))
   );
 

@@ -39,7 +39,16 @@ function daysUntil(iso) {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return null;
-  return Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000));
+  const diffMs = t - Date.now();
+  // Wir wollen einen ganzzahligen Tagesversatz mit korrektem Vorzeichen:
+  //  - in der Zukunft: aufrunden (>=1 Tag bei min. 1 Sekunde Differenz)
+  //  - in der Vergangenheit: abrunden Richtung minus (negativer Wert)
+  // Math.ceil eines kleinen negativen Wertes liefert -0; das passiert bei
+  // ueberfaelligen Deadlines (Sekunden bis Stunden) und faellt sonst durch den
+  // days === 0 Check als "heute faellig", obwohl das Datum bereits vorbei ist.
+  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
+  return 0;
 }
 
 function scheduleFlexDeadlineReminder(deps) {
@@ -117,7 +126,14 @@ function scheduleFlexDeadlineReminder(deps) {
             pool, "flex_deadline_office_reminder", OFFICE_EMAIL, r.order_no, vars, sendFn,
           );
 
-          if (result && result.sent === true) {
+          // sendMailIdempotent kann `{sent:false, reason:"already_sent"}` liefern,
+          // wenn `email_send_log` bereits einen Eintrag hat. Ohne DB-Marker
+          // wuerde der Cron stuendlich erneut anlaufen, jedes Mal "already_sent"
+          // bekommen und nie den DB-Marker setzen → Endlosschleife in den Logs.
+          // Beide Erfolgs-Faelle (frischer Versand + idempotent uebersprungen)
+          // setzen den Marker.
+          const sendOk = !!(result && (result.sent === true || result.reason === "already_sent"));
+          if (sendOk) {
             await pool.query(
               `UPDATE orders SET flex_deadline_reminder_sent_at=NOW(), updated_at=NOW()
                WHERE order_no=$1
@@ -126,7 +142,11 @@ function scheduleFlexDeadlineReminder(deps) {
                  AND flex_deadline_reminder_sent_at IS NULL`,
               [r.order_no],
             );
-            ctx.log("flex-deadline-reminder gesendet", { orderNo: r.order_no, days });
+            ctx.log("flex-deadline-reminder marker gesetzt", {
+              orderNo: r.order_no,
+              days,
+              reason: result && result.reason ? result.reason : "sent",
+            });
           } else {
             ctx.warn("flex-deadline-reminder nicht bestaetigt", {
               orderNo: r.order_no,

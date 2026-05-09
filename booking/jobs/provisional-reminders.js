@@ -70,13 +70,24 @@ function scheduleProvisionalReminders(deps) {
           pool, templateKey, row.billing.email, row.order_no, vars, sendMail
         );
 
-        if (result && result.sent === true) {
+        // sendMailIdempotent kann `{sent:false, reason:"already_sent"}` liefern,
+        // wenn `email_send_log` bereits einen Eintrag hat (z. B. Versand in
+        // einem frueheren Lauf erfolgreich, aber DB-Marker nicht persistiert).
+        // Wir behandeln diesen Fall als Erfolg, damit der Marker nachgezogen
+        // wird und der Job nicht stuendlich denselben Auftrag aufgreift.
+        const sendOk = !!(result && (result.sent === true || result.reason === "already_sent"));
+        if (sendOk) {
           await pool.query(
             `UPDATE orders SET ${sentAtColumn}=NOW(), updated_at=NOW() WHERE order_no=$1 AND status='provisional' AND ${sentAtColumn} IS NULL`,
             [row.order_no]
           );
-          ctx.log("marker gesetzt", { orderNo: row.order_no, templateKey, sentAtColumn });
-          return { sent: true };
+          ctx.log("marker gesetzt", {
+            orderNo: row.order_no,
+            templateKey,
+            sentAtColumn,
+            reason: result && result.reason ? result.reason : "sent",
+          });
+          return { sent: true, reason: result && result.reason ? result.reason : "sent" };
         }
 
         ctx.warn("marker nicht gesetzt, Versand nicht bestaetigt", {
