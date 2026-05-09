@@ -1,19 +1,25 @@
 import { query, queryOne, withTransaction, type Querier } from "@/lib/db";
 import type { OrderStatus } from "@/lib/validators/common";
 
-export type OrderRowSchedule = {
+export interface OrderRowSchedule {
   order_no: number;
   status: string;
   schedule_date: string | null;
   schedule_time: string | null;
   schedule: Record<string, unknown> | null;
   photographer_key: string | null;
-};
+  /** Buchungsart: 'fixed' (default) oder 'flexible'. Migration 092. */
+  booking_kind: "fixed" | "flexible";
+  /** Spätestes Aufnahmedatum bei booking_kind='flexible' (sonst NULL). */
+  deadline_at: string | null;
+}
 
 export async function getOrderForTerminEdit(orderNo: string | number, tx?: Querier): Promise<OrderRowSchedule | null> {
   return queryOne<OrderRowSchedule>(
     `SELECT
-        order_no, status, schedule_date, schedule_time, schedule, photographer_key
+        order_no, status, schedule_date, schedule_time, schedule, photographer_key,
+        COALESCE(booking_kind, 'fixed') AS booking_kind,
+        deadline_at
      FROM booking.orders
      WHERE order_no = $1`,
     [orderNo],

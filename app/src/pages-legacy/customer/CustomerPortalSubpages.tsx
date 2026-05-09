@@ -6,9 +6,9 @@ import { useCustomerPermissions } from "@/hooks/useCustomerPermissions";
 import { isPortalHost } from "@/lib/portalHost";
 import { Loader2 } from "lucide-react";
 
-type OrderRow = {
-  orderNo?: number;
-  id?: number;
+/** Gemeinsame Felder der Bestellungen wie sie im Customer-Portal benötigt werden.
+ *  Wird sowohl von der Listen-View (`OrderRow`) als auch vom Detail-Cast genutzt. */
+interface CustomerOrderShape {
   status?: string;
   address?: string;
   schedule?: { date?: string; time?: string };
@@ -18,7 +18,12 @@ type OrderRow = {
   deadlineAt?: string | null;
   /** Frühestmögliches Aufnahmedatum bei booking_kind='flexible'. */
   flexibleEarliestAt?: string | null;
-};
+}
+
+interface OrderRow extends CustomerOrderShape {
+  orderNo?: number;
+  id?: number;
+}
 
 type KindFilter = "all" | "fixed" | "flexible";
 
@@ -42,9 +47,13 @@ function formatDeCH(iso: string | null | undefined, opts?: { compact?: boolean }
   }
   const dt = new Date(s);
   if (Number.isNaN(dt.getTime())) return "—";
-  return compact
-    ? dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" }) + "."
-    : dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+  if (compact) {
+    // de-CH liefert bei nur day+month bereits einen Trailing-Punkt
+    // ("15.05."); kein zusätzliches "." anhängen, sonst "15.05..".
+    const out = dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" });
+    return out.endsWith(".") ? out : `${out}.`;
+  }
+  return dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function useJson<T>(url: string) {
@@ -229,15 +238,7 @@ export function CustomerOrderDetailPage() {
   }
   if (loading) return <Loader2 className="h-6 w-6 animate-spin text-amber-500" />;
 
-  const o = order as {
-    address?: string;
-    status?: string;
-    orderNo?: number;
-    schedule?: { date?: string; time?: string };
-    bookingKind?: "fixed" | "flexible";
-    deadlineAt?: string | null;
-    flexibleEarliestAt?: string | null;
-  } | null;
+  const o = order as (CustomerOrderShape & { orderNo?: number }) | null;
   const isFlex = o?.bookingKind === "flexible";
   // Banner-Zustand am Status festmachen, nicht am Vorhandensein eines Datums.
   // Ein Auftrag in `disposition_offen` mit bereits vorbefuelltem Termin
@@ -303,7 +304,8 @@ export function CustomerOrderDetailPage() {
           ) : null}
           {!isFlex && o.schedule?.date ? (
             <p>
-              <span className="text-zinc-500">Termin:</span> {o.schedule.date} {o.schedule.time}
+              <span className="text-zinc-500">Termin:</span> {formatDeCH(o.schedule.date)}
+              {o.schedule.time ? ` · ${o.schedule.time}` : ""}
             </p>
           ) : null}
         </div>

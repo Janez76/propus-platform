@@ -57,6 +57,8 @@ export async function logStatusAuditEntry(
     actorId: string | null;
     calendarResult?: string;
     errorMessage?: string | null;
+    /** Strukturierte Notiz, z. B. "flex_disposition; deadline=...; dispatched=...". */
+    overrideReason?: string | null;
   },
   tx?: Querier,
 ): Promise<void> {
@@ -73,7 +75,7 @@ export async function logStatusAuditEntry(
       params.calendarResult ?? "not_required",
       params.errorMessage ? String(params.errorMessage).slice(0, 1000) : null,
       false,
-      null,
+      params.overrideReason ? String(params.overrideReason).slice(0, 500) : null,
     ],
     tx,
   );

@@ -124,6 +124,21 @@ export async function saveOrderTermin(
     );
 
     if (v.status !== oldStatus) {
+      // Spezialfall Flex-Disposition: bei disposition_offen → confirmed
+      // strukturierte Notiz in override_reason ablegen (Deadline + disponierter
+      // Termin + Fotograf), damit der Audit-Trail den Disposition-Akt ohne
+      // JOIN auf orders nachvollziehbar zeigt. Spiegelt das Verhalten im
+      // booking/order-status-workflow.js für Konsistenz.
+      let overrideReason: string | null = null;
+      if (oldStatus === "disposition_offen" && v.status === "confirmed") {
+        const deadline = order.deadline_at ? String(order.deadline_at).slice(0, 10) : "";
+        overrideReason = [
+          "flex_disposition",
+          deadline ? `deadline=${deadline}` : null,
+          v.scheduleDate ? `dispatched=${v.scheduleDate}${v.scheduleTime ? ` ${v.scheduleTime}` : ""}` : null,
+          v.photographerKey ? `photographer=${v.photographerKey}` : null,
+        ].filter(Boolean).join("; ");
+      }
       await logStatusAuditEntry(
         {
           orderNo: v.orderNo,
@@ -131,6 +146,7 @@ export async function saveOrderTermin(
           toStatus: v.status,
           source: "admin_manual",
           actorId,
+          overrideReason,
         },
         workTx,
       );
