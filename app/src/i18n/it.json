@@ -2635,6 +2635,7 @@
   "dashboardV2.map.filter.done": "Completati",
   "dashboardV2.map.status.pending": "In sospeso",
   "dashboardV2.map.status.provisional": "Provvisorio",
+  "dashboardV2.map.status.disposition_offen": "In attesa di pianificazione",
   "dashboardV2.map.status.confirmed": "Confermato",
   "dashboardV2.map.status.completed": "Completato",
   "dashboardV2.map.status.done": "Concluso",

@@ -229,6 +229,29 @@ CREATE INDEX idx_orders_deadline_disposition
 | `disposition-offen` (links) | `status === 'disposition_offen'` | `deadline_at ASC` |
 | Card-Badge | `DeadlineBadge` (`app/src/components/ui/DeadlineBadge.tsx`) | rot < 7d, gelb < 14d, neutral sonst |
 
+### Listenansicht (`/admin/orders`, View "Liste")
+
+`disposition_offen` ist eine eigene Tabellen-Sektion zwischen `provisional` und `confirmed`
+(`SECTION_ORDER` in `app/src/components/orders/OrderTable.tsx`, `DEFAULT_EXPANDED=true`).
+Der Chip-Filter "Offen" zählt `disposition_offen` mit (`CHIP_GROUPS` in
+`app/src/pages-legacy/OrdersPage.tsx`, Members `["pending","provisional","disposition_offen"]`).
+Ohne diese beiden Einträge werden Orders mit dem Status durch `grouped.get(key)?.push(order)`
+schweigend verworfen — Regression-Test: `app/src/__tests__/statusCoverage.test.ts`.
+
+### Karten-/Map-Ansicht
+
+Map-Pin orange (`#C25E1F` Ring auf `#FCE7CE` Bg) — siehe
+`STATUS_PALETTE.disposition_offen` und `paletteForStatus()` in
+`app/src/components/orders/mapStatusColors.ts`. Locale-Labels in
+`app/src/i18n/{de,en,fr,it}.json` unter `dashboardV2.map.status.disposition_offen`.
+
+### Order-Chat
+
+Chat ist im Status `disposition_offen` aktiv (Office tauscht sich vor der Disposition mit Kunde
+und Fotograf aus). `ACTIVE_STATUSES` in `app/src/components/orders/OrderChat.tsx` enthält
+`pending`, `provisional`, `disposition_offen`, `paused`, `confirmed`, `completed`. Geblockt
+bleibt nur `cancelled` und `archived`; `done` ist passiv (Feedback-Fenster).
+
 ### Mail-Templates (DB)
 
 | Key | Trigger | Layout |

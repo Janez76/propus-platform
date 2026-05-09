@@ -2647,6 +2647,7 @@
   "dashboardV2.map.filter.done": "Completed",
   "dashboardV2.map.status.pending": "Pending",
   "dashboardV2.map.status.provisional": "Provisional",
+  "dashboardV2.map.status.disposition_offen": "Awaiting dispatch",
   "dashboardV2.map.status.confirmed": "Confirmed",
   "dashboardV2.map.status.completed": "Completed",
   "dashboardV2.map.status.done": "Done",
