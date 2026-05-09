@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { CalendarClock, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, CalendarRange, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
 import { query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
 import {
@@ -8,6 +9,59 @@ import {
 } from "../_shared";
 import { TerminForm } from "./termin-form";
 import { loadOrderContext } from "../_order-context";
+
+function formatFlexDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  // Explizit Europe/Zurich, damit das gerenderte Datum konsistent zur
+  // daysUntilDeadline()-Berechnung ist (sonst kann ein UTC-Offset wie
+  // 2025-05-15T22:00:00+02:00 in einer anderen TZ als anderer Tag wirken).
+  return d.toLocaleDateString("de-CH", {
+    timeZone: "Europe/Zurich",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+interface CHDateParts {
+  y: number;
+  m: number;
+  day: number;
+}
+
+/** Liefert (jahr, monat, tag) eines Date-Objekts in Europe/Zurich
+ *  via Intl.formatToParts (engine-stabil, anders als toLocaleDateString-Output). */
+function chDateParts(d: Date): CHDateParts | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+  return { y, m, day };
+}
+
+/**
+ * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich) via
+ * Mitternacht-zu-Mitternacht-Vergleich (Date.UTC, keine Locale-Annahmen).
+ */
+function daysUntilDeadline(iso: string | null): number | null {
+  if (!iso) return null;
+  const target = chDateParts(new Date(iso));
+  const today = chDateParts(new Date());
+  if (!target || !today) return null;
+  const targetMidnight = Date.UTC(target.y, target.m - 1, target.day);
+  const todayMidnight = Date.UTC(today.y, today.m - 1, today.day);
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
+}
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -54,13 +108,36 @@ export default async function TerminPage({ params, searchParams }: Props) {
     photographer_phone: ctx.photographer_phone,
     photographer_key: ctx.photographer_key,
     done_at: ctx.done_at,
+    booking_kind: ctx.booking_kind,
+    deadline_at: ctx.deadline_at,
+    flexible_earliest_at: ctx.flexible_earliest_at,
   };
+  const isFlexible = order.booking_kind === "flexible";
+  const daysToDeadline = isFlexible ? daysUntilDeadline(order.deadline_at) : null;
+  // Negative Tage = ueberfaellig → rot. Sonst < 7 = rot, < 14 = gelb, sonst neutral.
+  const deadlineTone = daysToDeadline === null
+    ? ""
+    : daysToDeadline < 7
+      ? "border-red-300 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30"
+      : daysToDeadline < 14
+        ? "border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
+        : "border-[var(--border)] bg-[var(--paper-strip)]";
 
   const currentStatus = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 
   if (isEditing) {
     return (
       <>
+        {isFlexible && (
+          <div className={`mb-6 rounded-lg border p-4 ${deadlineTone}`}>
+            <FlexInfoBlock
+              deadline={order.deadline_at}
+              earliest={order.flexible_earliest_at}
+              days={daysToDeadline}
+              status={order.status}
+            />
+          </div>
+        )}
         <TerminForm
           order={{
             order_no: order.order_no,
@@ -69,6 +146,9 @@ export default async function TerminPage({ params, searchParams }: Props) {
             schedule_time: order.schedule_time,
             duration_min: order.duration_min,
             photographer_key: order.photographer_key,
+            booking_kind: order.booking_kind,
+            deadline_at: order.deadline_at,
+            flexible_earliest_at: order.flexible_earliest_at,
           }}
           scheduleDateFallback={scheduleDateFallback}
           photographers={photographers}
@@ -91,6 +171,19 @@ export default async function TerminPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
+      {isFlexible && (
+        <div className={`rounded-lg border p-4 ${deadlineTone}`}>
+          <FlexInfoBlock
+            deadline={order.deadline_at}
+            earliest={order.flexible_earliest_at}
+            days={daysToDeadline}
+            status={order.status}
+            orderNo={order.order_no}
+            showCta
+          />
+        </div>
+      )}
+
       <KpiGrid>
         <Kpi
           icon={<CalendarClock />}
@@ -163,6 +256,79 @@ export default async function TerminPage({ params, searchParams }: Props) {
           <Empty>Kein Status-Verlauf vorhanden</Empty>
         )}
       </Section>
+    </div>
+  );
+}
+
+interface FlexInfoBlockProps {
+  deadline: string | null;
+  earliest: string | null;
+  days: number | null;
+  status: string;
+  orderNo?: number;
+  showCta?: boolean;
+}
+
+function FlexInfoBlock({
+  deadline,
+  earliest,
+  days,
+  status,
+  orderNo,
+  showCta,
+}: FlexInfoBlockProps) {
+  const isPending = status === "disposition_offen";
+  const heading = isPending
+    ? "Flexible Buchung — Disposition offen"
+    : "Flexible Buchung";
+  const sub = isPending
+    ? "Kunde hat eine Deadline angegeben. Bitte Fotograf, Datum und Uhrzeit wählen und auf «Bestätigt» setzen — der Kunde erhält dann automatisch die Disposition-Mail."
+    : "Diese Buchung wurde mit einer Deadline gestellt. Office hat den Termin disponiert.";
+  return (
+    <div className="flex items-start gap-3">
+      <CalendarRange className="mt-0.5 h-5 w-5 shrink-0 text-[var(--ink-1)]" />
+      <div className="flex-1 space-y-2">
+        <div>
+          <p className="text-sm font-semibold text-[var(--ink-1)]">{heading}</p>
+          <p className="mt-1 text-xs text-[var(--ink-3)]">{sub}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Spätestens am</p>
+            <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(deadline)}</p>
+            {days !== null && (
+              <p className={
+                days < 0
+                  ? "mt-0.5 text-xs font-semibold text-red-700 dark:text-red-400"
+                  : "mt-0.5 text-xs text-[var(--ink-3)]"
+              }>
+                {days < 0
+                  ? (days === -1 ? "überfällig (seit 1 Tag)" : `überfällig (seit ${Math.abs(days)} Tagen)`)
+                  : days === 0
+                    ? "heute fällig"
+                    : days === 1
+                      ? "morgen fällig"
+                      : `noch ${days} Tage`}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Frühestens ab</p>
+            <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(earliest)}</p>
+          </div>
+        </div>
+        {showCta && isPending && orderNo && (
+          <div className="pt-2">
+            <Link
+              href={`/orders/${orderNo}/termin?edit=1`}
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--ink-1)] px-4 py-2 text-sm font-semibold text-[var(--paper)] shadow-sm transition-colors hover:bg-[var(--ink-2)] focus:outline-none focus:ring-2 focus:ring-[var(--ink-1)]/30"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Termin disponieren
+            </Link>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

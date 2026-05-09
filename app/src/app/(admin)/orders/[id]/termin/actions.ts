@@ -124,6 +124,33 @@ export async function saveOrderTermin(
     );
 
     if (v.status !== oldStatus) {
+      // Spezialfall Flex-Disposition: bei disposition_offen → confirmed
+      // strukturierte Notiz in override_reason ablegen (Deadline + disponierter
+      // Termin + Fotograf), damit der Audit-Trail den Disposition-Akt ohne
+      // JOIN auf orders nachvollziehbar zeigt. Spiegelt das Verhalten im
+      // booking/order-status-workflow.js für Konsistenz.
+      let overrideReason: string | null = null;
+      if (oldStatus === "disposition_offen" && v.status === "confirmed") {
+        // pg-driver kann TIMESTAMPTZ als JS-Date oder String liefern. Beide
+        // Faelle deterministisch auf YYYY-MM-DD bringen — ein simpler
+        // String(...).slice(0,10) wuerde z. B. bei einem Date-Objekt
+        // "Mon Jun 15..." erzeugen, was als Audit-Notiz unbrauchbar waere.
+        let deadline = "";
+        if (order.deadline_at) {
+          const d = order.deadline_at instanceof Date
+            ? order.deadline_at
+            : new Date(order.deadline_at);
+          if (!Number.isNaN(d.getTime())) {
+            deadline = d.toISOString().slice(0, 10);
+          }
+        }
+        overrideReason = [
+          "flex_disposition",
+          deadline ? `deadline=${deadline}` : null,
+          v.scheduleDate ? `dispatched=${v.scheduleDate}${v.scheduleTime ? ` ${v.scheduleTime}` : ""}` : null,
+          v.photographerKey ? `photographer=${v.photographerKey}` : null,
+        ].filter(Boolean).join("; ");
+      }
       await logStatusAuditEntry(
         {
           orderNo: v.orderNo,
@@ -131,6 +158,7 @@ export async function saveOrderTermin(
           toStatus: v.status,
           source: "admin_manual",
           actorId,
+          overrideReason,
         },
         workTx,
       );

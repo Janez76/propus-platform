@@ -36,6 +36,7 @@ const AcceptInvitePage = lazy(() => import("../pages-legacy/AcceptInvitePage").t
 const DashboardPage = lazy(() => import("../pages-legacy/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const OrdersPage = lazy(() => import("../pages-legacy/OrdersPage").then((m) => ({ default: m.OrdersPage })));
 const OrdersKanbanPage = lazy(() => import("../pages-legacy/OrdersKanbanPage").then((m) => ({ default: m.OrdersKanbanPage })));
+const DispositionPage = lazy(() => import("../pages-legacy/admin/DispositionPage").then((m) => ({ default: m.DispositionPage })));
 const OrderDetail = lazy(() => import("../components/orders/OrderDetail").then((m) => ({ default: m.OrderDetail })));
 const UploadsPage = lazy(() => import("../pages-legacy/UploadsPage").then((m) => ({ default: m.UploadsPage })));
 const CalendarPage = lazy(() => import("../pages-legacy/CalendarPage").then((m) => ({ default: m.CalendarPage })));
@@ -232,6 +233,8 @@ function PrivateRoutes() {
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />
         <Route path="/orders/kanban" element={eg("/orders", <OrdersKanbanPage />)} />
+        <Route path="/admin/orders/disposition" element={eg("/orders", <DispositionPage />)} />
+        <Route path="/orders/disposition" element={<Navigate to="/admin/orders/disposition" replace />} />
         <Route path="/orders/:orderNo" element={eg("/orders", <OrderDetailRoute />)} />
         <Route path="/orders" element={eg("/orders", <OrdersPage />)} />
         <Route path="/upload" element={eg("/upload", <UploadsPage />)} />
