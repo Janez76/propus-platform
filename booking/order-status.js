@@ -17,14 +17,15 @@
  * Reihenfolge entspricht dem typischen Workflow-Ablauf.
  */
 const ORDER_STATUS = {
-  PENDING:     "pending",     // Ausstehend – noch kein Termin blockiert
-  PROVISIONAL: "provisional", // Termin provisorisch gebucht – Slot tentativ belegt (max. 3 Tage)
-  CONFIRMED:   "confirmed",   // Bestätigt – finaler Kalender-Eintrag erforderlich
-  PAUSED:      "paused",      // Pausiert – Slot freigegeben, Kunde wartet auf neues Datum
-  COMPLETED:   "completed",   // Erledigt – Shooting abgeschlossen
-  DONE:        "done",        // Abgeschlossen – Review nach 5 Tagen
-  CANCELLED:   "cancelled",   // Storniert – endgueltig, Slot freigegeben
-  ARCHIVED:    "archived",    // Archiviert – read-only; Reaktivierung -> pending (neu planen)
+  PENDING:           "pending",           // Ausstehend – noch kein Termin blockiert
+  PROVISIONAL:       "provisional",       // Termin provisorisch gebucht – Slot tentativ belegt (max. 3 Tage)
+  DISPOSITION_OFFEN: "disposition_offen", // Flexible Buchung mit Deadline – wartet auf Disposition durch Office
+  CONFIRMED:         "confirmed",         // Bestätigt – finaler Kalender-Eintrag erforderlich
+  PAUSED:            "paused",            // Pausiert – Slot freigegeben, Kunde wartet auf neues Datum
+  COMPLETED:         "completed",         // Erledigt – Shooting abgeschlossen
+  DONE:              "done",              // Abgeschlossen – Review nach 5 Tagen
+  CANCELLED:         "cancelled",         // Storniert – endgueltig, Slot freigegeben
+  ARCHIVED:          "archived",          // Archiviert – read-only; Reaktivierung -> pending (neu planen)
 };
 
 /**
@@ -37,14 +38,15 @@ const VALID_STATUSES = Object.values(ORDER_STATUS);
  * Nicht fuer DB-Speicherung verwenden.
  */
 const STATUS_LABELS_DE = {
-  [ORDER_STATUS.PENDING]:     "Ausstehend",
-  [ORDER_STATUS.PROVISIONAL]: "Termin provisorisch gebucht",
-  [ORDER_STATUS.CONFIRMED]:   "Bestätigt",
-  [ORDER_STATUS.PAUSED]:      "Pausiert",
-  [ORDER_STATUS.COMPLETED]:   "Erledigt",
-  [ORDER_STATUS.DONE]:        "Abgeschlossen",
-  [ORDER_STATUS.CANCELLED]:   "Storniert",
-  [ORDER_STATUS.ARCHIVED]:    "Archiviert",
+  [ORDER_STATUS.PENDING]:           "Ausstehend",
+  [ORDER_STATUS.PROVISIONAL]:       "Termin provisorisch gebucht",
+  [ORDER_STATUS.DISPOSITION_OFFEN]: "Disposition offen",
+  [ORDER_STATUS.CONFIRMED]:         "Bestätigt",
+  [ORDER_STATUS.PAUSED]:            "Pausiert",
+  [ORDER_STATUS.COMPLETED]:         "Erledigt",
+  [ORDER_STATUS.DONE]:              "Abgeschlossen",
+  [ORDER_STATUS.CANCELLED]:         "Storniert",
+  [ORDER_STATUS.ARCHIVED]:          "Archiviert",
 };
 
 /**
@@ -56,15 +58,17 @@ const STATUS_LABELS_DE = {
  * Der context-Check erfolgt in getTransitionError / isTransitionAllowed.
  */
 const ALLOWED_TRANSITIONS = {
-  [ORDER_STATUS.PENDING]:     [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
-  [ORDER_STATUS.PROVISIONAL]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PENDING]:           [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
+  [ORDER_STATUS.PROVISIONAL]:       [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  // Flexible Buchung wartet auf Disposition: Office wählt Slot+Fotograf -> confirmed.
+  [ORDER_STATUS.DISPOSITION_OFFEN]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
   // pending ist hier nicht aufgefuehrt – wird nur via expiry_job erlaubt (siehe isTransitionAllowed)
-  [ORDER_STATUS.PAUSED]:      [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]:   [ORDER_STATUS.COMPLETED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.COMPLETED]:   [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.DONE]:        [ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.CANCELLED]:   [ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.ARCHIVED]:    [ORDER_STATUS.PENDING],
+  [ORDER_STATUS.PAUSED]:            [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]:         [ORDER_STATUS.COMPLETED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.COMPLETED]:         [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.DONE]:              [ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.CANCELLED]:         [ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.ARCHIVED]:          [ORDER_STATUS.PENDING],
 };
 
 /**

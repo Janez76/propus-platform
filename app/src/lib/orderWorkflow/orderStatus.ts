@@ -2,6 +2,7 @@
 export const ORDER_STATUS = {
   PENDING: "pending",
   PROVISIONAL: "provisional",
+  DISPOSITION_OFFEN: "disposition_offen",
   CONFIRMED: "confirmed",
   PAUSED: "paused",
   COMPLETED: "completed",
