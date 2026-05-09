@@ -51,7 +51,12 @@ function scheduleProvisionalReminders(deps) {
           return { sent: false, reason: "mail_disabled_or_missing_recipient" };
         }
 
+        // SQL-Row hat snake_case `order_no`, aber buildTemplateVars liest
+        // nur `order.orderNo` (camelCase) — sonst bliebe {{orderNo}} im
+        // gerenderten Subject/Body leer (Template-Renderer-Vertrag, siehe
+        // template-renderer.js:309). Im extras-Override mappen.
         const vars = buildTemplateVars(row, {
+          orderNo: String(row.order_no || ""),
           provisionalExpiresDate: row.provisional_expires_at
             ? new Date(row.provisional_expires_at).toLocaleDateString("de-CH", {
                 timeZone: "Europe/Zurich",
@@ -134,7 +139,7 @@ function scheduleProvisionalReminders(deps) {
           await sendReminder(r, "provisional_reminder_3", "provisional_reminder_3_sent_at");
           // Büro einmalig beim letzten Reminder (Tag 3) benachrichtigen
           if (mailOn && sendMail && OFFICE_EMAIL) {
-            const vars = buildTemplateVars(r, {});
+            const vars = buildTemplateVars(r, { orderNo: String(r.order_no || "") });
             const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
             await sendMailIdempotent(pool, "office_provisional_expiry_notice", OFFICE_EMAIL, r.order_no, vars, sendFn)
               .catch(function(e) {

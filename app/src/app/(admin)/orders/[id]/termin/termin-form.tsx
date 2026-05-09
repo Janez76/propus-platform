@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
@@ -41,6 +41,10 @@ type Props = {
     schedule_time: string | null;
     duration_min: number | null;
     photographer_key: string | null;
+    /** Bei booking_kind='flexible' gesetzt — fuer Datum-Range-Hint waehrend der Disposition. */
+    booking_kind?: "fixed" | "flexible" | null;
+    deadline_at?: string | null;
+    flexible_earliest_at?: string | null;
   };
   /** Einmal pro Request von der Server-Page gesetzt, damit SSR und Hydration dasselbe Default-Datum nutzen. */
   scheduleDateFallback: string;
@@ -99,6 +103,38 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
   }, [form, isDirty, shell]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  /** Bei flex-Disposition: ISO-Date "YYYY-MM-DD" der Deadline und des
+   *  Frueheste-ab. Wenn das gewaehlte Datum aus dem Fenster faellt,
+   *  zeigen wir einen Inline-Hinweis (kein harter Block — Office kann
+   *  bewusst ueberreichen, z. B. wenn der Kunde zugestimmt hat). */
+  const flexRange = useMemo(() => {
+    if (order.booking_kind !== "flexible") return null;
+    const toDate = (iso: string | null | undefined) => {
+      if (!iso) return null;
+      const d = String(iso).slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+    };
+    return {
+      deadline: toDate(order.deadline_at),
+      earliest: toDate(order.flexible_earliest_at),
+    };
+  }, [order.booking_kind, order.deadline_at, order.flexible_earliest_at]);
+  const watchedScheduleDate = form.watch("scheduleDate");
+  const flexHint = useMemo(() => {
+    if (!flexRange) return null;
+    const date = String(watchedScheduleDate || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    if (flexRange.deadline && date > flexRange.deadline) {
+      const fmt = (iso: string) => iso.split("-").reverse().join(".");
+      return { tone: "danger" as const, msg: `Datum liegt nach der Kunden-Deadline (${fmt(flexRange.deadline)}).` };
+    }
+    if (flexRange.earliest && date < flexRange.earliest) {
+      const fmt = (iso: string) => iso.split("-").reverse().join(".");
+      return { tone: "warn" as const, msg: `Datum liegt vor "Frühestens ab" (${fmt(flexRange.earliest)}).` };
+    }
+    return null;
+  }, [flexRange, watchedScheduleDate]);
 
   const onSubmit = useCallback(
     (v: TerminFormValues) => {
@@ -169,10 +205,23 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
               <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Datum *</span>
               <input
                 type="date"
+                min={flexRange?.earliest ?? undefined}
+                max={flexRange?.deadline ?? undefined}
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("scheduleDate")}
               />
               <FieldError<TerminFormValues> name="scheduleDate" />
+              {flexHint && (
+                <p
+                  className={
+                    flexHint.tone === "danger"
+                      ? "mt-1 text-xs font-medium text-red-700 dark:text-red-400"
+                      : "mt-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                  }
+                >
+                  {flexHint.msg}
+                </p>
+              )}
             </div>
             <div>
               <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Uhrzeit (15 min) *</span>

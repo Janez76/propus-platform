@@ -106,6 +106,9 @@ export default async function TerminPage({ params, searchParams }: Props) {
             schedule_time: order.schedule_time,
             duration_min: order.duration_min,
             photographer_key: order.photographer_key,
+            booking_kind: order.booking_kind,
+            deadline_at: order.deadline_at,
+            flexible_earliest_at: order.flexible_earliest_at,
           }}
           scheduleDateFallback={scheduleDateFallback}
           photographers={photographers}
