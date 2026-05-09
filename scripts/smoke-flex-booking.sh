@@ -25,6 +25,16 @@ EMAIL="${SMOKE_EMAIL:-smoke-flex@invite.buchungstool.invalid}"
 COMPANY="${SMOKE_COMPANY:-Smoke Test AG}"
 NAME="${SMOKE_NAME:-Smoke Tester}"
 
+# NAME in Vor-/Nachname splitten — alles vor dem ersten Leerzeichen ist
+# `first_name`, der Rest landet in `name`. Default "Smoke Tester" ergibt
+# damit weiterhin "Smoke" / "Tester" wie die Original-Hardcodes.
+FIRST_NAME="${NAME%% *}"
+LAST_NAME="${NAME#* }"
+if [ "$FIRST_NAME" = "$LAST_NAME" ]; then
+  # Kein Leerzeichen im Namen → kompletter Wert als first_name, name leer.
+  LAST_NAME=""
+fi
+
 # Deadline = heute + 14 Tage in Europe/Zurich (Host-TZ wird ignoriert,
 # damit Tagesgrenzen-Drift bei UTC-Servern nicht ueberraschen kann).
 DEADLINE_DATE="$(TZ=Europe/Zurich date -d '+14 days' +%Y-%m-%d 2>/dev/null || TZ=Europe/Zurich date -v+14d +%Y-%m-%d)"
@@ -63,8 +73,8 @@ PAYLOAD=$(cat <<JSON
   },
   "billing": {
     "salutation": "Herr",
-    "first_name": "Smoke",
-    "name": "Tester",
+    "first_name": "${FIRST_NAME}",
+    "name": "${LAST_NAME}",
     "company": "${COMPANY}",
     "email": "${EMAIL}",
     "phone": "0791234567",
