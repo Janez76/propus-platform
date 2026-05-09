@@ -167,20 +167,20 @@ export function OrdersKanbanPage() {
   useEffect(() => {
     const stored = readLocal<KanbanColumn[] | null>(LS_COLUMNS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      // Migration: bestehende localStorage-Daten haben die "storniert"-Spalte
-      // ggf. nicht. Ohne diese Spalte würde resolveColumnId() cancelled-Karten
-      // in "abgeschlossen" einsortieren. Default-Spalten, die fehlen, werden
-      // hier nachgepflegt (am Ende, damit User-spezifische Reihenfolge
-      // erhalten bleibt). Eigene/umbenannte User-Spalten bleiben unangetastet.
+      // Gezielte Migration NUR fuer die neue "storniert"-Spalte: bestehende
+      // localStorage-Layouts kennen sie nicht, ohne sie wuerde
+      // resolveColumnId() cancelled-Karten in "abgeschlossen" einsortieren.
+      // Andere fehlende Defaults werden BEWUSST nicht nachgezogen, damit
+      // User-Loeschungen (z. B. "video-fehlt") ueber Refreshes hinweg
+      // persistent bleiben — sonst wuerde die Migration dauerhaft alle
+      // gesammelten Defaults zurueckschreiben.
       const knownIds = new Set(stored.map((c) => c.id));
-      const missingDefaults: KanbanColumn[] = [];
-      for (const id of DEFAULT_COLUMN_KEYS) {
-        if (!knownIds.has(id)) {
-          const labelKey = DEFAULT_COLUMN_LABEL_KEYS[id];
-          missingDefaults.push({ id, label: labelKey ? t(labelKey) : id });
-        }
+      if (!knownIds.has("storniert")) {
+        const labelKey = DEFAULT_COLUMN_LABEL_KEYS["storniert"];
+        setColumns([...stored, { id: "storniert", label: labelKey ? t(labelKey) : "Storniert" }]);
+      } else {
+        setColumns(stored);
       }
-      setColumns(missingDefaults.length > 0 ? [...stored, ...missingDefaults] : stored);
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
     setCardOverrides(overrides);
