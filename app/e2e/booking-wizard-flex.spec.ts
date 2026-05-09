@@ -91,11 +91,13 @@ async function gotoWizardOnStep3(page: import("@playwright/test").Page, baseURL:
     try { window.localStorage.setItem(key, payload); } catch { /* noop */ }
   }, { key: BOOKING_WIZARD_STORE_NAME, payload: JSON.stringify(seedState(bookingKind)) });
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  // Landing-Klick falls Landing aktiv ist
+  // Landing-Klick: explizit auf Sichtbarkeit warten — `Locator.isVisible()`
+  // kehrt sofort zurueck, ohne auf Sichtbarkeit zu warten, was zu einer
+  // Race-Condition fuehrte: bei langsamem Laden wurde der Klick uebersprungen
+  // und der Test blieb in der Landing-Page haengen.
   const landingStart = page.getByTestId("booking-landing-start");
-  if (await landingStart.isVisible().catch(() => false)) {
-    await landingStart.click();
-  }
+  await expect(landingStart).toBeVisible({ timeout: 60_000 });
+  await landingStart.click();
   await expect(page.getByTestId("booking-wizard")).toBeVisible({ timeout: 60_000 });
 }
 
@@ -113,12 +115,17 @@ test.describe("Buchungs-Wizard Flex (Smoke)", () => {
     // Auf Flex umschalten — i18n-stabil ueber data-testid.
     await page.getByTestId("booking-kind-flexible-label").click();
 
-    // Deadline-Input sichtbar, Date-Input weg.
+    // Vollstaendige Sichtbarkeits-Matrix Flex-Modus:
+    //  - Deadline-Input + Hinweis: sichtbar
+    //  - gesamte Fix-Section (Photographer + Date + Time): ausgeblendet
     await expect(page.getByTestId("booking-input-deadline")).toBeVisible();
-    await expect(page.getByTestId("booking-input-date")).toBeHidden();
-
-    // Disposition-Hinweis sichtbar.
     await expect(page.getByTestId("booking-flex-disposition-hint")).toBeVisible();
+    await expect(page.getByTestId("booking-fixed-section")).toBeHidden();
+    await expect(page.getByTestId("booking-photographer-picker")).toBeHidden();
+    await expect(page.getByTestId("booking-input-date")).toBeHidden();
+    // booking-time-picker rendert nur wenn date gesetzt — entweder versteckt
+    // oder gar nicht im DOM. toBeHidden erfasst beide Faelle.
+    await expect(page.getByTestId("booking-time-picker")).toBeHidden();
   });
 
   test("Step 3 Flex: Deadline in der Zukunft setzen produziert keine Validation-Errors", async ({ page, baseURL }) => {
