@@ -84,6 +84,8 @@
   "orders.kanban.column.empty": "No entries",
   "orders.kanban.tag.serviceOrder": "Service order",
   "orders.kanban.col.dispositionOffen": "Disposition pending",
+  "orders.kanban.col.storniert": "Cancelled",
+  "orders.kanban.showCancelled": "Show cancelled",
   "orders.kanban.col.neu": "New",
   "orders.kanban.col.terminAbmachen": "Schedule appointment",
   "orders.kanban.col.terminAbgemacht": "Appointment scheduled",

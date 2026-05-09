@@ -147,6 +147,7 @@ export function OrdersPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<StatusKey, number> = {
       pending: 0,
+      disposition_offen: 0,
       provisional: 0,
       confirmed: 0,
       paused: 0,
