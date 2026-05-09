@@ -124,10 +124,16 @@ export function BookingWizardPage() {
         if (e.field === "time" && time.trim()) return false;
         if (e.field === "date" && date.trim()) return false;
         if (e.field === "photographer" && photographer) return false;
+        if (e.field === "deadlineAt" && deadlineAt.trim()) return false;
+        if (e.field === "flexibleEarliestAt") {
+          // Cleared, oder jetzt vor der Deadline → Fehler weg.
+          if (!flexibleEarliestAt.trim()) return false;
+          if (deadlineAt.trim() && flexibleEarliestAt < deadlineAt) return false;
+        }
         return true;
       }),
     );
-  }, [time, date, photographer, step]);
+  }, [time, date, photographer, deadlineAt, flexibleEarliestAt, step]);
 
   /** Step 1: Fehler-Banner gegen aktuellen State neu auswerten, sobald
    * Adressfelder editiert werden. Ohne diesen Pass blieb ein veraltetes

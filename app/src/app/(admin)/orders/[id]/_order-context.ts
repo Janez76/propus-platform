@@ -19,6 +19,12 @@ export type OrderContext = {
   schedule_date: string | null;
   schedule_time: string | null;
   duration_min: number | null;
+  /** Flexible Buchung mit Deadline (Migration 092). 'fixed' (default) | 'flexible'. */
+  booking_kind: "fixed" | "flexible";
+  /** Spätestes Aufnahmedatum bei booking_kind='flexible' (sonst NULL). */
+  deadline_at: string | null;
+  /** Frühestmögliches Aufnahmedatum bei booking_kind='flexible' (optional). */
+  flexible_earliest_at: string | null;
   total_chf: number | null;
   photographer_name: string | null;
   photographer_email: string | null;
@@ -77,6 +83,9 @@ export const loadOrderContext = cache(
         o.schedule_date,
         o.schedule_time,
         ${DURATION_MIN_FROM_SCHEDULE.o} AS duration_min,
+        COALESCE(o.booking_kind, 'fixed') AS booking_kind,
+        o.deadline_at,
+        o.flexible_earliest_at,
         (o.pricing->>'total')::numeric AS total_chf,
         p.name AS photographer_name,
         o.photographer->>'email' AS photographer_email,

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { CalendarClock, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
+import { CalendarClock, CalendarRange, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
 import { query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
 import {
@@ -8,6 +8,20 @@ import {
 } from "../_shared";
 import { TerminForm } from "./termin-form";
 import { loadOrderContext } from "../_order-context";
+
+function formatFlexDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function daysUntilDeadline(iso: string | null): number | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  return Math.max(0, Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000)));
+}
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -54,13 +68,35 @@ export default async function TerminPage({ params, searchParams }: Props) {
     photographer_phone: ctx.photographer_phone,
     photographer_key: ctx.photographer_key,
     done_at: ctx.done_at,
+    booking_kind: ctx.booking_kind,
+    deadline_at: ctx.deadline_at,
+    flexible_earliest_at: ctx.flexible_earliest_at,
   };
+  const isFlexible = order.booking_kind === "flexible";
+  const daysToDeadline = isFlexible ? daysUntilDeadline(order.deadline_at) : null;
+  const deadlineTone = daysToDeadline === null
+    ? ""
+    : daysToDeadline < 7
+      ? "border-red-300 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30"
+      : daysToDeadline < 14
+        ? "border-amber-300 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
+        : "border-[var(--border)] bg-[var(--paper-strip)]";
 
   const currentStatus = STATUS_LABEL[order.status] ?? STATUS_LABEL.pending;
 
   if (isEditing) {
     return (
       <>
+        {isFlexible && (
+          <div className={`mb-6 rounded-lg border p-4 ${deadlineTone}`}>
+            <FlexInfoBlock
+              deadline={order.deadline_at}
+              earliest={order.flexible_earliest_at}
+              days={daysToDeadline}
+              status={order.status}
+            />
+          </div>
+        )}
         <TerminForm
           order={{
             order_no: order.order_no,
@@ -91,6 +127,17 @@ export default async function TerminPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-6">
+      {isFlexible && (
+        <div className={`rounded-lg border p-4 ${deadlineTone}`}>
+          <FlexInfoBlock
+            deadline={order.deadline_at}
+            earliest={order.flexible_earliest_at}
+            days={daysToDeadline}
+            status={order.status}
+          />
+        </div>
+      )}
+
       <KpiGrid>
         <Kpi
           icon={<CalendarClock />}
@@ -163,6 +210,52 @@ export default async function TerminPage({ params, searchParams }: Props) {
           <Empty>Kein Status-Verlauf vorhanden</Empty>
         )}
       </Section>
+    </div>
+  );
+}
+
+function FlexInfoBlock({
+  deadline,
+  earliest,
+  days,
+  status,
+}: {
+  deadline: string | null;
+  earliest: string | null;
+  days: number | null;
+  status: string;
+}) {
+  const isPending = status === "disposition_offen";
+  const heading = isPending
+    ? "Flexible Buchung — Disposition offen"
+    : "Flexible Buchung";
+  const sub = isPending
+    ? "Kunde hat eine Deadline angegeben. Bitte Fotograf, Datum und Uhrzeit wählen und auf «Bestätigt» setzen — der Kunde erhält dann automatisch die Disposition-Mail."
+    : "Diese Buchung wurde mit einer Deadline gestellt. Office hat den Termin disponiert.";
+  return (
+    <div className="flex items-start gap-3">
+      <CalendarRange className="mt-0.5 h-5 w-5 shrink-0 text-[var(--ink-1)]" />
+      <div className="flex-1 space-y-2">
+        <div>
+          <p className="text-sm font-semibold text-[var(--ink-1)]">{heading}</p>
+          <p className="mt-1 text-xs text-[var(--ink-3)]">{sub}</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Spätestens am</p>
+            <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(deadline)}</p>
+            {days !== null && (
+              <p className="mt-0.5 text-xs text-[var(--ink-3)]">
+                {days === 0 ? "heute fällig" : days === 1 ? "morgen fällig" : `noch ${days} Tage`}
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Frühestens ab</p>
+            <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(earliest)}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
