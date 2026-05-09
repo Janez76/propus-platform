@@ -5,6 +5,7 @@ import { Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
 
 import { getOrders, type Order } from "../api/orders";
 import { OrderSidePanel } from "../components/orders/OrderSidePanel";
+import { DeadlineBadge } from "../components/ui/DeadlineBadge";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
 import { normalizeStatusKey, type StatusKey } from "../lib/status";
@@ -19,6 +20,7 @@ const LS_CARD_COLUMN = "propus.orders.kanban.cardColumn.v1";
 type KanbanColumn = { id: string; label: string };
 
 const DEFAULT_COLUMN_KEYS = [
+  "disposition-offen",
   "neu",
   "termin-abmachen",
   "termin-abgemacht",
@@ -37,6 +39,7 @@ const DEFAULT_COLUMN_KEYS = [
 type DefaultColumnKey = (typeof DEFAULT_COLUMN_KEYS)[number];
 
 const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
+  "disposition-offen": "orders.kanban.col.dispositionOffen",
   "neu": "orders.kanban.col.neu",
   "termin-abmachen": "orders.kanban.col.terminAbmachen",
   "termin-abgemacht": "orders.kanban.col.terminAbgemacht",
@@ -91,6 +94,8 @@ function uniqueColumnId(base: string, taken: Set<string>): string {
 function defaultColumnFor(order: Order): DefaultColumnKey {
   const k: StatusKey | null = normalizeStatusKey(order.status);
   switch (k) {
+    case "disposition_offen":
+      return "disposition-offen";
     case "pending":
       return order.appointmentDate ? "termin-abmachen" : "neu";
     case "provisional":
@@ -261,7 +266,18 @@ export function OrdersKanbanPage() {
       return String(b.orderNo).localeCompare(String(a.orderNo));
     };
 
-    for (const [k, list] of buckets) buckets.set(k, [...list].sort(cmp));
+    /** Disposition-Spalte: knappste Deadline zuerst (ASC). Aufträge ohne
+     *  Deadline rutschen ans Ende. */
+    const cmpDeadline = (a: Order, b: Order) => {
+      const av = a.deadlineAt ? new Date(a.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+      const bv = b.deadlineAt ? new Date(b.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+      return av - bv;
+    };
+
+    for (const [k, list] of buckets) {
+      const sorter = k === "disposition-offen" ? cmpDeadline : cmp;
+      buckets.set(k, [...list].sort(sorter));
+    }
     return buckets;
   }, [columns, filteredOrders, cardOverrides, columnIdSet, sort]);
 
@@ -544,6 +560,11 @@ function KanbanCard({
       </div>
       {subLine ? (
         <div className="pkanban__card-sub">{subLine}</div>
+      ) : null}
+      {order.deadlineAt ? (
+        <div className="pkanban__card-meta mt-1">
+          <DeadlineBadge deadlineAt={order.deadlineAt} />
+        </div>
       ) : null}
       <div className="pkanban__card-foot">
         {showServiceTag ? (

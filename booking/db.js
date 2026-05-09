@@ -1571,7 +1571,8 @@ async function insertOrder(record, customerId) {
       created_at,
       confirmation_token, confirmation_token_expires_at, confirmation_pending_since,
       attendee_emails, onsite_email, onsite_contacts,
-      address_lat, address_lon, assignment_trace
+      address_lat, address_lon, assignment_trace,
+      booking_kind, deadline_at, flexible_earliest_at
     ) VALUES (
       $1,$2,$3,$4,
       $5,$6,$7,$8,$9,$10,
@@ -1579,7 +1580,8 @@ async function insertOrder(record, customerId) {
       $17,
       $18,$19,$20,
       $21,$22,$23,
-      $24,$25,$26::jsonb
+      $24,$25,$26::jsonb,
+      $27,$28,$29
     ) RETURNING id`;
   const latRaw = Number(normalizedRecord.address_lat);
   const lonRaw = Number(normalizedRecord.address_lon);
@@ -1593,6 +1595,15 @@ async function insertOrder(record, customerId) {
     assignmentTraceRaw !== undefined && assignmentTraceRaw !== null
       ? JSON.stringify(assignmentTraceRaw)
       : null;
+
+  const bookingKindRaw = String(normalizedRecord.bookingKind || normalizedRecord.booking_kind || "fixed").toLowerCase();
+  const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
+  const deadlineAtParam = normalizedRecord.deadlineAt
+    ? new Date(normalizedRecord.deadlineAt)
+    : null;
+  const flexibleEarliestAtParam = normalizedRecord.flexibleEarliestAt
+    ? new Date(normalizedRecord.flexibleEarliestAt)
+    : null;
 
   const baseParams = [
     normalizedRecord.orderNo,
@@ -1621,6 +1632,9 @@ async function insertOrder(record, customerId) {
     addressLat,
     addressLon,
     assignmentTraceJson,
+    bookingKind,
+    deadlineAtParam,
+    flexibleEarliestAtParam,
   ];
 
   const insertWithKeyPickup = async (keyPickupParam) => {
@@ -2684,6 +2698,9 @@ function dbRowToRecord(row) {
     address_lat: row.address_lat != null ? Number(row.address_lat) : null,
     address_lon: row.address_lon != null ? Number(row.address_lon) : null,
     assignmentTrace: row.assignment_trace != null ? row.assignment_trace : null,
+    bookingKind: row.booking_kind || "fixed",
+    deadlineAt: row.deadline_at || null,
+    flexibleEarliestAt: row.flexible_earliest_at || null,
   });
 }
 

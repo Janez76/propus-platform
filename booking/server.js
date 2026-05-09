@@ -4597,6 +4597,182 @@ app.post("/api/booking/duplicate-check", bookingLimiter, async (req, res) => {
   }
 });
 
+/**
+ * Flex-Buchungs-Branch: Kunde gibt Deadline (und optional Frühestens-ab) an,
+ * Office disponiert später Fotograf+Slot. Beim Buchen werden weder Slot noch
+ * Photographer-Routing geprüft — der Auftrag landet direkt in
+ * status='disposition_offen'.
+ */
+async function handleFlexibleBookingSubmit(ctx) {
+  const { requestId, payload, schedule, billing, object, onsiteContactsList, services, addressText, keyPickup } = ctx;
+  const customerEmail = String(billing.email || "").trim();
+
+  // Validation: deadline_at >= now() + 24h, optional flexible_earliest_at < deadline_at.
+  const deadlineRaw = String(schedule.deadlineAt || "").trim();
+  const earliestRaw = String(schedule.flexibleEarliestAt || "").trim();
+  const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : null;
+  const earliestDate = earliestRaw ? new Date(earliestRaw) : null;
+
+  if (!customerEmail) {
+    return { statusCode: 400, body: { error: "Missing customer email", field: "email", requestId } };
+  }
+  if (!deadlineDate || isNaN(deadlineDate.getTime())) {
+    return { statusCode: 400, body: { error: "Ungültige Deadline.", field: "deadlineAt", requestId } };
+  }
+  const minDeadlineMs = Date.now() + 24 * 60 * 60 * 1000;
+  if (deadlineDate.getTime() < minDeadlineMs) {
+    return {
+      statusCode: 400,
+      body: {
+        error: "Die Deadline muss mindestens 24 Stunden in der Zukunft liegen.",
+        field: "deadlineAt",
+        requestId,
+      },
+    };
+  }
+  if (earliestRaw) {
+    if (!earliestDate || isNaN(earliestDate.getTime())) {
+      return { statusCode: 400, body: { error: "Ungültiges Frühestens-ab-Datum.", field: "flexibleEarliestAt", requestId } };
+    }
+    if (earliestDate.getTime() >= deadlineDate.getTime()) {
+      return {
+        statusCode: 400,
+        body: { error: "Frühestens-ab-Datum muss vor der Deadline liegen.", field: "flexibleEarliestAt", requestId },
+      };
+    }
+  }
+
+  // Geocoding ist nicht buchungskritisch — wir geocoden hier optional, damit
+  // Office die Disposition mit Koordinaten machen kann.
+  let bookingCoords = payload?.address?.coords
+    ? { lat: Number(payload.address.coords.lat), lon: Number(payload.address.coords.lng ?? payload.address.coords.lon) }
+    : null;
+  if (!bookingCoords) {
+    try {
+      const geocoded = await geocoder.geocodeBookingObject(object);
+      if (geocoded) bookingCoords = geocoded;
+    } catch { /* nicht buchungskritisch */ }
+  }
+
+  // Pricing aus Frontend übernehmen (kein Slot-Travel-Cost beim Buchen).
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const frontendPricing = payload?.pricing || {};
+  let subtotalFinal = num(frontendPricing.subtotal);
+  let discountAmountFinal = num(frontendPricing.discountAmount);
+  let vatFinal = num(frontendPricing.vat);
+  let totalFinal = num(frontendPricing.total);
+
+  if (subtotalFinal === 0) {
+    try {
+      const pricingData = await computePricing({ services, object, discountCode: payload.discountCode || "", customerEmail });
+      subtotalFinal = num(pricingData?.pricing?.subtotal);
+      discountAmountFinal = num(pricingData?.pricing?.discountAmount);
+      vatFinal = num(pricingData?.pricing?.vat);
+      totalFinal = num(pricingData?.pricing?.total);
+    } catch { /* fallback bleibt 0 */ }
+  }
+
+  const orderNo = await nextOrderNumber();
+
+  const firstOnsite = onsiteContactsList[0] || {
+    name: String(object.onsiteName || billing.onsiteName || "").trim(),
+    phone: String(object.onsitePhone || billing.onsitePhone || "").trim(),
+    email: String(object.onsiteEmail || billing.onsiteEmail || "").trim(),
+    calendarInvite: false,
+  };
+
+  const orderRecord = {
+    orderNo,
+    createdAt: new Date().toISOString(),
+    status: "disposition_offen",
+    bookingKind: "flexible",
+    deadlineAt: deadlineDate.toISOString(),
+    flexibleEarliestAt: earliestDate ? earliestDate.toISOString() : null,
+    address: addressText,
+    object: {
+      type: object.type || "",
+      area: object.area || "",
+      floors: object.floors || 1,
+      rooms: object.rooms || "",
+      desc: object.desc || "",
+    },
+    services: {
+      package: services.package || {},
+      addons: (services.addons || []).map((a) => ({ id: a.id, label: a.label, price: a.price, group: a.group })),
+    },
+    photographer: {}, // wird von Office bei Disposition gesetzt
+    schedule: {},     // wird von Office bei Disposition gesetzt
+    onsiteContacts: onsiteContactsList,
+    onsiteEmail: firstOnsite.email || null,
+    billing: {
+      salutation: billing.salutation || "",
+      first_name: billing.first_name || "",
+      company: billing.company || "",
+      company_email: billing.company_email || "",
+      company_phone: billing.company_phone || "",
+      name: billing.name || "",
+      email: customerEmail,
+      phone: billing.phone || "",
+      phone_mobile: billing.phone_mobile || "",
+      onsiteName: firstOnsite.name || object.onsiteName || billing.onsiteName || "",
+      onsitePhone: firstOnsite.phone || object.onsitePhone || billing.onsitePhone || "",
+      onsiteEmail: firstOnsite.email || object.onsiteEmail || billing.onsiteEmail || "",
+      street: billing.street || "",
+      zip: billing.zip || "",
+      city: billing.city || "",
+      zipcity: billing.zipcity || [billing.zip, billing.city].filter(Boolean).join(" "),
+      order_ref: billing.order_ref || "",
+      notes: billing.notes || "",
+    },
+    pricing: { subtotal: subtotalFinal, discount: discountAmountFinal, vat: vatFinal, total: totalFinal },
+    settingsSnapshot: {},
+    discountCode: String(payload.discountCode || ""),
+    keyPickup: keyPickup.enabled ? keyPickup : null,
+    address_lat: bookingCoords?.lat ?? null,
+    address_lon: bookingCoords?.lon ?? null,
+  };
+
+  try {
+    await saveOrder(orderRecord);
+  } catch (err) {
+    const message = String(err?.message || err || "Order persistence failed");
+    const code = err?.code || "DB_SAVE_ORDER_FAILED";
+    console.error("[booking][flex] saveOrder failed", { requestId, orderNo, code, message });
+    return { statusCode: 500, body: { error: "Booking persistence failed", code, message, requestId } };
+  }
+
+  // Bestätigungs-Mail (idempotent). Nicht buchungskritisch.
+  try {
+    const pool = db.getPool ? db.getPool() : null;
+    if (pool && customerEmail) {
+      const formatDate = (iso) => {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return "";
+        return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+      };
+      const baseVars = templateRenderer.buildTemplateVars(orderRecord);
+      const flexVars = {
+        ...baseVars,
+        deadlineDate: formatDate(orderRecord.deadlineAt),
+        flexibleEarliestDate: orderRecord.flexibleEarliestAt
+          ? formatDate(orderRecord.flexibleEarliestAt)
+          : "—",
+      };
+      const sendFn = (to, subj, htm, txt) =>
+        sendMailWithFallback({ to, subject: subj, html: htm, text: txt, context: `booking:${orderNo}:flex_confirmation` });
+      await templateRenderer.sendMailIdempotent(pool, "flex_booking_confirmation", customerEmail, orderNo, flexVars, sendFn);
+    }
+  } catch (mailErr) {
+    console.warn("[booking][flex] flex_booking_confirmation mail failed", { requestId, orderNo, error: mailErr?.message });
+  }
+
+  return {
+    statusCode: 200,
+    body: { ok: true, orderNo, requestId, bookingKind: "flexible", status: "disposition_offen" },
+  };
+}
+
 app.post("/api/booking", bookingLimiter, async (req, res) => {
   const requestId = `bk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   let photographerKey = "";
@@ -4613,6 +4789,25 @@ app.post("/api/booking", bookingLimiter, async (req, res) => {
     const services = payload.services || {};
     const addressText = payload?.address?.text || "";
     const keyPickup = payload.keyPickup || {};
+
+    // Diskriminator: 'fixed' (Fix-Termin, default) | 'flexible' (Disposition durch Office).
+    const bookingKindRaw = String(schedule.bookingKind || "fixed").toLowerCase();
+    const bookingKind = (bookingKindRaw === "flexible") ? "flexible" : "fixed";
+
+    if (bookingKind === "flexible") {
+      const flexResult = await handleFlexibleBookingSubmit({
+        requestId,
+        payload,
+        schedule,
+        billing,
+        object,
+        onsiteContactsList,
+        services,
+        addressText,
+        keyPickup,
+      });
+      return res.status(flexResult.statusCode).json(flexResult.body);
+    }
 
     photographerKey = String(schedule.photographer?.key || "").toLowerCase();
     let photographerName = String(schedule.photographer?.name || "").trim();

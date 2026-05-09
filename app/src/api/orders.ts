@@ -54,6 +54,13 @@ export type Order = {
   doneAt?: string | null;
   closedAt?: string | null;
 
+  /** Buchungsart: 'fixed' (default) oder 'flexible' (Disposition durch Office). */
+  bookingKind?: "fixed" | "flexible";
+  /** Spätestes Aufnahmedatum (ISO) — nur bei booking_kind='flexible' gesetzt. */
+  deadlineAt?: string | null;
+  /** Frühestes Aufnahmedatum (ISO, optional) bei booking_kind='flexible'. */
+  flexibleEarliestAt?: string | null;
+
   // Provisorische Buchung (Phase 1)
   provisionalBookedAt?: string | null;
   provisionalExpiresAt?: string | null;
@@ -391,6 +398,12 @@ function normalizeOrder(raw: unknown): Order {
     bexioOrderNumber: (r.bexioOrderNumber as string | null | undefined) ?? (r.bexio_order_number as string | null | undefined) ?? null,
     bexioStatus: String((r.bexioStatus as string) || (r.bexio_status as string) || "not_sent"),
     bexioError: (r.bexioError as string | null | undefined) ?? (r.bexio_error as string | null | undefined) ?? null,
+    bookingKind: (() => {
+      const raw = (r.bookingKind as string | undefined) ?? (r.booking_kind as string | undefined) ?? "fixed";
+      return raw === "flexible" ? "flexible" : "fixed";
+    })(),
+    deadlineAt: (r.deadlineAt as string | null | undefined) ?? (r.deadline_at as string | null | undefined) ?? null,
+    flexibleEarliestAt: (r.flexibleEarliestAt as string | null | undefined) ?? (r.flexible_earliest_at as string | null | undefined) ?? null,
   };
 }
 

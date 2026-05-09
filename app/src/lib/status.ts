@@ -12,6 +12,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 export type StatusKey =
   | "pending"
   | "provisional"
+  | "disposition_offen"
   | "confirmed"
   | "paused"
   | "completed"
@@ -45,6 +46,13 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-500/15 text-violet-600 border border-violet-500/30",
     barColor: "bg-violet-500",
     eventColor: "#8b5cf6",
+    iconName: "CalendarClock",
+  },
+  disposition_offen: {
+    label: "Disposition offen",
+    badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-500/15 text-orange-600 border border-orange-500/30",
+    barColor: "bg-orange-500",
+    eventColor: "#f97316",
     iconName: "CalendarClock",
   },
   confirmed: {
@@ -97,6 +105,7 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
 export const STATUS_KEYS: StatusKey[] = [
   "pending",
   "provisional",
+  "disposition_offen",
   "confirmed",
   "paused",
   "completed",
@@ -148,14 +157,15 @@ export function statusMatches(orderStatus: string | undefined | null, filterKey:
  * Spiegelt backend/state-machine.js.
  */
 export const ALLOWED_TRANSITIONS: Record<StatusKey, StatusKey[]> = {
-  pending:     ["provisional", "confirmed", "paused", "cancelled", "archived", "done", "completed"],
-  provisional: ["confirmed", "paused", "cancelled"],
-  confirmed:   ["completed", "done", "paused", "cancelled"],
-  paused:      ["pending", "provisional", "cancelled"],
-  completed:   ["done", "archived"],
-  done:        ["archived"],
-  cancelled:   ["archived", "pending"],
-  archived:    ["pending"],
+  pending:           ["provisional", "disposition_offen", "confirmed", "paused", "cancelled", "archived", "done", "completed"],
+  provisional:       ["confirmed", "paused", "cancelled"],
+  disposition_offen: ["confirmed", "paused", "cancelled"],
+  confirmed:         ["completed", "done", "paused", "cancelled"],
+  paused:            ["pending", "provisional", "disposition_offen", "cancelled"],
+  completed:         ["done", "archived"],
+  done:              ["archived"],
+  cancelled:         ["archived", "pending"],
+  archived:          ["pending"],
 };
 
 /**

@@ -94,36 +94,54 @@ export type AvailabilityResult = {
   reason?: string;
 };
 
+type BookingPayloadObject = {
+  type: string;
+  area: string;
+  floors: number;
+  rooms: string;
+  specials?: string;
+  desc?: string;
+  onsiteName?: string;
+  onsitePhone?: string;
+  onsiteEmail?: string;
+  onsiteCalendarInvite?: boolean;
+  additionalOnsiteContacts?: Array<{
+    name: string;
+    phone: string;
+    email: string;
+    calendarInvite: boolean;
+  }>;
+};
+
+type BookingPayloadServices = {
+  package: { key: string; price: number; label: string; labelKey?: string } | null;
+  addons: Array<{ id: string; group: string; label: string; labelKey?: string; price: number; qty: number }>;
+};
+
+/** Schedule-Diskriminator: fixed (Wunschtermin) | flexible (Office disponiert). */
+export type BookingScheduleFixed = {
+  bookingKind?: "fixed";
+  photographer: { key: string; name: string };
+  date: string;
+  time: string;
+  provisional?: boolean;
+};
+
+export type BookingScheduleFlexible = {
+  bookingKind: "flexible";
+  /** ISO-Date "YYYY-MM-DD" — spätestes Aufnahmedatum. */
+  deadlineAt: string;
+  /** ISO-Date "YYYY-MM-DD" — frühestes Aufnahmedatum (optional). */
+  flexibleEarliestAt?: string;
+};
+
+export type BookingSchedule = BookingScheduleFixed | BookingScheduleFlexible;
+
 export type BookingPayload = {
   address: { text: string; coords: { lat: number; lng: number } | null };
-  object: {
-    type: string;
-    area: string;
-    floors: number;
-    rooms: string;
-    specials?: string;
-    desc?: string;
-    onsiteName?: string;
-    onsitePhone?: string;
-    onsiteEmail?: string;
-    onsiteCalendarInvite?: boolean;
-    additionalOnsiteContacts?: Array<{
-      name: string;
-      phone: string;
-      email: string;
-      calendarInvite: boolean;
-    }>;
-  };
-  services: {
-    package: { key: string; price: number; label: string; labelKey?: string } | null;
-    addons: Array<{ id: string; group: string; label: string; labelKey?: string; price: number; qty: number }>;
-  };
-  schedule: {
-    photographer: { key: string; name: string };
-    date: string;
-    time: string;
-    provisional?: boolean;
-  };
+  object: BookingPayloadObject;
+  services: BookingPayloadServices;
+  schedule: BookingSchedule;
   billing: Record<string, unknown>;
   pricing: { subtotal: number; discountAmount: number; vat: number; total: number };
   discountCode?: string;
