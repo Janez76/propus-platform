@@ -132,7 +132,10 @@ export function StepSchedule({ lang }: { lang: Lang }) {
       });
       if (cancelled) return;
       setScheduleAutoPickSignature(sig);
-      if (next) {
+      // Nur Datum setzen, wenn es sich tatsaechlich aendert. Sonst wuerde
+      // setDate() die parallel von loadSlots gesetzten availableSlots
+      // wieder leeren und loadSlots feuert nicht erneut (selber date-String).
+      if (next && next !== useBookingWizardStore.getState().date) {
         setDate(next);
         setTime("");
       }

@@ -57,7 +57,6 @@ import {
   Plug,
   Inbox,
   Bot,
-  Columns3,
   BookOpenCheck,
 } from "lucide-react";
 
@@ -148,10 +147,6 @@ export const navConfig: NavSection[] = [
         icon: Package,
         badgeKey: "orders.openToday",
         matchNested: true,
-        children: [
-          { id: "orders-list", to: "/orders", labelKey: "nav.item.ordersList", icon: List },
-          { id: "orders-kanban", to: "/orders/kanban", labelKey: "nav.item.ordersKanban", icon: Columns3 },
-        ],
       },
       {
         id: "calendar",
