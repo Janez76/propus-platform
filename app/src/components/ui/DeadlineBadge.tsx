@@ -1,12 +1,24 @@
 import { cn } from "../../lib/utils";
 
-/** Restzeit bis Deadline in Tagen (gerundet auf ganze Tage, nie negativ). */
+/**
+ * Vorzeichen-behaftete Tagesdifferenz bis Deadline:
+ *  - positiv: Deadline in der Zukunft
+ *  - 0:       heute
+ *  - negativ: Deadline überfällig
+ *
+ * `Math.ceil` einer kleinen negativen Zahl liefert `-0`, das frühere
+ * `Math.max(0, …)` hat überfällige Aufträge fälschlich auf "Heute fällig"
+ * geklemmt. Jetzt liefern wir das echte Vorzeichen, und das Badge zeigt
+ * "Überfällig" für `days < 0`.
+ */
 function daysUntil(deadlineIso: string): number | null {
   if (!deadlineIso) return null;
   const t = new Date(deadlineIso).getTime();
   if (!Number.isFinite(t)) return null;
-  const diff = t - Date.now();
-  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+  const diffMs = t - Date.now();
+  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
+  return 0;
 }
 
 /** Formatiert das Deadline-Datum (de-CH). */
@@ -38,7 +50,9 @@ export function DeadlineBadge({ deadlineAt, className }: { deadlineAt: string | 
     tone = "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-400";
   }
 
-  const label = days === 0
+  const label = days < 0
+    ? (days === -1 ? "Überfällig (1 Tag)" : `Überfällig (${Math.abs(days)} Tage)`)
+    : days === 0
     ? "Heute fällig"
     : days === 1
       ? "Morgen fällig"

@@ -17,11 +17,26 @@ function formatFlexDate(iso: string | null): string {
   return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/**
+ * Vorzeichen-behaftete Tagesdifferenz bis zur Deadline:
+ *  - positiv: Deadline in der Zukunft
+ *  - 0:       heute
+ *  - negativ: Deadline überfällig
+ *
+ * Bei `disposition_offen`-Aufträgen, deren `deadline_at` schon in der
+ * Vergangenheit liegt (Office hat die Frist verpasst), möchten wir
+ * "überfällig" sehen statt "heute fällig". `Math.ceil` einer kleinen
+ * negativen Zahl liefert -0; durch das `Math.max(0, …)` von vorher fielen
+ * solche Aufträge fälschlich auf "heute fällig" zurück.
+ */
 function daysUntilDeadline(iso: string | null): number | null {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000)));
+  const diffMs = t - Date.now();
+  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
+  return 0;
 }
 
 type Props = {
@@ -75,6 +90,7 @@ export default async function TerminPage({ params, searchParams }: Props) {
   };
   const isFlexible = order.booking_kind === "flexible";
   const daysToDeadline = isFlexible ? daysUntilDeadline(order.deadline_at) : null;
+  // Negative Tage = ueberfaellig → rot. Sonst < 7 = rot, < 14 = gelb, sonst neutral.
   const deadlineTone = daysToDeadline === null
     ? ""
     : daysToDeadline < 7
@@ -255,8 +271,18 @@ function FlexInfoBlock({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Spätestens am</p>
             <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(deadline)}</p>
             {days !== null && (
-              <p className="mt-0.5 text-xs text-[var(--ink-3)]">
-                {days === 0 ? "heute fällig" : days === 1 ? "morgen fällig" : `noch ${days} Tage`}
+              <p className={
+                days < 0
+                  ? "mt-0.5 text-xs font-semibold text-red-700 dark:text-red-400"
+                  : "mt-0.5 text-xs text-[var(--ink-3)]"
+              }>
+                {days < 0
+                  ? (days === -1 ? "überfällig (seit 1 Tag)" : `überfällig (seit ${Math.abs(days)} Tagen)`)
+                  : days === 0
+                    ? "heute fällig"
+                    : days === 1
+                      ? "morgen fällig"
+                      : `noch ${days} Tage`}
               </p>
             )}
           </div>
