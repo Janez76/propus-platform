@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { CalendarClock, CalendarRange, User, ArrowRight, Clock, History, CheckCircle2 } from "lucide-react";
 import { query } from "@/lib/db";
 import { listPhotographers } from "@/lib/repos/orders/termin";
@@ -134,6 +135,8 @@ export default async function TerminPage({ params, searchParams }: Props) {
             earliest={order.flexible_earliest_at}
             days={daysToDeadline}
             status={order.status}
+            orderNo={order.order_no}
+            showCta
           />
         </div>
       )}
@@ -219,11 +222,15 @@ function FlexInfoBlock({
   earliest,
   days,
   status,
+  orderNo,
+  showCta,
 }: {
   deadline: string | null;
   earliest: string | null;
   days: number | null;
   status: string;
+  orderNo?: number;
+  showCta?: boolean;
 }) {
   const isPending = status === "disposition_offen";
   const heading = isPending
@@ -255,6 +262,17 @@ function FlexInfoBlock({
             <p className="mt-1 text-sm font-medium text-[var(--ink-1)]">{formatFlexDate(earliest)}</p>
           </div>
         </div>
+        {showCta && isPending && orderNo && (
+          <div className="pt-2">
+            <Link
+              href={`/orders/${orderNo}/termin?edit=1`}
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--ink-1)] px-4 py-2 text-sm font-semibold text-[var(--paper)] shadow-sm transition-colors hover:bg-[var(--ink-2)] focus:outline-none focus:ring-2 focus:ring-[var(--ink-1)]/30"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Termin disponieren
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

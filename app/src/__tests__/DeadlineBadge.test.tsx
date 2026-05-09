@@ -41,4 +41,46 @@ describe("DeadlineBadge", () => {
     const { getByText } = render(<DeadlineBadge deadlineAt={isoInDays(1)} />);
     expect(getByText(/Morgen/)).toBeInTheDocument();
   });
+
+  it("renders nothing for empty string deadline", () => {
+    const { container } = render(<DeadlineBadge deadlineAt="" />);
+    expect(container.textContent).toBe("");
+  });
+
+  it("renders nothing for invalid ISO string", () => {
+    const { container } = render(<DeadlineBadge deadlineAt="not-a-date" />);
+    expect(container.textContent).toBe("");
+  });
+
+  it("clamps past deadlines to 'Heute fällig' (no negative days)", () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 5);
+    const { getByText } = render(<DeadlineBadge deadlineAt={past.toISOString()} />);
+    expect(getByText(/Heute/)).toBeInTheDocument();
+  });
+
+  it("uses amber tone exactly at 7 days (< 14d boundary, >= 7d)", () => {
+    const { container } = render(<DeadlineBadge deadlineAt={isoInDays(7)} />);
+    const span = container.querySelector("span");
+    expect(span!.className).toMatch(/amber/);
+  });
+
+  it("uses neutral tone exactly at 14 days (boundary)", () => {
+    const { container } = render(<DeadlineBadge deadlineAt={isoInDays(14)} />);
+    const span = container.querySelector("span");
+    expect(span!.className).toMatch(/zinc/);
+  });
+
+  it("renders title attribute with formatted deadline date", () => {
+    const { container } = render(<DeadlineBadge deadlineAt={isoInDays(5)} />);
+    const span = container.querySelector("span");
+    expect(span!.getAttribute("title")).toMatch(/^Deadline:/);
+  });
+
+  it("merges custom className with tone classes", () => {
+    const { container } = render(<DeadlineBadge deadlineAt={isoInDays(5)} className="custom-class" />);
+    const span = container.querySelector("span");
+    expect(span!.className).toMatch(/custom-class/);
+    expect(span!.className).toMatch(/red/);
+  });
 });
