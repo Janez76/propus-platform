@@ -25,9 +25,10 @@ EMAIL="${SMOKE_EMAIL:-smoke-flex@invite.buchungstool.invalid}"
 COMPANY="${SMOKE_COMPANY:-Smoke Test AG}"
 NAME="${SMOKE_NAME:-Smoke Tester}"
 
-# Deadline = heute + 14 Tage in CH-Zeitzone (lokal vom System).
-DEADLINE_DATE="$(date -d '+14 days' +%Y-%m-%d 2>/dev/null || date -v+14d +%Y-%m-%d)"
-EARLIEST_DATE="$(date -d '+3 days' +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d)"
+# Deadline = heute + 14 Tage in Europe/Zurich (Host-TZ wird ignoriert,
+# damit Tagesgrenzen-Drift bei UTC-Servern nicht ueberraschen kann).
+DEADLINE_DATE="$(TZ=Europe/Zurich date -d '+14 days' +%Y-%m-%d 2>/dev/null || TZ=Europe/Zurich date -v+14d +%Y-%m-%d)"
+EARLIEST_DATE="$(TZ=Europe/Zurich date -d '+3 days' +%Y-%m-%d 2>/dev/null || TZ=Europe/Zurich date -v+3d +%Y-%m-%d)"
 
 echo "▶ Smoke-Test Flex-Buchung gegen ${BASE_URL}"
 echo "  Deadline:        ${DEADLINE_DATE}"
@@ -94,16 +95,22 @@ if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
   exit 1
 fi
 
-# orderNo extrahieren — robust auch wenn jq fehlt.
+# orderNo extrahieren — robust auch wenn jq fehlt. Sed-Fallback toleriert
+# Whitespace zwischen Key und Value, damit formatiertes JSON nicht durchs
+# Raster faellt.
 ORDER_NO=""
 if command -v jq >/dev/null 2>&1; then
   ORDER_NO=$(jq -r '.orderNo // empty' < "$RESPONSE_FILE")
   STATUS=$(jq -r '.status // empty' < "$RESPONSE_FILE")
   KIND=$(jq -r '.bookingKind // empty' < "$RESPONSE_FILE")
+elif command -v python3 >/dev/null 2>&1; then
+  ORDER_NO=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('orderNo','') or '')" "$RESPONSE_FILE")
+  STATUS=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('status','') or '')" "$RESPONSE_FILE")
+  KIND=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('bookingKind','') or '')" "$RESPONSE_FILE")
 else
-  ORDER_NO=$(grep -oE '"orderNo":[0-9]+' "$RESPONSE_FILE" | head -1 | tr -d '"orderNo:')
-  STATUS=$(grep -oE '"status":"[^"]*"' "$RESPONSE_FILE" | head -1 | sed -E 's/.*:"([^"]+)".*/\1/')
-  KIND=$(grep -oE '"bookingKind":"[^"]*"' "$RESPONSE_FILE" | head -1 | sed -E 's/.*:"([^"]+)".*/\1/')
+  ORDER_NO=$(sed -nE 's/.*"orderNo"[[:space:]]*:[[:space:]]*([0-9]+).*/\1/p' "$RESPONSE_FILE" | head -1)
+  STATUS=$(sed -nE 's/.*"status"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$RESPONSE_FILE" | head -1)
+  KIND=$(sed -nE 's/.*"bookingKind"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$RESPONSE_FILE" | head -1)
 fi
 
 if [ -z "$ORDER_NO" ]; then
@@ -111,20 +118,31 @@ if [ -z "$ORDER_NO" ]; then
   exit 1
 fi
 
+# Defense in depth: ORDER_NO landet weiter unten in einer psql-Query. Wir
+# erlauben ausschliesslich rein-numerische Werte und reichen sie zudem als
+# psql-Variable durch ($ORDER_NO -> :'order_no'::bigint), damit aus einer
+# manipulierten Response keine SQL-Injection wird.
+if ! [[ "$ORDER_NO" =~ ^[0-9]+$ ]]; then
+  echo "✗ Ungueltige orderNo in Response (kein reiner Integer): ${ORDER_NO}"
+  exit 1
+fi
+
 echo "✓ Order angelegt: #${ORDER_NO}"
 [ -n "${STATUS:-}" ] && echo "  status:       ${STATUS}"
 [ -n "${KIND:-}" ] && echo "  bookingKind:  ${KIND}"
 
-# Optional: DB-Verifikation falls DATABASE_URL + psql vorhanden.
+# Optional: DB-Verifikation falls DATABASE_URL + psql vorhanden. ORDER_NO
+# wird oben streng auf reine Ziffern validiert; zusaetzlich reichen wir
+# den Wert nicht via Shell-Interpolation, sondern als psql-Variable durch.
 if [ -n "${DATABASE_URL:-}" ] && command -v psql >/dev/null 2>&1; then
   echo
   echo "▶ DB-Verifikation (DATABASE_URL gesetzt)"
-  psql "$DATABASE_URL" -A -F "|" -c "
+  psql "$DATABASE_URL" -v "order_no=$ORDER_NO" -A -F "|" -c "
     SELECT order_no, status, booking_kind,
            to_char(deadline_at, 'YYYY-MM-DD') AS deadline,
            to_char(flexible_earliest_at, 'YYYY-MM-DD') AS earliest
     FROM orders
-    WHERE order_no = ${ORDER_NO};
+    WHERE order_no = :'order_no'::bigint;
   " || {
     echo "✗ DB-Query fehlgeschlagen"
     exit 1
