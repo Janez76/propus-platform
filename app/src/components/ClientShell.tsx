@@ -233,7 +233,8 @@ function PrivateRoutes() {
         <Route path="/admin/roles" element={<Navigate to="/settings/roles" replace />} />
         <Route path="/dashboard" element={eg("/dashboard", <DashboardPage />)} />
         <Route path="/orders/kanban" element={eg("/orders", <OrdersKanbanPage />)} />
-        <Route path="/orders/disposition" element={eg("/orders", <DispositionPage />)} />
+        <Route path="/admin/orders/disposition" element={eg("/orders", <DispositionPage />)} />
+        <Route path="/orders/disposition" element={<Navigate to="/admin/orders/disposition" replace />} />
         <Route path="/orders/:orderNo" element={eg("/orders", <OrderDetailRoute />)} />
         <Route path="/orders" element={eg("/orders", <OrdersPage />)} />
         <Route path="/upload" element={eg("/upload", <UploadsPage />)} />

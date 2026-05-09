@@ -371,6 +371,10 @@ export function OrdersKanbanPage() {
   }, [columns, newColumnName]);
 
   const handleDeleteColumn = useCallback((columnId: string) => {
+    // "storniert" ist eine geschuetzte Pflicht-Spalte: ohne sie kippen
+    // cancelled-Karten via resolveColumnId() in andere Buckets (z.B.
+    // "abgeschlossen") und tauchen unerwartet in aktiven Spalten auf.
+    if (columnId === "storniert") return;
     const col = columns.find((c) => c.id === columnId);
     if (!col) return;
     const msg = t("orders.kanban.column.deleteConfirm").replace("{{name}}", col.label);
@@ -491,15 +495,17 @@ export function OrdersKanbanPage() {
                   {col.label}{" "}
                   <span className="pkanban__col-count">({rows.length})</span>
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteColumn(col.id)}
-                  className="pkanban__col-delete"
-                  aria-label={t("orders.kanban.column.delete")}
-                  title={t("orders.kanban.column.delete")}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+                {col.id !== "storniert" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteColumn(col.id)}
+                    className="pkanban__col-delete"
+                    aria-label={t("orders.kanban.column.delete")}
+                    title={t("orders.kanban.column.delete")}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
               </header>
               <div className="pkanban__col-body">
                 {rows.map((o) => (

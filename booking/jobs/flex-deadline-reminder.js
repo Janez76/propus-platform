@@ -96,15 +96,10 @@ function scheduleFlexDeadlineReminder(deps) {
       // eingeschlossen — das Office soll explizit gewarnt werden, falls eine
       // Disposition versaeumt wurde.
       //
-      // Cutoff = Beginn von (heute_ch + 8 Tagen), exklusiv → erfasst alle
-      // Deadlines bis Ende des 7. Tages. Eine simple `now + 7*24h`-Schwelle
-      // wuerde z. B. einen Lauf um 09:00 mit Deadline am 7. Tag um 18:00
-      // verpassen (waere ~9 h ausserhalb der 168 h-Schwelle).
-      const todayCh = chDateParts(new Date());
-      const cutoffMs = todayCh
-        ? Date.UTC(todayCh.y, todayCh.m - 1, todayCh.day + 8)
-        : Date.now() + 8 * 24 * 60 * 60 * 1000; // Fallback falls Intl unverfuegbar
-      const sevenDaysFromNow = new Date(cutoffMs).toISOString();
+      // Cutoff exklusiv: Deadline-Kalendertag (Zurich) muss kleiner sein als
+      // Heute_Zurich + 8 → erfasst alle Deadlines bis Ende des 7. Tages. Die
+      // Vergleichsbasis liegt in Postgres mit `AT TIME ZONE 'Europe/Zurich'`,
+      // damit Sommer-/Winterzeit und UTC-Drift korrekt berücksichtigt werden.
       const { rows } = await pool.query(
         `SELECT order_no, deadline_at, flexible_earliest_at, billing, address, services, photographer, schedule
          FROM orders
@@ -112,8 +107,8 @@ function scheduleFlexDeadlineReminder(deps) {
            AND status = 'disposition_offen'
            AND flex_deadline_reminder_sent_at IS NULL
            AND deadline_at IS NOT NULL
-           AND deadline_at < $1`,
-        [sevenDaysFromNow],
+           AND (deadline_at AT TIME ZONE 'Europe/Zurich')::date
+               < ((NOW() AT TIME ZONE 'Europe/Zurich')::date + 8)`,
       );
 
       for (const row of rows) {

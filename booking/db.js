@@ -1596,10 +1596,14 @@ function buildInsertOrderParams(record, customerId) {
       $27,$28,$29
     ) RETURNING id`;
 
-  const latRaw = Number(record.address_lat);
-  const lonRaw = Number(record.address_lon);
-  const addressLat = Number.isFinite(latRaw) ? latRaw : null;
-  const addressLon = Number.isFinite(lonRaw) ? lonRaw : null;
+  const parseNullableNumber = (value) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const addressLat = parseNullableNumber(record.address_lat);
+  const addressLon = parseNullableNumber(record.address_lon);
   const assignmentTraceRaw =
     record.assignment_trace !== undefined && record.assignment_trace !== null
       ? record.assignment_trace
@@ -1611,8 +1615,13 @@ function buildInsertOrderParams(record, customerId) {
 
   const bookingKindRaw = String(record.bookingKind || record.booking_kind || "fixed").toLowerCase();
   const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
-  const deadlineAtParam = record.deadlineAt ? new Date(record.deadlineAt) : null;
-  const flexibleEarliestAtParam = record.flexibleEarliestAt ? new Date(record.flexibleEarliestAt) : null;
+  const parseOptionalDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const deadlineAtParam = parseOptionalDate(record.deadlineAt);
+  const flexibleEarliestAtParam = parseOptionalDate(record.flexibleEarliestAt);
 
   const params = [
     record.orderNo,
