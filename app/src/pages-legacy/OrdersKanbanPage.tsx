@@ -167,12 +167,29 @@ export function OrdersKanbanPage() {
   useEffect(() => {
     const stored = readLocal<KanbanColumn[] | null>(LS_COLUMNS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      setColumns(stored);
+      // Migration: bestehende localStorage-Daten haben die "storniert"-Spalte
+      // ggf. nicht. Ohne diese Spalte würde resolveColumnId() cancelled-Karten
+      // in "abgeschlossen" einsortieren. Default-Spalten, die fehlen, werden
+      // hier nachgepflegt (am Ende, damit User-spezifische Reihenfolge
+      // erhalten bleibt). Eigene/umbenannte User-Spalten bleiben unangetastet.
+      const knownIds = new Set(stored.map((c) => c.id));
+      const missingDefaults: KanbanColumn[] = [];
+      for (const id of DEFAULT_COLUMN_KEYS) {
+        if (!knownIds.has(id)) {
+          const labelKey = DEFAULT_COLUMN_LABEL_KEYS[id];
+          missingDefaults.push({ id, label: labelKey ? t(labelKey) : id });
+        }
+      }
+      setColumns(missingDefaults.length > 0 ? [...stored, ...missingDefaults] : stored);
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
     setCardOverrides(overrides);
     setShowCancelled(readLocal<boolean>(LS_SHOW_CANCELLED, false));
     setHydrated(true);
+    // t() wird hier intentional NICHT als dep gelistet — die Hydration soll
+    // genau einmal beim Mount laufen. Lokalisierung der Default-Labels
+    // passiert im separaten useEffect weiter unten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist column changes (skip until hydrated to avoid clobbering on first paint).
@@ -247,12 +264,21 @@ export function OrdersKanbanPage() {
     };
 
     for (const o of filteredOrders) {
-      if (!showCancelled && normalizeStatusKey(o.status) === "cancelled") continue;
+      const oStatusKey = normalizeStatusKey(o.status);
+      if (!showCancelled && oStatusKey === "cancelled") continue;
       const override = cardOverrides[o.orderNo];
-      const targetId =
-        override && columnIdSet.has(override)
-          ? override
-          : resolveColumnId(defaultColumnFor(o));
+      // Override "storniert" nur fuer cancelled-Orders gelten lassen — sonst
+      // koennte ein versehentliches Drop einer aktiven Karte in die
+      // "storniert"-Spalte (waehrend showCancelled=true) sie unsichtbar machen,
+      // sobald der Toggle ausgeschaltet wird (Spalte ausgeblendet, Karte
+      // bleibt persistiert dort).
+      const overrideValid =
+        !!override
+        && columnIdSet.has(override)
+        && (override !== "storniert" || (showCancelled && oStatusKey === "cancelled"));
+      const targetId = overrideValid
+        ? override
+        : resolveColumnId(defaultColumnFor(o));
       if (!targetId) continue;
       const bucket = buckets.get(targetId);
       if (bucket) bucket.push(o);

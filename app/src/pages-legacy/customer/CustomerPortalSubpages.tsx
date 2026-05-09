@@ -22,11 +22,29 @@ type OrderRow = {
 
 type KindFilter = "all" | "fixed" | "flexible";
 
-function formatDeCH(iso: string | null | undefined): string {
+/**
+ * Formatiert einen ISO-String ins de-CH Datumsformat.
+ *  - default:  "DD.MM.YYYY"
+ *  - compact:  "DD.MM."  (für Listen-Sublines im Portal)
+ *
+ * Achtung: bei reinen Date-Strings (`YYYY-MM-DD`) interpretiert
+ * `new Date(iso)` UTC-Mitternacht; Browser-TZs westlich von UTC
+ * würden dadurch das Vortagsdatum anzeigen. Deshalb für reine
+ * Date-Strings ohne `T`/`Z` direkt parsen, sonst per `Date`.
+ */
+function formatDeCH(iso: string | null | undefined, opts?: { compact?: boolean }): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const s = String(iso);
+  const compact = opts?.compact === true;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-");
+    return compact ? `${d}.${m}.` : `${d}.${m}.${y}`;
+  }
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return compact
+    ? dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" }) + "."
+    : dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 function useJson<T>(url: string) {
@@ -134,10 +152,10 @@ export function CustomerOrdersPage() {
             const isFlex = o.bookingKind === "flexible";
             const subline = isFlex
               ? o.deadlineAt
-                ? `Deadline: ${formatDeCH(o.deadlineAt)}`
+                ? `Deadline: ${formatDeCH(o.deadlineAt, { compact: true })}`
                 : "Disposition offen"
               : o.schedule?.date
-                ? `${formatDeCH(o.schedule.date)}${o.schedule.time ? ` · ${o.schedule.time}` : ""}`
+                ? `${formatDeCH(o.schedule.date, { compact: true })}${o.schedule.time ? ` · ${o.schedule.time}` : ""}`
                 : null;
             return (
               <li key={String(no)}>
@@ -221,7 +239,11 @@ export function CustomerOrderDetailPage() {
     flexibleEarliestAt?: string | null;
   } | null;
   const isFlex = o?.bookingKind === "flexible";
-  const flexConfirmed = isFlex && !!o?.schedule?.date;
+  // Banner-Zustand am Status festmachen, nicht am Vorhandensein eines Datums.
+  // Ein Auftrag in `disposition_offen` mit bereits vorbefuelltem Termin
+  // (z. B. Office hat das Datum gesetzt aber noch nicht bestaetigt) soll
+  // weiterhin den Pre-Disposition-Hinweis zeigen.
+  const flexConfirmed = isFlex && o?.status !== "disposition_offen";
   return (
     <div>
       <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-amber-500">
