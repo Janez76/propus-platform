@@ -252,7 +252,11 @@ Migration: `core/migrations/039_api_keys.sql`
 |---|---|---|
 | `order_no` | INT PK | Auftragsnummer |
 | `customer_id` | INT FK → core.customers | |
-| `status` | TEXT | `pending`, `provisional`, `confirmed`, `completed`, `done`, `cancelled`, `paused`, `archived` |
+| `status` | TEXT | `pending`, `provisional`, `disposition_offen`, `confirmed`, `completed`, `done`, `cancelled`, `paused`, `archived` |
+| `booking_kind` | TEXT NOT NULL DEFAULT `'fixed'` | `'fixed'` (Wunschtermin) oder `'flexible'` (Disposition durch Office innerhalb [`flexible_earliest_at`, `deadline_at`]). Migration 092. |
+| `deadline_at` | TIMESTAMPTZ | Spätestes Aufnahmedatum bei `booking_kind='flexible'` (sonst NULL). Migration 092. |
+| `flexible_earliest_at` | TIMESTAMPTZ | Frühestmögliches Aufnahmedatum bei `booking_kind='flexible'` (optional). Migration 092. |
+| `flex_deadline_reminder_sent_at` | TIMESTAMPTZ | Setzt der Cron-Job `booking/jobs/flex-deadline-reminder.js` auf NOW(), wenn die 7-Tage-Vorab-Mail an Office gesendet wurde — verhindert Doppelversand. Migration 094. |
 | `address` | TEXT | Auftrittsadresse |
 | `address_lat` / `address_lon` | NUMERIC | Geocoordinaten |
 | `photographer_event_id` | TEXT | MS Graph Event-ID |

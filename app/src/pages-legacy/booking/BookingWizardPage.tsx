@@ -126,9 +126,14 @@ export function BookingWizardPage() {
         if (e.field === "photographer" && photographer) return false;
         if (e.field === "deadlineAt" && deadlineAt.trim()) return false;
         if (e.field === "flexibleEarliestAt") {
-          // Cleared, oder jetzt vor der Deadline → Fehler weg.
+          // Fehler "earliest >= deadline" entfernen, sobald die Bedingung
+          // nicht mehr gilt:
+          //  - Earliest geloescht
+          //  - Deadline geloescht (kein Vergleichspunkt mehr)
+          //  - Earliest jetzt < Deadline
           if (!flexibleEarliestAt.trim()) return false;
-          if (deadlineAt.trim() && flexibleEarliestAt < deadlineAt) return false;
+          if (!deadlineAt.trim()) return false;
+          if (flexibleEarliestAt < deadlineAt) return false;
         }
         return true;
       }),

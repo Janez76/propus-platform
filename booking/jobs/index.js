@@ -24,6 +24,7 @@
 
 const { scheduleProvisionalExpiry }     = require("./provisional-expiry");
 const { scheduleProvisionalReminders }  = require("./provisional-reminders");
+const { scheduleFlexDeadlineReminder }  = require("./flex-deadline-reminder");
 const { scheduleReviewRequests }        = require("./review-requests");
 const { scheduleCalendarRetry }         = require("./calendar-retry");
 const { scheduleConfirmationPending }   = require("./confirmation-pending");
@@ -58,6 +59,7 @@ async function startJobs(deps) {
 
   scheduleProvisionalExpiry(deps);
   scheduleProvisionalReminders(deps);
+  scheduleFlexDeadlineReminder(deps);
   scheduleReviewRequests(deps);
   scheduleCalendarRetry(deps);
   scheduleConfirmationPending(deps);

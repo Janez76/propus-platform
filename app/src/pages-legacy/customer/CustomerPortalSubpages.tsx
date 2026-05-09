@@ -1,12 +1,57 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCustomerPermissions } from "@/hooks/useCustomerPermissions";
 import { isPortalHost } from "@/lib/portalHost";
 import { Loader2 } from "lucide-react";
+import type {
+  CustomerOrderDetail,
+  OrderRow,
+} from "@/api/customerPortal";
 
-type OrderRow = { orderNo?: number; id?: number; status?: string; address?: string; schedule?: { date?: string; time?: string } };
+type KindFilter = "all" | "fixed" | "flexible";
+
+/**
+ * Formatiert einen ISO-String ins de-CH Datumsformat.
+ *  - default:  "DD.MM.YYYY"
+ *  - compact:  "DD.MM."  (für Listen-Sublines im Portal)
+ *
+ * Achtung: bei reinen Date-Strings (`YYYY-MM-DD`) interpretiert
+ * `new Date(iso)` UTC-Mitternacht; Browser-TZs westlich von UTC
+ * würden dadurch das Vortagsdatum anzeigen. Deshalb für reine
+ * Date-Strings ohne `T`/`Z` direkt parsen, sonst per `Date`.
+ */
+function formatDeCH(iso: string | null | undefined, opts?: { compact?: boolean }): string {
+  if (!iso) return "—";
+  const s = String(iso);
+  const compact = opts?.compact === true;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const [y, m, d] = s.split("-");
+    return compact ? `${d}.${m}.` : `${d}.${m}.${y}`;
+  }
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return "—";
+  // Fuer ISO-Timestamps explizit Europe/Zurich rendern. Sonst kann ein
+  // TIMESTAMPTZ wie "2026-06-15T00:00:00Z" in Browser-TZs westlich von UTC
+  // den Vortag anzeigen — kritisch fuer kundenseitige Deadlines.
+  if (compact) {
+    // de-CH liefert bei nur day+month bereits einen Trailing-Punkt
+    // ("15.05."); kein zusätzliches "." anhängen, sonst "15.05..".
+    const out = dt.toLocaleDateString("de-CH", {
+      timeZone: "Europe/Zurich",
+      day: "2-digit",
+      month: "2-digit",
+    });
+    return out.endsWith(".") ? out : `${out}.`;
+  }
+  return dt.toLocaleDateString("de-CH", {
+    timeZone: "Europe/Zurich",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
 function useJson<T>(url: string) {
   const [data, setData] = useState<T | null>(null);
@@ -70,27 +115,71 @@ export function CustomerOrdersPage() {
   const { data, loading, err } = useJson<{ orders?: OrderRow[] }>("/api/customer/orders");
   const orders = Array.isArray(data?.orders) ? data!.orders! : [];
   const { canPortal } = useCustomerPermissions();
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  const filtered = useMemo(() => {
+    if (kindFilter === "all") return orders;
+    return orders.filter((o) => {
+      const kind = o.bookingKind || "fixed";
+      return kind === kindFilter;
+    });
+  }, [orders, kindFilter]);
+  const flexCount = useMemo(() => orders.filter((o) => o.bookingKind === "flexible").length, [orders]);
+
   if (loading) return <Loader2 className="h-6 w-6 animate-spin text-amber-500" />;
   if (!canPortal("portal.orders.read")) {
     return <p className="text-sm text-zinc-500">Kein Zugriff.</p>;
   }
   return (
     <div>
-      <h1 className="text-lg font-semibold">Bestellungen</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold">Bestellungen</h1>
+        {orders.length > 0 && flexCount > 0 ? (
+          <select
+            value={kindFilter}
+            onChange={(e) => setKindFilter(e.target.value as KindFilter)}
+            aria-label="Buchungsart"
+            className="h-8 rounded border border-zinc-700 bg-zinc-900 px-2 text-xs text-zinc-200"
+          >
+            <option value="all">Alle Buchungsarten</option>
+            <option value="fixed">Nur Fix-Termine</option>
+            <option value="flexible">Nur Flex (mit Deadline)</option>
+          </select>
+        ) : null}
+      </div>
       {err ? <p className="mt-2 text-sm text-red-400">{err}</p> : null}
       {orders.length === 0 ? (
         <p className="mt-4 text-sm text-zinc-500">Keine Bestellungen.</p>
+      ) : filtered.length === 0 ? (
+        <p className="mt-4 text-sm text-zinc-500">Keine Bestellungen mit dieser Buchungsart.</p>
       ) : (
         <ul className="mt-4 space-y-2">
-          {orders.map((o) => {
+          {filtered.map((o) => {
             const no = o.orderNo ?? o.id;
+            const isFlex = o.bookingKind === "flexible";
+            const subline = isFlex
+              ? o.deadlineAt
+                ? `Deadline: ${formatDeCH(o.deadlineAt, { compact: true })}`
+                : "Disposition offen"
+              : o.schedule?.date
+                ? `${formatDeCH(o.schedule.date, { compact: true })}${o.schedule.time ? ` · ${o.schedule.time}` : ""}`
+                : null;
             return (
               <li key={String(no)}>
                 <Link
                   to={`/account/orders/${no}`}
                   className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm hover:border-amber-600/40"
                 >
-                  <span>#{no}</span>
+                  <span className="flex flex-col">
+                    <span>
+                      #{no}
+                      {isFlex && (
+                        <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                          Flex
+                        </span>
+                      )}
+                    </span>
+                    {subline ? <span className="text-xs text-zinc-500">{subline}</span> : null}
+                  </span>
                   <span className="text-zinc-500">{o.status || "—"}</span>
                 </Link>
               </li>
@@ -146,14 +235,66 @@ export function CustomerOrderDetailPage() {
   }
   if (loading) return <Loader2 className="h-6 w-6 animate-spin text-amber-500" />;
 
-  const o = order as { address?: string; status?: string; orderNo?: number; schedule?: { date?: string; time?: string } } | null;
+  const o = order as CustomerOrderDetail | null;
+  const isFlex = o?.bookingKind === "flexible";
+  // Banner-Zustand am Status festmachen, nicht am Vorhandensein eines Datums.
+  // Status muss explizit gesetzt sein — bei `undefined` würde
+  // `o?.status !== "disposition_offen"` true ergeben und das Confirmed-Banner
+  // fälschlich anzeigen.
+  const flexConfirmed = isFlex && !!o?.status && o.status !== "disposition_offen";
   return (
     <div>
       <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-amber-500">
         ← Zurück
       </button>
-      <h1 className="text-lg font-semibold">Bestellung #{raw}</h1>
+      <h1 className="text-lg font-semibold">
+        Bestellung #{raw}
+        {isFlex && (
+          <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 align-middle text-[10px] font-semibold text-amber-400">
+            Flex
+          </span>
+        )}
+      </h1>
       {err ? <p className="mt-2 text-sm text-red-400">{err}</p> : null}
+
+      {isFlex && o ? (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-zinc-200">
+          {flexConfirmed ? (
+            <>
+              <p className="font-semibold text-amber-300">
+                {o.status === "cancelled" ? "Buchung storniert" : "Termin disponiert"}
+              </p>
+              {/* schedule kann fehlen (z. B. cancelled-Order ohne Termin oder
+                  confirmed-Order kurz vor dem Persist) — formatDeCH() liefert
+                  bei undefined einen "—" Platzhalter, kein Crash. */}
+              {o.schedule?.date ? (
+                <p className="mt-1 text-zinc-300">
+                  {formatDeCH(o.schedule.date)}
+                  {o.schedule.time ? ` · ${o.schedule.time}` : ""}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className="font-semibold text-amber-300">Wir disponieren Ihren Termin</p>
+              <p className="mt-1 text-zinc-300">
+                {o.deadlineAt ? (
+                  <>
+                    Spätestens am <strong>{formatDeCH(o.deadlineAt)}</strong>
+                    {o.flexibleEarliestAt ? <> (frühestens ab {formatDeCH(o.flexibleEarliestAt)})</> : null}.
+                  </>
+                ) : (
+                  <>Wir melden uns mit Ihrem Termin, sobald die Disposition abgeschlossen ist.</>
+                )}
+              </p>
+              <p className="mt-2 text-xs text-zinc-400">
+                Sie erhalten von uns eine separate E-Mail mit Datum, Uhrzeit und zugewiesenem Fotografen, sobald der Termin steht — spätestens einen Tag vor der Aufnahme.
+              </p>
+            </>
+          )}
+        </div>
+      ) : null}
+
       {o ? (
         <div className="mt-4 space-y-2 text-sm text-zinc-300">
           <p>
@@ -164,9 +305,10 @@ export function CustomerOrderDetailPage() {
               <span className="text-zinc-500">Adresse:</span> {o.address}
             </p>
           ) : null}
-          {o.schedule ? (
+          {!isFlex && o.schedule?.date ? (
             <p>
-              <span className="text-zinc-500">Termin:</span> {o.schedule?.date} {o.schedule?.time}
+              <span className="text-zinc-500">Termin:</span> {formatDeCH(o.schedule.date)}
+              {o.schedule.time ? ` · ${o.schedule.time}` : ""}
             </p>
           ) : null}
         </div>

@@ -111,6 +111,7 @@ export function OrdersPage() {
   const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("none");
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "fixed" | "flexible">("all");
   const [showArchivedChip, setShowArchivedChip] = useState(false);
 
   const [msgNo, setMsgNo] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function OrdersPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<StatusKey, number> = {
       pending: 0,
+      disposition_offen: 0,
       provisional: 0,
       confirmed: 0,
       paused: 0,
@@ -215,11 +217,15 @@ export function OrdersPage() {
         if (photographerFilter !== "all") {
           if ((o.photographer?.key || "") !== photographerFilter) return false;
         }
+        if (kindFilter !== "all") {
+          const kind = o.bookingKind || "fixed";
+          if (kind !== kindFilter) return false;
+        }
         if (!matchesQuickFilter(o)) return false;
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allOrders, query, statusSelection, photographerFilter, quickFilter, adminProfile, now],
+    [allOrders, query, statusSelection, photographerFilter, kindFilter, quickFilter, adminProfile, now],
   );
 
   const visibleOrderNoSet = useMemo(() => new Set(orders.map((o) => String(o.orderNo))), [orders]);
@@ -437,7 +443,7 @@ export function OrdersPage() {
     [allOrders, lang, now],
   );
 
-  const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || query.length > 0;
+  const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || kindFilter !== "all" || query.length > 0;
 
   // ── KPIs (Propus admin redesign) ──────────────────────
   // Active = open orders that aren't done/cancelled/archived.
@@ -596,6 +602,16 @@ export function OrdersPage() {
                   <option key={p.key} value={p.key}>{p.name || p.key}</option>
                 ))}
               </select>
+              <select
+                value={kindFilter}
+                onChange={(e) => setKindFilter(e.target.value as "all" | "fixed" | "flexible")}
+                aria-label={t(lang, "orders.filter.kind.label")}
+                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+              >
+                <option value="all">{t(lang, "orders.filter.kind.all")}</option>
+                <option value="fixed">{t(lang, "orders.filter.kind.fixed")}</option>
+                <option value="flexible">{t(lang, "orders.filter.kind.flexible")}</option>
+              </select>
               {hasAnyActiveFilter ? (
                 <button
                   type="button"
@@ -603,6 +619,7 @@ export function OrdersPage() {
                     setStatusSelection(new Set());
                     setQuickFilter("none");
                     setPhotographerFilter("all");
+                    setKindFilter("all");
                     setQuery("");
                   }}
                   className="h-9 rounded-lg border border-[var(--border-soft)] bg-transparent px-3 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
