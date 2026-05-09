@@ -77,6 +77,24 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["auftrag", "booking"],
   },
   {
+    id: "order-flex-deadline",
+    user: "Auftrag für CSL, Termin offen, wir disponieren — bis spätestens 20. Mai",
+    assistantToolPlan:
+      "search_customers (CSL), Adresse + Services klären, dann create_order mit booking_kind='flexible', deadline_at='2026-05-20'. KEIN schedule_date setzen. Status startet auf 'disposition_offen'.",
+    assistantFinal:
+      "Zusammenfassung mit Buchungsart 'Flexibel mit Deadline 20.05.', Hinweis dass Office den Termin innerhalb des Zeitraums disponiert. Bestätigung einholen, dann create_order aufrufen.",
+    tags: ["auftrag", "booking", "flexibel", "deadline", "disposition", "termin offen"],
+  },
+  {
+    id: "order-flex-no-date-fallback",
+    user: "lege Auftrag an, Termin haben wir noch nicht",
+    assistantToolPlan:
+      "Keinen Platzhalter-Datum erfinden. Stattdessen booking_kind='flexible' anbieten und nach Deadline (spätestes Datum) fragen. Optional flexible_earliest_at erfragen. Erst nach Bestätigung create_order aufrufen.",
+    assistantFinal:
+      "Frage: 'Bis wann muss die Aufnahme spätestens stattfinden? Ich lege den Auftrag dann als Flexibel mit Deadline an — Office disponiert den genauen Termin innerhalb des Zeitraums.'",
+    tags: ["auftrag", "booking", "kein termin", "flexibel", "deadline"],
+  },
+  {
     id: "weather-honest-ch",
     user: "Wie wird das Wetter morgen in Bern?",
     assistantToolPlan:
