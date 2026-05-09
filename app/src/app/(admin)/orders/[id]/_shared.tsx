@@ -18,14 +18,15 @@ export function isOrderReadOnly(status: string | null | undefined): boolean {
 }
 
 export const STATUS_LABEL: Record<string, { label: string; className: string }> = {
-  pending:     { label: 'Offen',          className: 'bg-[#FBEED4] text-[#8A5710] border border-[#B87514]/30' },
-  provisional: { label: 'Provisorisch',   className: 'bg-[#EDE5FA] text-[#4A2F8E] border border-[#7C5BC9]/30' },
-  confirmed:   { label: 'Bestätigt',      className: 'bg-[#E6F2E3] text-[#1F5C20] border border-[#2A7A2A]/30' },
-  completed:   { label: 'Abgeschlossen',  className: 'bg-[#D6F1ED] text-[#0A5C53] border border-[#0F8A7E]/30' },
-  done:        { label: 'Erledigt',       className: 'bg-[#DFEBF5] text-[#244865] border border-[#244865]/30' },
-  paused:      { label: 'Pausiert',       className: 'bg-[#EFEDE6] text-[#3C3B38] border border-[#6B6962]/30' },
-  cancelled:   { label: 'Storniert',      className: 'bg-[#F8E0DB] text-[#8A2515] border border-[#B4311B]/30' },
-  archived:    { label: 'Archiviert',     className: 'bg-[#F0EBDF] text-[#3C3B38] border border-[#6B6962]/30' },
+  pending:           { label: 'Offen',              className: 'bg-[#FBEED4] text-[#8A5710] border border-[#B87514]/30' },
+  provisional:       { label: 'Provisorisch',       className: 'bg-[#EDE5FA] text-[#4A2F8E] border border-[#7C5BC9]/30' },
+  disposition_offen: { label: 'Disposition offen',  className: 'bg-[#FCE7C2] text-[#8A4A10] border border-[#D97706]/30' },
+  confirmed:         { label: 'Bestätigt',          className: 'bg-[#E6F2E3] text-[#1F5C20] border border-[#2A7A2A]/30' },
+  completed:         { label: 'Abgeschlossen',      className: 'bg-[#D6F1ED] text-[#0A5C53] border border-[#0F8A7E]/30' },
+  done:              { label: 'Erledigt',           className: 'bg-[#DFEBF5] text-[#244865] border border-[#244865]/30' },
+  paused:            { label: 'Pausiert',           className: 'bg-[#EFEDE6] text-[#3C3B38] border border-[#6B6962]/30' },
+  cancelled:         { label: 'Storniert',          className: 'bg-[#F8E0DB] text-[#8A2515] border border-[#B4311B]/30' },
+  archived:          { label: 'Archiviert',         className: 'bg-[#F0EBDF] text-[#3C3B38] border border-[#6B6962]/30' },
 };
 
 export function Section({

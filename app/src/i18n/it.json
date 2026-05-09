@@ -861,6 +861,7 @@
   "orders.quick.thisWeek": "Questa settimana",
   "orders.quick.nextWeek": "Settimana prossima",
   "orders.quick.overdue": "In ritardo",
+  "orders.quick.overdueFlex": "Scadenza flex superata",
   "orders.quick.mine": "I miei",
   "orders.filter.allEmployees": "Tutti i collaboratori",
   "orders.filter.reset": "Reimposta filtri",
