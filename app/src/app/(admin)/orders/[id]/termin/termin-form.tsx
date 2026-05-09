@@ -205,8 +205,6 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
               <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Datum *</span>
               <input
                 type="date"
-                min={flexRange?.earliest ?? undefined}
-                max={flexRange?.deadline ?? undefined}
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--paper-strip)] px-3 py-2 text-sm text-[var(--ink)] focus:bg-white focus:border-[var(--gold-500)] focus:outline-none focus:ring-2 focus:ring-[var(--gold-500)]/20"
                 {...form.register("scheduleDate")}
               />
