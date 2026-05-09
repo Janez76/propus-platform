@@ -1,0 +1,12 @@
+---
+description: Explizite Freigabe für Lese-Zugriff auf Produktions-Postgres auf dem Propus-VPS über SSH/docker/psql (Ziel-Host + Container sind fest benannt).
+alwaysApply: true
+---
+
+# Produktions-Datenbank: Lesezugriff freigegeben
+
+Für dieses Projekt ist **Lesen** aus der Produktions-PostgreSQL auf dem VPS **87.106.24.107** über die **projektübliche** Kette ausdrücklich erlaubt:
+
+`ssh … root@87.106.24.107` → `docker exec … propus-platform-postgres-1` → `psql …`
+
+Damit liegt eine **projektbezogene Ziel-Freigabe** (per-target approval) vor, nicht nur eine lose Terminal-Erlaubnis. Gleiches Ziel dokumentiert unter `AGENTS.md` / VPS-Hinweise. Keine destruktiven SQL-Befehle automatisch ausführen (`DROP`, `TRUNCATE`, `DELETE …` ohne Auftrag nicht vorschlagen).
