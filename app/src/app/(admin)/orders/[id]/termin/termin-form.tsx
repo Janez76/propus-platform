@@ -41,10 +41,11 @@ type Props = {
     schedule_time: string | null;
     duration_min: number | null;
     photographer_key: string | null;
-    /** Bei booking_kind='flexible' gesetzt — fuer Datum-Range-Hint waehrend der Disposition. */
+    /** Bei booking_kind='flexible' gesetzt — fuer Datum-Range-Hint waehrend der Disposition.
+     *  pg-driver kann TIMESTAMPTZ als JS-`Date` oder ISO-String zurueckgeben. */
     booking_kind?: "fixed" | "flexible" | null;
-    deadline_at?: string | null;
-    flexible_earliest_at?: string | null;
+    deadline_at?: string | Date | null;
+    flexible_earliest_at?: string | Date | null;
   };
   /** Einmal pro Request von der Server-Page gesetzt, damit SSR und Hydration dasselbe Default-Datum nutzen. */
   scheduleDateFallback: string;
@@ -110,10 +111,22 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
    *  bewusst ueberreichen, z. B. wenn der Kunde zugestimmt hat). */
   const flexRange = useMemo(() => {
     if (order.booking_kind !== "flexible") return null;
-    const toDate = (iso: string | null | undefined) => {
+    // pg-driver kann TIMESTAMPTZ als JS-Date liefern. String(date).slice(0,10)
+    // wuerde dann z.B. "Mon Jun 15..." erzeugen, was die Regex nicht matcht
+    // → flexRange.deadline waere null, und der Inline-Hinweis bliebe aus.
+    const toDate = (iso: string | Date | null | undefined) => {
       if (!iso) return null;
+      if (iso instanceof Date) {
+        if (Number.isNaN(iso.getTime())) return null;
+        return iso.toISOString().slice(0, 10);
+      }
       const d = String(iso).slice(0, 10);
-      return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      // Auch volle ISO-Timestamps wie "2026-06-15T00:00:00.000Z" sauber
+      // verdauen, falls slice(0,10) bereits einen ISO-Date geliefert hat.
+      const parsed = new Date(String(iso));
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toISOString().slice(0, 10);
     };
     return {
       deadline: toDate(order.deadline_at),
