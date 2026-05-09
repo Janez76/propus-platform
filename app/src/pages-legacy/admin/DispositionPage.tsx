@@ -29,10 +29,17 @@ const TIME_OPTIONS = (() => {
   return out;
 })();
 
+/** YYYY-MM-DD in der lokalen Zeitzone des Browsers — bewusst NICHT
+ *  via toISOString(), das bei positiven UTC-Offsets nach Mitternacht
+ *  einen Tag zu wenig liefern wuerde (z. B. CH-Sommer 00:30 lokal →
+ *  ISO zeigt noch den Vortag, also waere "tomorrow" effektiv "today"). */
 function tomorrowISO(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /**
