@@ -233,21 +233,29 @@ export function MobileOrdersTab() {
     });
   }, [orders, query, filters, activeKpi]);
 
+  /** Flex-Aufts mit Status `disposition_offen` haben *keinen* Termin und
+   *  werden daher von `bucketOrdersByDay` (sortiert per `appointmentDate`)
+   *  in den `later`-Bucket geschoben. Wir ziehen sie hier explizit aus,
+   *  damit dieselben Aufts nicht *doppelt* erscheinen — einmal in der
+   *  eigenen Disposition-Sektion und einmal als anonyme Card unter
+   *  „Später". `today_due`-KPI-Filter verschluckt Flex-Aufts bewusst
+   *  (kein appointmentDate). */
+  const isFlexDispositionOrder = (o: Order) =>
+    o.bookingKind === "flexible" && o.status === "disposition_offen";
+
   const buckets: BucketedDay[] = useMemo(
-    () => bucketOrdersByDay(filteredOrders, { hideStatuses: HIDDEN_STATUSES }),
+    () =>
+      bucketOrdersByDay(
+        filteredOrders.filter((o) => !isFlexDispositionOrder(o)),
+        { hideStatuses: HIDDEN_STATUSES },
+      ),
     [filteredOrders],
   );
 
-  /** Flex-Aufts mit Status `disposition_offen` haben *keinen* Termin und
-   *  werden daher von `bucketOrdersByDay` (sortiert per `appointmentDate`)
-   *  ignoriert. Eigene Liste: nach Deadline aufsteigend, ueberfaellige
-   *  zuerst. Such-/Mitarbeiter-Filter werden via `filteredOrders`
-   *  mitgenommen; der `today_due`-KPI-Filter verschluckt Flex-Auftraege
-   *  jedoch (kein appointmentDate) — daher fallen Flex-Disposition-Karten
-   *  in dem Modus bewusst weg. */
+  /** Eigene Liste: nach Deadline aufsteigend, ueberfaellige zuerst. */
   const flexDispositionItems: MobileFlexDispositionItem[] = useMemo(() => {
     return filteredOrders
-      .filter((o) => o.bookingKind === "flexible" && o.status === "disposition_offen")
+      .filter(isFlexDispositionOrder)
       .map((o): MobileFlexDispositionItem => ({
         orderNo: o.orderNo,
         customerName: o.customerName ?? null,
@@ -432,7 +440,15 @@ export function MobileOrdersTab() {
           <>
             <MobileFlexDispositionSection
               items={flexDispositionItems}
-              onSelect={(orderNo) => navigate(`/orders/${orderNo}/termin?edit=1`)}
+              onSelect={(orderNo) => {
+                // /orders/:no/termin ist eine Next.js-App-Router-Route —
+                // react-router-dom (SPA) hat sie nicht registriert, also
+                // muss hier eine *Full-Page-Navigation* erfolgen, sonst
+                // landet der Tap im SPA-NotFound.
+                if (typeof window !== "undefined") {
+                  window.location.assign(`/orders/${orderNo}/termin?edit=1`);
+                }
+              }}
             />
             <DaySectionsList
               buckets={buckets}
