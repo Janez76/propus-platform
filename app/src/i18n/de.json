@@ -2239,7 +2239,7 @@
   "booking.step3.bookingKind.label": "Buchungsart",
   "booking.step3.bookingKind.fixed.label": "Fixer Termin",
   "booking.step3.bookingKind.fixed.desc": "Wunschtermin auswählen — Slot wird sofort blockiert.",
-  "booking.step3.bookingKind.flexible.label": "Flexibel mit Deadline",
+  "booking.step3.bookingKind.flexible.label": "Wir disponieren den Termin innerhalb Ihres Zeitraums.",
   "booking.step3.bookingKind.flexible.desc": "Wir disponieren den Termin innerhalb Ihres Zeitraums.",
   "booking.step3.flex.deadline": "Spätestens am",
   "booking.step3.flex.earliest": "Frühestens ab (optional)",
