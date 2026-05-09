@@ -15,7 +15,7 @@
  */
 import { memo } from "react";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowRight, ArrowUpRight, Car, Clock, Crosshair, House, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, CalendarRange, Car, Clock, Crosshair, House, TriangleAlert } from "lucide-react";
 import "./mobile-ui.css";
 
 import type { DayBucket } from "./dayBuckets";
@@ -349,3 +349,156 @@ export function MobileKpiPills({ pills, activeId, onSelect }: MobileKpiPillsProp
     </div>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Flex-Disposition-Section (Migration 092 — booking_kind='flexible')
+//
+// Aufträge mit `bookingKind='flexible'` und Status `disposition_offen`
+// haben *noch keinen* Termin — sie tauchen daher nie in den Day-Buckets
+// (Heute/Morgen/Woche) auf, wären in der mobilen Tagesansicht ohne diese
+// Sektion komplett unsichtbar. Office/Photographer sieht hier auf einen
+// Blick, was als nächstes disponiert werden muss, sortiert nach Deadline-
+// Dringlichkeit. Tap → springt direkt in den Termin-Edit-Mode.
+
+export interface MobileFlexDispositionItem {
+  orderNo: number | string;
+  customerName: string | null;
+  address: string | null;
+  /** ISO-String oder null. */
+  deadlineAt: string | null;
+  /** ISO-String oder null. */
+  flexibleEarliestAt: string | null;
+}
+
+interface MobileFlexDispositionSectionProps {
+  items: MobileFlexDispositionItem[];
+  onSelect: (orderNo: string | number) => void;
+}
+
+/** Liefert (jahr, monat, tag) eines Date-Objekts in Europe/Zurich.
+ *  Engine-stabil via Intl.formatToParts (gleiches Pattern wie DeadlineBadge). */
+function chDateParts(d: Date): { y: number; m: number; day: number } | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+  return { y, m, day };
+}
+
+/** Vorzeichen-behaftete Differenz Kalendertage bis Deadline (Europe/Zurich).
+ *  Negativ = überfällig, 0 = heute, positiv = noch X Tage. */
+function daysUntilDeadline(iso: string | null): number | null {
+  if (!iso) return null;
+  const target = chDateParts(new Date(iso));
+  const today = chDateParts(new Date());
+  if (!target || !today) return null;
+  const targetMidnight = Date.UTC(target.y, target.m - 1, target.day);
+  const todayMidnight = Date.UTC(today.y, today.m - 1, today.day);
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
+}
+
+function formatFlexDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("de-CH", {
+    timeZone: "Europe/Zurich",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function deadlineUrgencyLabel(days: number | null): { label: string; tone: "danger" | "warn" | "ok" } {
+  if (days === null) return { label: "—", tone: "ok" };
+  if (days < 0) {
+    const overdue = Math.abs(days);
+    return { label: overdue === 1 ? "1 Tag überfällig" : `${overdue} Tage überfällig`, tone: "danger" };
+  }
+  if (days === 0) return { label: "Heute fällig", tone: "danger" };
+  if (days === 1) return { label: "Morgen fällig", tone: "danger" };
+  if (days < 7) return { label: `Noch ${days} Tage`, tone: "danger" };
+  if (days < 14) return { label: `Noch ${days} Tage`, tone: "warn" };
+  return { label: `Noch ${days} Tage`, tone: "ok" };
+}
+
+export const MobileFlexDispositionSection = memo(function MobileFlexDispositionSection({
+  items,
+  onSelect,
+}: MobileFlexDispositionSectionProps) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-label="Flex-Aufträge zur Disposition">
+      <div className="mob-flex-section-h">
+        <span className="mob-flex-section-h-icon" aria-hidden>
+          <CalendarRange size={16} />
+        </span>
+        <div className="mob-flex-section-text">
+          <span className="mob-flex-section-title">Disposition offen</span>
+          <span className="mob-flex-section-meta">
+            {items.length} {items.length === 1 ? "Flex-Auftrag" : "Flex-Aufträge"} · sortiert nach Deadline
+          </span>
+        </div>
+      </div>
+      <ul className="mob-section-list" style={{ paddingTop: 0 }}>
+        {items.map((it) => {
+          const days = daysUntilDeadline(it.deadlineAt);
+          const urgency = deadlineUrgencyLabel(days);
+          const addrParts = (it.address || "").split(",");
+          const street = (addrParts[0] || "").trim();
+          const zipcity = addrParts.slice(1).join(",").trim();
+          return (
+            <li key={String(it.orderNo)}>
+              <button
+                type="button"
+                onClick={() => onSelect(it.orderNo)}
+                className="mob-list-item mob-list-item--flex"
+              >
+                <span className={`mob-flex-deadline-chip mob-flex-deadline-chip--${urgency.tone}`}>
+                  <span className="mob-flex-deadline-chip-h">{urgency.label}</span>
+                  <span className="mob-flex-deadline-chip-sub">
+                    bis {formatFlexDate(it.deadlineAt)}
+                  </span>
+                </span>
+                <div className="mob-list-content">
+                  <div className="mob-list-title">
+                    <span style={{ color: "var(--accent)", fontFamily: "var(--font-mono, ui-monospace, monospace)", fontWeight: 700, fontSize: 11 }}>
+                      #{it.orderNo}
+                    </span>
+                    {it.customerName && (
+                      <>
+                        <span style={{ color: "var(--text-muted)", margin: "0 6px" }}>·</span>
+                        <span>{it.customerName}</span>
+                      </>
+                    )}
+                    <span className="mob-pill mob-pill--flex" style={{ marginLeft: 6 }}>Flex</span>
+                  </div>
+                  {street && (
+                    <div className="mob-list-sub">
+                      <MobileObjectAddr street={street} zipcity={zipcity} />
+                    </div>
+                  )}
+                  {it.flexibleEarliestAt && (
+                    <div className="mob-list-meta">
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        Frühestens ab {formatFlexDate(it.flexibleEarliestAt)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+});

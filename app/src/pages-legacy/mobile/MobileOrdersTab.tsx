@@ -15,6 +15,8 @@ import { MobileSearchBar, MobileState } from "./MobileUI";
 import {
   MobileDaySectionHeader,
   MobileDepartureChip,
+  MobileFlexDispositionSection,
+  type MobileFlexDispositionItem,
   MobileHomeDivider,
   MobileKpiPills,
   type MobileKpiPillSpec,
@@ -236,6 +238,30 @@ export function MobileOrdersTab() {
     [filteredOrders],
   );
 
+  /** Flex-Aufts mit Status `disposition_offen` haben *keinen* Termin und
+   *  werden daher von `bucketOrdersByDay` (sortiert per `appointmentDate`)
+   *  ignoriert. Eigene Liste: nach Deadline aufsteigend, ueberfaellige
+   *  zuerst. Such-/Mitarbeiter-Filter werden via `filteredOrders`
+   *  mitgenommen; der `today_due`-KPI-Filter verschluckt Flex-Auftraege
+   *  jedoch (kein appointmentDate) — daher fallen Flex-Disposition-Karten
+   *  in dem Modus bewusst weg. */
+  const flexDispositionItems: MobileFlexDispositionItem[] = useMemo(() => {
+    return filteredOrders
+      .filter((o) => o.bookingKind === "flexible" && o.status === "disposition_offen")
+      .map((o): MobileFlexDispositionItem => ({
+        orderNo: o.orderNo,
+        customerName: o.customerName ?? null,
+        address: o.address ?? null,
+        deadlineAt: o.deadlineAt ?? null,
+        flexibleEarliestAt: o.flexibleEarliestAt ?? null,
+      }))
+      .sort((a, b) => {
+        const ta = a.deadlineAt ? new Date(a.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+        const tb = b.deadlineAt ? new Date(b.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+        return ta - tb;
+      });
+  }, [filteredOrders]);
+
   /** KPI-Pills aus den gefilterten Orders ableiten. Kennzahlen aus dem
    *  *ungefilterten* Bestand (orders) — Filter-State soll Zaehlung nicht
    *  veraendern, sonst widerspruechlich (KPI sagt 5 offen, Liste zeigt 0). */
@@ -403,15 +429,21 @@ export function MobileOrdersTab() {
             }
           />
         ) : (
-          <DaySectionsList
-            buckets={buckets}
-            home={home}
-            navigate={navigate}
-            resolveTravelMin={resolveTravelMin}
-            resolveHomeMin={resolveHomeMin}
-            geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
-            nowMs={nowMs}
-          />
+          <>
+            <MobileFlexDispositionSection
+              items={flexDispositionItems}
+              onSelect={(orderNo) => navigate(`/orders/${orderNo}/termin?edit=1`)}
+            />
+            <DaySectionsList
+              buckets={buckets}
+              home={home}
+              navigate={navigate}
+              resolveTravelMin={resolveTravelMin}
+              resolveHomeMin={resolveHomeMin}
+              geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
+              nowMs={nowMs}
+            />
+          </>
         )}
 
         <MobileFilterSheet
@@ -669,6 +701,11 @@ const DayRowEntry = memo(function DayRowEntry({
                 <span style={{ color: "var(--text-muted)", margin: "0 6px" }}>·</span>
                 <span>{o.customerName}</span>
               </>
+            )}
+            {o.bookingKind === "flexible" && (
+              <span className="mob-pill mob-pill--flex" style={{ marginLeft: 6 }} title="Flex-Buchung mit Deadline">
+                Flex
+              </span>
             )}
           </div>
           {street && (
