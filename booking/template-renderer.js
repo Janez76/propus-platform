@@ -564,6 +564,12 @@ const AVAILABLE_PLACEHOLDERS = [
   { key: "keyPickupAddress",    desc: "Adresse der Schluesselabholung" },
   { key: "keyPickupInfo",       desc: "Info/Hinweis zur Schluesselabholung" },
   { key: "portalMagicLink",     desc: "Magic-Link zum Kunden-Portal (automatisch generiert, leer wenn nicht verfuegbar)" },
+  // Flex-Buchung — werden von state-machine-Effekten bzw. dem
+  // flex-deadline-reminder-Cron-Job in extras-Override gemappt.
+  { key: "deadlineDate",        desc: "Flex-Deadline (DD.MM.YYYY) — nur bei booking_kind='flexible'" },
+  { key: "flexibleEarliestDate",desc: "Flex 'Frühestens ab'-Datum (DD.MM.YYYY oder '—')" },
+  { key: "daysUntilDeadline",   desc: "Resttage bis Deadline als String (z.B. 'noch 5 Tage', 'heute fällig', 'überfällig')" },
+  { key: "adminOrderLink",      desc: "Direktlink ins Admin auf den Termin-Tab des Auftrags" },
 ];
 
 /**

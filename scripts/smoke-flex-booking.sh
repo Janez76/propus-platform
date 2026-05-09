@@ -81,7 +81,10 @@ JSON
 RESPONSE_FILE="$(mktemp -t flex-smoke.XXXX.json)"
 trap 'rm -f "$RESPONSE_FILE"' EXIT
 
-HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
+# --connect-timeout / --max-time verhindern, dass der Smoke-Test bei
+# DNS-/TLS-Haengern unbegrenzt blockiert. 60s Gesamt-Timeout reicht fuer
+# den synchronen Teil des Booking-Submits inkl. Order-Insert.
+HTTP_CODE=$(curl -sS --connect-timeout 10 --max-time 60 -o "$RESPONSE_FILE" -w "%{http_code}" \
   -X POST "${BASE_URL}/api/booking" \
   -H "Content-Type: application/json" \
   --data "$PAYLOAD") || true
