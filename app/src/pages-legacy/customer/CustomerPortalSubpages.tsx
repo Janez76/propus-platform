@@ -47,13 +47,25 @@ function formatDeCH(iso: string | null | undefined, opts?: { compact?: boolean }
   }
   const dt = new Date(s);
   if (Number.isNaN(dt.getTime())) return "—";
+  // Fuer ISO-Timestamps explizit Europe/Zurich rendern. Sonst kann ein
+  // TIMESTAMPTZ wie "2026-06-15T00:00:00Z" in Browser-TZs westlich von UTC
+  // den Vortag anzeigen — kritisch fuer kundenseitige Deadlines.
   if (compact) {
     // de-CH liefert bei nur day+month bereits einen Trailing-Punkt
     // ("15.05."); kein zusätzliches "." anhängen, sonst "15.05..".
-    const out = dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" });
+    const out = dt.toLocaleDateString("de-CH", {
+      timeZone: "Europe/Zurich",
+      day: "2-digit",
+      month: "2-digit",
+    });
     return out.endsWith(".") ? out : `${out}.`;
   }
-  return dt.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return dt.toLocaleDateString("de-CH", {
+    timeZone: "Europe/Zurich",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function useJson<T>(url: string) {
