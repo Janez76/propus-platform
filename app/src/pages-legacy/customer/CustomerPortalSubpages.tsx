@@ -241,10 +241,10 @@ export function CustomerOrderDetailPage() {
   const o = order as (CustomerOrderShape & { orderNo?: number }) | null;
   const isFlex = o?.bookingKind === "flexible";
   // Banner-Zustand am Status festmachen, nicht am Vorhandensein eines Datums.
-  // Ein Auftrag in `disposition_offen` mit bereits vorbefuelltem Termin
-  // (z. B. Office hat das Datum gesetzt aber noch nicht bestaetigt) soll
-  // weiterhin den Pre-Disposition-Hinweis zeigen.
-  const flexConfirmed = isFlex && o?.status !== "disposition_offen";
+  // Status muss explizit gesetzt sein — bei `undefined` würde
+  // `o?.status !== "disposition_offen"` true ergeben und das Confirmed-Banner
+  // fälschlich anzeigen.
+  const flexConfirmed = isFlex && !!o?.status && o.status !== "disposition_offen";
   return (
     <div>
       <button type="button" onClick={() => navigate(-1)} className="mb-3 text-sm text-amber-500">
@@ -281,8 +281,14 @@ export function CustomerOrderDetailPage() {
             <>
               <p className="font-semibold text-amber-300">Wir disponieren Ihren Termin</p>
               <p className="mt-1 text-zinc-300">
-                Spätestens am <strong>{formatDeCH(o.deadlineAt)}</strong>
-                {o.flexibleEarliestAt ? <> (frühestens ab {formatDeCH(o.flexibleEarliestAt)})</> : null}.
+                {o.deadlineAt ? (
+                  <>
+                    Spätestens am <strong>{formatDeCH(o.deadlineAt)}</strong>
+                    {o.flexibleEarliestAt ? <> (frühestens ab {formatDeCH(o.flexibleEarliestAt)})</> : null}.
+                  </>
+                ) : (
+                  <>Wir melden uns mit Ihrem Termin, sobald die Disposition abgeschlossen ist.</>
+                )}
               </p>
               <p className="mt-2 text-xs text-zinc-400">
                 Sie erhalten von uns eine separate E-Mail mit Datum, Uhrzeit und zugewiesenem Fotografen, sobald der Termin steht — spätestens einen Tag vor der Aufnahme.

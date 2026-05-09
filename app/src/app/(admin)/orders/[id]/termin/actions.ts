@@ -131,7 +131,19 @@ export async function saveOrderTermin(
       // booking/order-status-workflow.js für Konsistenz.
       let overrideReason: string | null = null;
       if (oldStatus === "disposition_offen" && v.status === "confirmed") {
-        const deadline = order.deadline_at ? String(order.deadline_at).slice(0, 10) : "";
+        // pg-driver kann TIMESTAMPTZ als JS-Date oder String liefern. Beide
+        // Faelle deterministisch auf YYYY-MM-DD bringen — ein simpler
+        // String(...).slice(0,10) wuerde z. B. bei einem Date-Objekt
+        // "Mon Jun 15..." erzeugen, was als Audit-Notiz unbrauchbar waere.
+        let deadline = "";
+        if (order.deadline_at) {
+          const d = order.deadline_at instanceof Date
+            ? order.deadline_at
+            : new Date(order.deadline_at);
+          if (!Number.isNaN(d.getTime())) {
+            deadline = d.toISOString().slice(0, 10);
+          }
+        }
         overrideReason = [
           "flex_disposition",
           deadline ? `deadline=${deadline}` : null,

@@ -10,8 +10,9 @@ export interface OrderRowSchedule {
   photographer_key: string | null;
   /** Buchungsart: 'fixed' (default) oder 'flexible'. Migration 092. */
   booking_kind: "fixed" | "flexible";
-  /** Spätestes Aufnahmedatum bei booking_kind='flexible' (sonst NULL). */
-  deadline_at: string | null;
+  /** Spätestes Aufnahmedatum bei booking_kind='flexible' (sonst NULL).
+   *  pg-driver kann TIMESTAMPTZ als JS-`Date` oder ISO-String zurückgeben. */
+  deadline_at: string | Date | null;
 }
 
 export async function getOrderForTerminEdit(orderNo: string | number, tx?: Querier): Promise<OrderRowSchedule | null> {
