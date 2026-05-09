@@ -355,9 +355,41 @@ async function changeOrderStatus(orderId, targetStatus, context, deps) {
   }
 
   // ── Schritt 7: Audit-Log ─────────────────────────────────────────────────
+  // Spezialfall Flex-Disposition: bei disposition_offen → confirmed eine
+  // strukturierte Notiz in override_reason ablegen (Deadline des Kunden +
+  // disponierter Termin + Fotograf), damit Audit-Logs auch ohne Join auf
+  // orders nachvollziehbar bleiben. Eine vom Aufrufer mitgegebene
+  // overrideReason hat Vorrang.
+  let auditOverrideReason = overrideReason;
+  if (
+    !auditOverrideReason
+    && from === ORDER_STATUS.DISPOSITION_OFFEN
+    && to === ORDER_STATUS.CONFIRMED
+  ) {
+    const dispatchedDate = (order.schedule && order.schedule.date) || "";
+    const dispatchedTime = (order.schedule && order.schedule.time) || "";
+    const photographerKey = (order.photographer && order.photographer.key) || order.photographerKey || "";
+    const deadlineRaw = order.deadlineAt || order.deadline_at || "";
+    // pg-driver liefert TIMESTAMPTZ als JS-Date, ander Pfade als ISO-String.
+    // Beide Faelle deterministisch auf YYYY-MM-DD bringen — String(...).slice(0,10)
+    // wuerde bei einem Date-Objekt "Mon Jun 15..." erzeugen.
+    let deadline = "";
+    if (deadlineRaw) {
+      const d = deadlineRaw instanceof Date ? deadlineRaw : new Date(deadlineRaw);
+      if (!isNaN(d.getTime())) {
+        deadline = d.toISOString().slice(0, 10);
+      }
+    }
+    auditOverrideReason = [
+      "flex_disposition",
+      deadline ? "deadline=" + deadline : null,
+      dispatchedDate ? "dispatched=" + dispatchedDate + (dispatchedTime ? " " + dispatchedTime : "") : null,
+      photographerKey ? "photographer=" + photographerKey : null,
+    ].filter(Boolean).join("; ");
+  }
   await writeAuditLog(pool, {
     orderNo, fromStatus: from, toStatus: to, source, actorId,
-    calendarResult, forceSlot, overrideReason,
+    calendarResult, forceSlot, overrideReason: auditOverrideReason,
   });
   console.log("[order-status-workflow] abgeschlossen", {
     orderNo, from, to, source, calendarResult, forceSlot,

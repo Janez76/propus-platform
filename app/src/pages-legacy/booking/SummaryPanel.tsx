@@ -19,6 +19,7 @@ export function SummaryPanel({
 }) {
   const {
     address, selectedPackage, addons, photographer, date, time,
+    bookingKind, deadlineAt, flexibleEarliestAt,
     discount, setDiscount, config, reset,
   } = useBookingWizardStore();
 
@@ -68,7 +69,15 @@ export function SummaryPanel({
     window.scrollTo(0, 0);
   }
 
-  const hasContent = !!(address || selectedPackage || addons.length > 0 || photographer || date);
+  const isFlex = bookingKind === "flexible";
+  const hasContent = !!(
+    address ||
+    selectedPackage ||
+    addons.length > 0 ||
+    photographer ||
+    (!isFlex && date) ||
+    (isFlex && (deadlineAt || flexibleEarliestAt))
+  );
 
   if (mobile) {
     return (
@@ -156,10 +165,30 @@ export function SummaryPanel({
           </div>
         )}
 
-        {date && (
+        {!isFlex && date && (
           <div className="flex items-center gap-2">
             <CalendarDays className="h-3.5 w-3.5 text-[var(--accent)]" />
             <span className="text-[var(--text-muted)]">{formatDateCH(date)}{time ? ` ${time}` : ""}</span>
+          </div>
+        )}
+
+        {isFlex && (deadlineAt || flexibleEarliestAt) && (
+          <div className="space-y-1">
+            {deadlineAt && (
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-3.5 w-3.5 text-[var(--accent)]" />
+                <span className="text-[var(--text-muted)]">
+                  {t(lang, "booking.step3.flex.deadline")}: {formatDateCH(deadlineAt)}
+                </span>
+              </div>
+            )}
+            {flexibleEarliestAt && (
+              <div className="flex items-center gap-2 pl-5">
+                <span className="text-xs text-[var(--text-subtle)]">
+                  {t(lang, "booking.step3.flex.earliest")}: {formatDateCH(flexibleEarliestAt)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

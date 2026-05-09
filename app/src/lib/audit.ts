@@ -48,16 +48,20 @@ export async function logOrderEvent(
   );
 }
 
+export interface LogStatusAuditEntryParams {
+  orderNo: number;
+  fromStatus: string;
+  toStatus: string;
+  source: string;
+  actorId: string | null;
+  calendarResult?: string;
+  errorMessage?: string | null;
+  /** Strukturierte Notiz, z. B. "flex_disposition; deadline=...; dispatched=...". */
+  overrideReason?: string | null;
+}
+
 export async function logStatusAuditEntry(
-  params: {
-    orderNo: number;
-    fromStatus: string;
-    toStatus: string;
-    source: string;
-    actorId: string | null;
-    calendarResult?: string;
-    errorMessage?: string | null;
-  },
+  params: LogStatusAuditEntryParams,
   tx?: Querier,
 ): Promise<void> {
   await query(
@@ -73,7 +77,7 @@ export async function logStatusAuditEntry(
       params.calendarResult ?? "not_required",
       params.errorMessage ? String(params.errorMessage).slice(0, 1000) : null,
       false,
-      null,
+      params.overrideReason ? String(params.overrideReason).slice(0, 500) : null,
     ],
     tx,
   );
