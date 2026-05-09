@@ -1559,11 +1559,23 @@ async function getOrdersForCustomerId(customerId, { limit = 200 } = {}) {
 
 // ─── Bestellungen ─────────────────────────────────────────────────────────────
 
-async function insertOrder(record, customerId) {
-  const normalizedRecord = normalizeTextDeep(record || {});
-  const keyPickupValue = normalizedRecord.keyPickup && typeof normalizedRecord.keyPickup === "object"
-    ? normalizedRecord.keyPickup
-    : null;
+/**
+ * Pure: baut SQL + Param-Array fuer einen INSERT in `orders`.
+ *
+ * Ausgelagert aus `insertOrder`, damit Param-Konstruktion ohne DB testbar
+ * ist. Konvention:
+ *  - `bookingKind` defaultet auf `'fixed'`, ungueltige Werte werden auf
+ *    `'fixed'` gemappt.
+ *  - `deadlineAt` / `flexibleEarliestAt` werden zu JS-`Date` geparsed
+ *    (oder `null`, wenn nicht gesetzt).
+ *  - `key_pickup` ist hier `null` (Platzhalter) — der Caller setzt es
+ *    nachtraeglich, weil ein BOOLEAN-Fallback fuer Legacy-Schemas existiert.
+ *
+ * @param {object} record - bereits via normalizeTextDeep durchgereinigtes Record.
+ * @param {number|null} customerId
+ * @returns {{ sql: string, params: Array<unknown> }}
+ */
+function buildInsertOrderParams(record, customerId) {
   const sql = `INSERT INTO orders (
       order_no, customer_id, status, address,
       object, services, photographer, schedule, billing, pricing,
@@ -1583,52 +1595,49 @@ async function insertOrder(record, customerId) {
       $24,$25,$26::jsonb,
       $27,$28,$29
     ) RETURNING id`;
-  const latRaw = Number(normalizedRecord.address_lat);
-  const lonRaw = Number(normalizedRecord.address_lon);
+
+  const latRaw = Number(record.address_lat);
+  const lonRaw = Number(record.address_lon);
   const addressLat = Number.isFinite(latRaw) ? latRaw : null;
   const addressLon = Number.isFinite(lonRaw) ? lonRaw : null;
   const assignmentTraceRaw =
-    normalizedRecord.assignment_trace !== undefined && normalizedRecord.assignment_trace !== null
-      ? normalizedRecord.assignment_trace
-      : normalizedRecord.assignmentTrace;
+    record.assignment_trace !== undefined && record.assignment_trace !== null
+      ? record.assignment_trace
+      : record.assignmentTrace;
   const assignmentTraceJson =
     assignmentTraceRaw !== undefined && assignmentTraceRaw !== null
       ? JSON.stringify(assignmentTraceRaw)
       : null;
 
-  const bookingKindRaw = String(normalizedRecord.bookingKind || normalizedRecord.booking_kind || "fixed").toLowerCase();
+  const bookingKindRaw = String(record.bookingKind || record.booking_kind || "fixed").toLowerCase();
   const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
-  const deadlineAtParam = normalizedRecord.deadlineAt
-    ? new Date(normalizedRecord.deadlineAt)
-    : null;
-  const flexibleEarliestAtParam = normalizedRecord.flexibleEarliestAt
-    ? new Date(normalizedRecord.flexibleEarliestAt)
-    : null;
+  const deadlineAtParam = record.deadlineAt ? new Date(record.deadlineAt) : null;
+  const flexibleEarliestAtParam = record.flexibleEarliestAt ? new Date(record.flexibleEarliestAt) : null;
 
-  const baseParams = [
-    normalizedRecord.orderNo,
+  const params = [
+    record.orderNo,
     customerId,
-    normalizedRecord.status || "pending",
-    normalizedRecord.address || "",
-    JSON.stringify(normalizedRecord.object || {}),
-    JSON.stringify(normalizedRecord.services || {}),
-    JSON.stringify(normalizedRecord.photographer || {}),
-    JSON.stringify(normalizedRecord.schedule || {}),
-    JSON.stringify(normalizedRecord.billing || {}),
-    JSON.stringify(normalizedRecord.pricing || {}),
-    JSON.stringify(normalizedRecord.settingsSnapshot || {}),
-    normalizedRecord.discount ? JSON.stringify(normalizedRecord.discount) : null,
-    null, // key_pickup placeholder
-    normalizedRecord.icsUid || null,
-    normalizedRecord.photographerEventId || null,
-    normalizedRecord.officeEventId || null,
-    normalizedRecord.createdAt ? new Date(normalizedRecord.createdAt) : new Date(),
-    normalizedRecord.confirmationToken || null,
-    normalizedRecord.confirmationTokenExpiresAt ? new Date(normalizedRecord.confirmationTokenExpiresAt) : null,
-    normalizedRecord.confirmationPendingSince ? new Date(normalizedRecord.confirmationPendingSince) : null,
-    normalizedRecord.attendeeEmails || null,
-    normalizedRecord.onsiteEmail || normalizedRecord.billing?.onsiteEmail || null,
-    JSON.stringify(Array.isArray(normalizedRecord.onsiteContacts) ? normalizedRecord.onsiteContacts : []),
+    record.status || "pending",
+    record.address || "",
+    JSON.stringify(record.object || {}),
+    JSON.stringify(record.services || {}),
+    JSON.stringify(record.photographer || {}),
+    JSON.stringify(record.schedule || {}),
+    JSON.stringify(record.billing || {}),
+    JSON.stringify(record.pricing || {}),
+    JSON.stringify(record.settingsSnapshot || {}),
+    record.discount ? JSON.stringify(record.discount) : null,
+    null, // key_pickup Platzhalter — wird vom Caller mit JSONB|BOOLEAN befuellt
+    record.icsUid || null,
+    record.photographerEventId || null,
+    record.officeEventId || null,
+    record.createdAt ? new Date(record.createdAt) : new Date(),
+    record.confirmationToken || null,
+    record.confirmationTokenExpiresAt ? new Date(record.confirmationTokenExpiresAt) : null,
+    record.confirmationPendingSince ? new Date(record.confirmationPendingSince) : null,
+    record.attendeeEmails || null,
+    record.onsiteEmail || record.billing?.onsiteEmail || null,
+    JSON.stringify(Array.isArray(record.onsiteContacts) ? record.onsiteContacts : []),
     addressLat,
     addressLon,
     assignmentTraceJson,
@@ -1636,6 +1645,16 @@ async function insertOrder(record, customerId) {
     deadlineAtParam,
     flexibleEarliestAtParam,
   ];
+
+  return { sql, params };
+}
+
+async function insertOrder(record, customerId) {
+  const normalizedRecord = normalizeTextDeep(record || {});
+  const keyPickupValue = normalizedRecord.keyPickup && typeof normalizedRecord.keyPickup === "object"
+    ? normalizedRecord.keyPickup
+    : null;
+  const { sql, params: baseParams } = buildInsertOrderParams(normalizedRecord, customerId);
 
   const insertWithKeyPickup = async (keyPickupParam) => {
     const params = baseParams.slice();
@@ -2760,6 +2779,7 @@ module.exports = {
   deactivatePhotographer,
   reactivatePhotographer,
   insertOrder,
+  buildInsertOrderParams,
   getOrders,
   getOrderByNo,
   getOrdersByPhotographerAndDate,
