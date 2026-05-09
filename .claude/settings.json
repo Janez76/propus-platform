@@ -5,7 +5,10 @@
       "Bash",
       "Edit",
       "Write",
-      "Read"
+      "Read",
+      "Bash(ssh * root@87.106.24.107 docker exec propus-platform-postgres-1 psql*)",
+      "Bash(ssh * root@87.106.24.107 *docker exec propus-platform-postgres-1 psql*)",
+      "Bash(ssh * 87.106.24.107 *docker exec *propus-platform-postgres-1 *psql*)"
     ]
   },
   "autoMemoryEnabled": true,
