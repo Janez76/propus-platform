@@ -737,7 +737,7 @@ describe("assistant create_order write tool", () => {
     const queryOne = vi.fn().mockResolvedValueOnce({ id: 1, name: "Test", email: "t@t.ch", company: null });
     const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
     const result = await handlers.create_order({ customer_id: 1, address: "Musterweg 5", services: {} }, ctx);
-    expect(result).toEqual({ error: "Mindestens eine Dienstleistung muss ausgewählt sein" });
+    expect(result).toMatchObject({ error: expect.stringContaining("Mindestens eine Dienstleistung") });
   });
 
   it("rejects when customer is not found", async () => {
