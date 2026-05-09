@@ -76,7 +76,11 @@ function scheduleFlexDeadlineReminder(deps) {
         await ctx.perRow(row, async (r) => {
           const days = daysUntil(r.deadline_at);
           const adminBase = process.env.ADMIN_BASE_URL || "https://admin-booking.propus.ch";
+          // SQL row has snake_case `order_no`, aber buildTemplateVars liest
+          // nur `order.orderNo` (camelCase). Im extras-override mappen, sonst
+          // bliebe {{orderNo}} im gerenderten Template leer.
           const vars = buildTemplateVars(r, {
+            orderNo: String(r.order_no || ""),
             deadlineDate: formatDeCH(r.deadline_at),
             flexibleEarliestDate: r.flexible_earliest_at ? formatDeCH(r.flexible_earliest_at) : "—",
             daysUntilDeadline: days === null ? "?" : String(days),
