@@ -77,6 +77,15 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["auftrag", "booking"],
   },
   {
+    id: "order-explicit-product-codes",
+    user: "Auftrag CSL, Attenhoferstrasse 37 Jona, 100m², 20 Bodenfotos, 8 Luftaufnahmen, 360° Tour, 2D Grundriss von Tour, deadline 20.05.",
+    assistantToolPlan:
+      "search_customers, list_available_services -> Codes camera:foto20, dronePhoto:foto8, tour:main, floorplans:tour ablesen. Dann create_order mit service_items=[{code:'camera:foto20'},{code:'dronePhoto:foto8'},{code:'tour:main'},{code:'floorplans:tour'}], area_sqm=100, floors=1, booking_kind='flexible', deadline_at='2026-05-20'. KEINE services-Booleans verwenden — die persistieren weder Name noch Preis.",
+    assistantFinal:
+      "Zusammenfassung mit echten Positionen + berechnetem Total CHF aus dem Produktkatalog (Subtotal/MwSt/Total) und Hinweis dass Office den Termin innerhalb des Zeitraums disponiert.",
+    tags: ["auftrag", "booking", "service_items", "produktcode", "pricing"],
+  },
+  {
     id: "order-flex-deadline",
     user: "Auftrag für CSL, Termin offen, wir disponieren — bis spätestens 20. Mai",
     assistantToolPlan:
