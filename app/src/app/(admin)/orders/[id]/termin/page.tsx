@@ -18,25 +18,23 @@ function formatFlexDate(iso: string | null): string {
 }
 
 /**
- * Vorzeichen-behaftete Tagesdifferenz bis zur Deadline:
- *  - positiv: Deadline in der Zukunft
- *  - 0:       heute
+ * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich):
+ *  - positiv: Deadline in zukünftigen Kalendertagen
+ *  - 0:       Deadline ist heute
  *  - negativ: Deadline überfällig
  *
- * Bei `disposition_offen`-Aufträgen, deren `deadline_at` schon in der
- * Vergangenheit liegt (Office hat die Frist verpasst), möchten wir
- * "überfällig" sehen statt "heute fällig". `Math.ceil` einer kleinen
- * negativen Zahl liefert -0; durch das `Math.max(0, …)` von vorher fielen
- * solche Aufträge fälschlich auf "heute fällig" zurück.
+ * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone, damit Tagesübergänge
+ * konsistent sind und keine Off-by-One-Fehler an Tageswechseln entstehen.
  */
 function daysUntilDeadline(iso: string | null): number | null {
   if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return null;
-  const diffMs = t - Date.now();
-  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
-  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
-  return 0;
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) return null;
+  const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+  const targetMidnight = Date.parse(`${fmt(target)}T00:00:00Z`);
+  const todayMidnight = Date.parse(`${fmt(new Date())}T00:00:00Z`);
+  if (!Number.isFinite(targetMidnight) || !Number.isFinite(todayMidnight)) return null;
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 
 type Props = {

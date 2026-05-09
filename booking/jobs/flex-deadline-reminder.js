@@ -26,29 +26,25 @@ function formatDeCH(iso) {
 }
 
 /**
- * Vorzeichen-behaftete Tagesdifferenz bis zur Deadline:
- *  - positiv: Deadline in der Zukunft
- *  - 0:       heute
+ * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich):
+ *  - positiv: Deadline in zukünftigen Kalendertagen
+ *  - 0:       Deadline ist heute
  *  - negativ: Deadline überfällig
  *
- * Der Cron-Job filtert deadline_at <= now+7d, also auch vergangene Deadlines —
- * wir nivellieren das nicht auf 0, damit das Office klar "überfällig"
- * statt "0 Tage" sieht.
+ * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone (Office sitzt in CH).
+ * Frühere Millisekunden-Differenzen haben Deadlines am späteren Tag
+ * fälschlich als "morgen" markiert und Date-Only-Deadlines an der Mitternacht
+ * als "überfällig".
  */
 function daysUntil(iso) {
   if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return null;
-  const diffMs = t - Date.now();
-  // Wir wollen einen ganzzahligen Tagesversatz mit korrektem Vorzeichen:
-  //  - in der Zukunft: aufrunden (>=1 Tag bei min. 1 Sekunde Differenz)
-  //  - in der Vergangenheit: abrunden Richtung minus (negativer Wert)
-  // Math.ceil eines kleinen negativen Wertes liefert -0; das passiert bei
-  // ueberfaelligen Deadlines (Sekunden bis Stunden) und faellt sonst durch den
-  // days === 0 Check als "heute faellig", obwohl das Datum bereits vorbei ist.
-  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
-  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
-  return 0;
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) return null;
+  const fmt = (d) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+  const targetMidnight = Date.parse(`${fmt(target)}T00:00:00Z`);
+  const todayMidnight = Date.parse(`${fmt(new Date())}T00:00:00Z`);
+  if (!Number.isFinite(targetMidnight) || !Number.isFinite(todayMidnight)) return null;
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 
 function scheduleFlexDeadlineReminder(deps) {

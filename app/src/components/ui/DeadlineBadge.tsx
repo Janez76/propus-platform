@@ -1,24 +1,24 @@
 import { cn } from "../../lib/utils";
 
 /**
- * Vorzeichen-behaftete Tagesdifferenz bis Deadline:
- *  - positiv: Deadline in der Zukunft
- *  - 0:       heute
+ * Vorzeichen-behaftete Differenz in Kalendertagen bis Deadline (Europe/Zurich):
+ *  - positiv: Deadline in zukünftigen Kalendertagen
+ *  - 0:       Deadline ist heute
  *  - negativ: Deadline überfällig
  *
- * `Math.ceil` einer kleinen negativen Zahl liefert `-0`, das frühere
- * `Math.max(0, …)` hat überfällige Aufträge fälschlich auf "Heute fällig"
- * geklemmt. Jetzt liefern wir das echte Vorzeichen, und das Badge zeigt
- * "Überfällig" für `days < 0`.
+ * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone, damit Tagesübergänge
+ * konsistent sind. Frühere Millisekunden-Differenzen mit `Math.ceil`
+ * verursachten Off-by-One-Fehler an den Tagesgrenzen.
  */
 function daysUntil(deadlineIso: string): number | null {
   if (!deadlineIso) return null;
-  const t = new Date(deadlineIso).getTime();
-  if (!Number.isFinite(t)) return null;
-  const diffMs = t - Date.now();
-  if (diffMs > 0) return Math.ceil(diffMs / (24 * 60 * 60 * 1000));
-  if (diffMs < 0) return -Math.ceil(-diffMs / (24 * 60 * 60 * 1000));
-  return 0;
+  const target = new Date(deadlineIso);
+  if (Number.isNaN(target.getTime())) return null;
+  const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+  const targetMidnight = Date.parse(`${fmt(target)}T00:00:00Z`);
+  const todayMidnight = Date.parse(`${fmt(new Date())}T00:00:00Z`);
+  if (!Number.isFinite(targetMidnight) || !Number.isFinite(todayMidnight)) return null;
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 
 /** Formatiert das Deadline-Datum (de-CH). */
