@@ -263,11 +263,18 @@ export function CustomerOrderDetailPage() {
         <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-zinc-200">
           {flexConfirmed ? (
             <>
-              <p className="font-semibold text-amber-300">Termin disponiert</p>
-              <p className="mt-1 text-zinc-300">
-                {formatDeCH(o.schedule!.date)}
-                {o.schedule?.time ? ` · ${o.schedule.time}` : ""}
+              <p className="font-semibold text-amber-300">
+                {o.status === "cancelled" ? "Buchung storniert" : "Termin disponiert"}
               </p>
+              {/* schedule kann fehlen (z. B. cancelled-Order ohne Termin oder
+                  confirmed-Order kurz vor dem Persist) — formatDeCH() liefert
+                  bei undefined einen "—" Platzhalter, kein Crash. */}
+              {o.schedule?.date ? (
+                <p className="mt-1 text-zinc-300">
+                  {formatDeCH(o.schedule.date)}
+                  {o.schedule.time ? ` · ${o.schedule.time}` : ""}
+                </p>
+              ) : null}
             </>
           ) : (
             <>
