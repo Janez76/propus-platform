@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# scripts/smoke-flex-booking.sh
+#
+# Manuelles Smoke gegen booking.propus.ch (oder eine Staging-/Local-URL):
+# Submittet eine Flex-Buchung mit Deadline und prueft, dass das Backend
+#   - die Order anlegt (status: disposition_offen, booking_kind: flexible)
+#   - den orderNo zurueckgibt
+#
+# Optional (wenn DATABASE_URL gesetzt ist und psql verfuegbar):
+#   - prueft die DB-Spalten booking_kind, deadline_at, flexible_earliest_at
+#
+# Verwendung:
+#   BASE_URL=https://booking.propus.ch ./scripts/smoke-flex-booking.sh
+#   BASE_URL=http://localhost:3100 ./scripts/smoke-flex-booking.sh
+#   DATABASE_URL=postgres://... BASE_URL=... ./scripts/smoke-flex-booking.sh
+#
+# Default-Empfaenger und Adresse sind synthetisch; der Job sollte trotzdem
+# einen echten Auftrag in der DB anlegen — danach manuell stornieren falls
+# nicht gewuenscht.
+
+set -euo pipefail
+
+BASE_URL="${BASE_URL:-http://localhost:3100}"
+EMAIL="${SMOKE_EMAIL:-smoke-flex@invite.buchungstool.invalid}"
+COMPANY="${SMOKE_COMPANY:-Smoke Test AG}"
+NAME="${SMOKE_NAME:-Smoke Tester}"
+
+# Deadline = heute + 14 Tage in CH-Zeitzone (lokal vom System).
+DEADLINE_DATE="$(date -d '+14 days' +%Y-%m-%d 2>/dev/null || date -v+14d +%Y-%m-%d)"
+EARLIEST_DATE="$(date -d '+3 days' +%Y-%m-%d 2>/dev/null || date -v+3d +%Y-%m-%d)"
+
+echo "▶ Smoke-Test Flex-Buchung gegen ${BASE_URL}"
+echo "  Deadline:        ${DEADLINE_DATE}"
+echo "  Frueheste-ab:    ${EARLIEST_DATE}"
+echo "  Empfaenger:      ${EMAIL}"
+echo
+
+PAYLOAD=$(cat <<JSON
+{
+  "address": { "text": "Smoke-Strasse 1, 8001 Zürich", "coords": null },
+  "object": {
+    "type": "wohnung",
+    "area": "100",
+    "floors": 1,
+    "rooms": "3.5",
+    "specials": "",
+    "desc": "Smoke-Test ${DEADLINE_DATE}",
+    "onsiteName": "Smoke",
+    "onsitePhone": "0791234567",
+    "onsiteEmail": "${EMAIL}",
+    "onsiteCalendarInvite": false,
+    "additionalOnsiteContacts": []
+  },
+  "services": {
+    "package": { "key": "basis", "price": 500, "label": "Basis-Paket" },
+    "addons": []
+  },
+  "schedule": {
+    "bookingKind": "flexible",
+    "deadlineAt": "${DEADLINE_DATE}",
+    "flexibleEarliestAt": "${EARLIEST_DATE}"
+  },
+  "billing": {
+    "salutation": "Herr",
+    "first_name": "Smoke",
+    "name": "Tester",
+    "company": "${COMPANY}",
+    "email": "${EMAIL}",
+    "phone": "0791234567",
+    "street": "Smoke-Strasse 1",
+    "zip": "8001",
+    "city": "Zürich",
+    "language": "de"
+  },
+  "pricing": { "subtotal": 500, "discountAmount": 0, "vat": 40.5, "total": 540.5 }
+}
+JSON
+)
+
+RESPONSE_FILE="$(mktemp -t flex-smoke.XXXX.json)"
+trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
+  -X POST "${BASE_URL}/api/booking" \
+  -H "Content-Type: application/json" \
+  --data "$PAYLOAD") || true
+
+echo "▶ HTTP ${HTTP_CODE}"
+cat "$RESPONSE_FILE"
+echo
+
+if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+  echo "✗ Submit fehlgeschlagen (HTTP ${HTTP_CODE})"
+  exit 1
+fi
+
+# orderNo extrahieren — robust auch wenn jq fehlt.
+ORDER_NO=""
+if command -v jq >/dev/null 2>&1; then
+  ORDER_NO=$(jq -r '.orderNo // empty' < "$RESPONSE_FILE")
+  STATUS=$(jq -r '.status // empty' < "$RESPONSE_FILE")
+  KIND=$(jq -r '.bookingKind // empty' < "$RESPONSE_FILE")
+else
+  ORDER_NO=$(grep -oE '"orderNo":[0-9]+' "$RESPONSE_FILE" | head -1 | tr -d '"orderNo:')
+  STATUS=$(grep -oE '"status":"[^"]*"' "$RESPONSE_FILE" | head -1 | sed -E 's/.*:"([^"]+)".*/\1/')
+  KIND=$(grep -oE '"bookingKind":"[^"]*"' "$RESPONSE_FILE" | head -1 | sed -E 's/.*:"([^"]+)".*/\1/')
+fi
+
+if [ -z "$ORDER_NO" ]; then
+  echo "✗ Konnte orderNo nicht aus Response extrahieren"
+  exit 1
+fi
+
+echo "✓ Order angelegt: #${ORDER_NO}"
+[ -n "${STATUS:-}" ] && echo "  status:       ${STATUS}"
+[ -n "${KIND:-}" ] && echo "  bookingKind:  ${KIND}"
+
+# Optional: DB-Verifikation falls DATABASE_URL + psql vorhanden.
+if [ -n "${DATABASE_URL:-}" ] && command -v psql >/dev/null 2>&1; then
+  echo
+  echo "▶ DB-Verifikation (DATABASE_URL gesetzt)"
+  psql "$DATABASE_URL" -A -F "|" -c "
+    SELECT order_no, status, booking_kind,
+           to_char(deadline_at, 'YYYY-MM-DD') AS deadline,
+           to_char(flexible_earliest_at, 'YYYY-MM-DD') AS earliest
+    FROM orders
+    WHERE order_no = ${ORDER_NO};
+  " || {
+    echo "✗ DB-Query fehlgeschlagen"
+    exit 1
+  }
+else
+  echo
+  echo "ℹ DB-Verifikation uebersprungen (DATABASE_URL nicht gesetzt oder psql fehlt)."
+  echo "  Manuell pruefen:"
+  echo "    SELECT order_no, status, booking_kind, deadline_at, flexible_earliest_at"
+  echo "      FROM orders WHERE order_no = ${ORDER_NO};"
+fi
+
+echo
+echo "✓ Smoke-Test bestanden — Auftrag #${ORDER_NO} sollte in Admin /orders sichtbar sein."
+echo "  Anschliessend ggf. manuell stornieren um die DB-Liste sauber zu halten."
