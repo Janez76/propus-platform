@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BookingConfig, CatalogData, PhotographerInfo } from "../api/bookingPublic";
 
+/** localStorage-Key fuer den Wizard-Zustand. */
+export const BOOKING_WIZARD_STORE_NAME = "propus-booking-wizard-draft";
+/** Version des persistierten Wizard-Zustands. Inkrementieren, sobald
+ *  Pflichtfelder ergaenzt oder umbenannt werden — der `migrate`-Hook
+ *  unten muss dann den Aufstiegspfad bereitstellen. */
+export const BOOKING_WIZARD_STORE_VERSION = 7;
+
 /** Weitere Personen vor Ort – nur Bestellung, keine Kundenkartei */
 export type OnsiteContactRow = {
   name: string;
@@ -582,8 +589,8 @@ export const useBookingWizardStore = create<BookingWizardState>()(
         })),
     }),
     {
-      name: "propus-booking-wizard-draft",
-      version: 7,
+      name: BOOKING_WIZARD_STORE_NAME,
+      version: BOOKING_WIZARD_STORE_VERSION,
       merge: (persistedState, currentState) => {
         const p =
           persistedState && typeof persistedState === "object"

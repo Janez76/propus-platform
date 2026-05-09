@@ -312,7 +312,10 @@ function FlexSection({
         </div>
       </section>
 
-      <div className="flex items-start gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 text-sm text-[var(--text-muted)]">
+      <div
+        data-testid="booking-flex-disposition-hint"
+        className="flex items-start gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 text-sm text-[var(--text-muted)]"
+      >
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
         <p className="leading-snug">{t(lang, "booking.step3.flex.notice")}</p>
       </div>

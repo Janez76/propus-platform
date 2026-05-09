@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test";
+import {
+  BOOKING_WIZARD_STORE_NAME,
+  BOOKING_WIZARD_STORE_VERSION,
+} from "../src/store/bookingWizardStore";
 
 /**
  * Flex-Buchungs-Smoke: Wizard auf Step 3 vorbereiten, dann Buchungsart-Toggle
@@ -6,7 +10,7 @@ import { test, expect } from "@playwright/test";
  * Disposition-Hinweis) erscheint und der Photographer-Picker verschwindet.
  *
  * Wir umgehen Step 1+2 indem wir den Zustand des Zustand-Stores
- * (`propus-booking-wizard-draft`) per `addInitScript` mit minimalen
+ * (`BOOKING_WIZARD_STORE_NAME`) per `addInitScript` mit minimalen
  * Pflichtdaten vorbelegen — sonst wäre ein E2E-Lauf gegen die Live-API
  * nötig, der echte Aufträge anlegen würde.
  */
@@ -22,13 +26,11 @@ function bookingStartPath(baseURL: string | undefined): string {
   }
 }
 
-const STORE_KEY = "propus-booking-wizard-draft";
-
-/**
- * Minimal-Wizard-State auf Step 3 mit gewählter `bookingKind`.
- * Versionsnummer muss zur aktuellen `bookingWizardStore.ts` passen (v7).
- */
-function seedState(bookingKind: "fixed" | "flexible") {
+/** Minimal-Wizard-State auf Step 3 — Rückgabetyp ist `unknown`, weil wir
+ *  die JSON-Form für localStorage produzieren und der Store bei der
+ *  Hydration via `merge`/`migrate` fehlende Felder aus INITIAL ergänzt.
+ *  So bleibt der Test-Seed klein und ohne tiefe Type-Acrobatics. */
+function seedState(bookingKind: "fixed" | "flexible"): unknown {
   return {
     state: {
       step: 3,
@@ -70,27 +72,7 @@ function seedState(bookingKind: "fixed" | "flexible") {
       deadlineAt: "",
       flexibleEarliestAt: "",
       billing: {
-        salutation: "", first_name: "", company: "", company_email: "", company_phone: "",
-        name: "", email: "", phone: "", phone_mobile: "",
-        street: "", street_suffix: "", zip: "", city: "", zipcity: "",
-        order_ref: "", notes: "",
-        alt_company: "", alt_company_email: "", alt_company_phone: "",
-        alt_street: "", alt_street_suffix: "", alt_zip: "", alt_city: "", alt_zipcity: "",
-        alt_salutation: "", alt_first_name: "", alt_name: "",
-        alt_email: "", alt_phone: "", alt_phone_mobile: "",
-        alt_order_ref: "", alt_notes: "",
-        structured: {
-          mode: "company",
-          company: { name: "", uid: "", address: {} as Record<string, unknown>, orderRef: "" },
-          private: { salutation: "", firstName: "", lastName: "", email: "", phone: "", phoneMobile: "", address: {} as Record<string, unknown> },
-          contacts: [{ salutation: "", firstName: "", lastName: "", department: "", email: "", phone: "", phoneMobile: "" }],
-          altBilling: {
-            enabled: false, mode: "company",
-            company: { name: "", uid: "", address: {} as Record<string, unknown>, orderRef: "", contact: { salutation: "", firstName: "", lastName: "", email: "", phone: "" } },
-            private: { salutation: "", firstName: "", lastName: "", email: "", phone: "", address: {} as Record<string, unknown>, orderRef: "" },
-            notes: "",
-          },
-        },
+        // Flache Legacy-Felder leer; structured.* leer; Store ergaenzt aus INITIAL.
       },
       altBilling: false,
       discount: { code: "", percent: 0, amount: 0 },
@@ -98,7 +80,7 @@ function seedState(bookingKind: "fixed" | "flexible") {
       slotPeriod: "am",
       agbAccepted: false,
     },
-    version: 7,
+    version: BOOKING_WIZARD_STORE_VERSION,
   };
 }
 
@@ -106,7 +88,7 @@ async function gotoWizardOnStep3(page: import("@playwright/test").Page, baseURL:
   const path = bookingStartPath(baseURL);
   await page.addInitScript(({ key, payload }) => {
     try { window.localStorage.setItem(key, payload); } catch { /* noop */ }
-  }, { key: STORE_KEY, payload: JSON.stringify(seedState(bookingKind)) });
+  }, { key: BOOKING_WIZARD_STORE_NAME, payload: JSON.stringify(seedState(bookingKind)) });
   await page.goto(path, { waitUntil: "domcontentloaded" });
   // Landing-Klick falls Landing aktiv ist
   const landingStart = page.getByTestId("booking-landing-start");
@@ -121,25 +103,21 @@ test.describe("Buchungs-Wizard Flex (Smoke)", () => {
     await gotoWizardOnStep3(page, baseURL, "fixed");
 
     // Toggle muss sichtbar sein.
-    const fixedRadio = page.locator('input[name="bookingKind"][value="fixed"]');
-    const flexibleRadio = page.locator('input[name="bookingKind"][value="flexible"]');
-    await expect(fixedRadio).toBeVisible();
-    await expect(flexibleRadio).toBeVisible();
+    await expect(page.getByTestId("booking-kind-fixed-label")).toBeVisible();
+    await expect(page.getByTestId("booking-kind-flexible-label")).toBeVisible();
 
     // Anfangs: Fix → Date-Input sichtbar.
     await expect(page.getByTestId("booking-input-date")).toBeVisible();
 
-    // Auf Flex umschalten — Klick auf das Label-Element (Radio ist sr-only).
-    await page.getByText("Flexibel mit Deadline").click();
+    // Auf Flex umschalten — i18n-stabil ueber data-testid.
+    await page.getByTestId("booking-kind-flexible-label").click();
 
     // Deadline-Input sichtbar, Date-Input weg.
     await expect(page.getByTestId("booking-input-deadline")).toBeVisible();
     await expect(page.getByTestId("booking-input-date")).toBeHidden();
 
     // Disposition-Hinweis sichtbar.
-    await expect(
-      page.getByText(/Wir disponieren den Termin/i),
-    ).toBeVisible();
+    await expect(page.getByTestId("booking-flex-disposition-hint")).toBeVisible();
   });
 
   test("Step 3 Flex: Deadline in der Zukunft setzen produziert keine Validation-Errors", async ({ page, baseURL }) => {
