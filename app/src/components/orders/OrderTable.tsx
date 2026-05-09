@@ -39,6 +39,7 @@ const SECTION_ORDER: StatusKey[] = [
 
 const DEFAULT_EXPANDED: Record<StatusKey, boolean> = {
   pending: true,
+  disposition_offen: true,
   provisional: true,
   confirmed: true,
   paused: true,

@@ -51,7 +51,12 @@ function scheduleProvisionalReminders(deps) {
           return { sent: false, reason: "mail_disabled_or_missing_recipient" };
         }
 
+        // SQL-Row hat snake_case `order_no`, aber buildTemplateVars liest
+        // nur `order.orderNo` (camelCase) — sonst bliebe {{orderNo}} im
+        // gerenderten Subject/Body leer (Template-Renderer-Vertrag, siehe
+        // template-renderer.js:309). Im extras-Override mappen.
         const vars = buildTemplateVars(row, {
+          orderNo: String(row.order_no || ""),
           provisionalExpiresDate: row.provisional_expires_at
             ? new Date(row.provisional_expires_at).toLocaleDateString("de-CH", {
                 timeZone: "Europe/Zurich",
@@ -65,13 +70,24 @@ function scheduleProvisionalReminders(deps) {
           pool, templateKey, row.billing.email, row.order_no, vars, sendMail
         );
 
-        if (result && result.sent === true) {
+        // sendMailIdempotent kann `{sent:false, reason:"already_sent"}` liefern,
+        // wenn `email_send_log` bereits einen Eintrag hat (z. B. Versand in
+        // einem frueheren Lauf erfolgreich, aber DB-Marker nicht persistiert).
+        // Wir behandeln diesen Fall als Erfolg, damit der Marker nachgezogen
+        // wird und der Job nicht stuendlich denselben Auftrag aufgreift.
+        const sendOk = !!(result && (result.sent === true || result.reason === "already_sent"));
+        if (sendOk) {
           await pool.query(
             `UPDATE orders SET ${sentAtColumn}=NOW(), updated_at=NOW() WHERE order_no=$1 AND status='provisional' AND ${sentAtColumn} IS NULL`,
             [row.order_no]
           );
-          ctx.log("marker gesetzt", { orderNo: row.order_no, templateKey, sentAtColumn });
-          return { sent: true };
+          ctx.log("marker gesetzt", {
+            orderNo: row.order_no,
+            templateKey,
+            sentAtColumn,
+            reason: result && result.reason ? result.reason : "sent",
+          });
+          return { sent: true, reason: result && result.reason ? result.reason : "sent" };
         }
 
         ctx.warn("marker nicht gesetzt, Versand nicht bestaetigt", {
@@ -134,7 +150,7 @@ function scheduleProvisionalReminders(deps) {
           await sendReminder(r, "provisional_reminder_3", "provisional_reminder_3_sent_at");
           // Büro einmalig beim letzten Reminder (Tag 3) benachrichtigen
           if (mailOn && sendMail && OFFICE_EMAIL) {
-            const vars = buildTemplateVars(r, {});
+            const vars = buildTemplateVars(r, { orderNo: String(r.order_no || "") });
             const sendFn = function(to, subj, html, text) { return sendMail(to, subj, html, text, null); };
             await sendMailIdempotent(pool, "office_provisional_expiry_notice", OFFICE_EMAIL, r.order_no, vars, sendFn)
               .catch(function(e) {

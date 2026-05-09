@@ -65,11 +65,13 @@ describe("DeadlineBadge", () => {
     expect(container.textContent).toBe("");
   });
 
-  it("clamps past deadlines to 'Heute fällig' (no negative days)", () => {
-    const past = new Date();
-    past.setDate(past.getDate() - 5);
-    const { getByText } = render(<DeadlineBadge deadlineAt={past.toISOString()} />);
-    expect(getByText(/Heute/)).toBeInTheDocument();
+  it("labels past deadlines as 'Überfällig' (signed days, not clamped)", () => {
+    const past = new Date(FIXED_NOW);
+    past.setUTCDate(past.getUTCDate() - 5);
+    const { getByText, container } = render(<DeadlineBadge deadlineAt={past.toISOString()} />);
+    expect(getByText(/Überfällig/)).toBeInTheDocument();
+    const span = container.querySelector("span");
+    expect(span!.className).toMatch(/red/);
   });
 
   it("uses amber tone exactly at 7 days (< 14d boundary, >= 7d)", () => {

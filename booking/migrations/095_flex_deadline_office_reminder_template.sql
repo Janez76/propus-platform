@@ -6,7 +6,7 @@ INSERT INTO email_templates (key, label, subject, body_html, body_text, placehol
 VALUES (
   'flex_deadline_office_reminder',
   'Flex-Deadline naht — Office-Reminder',
-  'Disposition offen — Auftrag #{{orderNo}} laeuft in {{daysUntilDeadline}} Tagen ab',
+  'Disposition offen — Auftrag #{{orderNo}} ({{daysUntilDeadline}})',
   '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#222;background:#f9f6f0;margin:0;padding:0">
 <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
   <div style="background:#9E8649;padding:28px 32px">
@@ -17,7 +17,7 @@ VALUES (
     <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:18px 20px;margin:0 0 24px">
       <div style="font-size:13px;color:#92400e;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;margin-bottom:6px">Disposition naht</div>
       <div style="font-size:18px;font-weight:700;color:#1a1a1a">Spaetestens am {{deadlineDate}}</div>
-      <div style="font-size:13px;color:#555;margin-top:4px">Noch {{daysUntilDeadline}} Tage bis Deadline</div>
+      <div style="font-size:13px;color:#555;margin-top:4px">{{daysUntilDeadline}}</div>
     </div>
 
     <h2 style="color:#1a1a1a;font-size:18px;margin:0 0 8px">Auftrag #{{orderNo}} disponieren</h2>
@@ -49,7 +49,7 @@ VALUES (
 </body></html>',
   'Disposition naht — Auftrag #{{orderNo}}
 
-Spaetestens am: {{deadlineDate}} (noch {{daysUntilDeadline}} Tage)
+Spaetestens am: {{deadlineDate}} ({{daysUntilDeadline}})
 
 Kunde: {{customerName}}
 Objekt: {{address}}

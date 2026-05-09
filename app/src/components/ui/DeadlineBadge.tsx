@@ -1,20 +1,58 @@
 import { cn } from "../../lib/utils";
 
-/** Restzeit bis Deadline in Tagen (gerundet auf ganze Tage, nie negativ). */
-function daysUntil(deadlineIso: string): number | null {
-  if (!deadlineIso) return null;
-  const t = new Date(deadlineIso).getTime();
-  if (!Number.isFinite(t)) return null;
-  const diff = t - Date.now();
-  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+/**
+ * Liefert (jahr, monat, tag) eines Date-Objekts in Europe/Zurich.
+ * Engine-stabil via `Intl.DateTimeFormat.formatToParts` — anders als
+ * `toLocaleDateString("en-CA")`, dessen Output zwischen Browsern variieren
+ * kann (Firefox liefert teilweise `M/D/YYYY` statt ISO).
+ */
+function chDateParts(d: Date): { y: number; m: number; day: number } | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+  return { y, m, day };
 }
 
-/** Formatiert das Deadline-Datum (de-CH). */
+/**
+ * Vorzeichen-behaftete Differenz in Kalendertagen bis Deadline (Europe/Zurich):
+ *  - positiv: Deadline in zukünftigen Kalendertagen
+ *  - 0:       Deadline ist heute
+ *  - negativ: Deadline überfällig
+ *
+ * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone via `Date.UTC`, damit
+ * keine Engine-spezifische Locale-Format-Annahme nötig ist.
+ */
+function daysUntil(deadlineIso: string): number | null {
+  if (!deadlineIso) return null;
+  const target = chDateParts(new Date(deadlineIso));
+  const today = chDateParts(new Date());
+  if (!target || !today) return null;
+  const targetMidnight = Date.UTC(target.y, target.m - 1, target.day);
+  const todayMidnight = Date.UTC(today.y, today.m - 1, today.day);
+  return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
+}
+
+/** Formatiert das Deadline-Datum (de-CH) in Europe/Zurich, damit Tooltip
+ *  und `daysUntil()`-Label denselben Kalendertag anzeigen. */
 function formatDate(deadlineIso: string): string {
   try {
     const d = new Date(deadlineIso);
     if (!Number.isFinite(d.getTime())) return deadlineIso;
-    return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return d.toLocaleDateString("de-CH", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Europe/Zurich",
+    });
   } catch {
     return deadlineIso;
   }
@@ -26,7 +64,12 @@ function formatDate(deadlineIso: string): string {
  *  - gelb: weniger als 14 Tage
  *  - neutral: ab 14 Tagen
  */
-export function DeadlineBadge({ deadlineAt, className }: { deadlineAt: string | null | undefined; className?: string }) {
+export interface DeadlineBadgeProps {
+  deadlineAt: string | null | undefined;
+  className?: string;
+}
+
+export function DeadlineBadge({ deadlineAt, className }: DeadlineBadgeProps) {
   if (!deadlineAt) return null;
   const days = daysUntil(deadlineAt);
   if (days === null) return null;
@@ -38,7 +81,9 @@ export function DeadlineBadge({ deadlineAt, className }: { deadlineAt: string | 
     tone = "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-400";
   }
 
-  const label = days === 0
+  const label = days < 0
+    ? (days === -1 ? "Überfällig (1 Tag)" : `Überfällig (${Math.abs(days)} Tage)`)
+    : days === 0
     ? "Heute fällig"
     : days === 1
       ? "Morgen fällig"

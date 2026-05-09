@@ -15,6 +15,7 @@ import { t as translate } from "../i18n";
 import "../styles/orders-kanban.css";
 
 const LS_COLUMNS = "propus.orders.kanban.columns.v1";
+const LS_SHOW_CANCELLED = "propus.orders.kanban.showCancelled.v1";
 const LS_CARD_COLUMN = "propus.orders.kanban.cardColumn.v1";
 
 type KanbanColumn = { id: string; label: string };
@@ -34,6 +35,7 @@ const DEFAULT_COLUMN_KEYS = [
   "versendet",
   "bereit-verrechnung",
   "abgeschlossen",
+  "storniert",
 ] as const;
 
 type DefaultColumnKey = (typeof DEFAULT_COLUMN_KEYS)[number];
@@ -53,6 +55,7 @@ const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
   "versendet": "orders.kanban.col.versendet",
   "bereit-verrechnung": "orders.kanban.col.bereitVerrechnung",
   "abgeschlossen": "orders.kanban.col.abgeschlossen",
+  "storniert": "orders.kanban.col.storniert",
 };
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -110,6 +113,7 @@ function defaultColumnFor(order: Order): DefaultColumnKey {
     case "archived":
       return "abgeschlossen";
     case "cancelled":
+      return "storniert";
     default:
       return "neu";
   }
@@ -151,6 +155,7 @@ export function OrdersKanbanPage() {
   const [hydrated, setHydrated] = useState(false);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"created" | "appointment">("created");
+  const [showCancelled, setShowCancelled] = useState<boolean>(false);
   const [sidePanelNo, setSidePanelNo] = useState<string | null>(null);
   const [draggedOrderNo, setDraggedOrderNo] = useState<string | null>(null);
   const [dropTargetCol, setDropTargetCol] = useState<string | null>(null);
@@ -162,11 +167,29 @@ export function OrdersKanbanPage() {
   useEffect(() => {
     const stored = readLocal<KanbanColumn[] | null>(LS_COLUMNS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      setColumns(stored);
+      // Gezielte Migration NUR fuer die neue "storniert"-Spalte: bestehende
+      // localStorage-Layouts kennen sie nicht, ohne sie wuerde
+      // resolveColumnId() cancelled-Karten in "abgeschlossen" einsortieren.
+      // Andere fehlende Defaults werden BEWUSST nicht nachgezogen, damit
+      // User-Loeschungen (z. B. "video-fehlt") ueber Refreshes hinweg
+      // persistent bleiben — sonst wuerde die Migration dauerhaft alle
+      // gesammelten Defaults zurueckschreiben.
+      const knownIds = new Set(stored.map((c) => c.id));
+      if (!knownIds.has("storniert")) {
+        const labelKey = DEFAULT_COLUMN_LABEL_KEYS["storniert"];
+        setColumns([...stored, { id: "storniert", label: labelKey ? t(labelKey) : "Storniert" }]);
+      } else {
+        setColumns(stored);
+      }
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
     setCardOverrides(overrides);
+    setShowCancelled(readLocal<boolean>(LS_SHOW_CANCELLED, false));
     setHydrated(true);
+    // t() wird hier intentional NICHT als dep gelistet — die Hydration soll
+    // genau einmal beim Mount laufen. Lokalisierung der Default-Labels
+    // passiert im separaten useEffect weiter unten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist column changes (skip until hydrated to avoid clobbering on first paint).
@@ -179,6 +202,11 @@ export function OrdersKanbanPage() {
     if (!hydrated) return;
     writeLocal(LS_CARD_COLUMN, cardOverrides);
   }, [cardOverrides, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    writeLocal(LS_SHOW_CANCELLED, showCancelled);
+  }, [showCancelled, hydrated]);
 
   // Re-translate default columns when language changes — only for column ids
   // that still match a default key. User-renamed/added columns keep their label.
@@ -236,12 +264,21 @@ export function OrdersKanbanPage() {
     };
 
     for (const o of filteredOrders) {
-      if (normalizeStatusKey(o.status) === "cancelled") continue;
+      const oStatusKey = normalizeStatusKey(o.status);
+      if (!showCancelled && oStatusKey === "cancelled") continue;
       const override = cardOverrides[o.orderNo];
-      const targetId =
-        override && columnIdSet.has(override)
-          ? override
-          : resolveColumnId(defaultColumnFor(o));
+      // Override "storniert" nur fuer cancelled-Orders gelten lassen — sonst
+      // koennte ein versehentliches Drop einer aktiven Karte in die
+      // "storniert"-Spalte (waehrend showCancelled=true) sie unsichtbar machen,
+      // sobald der Toggle ausgeschaltet wird (Spalte ausgeblendet, Karte
+      // bleibt persistiert dort).
+      const overrideValid =
+        !!override
+        && columnIdSet.has(override)
+        && (override !== "storniert" || (showCancelled && oStatusKey === "cancelled"));
+      const targetId = overrideValid
+        ? override
+        : resolveColumnId(defaultColumnFor(o));
       if (!targetId) continue;
       const bucket = buckets.get(targetId);
       if (bucket) bucket.push(o);
@@ -279,7 +316,7 @@ export function OrdersKanbanPage() {
       buckets.set(k, [...list].sort(sorter));
     }
     return buckets;
-  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort]);
+  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort, showCancelled]);
 
   const sidePanelOrder = useMemo(
     () => (sidePanelNo ? allOrders.find((o) => o.orderNo === sidePanelNo) ?? null : null),
@@ -334,6 +371,10 @@ export function OrdersKanbanPage() {
   }, [columns, newColumnName]);
 
   const handleDeleteColumn = useCallback((columnId: string) => {
+    // "storniert" ist eine geschuetzte Pflicht-Spalte: ohne sie kippen
+    // cancelled-Karten via resolveColumnId() in andere Buckets (z.B.
+    // "abgeschlossen") und tauchen unerwartet in aktiven Spalten auf.
+    if (columnId === "storniert") return;
     const col = columns.find((c) => c.id === columnId);
     if (!col) return;
     const msg = t("orders.kanban.column.deleteConfirm").replace("{{name}}", col.label);
@@ -401,6 +442,15 @@ export function OrdersKanbanPage() {
             className="pkanban__search-input"
           />
         </div>
+        <label className="ml-2 inline-flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)]">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(e) => setShowCancelled(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-[var(--border-strong)] text-[var(--accent)] focus:ring-[var(--accent)]/30"
+          />
+          {t("orders.kanban.showCancelled")}
+        </label>
         <div className="pkanban__toolbar-spacer" />
         <button
           type="button"
@@ -424,6 +474,11 @@ export function OrdersKanbanPage() {
         style={{ scrollbarGutter: "stable" } as CSSProperties}
       >
         {columns.map((col) => {
+          // "storniert"-Spalte nur anzeigen wenn der Toggle aktiv ist —
+          // ansonsten visuell ausblenden (cancelled-Auftraege werden bereits
+          // in ordersByColumn gefiltert, aber die leere Spalte wuerde sonst
+          // immer Platz beanspruchen).
+          if (col.id === "storniert" && !showCancelled) return null;
           const rows = ordersByColumn.get(col.id) ?? [];
           const dropActive = dropTargetCol === col.id;
           return (
@@ -440,15 +495,17 @@ export function OrdersKanbanPage() {
                   {col.label}{" "}
                   <span className="pkanban__col-count">({rows.length})</span>
                 </h3>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteColumn(col.id)}
-                  className="pkanban__col-delete"
-                  aria-label={t("orders.kanban.column.delete")}
-                  title={t("orders.kanban.column.delete")}
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
+                {col.id !== "storniert" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteColumn(col.id)}
+                    className="pkanban__col-delete"
+                    aria-label={t("orders.kanban.column.delete")}
+                    title={t("orders.kanban.column.delete")}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
               </header>
               <div className="pkanban__col-body">
                 {rows.map((o) => (

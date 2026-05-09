@@ -85,6 +85,8 @@
   "orders.kanban.column.empty": "Keine Einträge",
   "orders.kanban.tag.serviceOrder": "Dienstleistungsauftrag",
   "orders.kanban.col.dispositionOffen": "Disposition offen",
+  "orders.kanban.col.storniert": "Storniert",
+  "orders.kanban.showCancelled": "Storniert anzeigen",
   "orders.kanban.col.neu": "Neu",
   "orders.kanban.col.terminAbmachen": "Termin Abmachen",
   "orders.kanban.col.terminAbgemacht": "Termin Abgemacht",
