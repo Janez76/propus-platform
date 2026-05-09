@@ -125,7 +125,10 @@ export const writeTools: ToolDefinition[] = [
   {
     name: "create_order",
     description:
-      "Erstellt einen neuen Buchungsauftrag. Nutze dieses Tool am Ende des Auftragsanlage-Gesprächs, nachdem alle Pflichtfelder gesammelt und dem Benutzer zur Bestätigung zusammengefasst wurden.",
+      "Erstellt einen neuen Buchungsauftrag. Zwei Buchungsarten:\n" +
+      "- booking_kind=\"fixed\" (Default): fester Termin. schedule_date PFLICHT (ISO YYYY-MM-DD).\n" +
+      "- booking_kind=\"flexible\": Office disponiert den Termin innerhalb eines Zeitraums. deadline_at PFLICHT (spätestes Datum, ISO). flexible_earliest_at optional (frühestes Datum, muss < deadline_at sein). Es wird KEIN schedule_date gesetzt, der Auftrag startet im Status 'disposition_offen'.\n" +
+      "Nutze dieses Tool am Ende des Auftragsanlage-Gesprächs, nachdem alle Pflichtfelder gesammelt und zur Bestätigung zusammengefasst wurden.",
     kind: "write",
     requiresConfirmation: true,
     input_schema: {
@@ -145,8 +148,11 @@ export const writeTools: ToolDefinition[] = [
             staging: { type: "boolean" },
           },
         },
-        schedule_date: { type: "string", description: "Wunschtermin Datum (ISO, z.B. 2026-05-15)" },
-        schedule_time: { type: "string", description: "Wunschtermin Uhrzeit (HH:mm, z.B. 10:00)" },
+        booking_kind: { type: "string", enum: ["fixed", "flexible"], description: "Buchungsart. Default 'fixed'." },
+        schedule_date: { type: "string", description: "Wunschtermin Datum (ISO YYYY-MM-DD). Nur bei booking_kind='fixed'. Bei 'flexible' nicht setzen." },
+        schedule_time: { type: "string", description: "Wunschtermin Uhrzeit (HH:mm). Nur bei 'fixed'." },
+        deadline_at: { type: "string", description: "Spätestes Aufnahmedatum (ISO 8601, z. B. 2026-05-20 oder 2026-05-20T17:00:00Z). PFLICHT bei booking_kind='flexible'." },
+        flexible_earliest_at: { type: "string", description: "Frühestmögliches Datum (ISO). Optional, nur bei 'flexible'. Muss vor deadline_at liegen." },
         photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional, aus list_photographers)" },
         notes: { type: "string", description: "Zusätzliche Hinweise oder Notizen (optional)" },
       },
@@ -306,10 +312,48 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         return { error: "Mindestens eine Dienstleistung muss ausgewählt sein" };
       }
 
+      const bookingKindRaw = optionalString(input.booking_kind);
+      const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
       const scheduleDate = optionalString(input.schedule_date);
       const scheduleTime = optionalString(input.schedule_time);
       const photographerKey = optionalString(input.photographer_key);
       const notes = optionalString(input.notes);
+
+      // Buchungsart-spezifische Validierung — entspricht orders_booking_kind_dates_chk
+      // (Migration 092). Ohne diesen Check schlaegt der INSERT mit einem CHECK-
+      // constraint-Fehler fehl ("Option/Status-Kombination ohne Datum"), den der
+      // Assistant fuer den Endnutzer kaum sinnvoll erklaeren kann.
+      let deadlineIso: string | null = null;
+      let flexibleEarliestIso: string | null = null;
+      if (bookingKind === "flexible") {
+        const deadlineRaw = optionalString(input.deadline_at);
+        if (!deadlineRaw) {
+          return {
+            error:
+              "deadline_at ist Pflicht bei booking_kind='flexible'. Bitte das spaeteste Aufnahmedatum vom Nutzer erfragen (ISO 8601, z. B. 2026-05-20).",
+          };
+        }
+        deadlineIso = normalizeTimestamptzParam(deadlineRaw);
+        if (!deadlineIso) {
+          return { error: `deadline_at: ungueltiges Datumsformat "${deadlineRaw}". Bitte ISO 8601 verwenden.` };
+        }
+        const earliestRaw = optionalString(input.flexible_earliest_at);
+        if (earliestRaw) {
+          flexibleEarliestIso = normalizeTimestamptzParam(earliestRaw);
+          if (!flexibleEarliestIso) {
+            return { error: `flexible_earliest_at: ungueltiges Datumsformat "${earliestRaw}".` };
+          }
+          if (new Date(flexibleEarliestIso).getTime() >= new Date(deadlineIso).getTime()) {
+            return { error: "flexible_earliest_at muss vor deadline_at liegen." };
+          }
+        }
+      } else if (!scheduleDate) {
+        // bookingKind='fixed' braucht ein Datum (CHECK schedule->>'date' NOT NULL).
+        return {
+          error:
+            "schedule_date ist Pflicht bei booking_kind='fixed'. Wenn der Termin noch offen ist, mit booking_kind='flexible' und deadline_at buchen.",
+        };
+      }
 
       if (photographerKey) {
         const photographer = await runQueryOne<{ key: string }>(
@@ -319,7 +363,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         if (!photographer) return { error: `Fotograf "${photographerKey}" nicht gefunden oder nicht aktiv` };
       }
 
-      const status = scheduleDate ? "pending" : "pending";
+      const status = bookingKind === "flexible" ? "disposition_offen" : "pending";
 
       const scheduleJson = scheduleDate ? { date: scheduleDate, ...(scheduleTime ? { time: scheduleTime } : {}) } : {};
       const photographerJson = photographerKey ? { key: photographerKey } : {};
@@ -343,9 +387,14 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // mockable Varianten injiziert (sonst ECONNREFUSED gegen :5432 im CI).
       const orderNo = await runWithTransaction(async (tx) => {
         const inserted = await runQueryOne<{ order_no: number }>(
-          `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
+          `INSERT INTO booking.orders (
+             customer_id, status, address, object, services, photographer, schedule,
+             billing, pricing, settings_snapshot,
+             booking_kind, deadline_at, flexible_earliest_at
+           )
            VALUES (
-             $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
+             $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb,
+             $10, $11::timestamptz, $12::timestamptz
            )
            RETURNING order_no`,
           [
@@ -358,6 +407,9 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
             JSON.stringify(scheduleJson),
             JSON.stringify(billingJson),
             JSON.stringify(settingsJson),
+            bookingKind,
+            deadlineIso,
+            flexibleEarliestIso,
           ],
           tx,
         );
@@ -392,6 +444,9 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         return no;
       });
 
+      const flexInfo = bookingKind === "flexible"
+        ? `Flexibel: Office disponiert bis ${deadlineIso}${flexibleEarliestIso ? ` (frühestens ab ${flexibleEarliestIso})` : ""}.`
+        : "";
       return {
         ok: true,
         orderNo,
@@ -399,10 +454,13 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         customerName: customer.name || customer.company,
         address,
         services: Object.keys(servicesJson),
+        bookingKind,
         schedule: scheduleDate ? { date: scheduleDate, time: scheduleTime } : null,
+        deadlineAt: deadlineIso,
+        flexibleEarliestAt: flexibleEarliestIso,
         photographer: photographerKey,
         status,
-        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. Bestätigungs-Mails an Kunde und Office in Outbox eingereiht. Pricing wird im Admin via Leistungen-Tab finalisiert.`,
+        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. ${flexInfo} Bestätigungs-Mails an Kunde und Office in Outbox eingereiht. Pricing wird im Admin via Leistungen-Tab finalisiert.`.trim(),
       };
     },
 
