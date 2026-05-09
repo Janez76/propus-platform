@@ -19,7 +19,14 @@ type Props = {
   actorRole?: "admin" | "photographer";
 };
 
-const ACTIVE_STATUSES = new Set(["pending", "paused", "confirmed", "completed"]);
+const ACTIVE_STATUSES = new Set([
+  "pending",
+  "provisional",
+  "disposition_offen",
+  "paused",
+  "confirmed",
+  "completed",
+]);
 const CHAT_BLOCKED_STATUSES = new Set(["cancelled", "archived"]);
 const FEEDBACK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 

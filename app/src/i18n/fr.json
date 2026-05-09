@@ -2635,6 +2635,7 @@
   "dashboardV2.map.filter.done": "Terminés",
   "dashboardV2.map.status.pending": "En attente",
   "dashboardV2.map.status.provisional": "Provisoire",
+  "dashboardV2.map.status.disposition_offen": "En attente de planification",
   "dashboardV2.map.status.confirmed": "Confirmé",
   "dashboardV2.map.status.completed": "Terminé",
   "dashboardV2.map.status.done": "Achevé",

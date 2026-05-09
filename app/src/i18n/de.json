@@ -2648,6 +2648,7 @@
   "dashboardV2.map.filter.done": "Abgeschlossen",
   "dashboardV2.map.status.pending": "Ausstehend",
   "dashboardV2.map.status.provisional": "Provisorisch",
+  "dashboardV2.map.status.disposition_offen": "Disposition offen",
   "dashboardV2.map.status.confirmed": "Bestätigt",
   "dashboardV2.map.status.completed": "Erledigt",
   "dashboardV2.map.status.done": "Abgeschlossen",

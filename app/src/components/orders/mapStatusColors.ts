@@ -7,11 +7,12 @@ export type StatusPalette = { id: string; bg: string; ring: string; labelKey: st
  * (`OrdersMap.tsx`) als auch vom Pin-Renderer (`OrdersMapView.tsx`) genutzt.
  */
 export const STATUS_PALETTE: StatusPalette[] = [
-  { id: "confirmed",   bg: "#E6F2E3", ring: "#2A7A2A", labelKey: "dashboardV2.map.status.confirmed" },
-  { id: "pending",     bg: "#FBEED4", ring: "#B87514", labelKey: "dashboardV2.map.status.pending" },
-  { id: "provisional", bg: "#DFEBF5", ring: "#2E5A7A", labelKey: "dashboardV2.map.status.provisional" },
-  { id: "done",        bg: "#D6E5D2", ring: "#244865", labelKey: "dashboardV2.map.status.done" },
-  { id: "paused",      bg: "#E8E5DE", ring: "#6B6962", labelKey: "dashboardV2.map.status.paused" },
+  { id: "confirmed",         bg: "#E6F2E3", ring: "#2A7A2A", labelKey: "dashboardV2.map.status.confirmed" },
+  { id: "pending",           bg: "#FBEED4", ring: "#B87514", labelKey: "dashboardV2.map.status.pending" },
+  { id: "provisional",       bg: "#DFEBF5", ring: "#2E5A7A", labelKey: "dashboardV2.map.status.provisional" },
+  { id: "disposition_offen", bg: "#FCE7CE", ring: "#C25E1F", labelKey: "dashboardV2.map.status.disposition_offen" },
+  { id: "done",              bg: "#D6E5D2", ring: "#244865", labelKey: "dashboardV2.map.status.done" },
+  { id: "paused",            bg: "#E8E5DE", ring: "#6B6962", labelKey: "dashboardV2.map.status.paused" },
 ];
 
 const FALLBACK: StatusPalette = STATUS_PALETTE[0];
@@ -19,8 +20,9 @@ const FALLBACK: StatusPalette = STATUS_PALETTE[0];
 export function paletteForStatus(status: string | undefined | null): StatusPalette {
   const s = String(status ?? "").trim();
   if (!s) return FALLBACK;
-  if (statusMatches(s, "paused")) return STATUS_PALETTE[4];
-  if (statusMatches(s, "done") || statusMatches(s, "completed")) return STATUS_PALETTE[3];
+  if (statusMatches(s, "paused")) return STATUS_PALETTE[5];
+  if (statusMatches(s, "done") || statusMatches(s, "completed")) return STATUS_PALETTE[4];
+  if (statusMatches(s, "disposition_offen")) return STATUS_PALETTE[3];
   if (statusMatches(s, "provisional")) return STATUS_PALETTE[2];
   if (statusMatches(s, "pending")) return STATUS_PALETTE[1];
   if (statusMatches(s, "confirmed")) return STATUS_PALETTE[0];

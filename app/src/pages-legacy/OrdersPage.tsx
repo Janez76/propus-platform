@@ -49,8 +49,8 @@ type ChipGroup = {
   hiddenByDefault?: boolean;
 };
 
-const CHIP_GROUPS: ChipGroup[] = [
-  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional"], dot: "#f59e0b" },
+export const CHIP_GROUPS: ChipGroup[] = [
+  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional", "disposition_offen"], dot: "#f59e0b" },
   { id: "confirmed", labelKey: "orders.chip.confirmed", fallbackLabel: "Bestätigt", members: ["confirmed"], dot: "#3b82f6" },
   { id: "completed", labelKey: "orders.chip.completed", fallbackLabel: "Abgeschlossen", members: ["completed", "done"], dot: "#10b981" },
   { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Pausiert", members: ["paused"], dot: "#71717a" },
