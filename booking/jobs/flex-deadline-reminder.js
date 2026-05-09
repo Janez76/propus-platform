@@ -91,10 +91,20 @@ function scheduleFlexDeadlineReminder(deps) {
       if (!mailOn) { ctx.log("emailTemplatesOnStatusChange=false, uebersprungen"); return; }
       if (!sendMail) { ctx.warn("sendMail nicht verfuegbar"); return; }
 
-      // Auftraege deren Deadline in <= 7 Tagen liegt, noch ohne Reminder.
-      // Vergangenheits-Deadlines werden ebenfalls eingeschlossen — das Office
-      // soll explizit gewarnt werden, falls eine Disposition versaeumt wurde.
-      const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      // Auftraege deren Deadline in <= 7 Kalendertagen liegt (Europe/Zurich),
+      // noch ohne Reminder. Vergangenheits-Deadlines werden ebenfalls
+      // eingeschlossen — das Office soll explizit gewarnt werden, falls eine
+      // Disposition versaeumt wurde.
+      //
+      // Cutoff = Beginn von (heute_ch + 8 Tagen), exklusiv → erfasst alle
+      // Deadlines bis Ende des 7. Tages. Eine simple `now + 7*24h`-Schwelle
+      // wuerde z. B. einen Lauf um 09:00 mit Deadline am 7. Tag um 18:00
+      // verpassen (waere ~9 h ausserhalb der 168 h-Schwelle).
+      const todayCh = chDateParts(new Date());
+      const cutoffMs = todayCh
+        ? Date.UTC(todayCh.y, todayCh.m - 1, todayCh.day + 8)
+        : Date.now() + 8 * 24 * 60 * 60 * 1000; // Fallback falls Intl unverfuegbar
+      const sevenDaysFromNow = new Date(cutoffMs).toISOString();
       const { rows } = await pool.query(
         `SELECT order_no, deadline_at, flexible_earliest_at, billing, address, services, photographer, schedule
          FROM orders
@@ -102,7 +112,7 @@ function scheduleFlexDeadlineReminder(deps) {
            AND status = 'disposition_offen'
            AND flex_deadline_reminder_sent_at IS NULL
            AND deadline_at IS NOT NULL
-           AND deadline_at <= $1`,
+           AND deadline_at < $1`,
         [sevenDaysFromNow],
       );
 
