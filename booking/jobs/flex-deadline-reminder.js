@@ -25,11 +25,21 @@ function formatDeCH(iso) {
   return d.toLocaleDateString("de-CH", { timeZone: "Europe/Zurich", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/**
+ * Vorzeichen-behaftete Tagesdifferenz bis zur Deadline:
+ *  - positiv: Deadline in der Zukunft
+ *  - 0:       heute
+ *  - negativ: Deadline überfällig
+ *
+ * Der Cron-Job filtert deadline_at <= now+7d, also auch vergangene Deadlines —
+ * wir nivellieren das nicht auf 0, damit das Office klar "überfällig"
+ * statt "0 Tage" sieht.
+ */
 function daysUntil(iso) {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return null;
-  return Math.max(0, Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000)));
+  return Math.ceil((t - Date.now()) / (24 * 60 * 60 * 1000));
 }
 
 function scheduleFlexDeadlineReminder(deps) {
@@ -76,6 +86,22 @@ function scheduleFlexDeadlineReminder(deps) {
         await ctx.perRow(row, async (r) => {
           const days = daysUntil(r.deadline_at);
           const adminBase = process.env.ADMIN_BASE_URL || "https://admin-booking.propus.ch";
+          // Vorzeichen-Auswertung: bei negativen Tagen ueberfaellig, sonst
+          // "noch X Tage" / "heute". Ergebnis kommt als String ins Template
+          // damit die Mail-Vorlage keine Zahlen-Logik braucht.
+          let daysUntilLabel;
+          if (days === null) {
+            daysUntilLabel = "?";
+          } else if (days < 0) {
+            const overdue = Math.abs(days);
+            daysUntilLabel = overdue === 1 ? "überfällig (seit 1 Tag)" : `überfällig (seit ${overdue} Tagen)`;
+          } else if (days === 0) {
+            daysUntilLabel = "heute fällig";
+          } else if (days === 1) {
+            daysUntilLabel = "morgen fällig";
+          } else {
+            daysUntilLabel = `noch ${days} Tage`;
+          }
           // SQL row has snake_case `order_no`, aber buildTemplateVars liest
           // nur `order.orderNo` (camelCase). Im extras-override mappen, sonst
           // bliebe {{orderNo}} im gerenderten Template leer.
@@ -83,7 +109,7 @@ function scheduleFlexDeadlineReminder(deps) {
             orderNo: String(r.order_no || ""),
             deadlineDate: formatDeCH(r.deadline_at),
             flexibleEarliestDate: r.flexible_earliest_at ? formatDeCH(r.flexible_earliest_at) : "—",
-            daysUntilDeadline: days === null ? "?" : String(days),
+            daysUntilDeadline: daysUntilLabel,
             adminOrderLink: `${adminBase.replace(/\/$/, "")}/orders/${r.order_no}/termin`,
           });
           const sendFn = (to, subj, html, text) => sendMail(to, subj, html, text, null);

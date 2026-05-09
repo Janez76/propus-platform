@@ -70,7 +70,14 @@ export function SummaryPanel({
   }
 
   const isFlex = bookingKind === "flexible";
-  const hasContent = !!(address || selectedPackage || addons.length > 0 || photographer || date || (isFlex && deadlineAt));
+  const hasContent = !!(
+    address ||
+    selectedPackage ||
+    addons.length > 0 ||
+    photographer ||
+    date ||
+    (isFlex && (deadlineAt || flexibleEarliestAt))
+  );
 
   if (mobile) {
     return (
