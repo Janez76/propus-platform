@@ -17,6 +17,7 @@ type ToggleOptionProps = {
 function ToggleOption({ name, value, label, description, icon, checked, onSelect }: ToggleOptionProps) {
   return (
     <label
+      data-testid={`booking-kind-${value}-label`}
       className={cn(
         "flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 transition-all",
         checked

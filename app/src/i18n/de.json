@@ -864,6 +864,7 @@
   "orders.quick.thisWeek": "Diese Woche",
   "orders.quick.nextWeek": "Nächste Woche",
   "orders.quick.overdue": "Überfällig",
+  "orders.quick.overdueFlex": "Flex-Deadline überfällig",
   "orders.quick.mine": "Meine",
   "orders.filter.allEmployees": "Alle Mitarbeiter",
   "orders.filter.kind.label": "Buchungsart",

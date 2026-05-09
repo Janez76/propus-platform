@@ -863,6 +863,7 @@
   "orders.quick.thisWeek": "Cette semaine",
   "orders.quick.nextWeek": "Semaine prochaine",
   "orders.quick.overdue": "En retard",
+  "orders.quick.overdueFlex": "Délai flex dépassé",
   "orders.quick.mine": "Les miens",
   "orders.filter.allEmployees": "Tous les collaborateurs",
   "orders.filter.kind.label": "Type de réservation",

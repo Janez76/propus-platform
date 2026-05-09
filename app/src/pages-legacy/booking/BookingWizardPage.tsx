@@ -421,7 +421,10 @@ export function BookingWizardPage() {
 
             {/* Validation Errors */}
             {errors.length > 0 && (
-              <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                data-testid="booking-validation-errors"
+                className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 <ul className="list-inside list-disc space-y-1">
                   {errors.map((e) => <li key={e.field}>{t(lang, e.message)}</li>)}
                 </ul>

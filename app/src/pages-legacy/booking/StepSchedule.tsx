@@ -323,7 +323,10 @@ function FlexSection({
         </div>
       </section>
 
-      <div className="flex items-start gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 text-sm text-[var(--text-muted)]">
+      <div
+        data-testid="booking-flex-disposition-hint"
+        className="flex items-start gap-2 rounded-xl border border-[var(--accent)]/30 bg-[var(--accent)]/5 p-4 text-sm text-[var(--text-muted)]"
+      >
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
         <p className="leading-snug">{t(lang, "booking.step3.flex.notice")}</p>
       </div>
@@ -374,11 +377,10 @@ function FixedSection({
   const displaySlots = slotPeriod === "am" ? amSlots : pmSlots;
 
   return (
-    <div className="space-y-6">
+    <div data-testid="booking-fixed-section" className="space-y-6">
       {/* Fotografen */}
-      <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
-        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
-          <Camera className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.photographer")}
+      <section data-testid="booking-photographer-picker" className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+        <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">          <Camera className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.photographer")}
         </h3>
 
         {photographers.length === 0 ? (
@@ -455,7 +457,7 @@ function FixedSection({
 
       {/* Zeitfenster */}
       {date && (
-        <section className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
+        <section data-testid="booking-time-picker" className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm dark:shadow-none">
           <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
             <Clock className="h-4 w-4 text-[var(--accent)]" /> {t(lang, "booking.step3.time")}
           </h3>

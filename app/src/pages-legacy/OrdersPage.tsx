@@ -31,7 +31,7 @@ import { useOrderStore } from "../store/orderStore";
 import { FilterBar, PageHeader } from "../components/handoff";
 
 type ViewMode = "list" | "kanban" | "calendar" | "map";
-type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "mine";
+type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine";
 
 // Grouped chips per redesign:
 //  Offen        → pending + provisional
@@ -183,6 +183,16 @@ export function OrdersPage() {
       const myEmail = adminProfile?.profile?.email?.toLowerCase() || "";
       const pEmail = o.photographer?.email?.toLowerCase() || "";
       return Boolean(myEmail && pEmail && myEmail === pEmail);
+    }
+    if (quickFilter === "overdueFlex") {
+      // Flex-Auftraege deren Deadline vorbei ist und die noch in Disposition
+      // haengen — so sieht Office sofort, was dringend disponiert werden muss.
+      if (o.bookingKind !== "flexible") return false;
+      if (normalizeStatusKey(o.status) !== "disposition_offen") return false;
+      if (!o.deadlineAt) return false;
+      const dl = new Date(o.deadlineAt);
+      if (Number.isNaN(dl.getTime())) return false;
+      return dl.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     }
     if (!o.appointmentDate) return quickFilter === "overdue" ? false : false;
     const d = new Date(o.appointmentDate);
@@ -443,6 +453,21 @@ export function OrdersPage() {
     [allOrders, lang, now],
   );
 
+  // Anzahl der Flex-Auftraege deren Deadline bereits vorbei ist und die noch
+  // in Disposition haengen — dringliche Office-Aufgabe.
+  const overdueFlexCount = useMemo(
+    () =>
+      allOrders.filter((o) => {
+        if (o.bookingKind !== "flexible") return false;
+        if (normalizeStatusKey(o.status) !== "disposition_offen") return false;
+        if (!o.deadlineAt) return false;
+        const dl = new Date(o.deadlineAt);
+        if (Number.isNaN(dl.getTime())) return false;
+        return dl.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      }).length,
+    [allOrders, now],
+  );
+
   const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || kindFilter !== "all" || query.length > 0;
 
   // ── KPIs (Propus admin redesign) ──────────────────────
@@ -548,6 +573,12 @@ export function OrdersPage() {
     { id: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
     { id: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
     { id: "overdue", label: `${t(lang, "orders.quick.overdue")}${overdueCount > 0 ? ` (${overdueCount})` : ""}` },
+    // "Flex überfällig" nur einblenden, wenn es überhaupt offene Flex-Aufträge
+    // mit verpasster Deadline gibt — sonst belastet der Pill den Filter-Bar
+    // unnötig für Setups ohne Flex-Buchungen.
+    ...(overdueFlexCount > 0
+      ? [{ id: "overdueFlex", label: `${t(lang, "orders.quick.overdueFlex")} (${overdueFlexCount})` }]
+      : []),
     { id: "mine", label: t(lang, "orders.quick.mine") },
   ];
 
