@@ -26,24 +26,43 @@ function formatDeCH(iso) {
 }
 
 /**
+ * (jahr, monat, tag) eines Date-Objekts in Europe/Zurich via
+ * Intl.formatToParts — engine-stabil, anders als toLocaleDateString-Output.
+ */
+function chDateParts(d) {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t) => {
+    const p = parts.find((x) => x.type === t);
+    return p ? p.value : "";
+  };
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+  return { y, m, day };
+}
+
+/**
  * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich):
  *  - positiv: Deadline in zukünftigen Kalendertagen
  *  - 0:       Deadline ist heute
  *  - negativ: Deadline überfällig
  *
- * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone (Office sitzt in CH).
- * Frühere Millisekunden-Differenzen haben Deadlines am späteren Tag
- * fälschlich als "morgen" markiert und Date-Only-Deadlines an der Mitternacht
- * als "überfällig".
+ * Mitternacht-zu-Mitternacht-Vergleich via Date.UTC (keine Locale-Annahmen).
  */
 function daysUntil(iso) {
   if (!iso) return null;
-  const target = new Date(iso);
-  if (Number.isNaN(target.getTime())) return null;
-  const fmt = (d) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
-  const targetMidnight = Date.parse(`${fmt(target)}T00:00:00Z`);
-  const todayMidnight = Date.parse(`${fmt(new Date())}T00:00:00Z`);
-  if (!Number.isFinite(targetMidnight) || !Number.isFinite(todayMidnight)) return null;
+  const target = chDateParts(new Date(iso));
+  const today = chDateParts(new Date());
+  if (!target || !today) return null;
+  const targetMidnight = Date.UTC(target.y, target.m - 1, target.day);
+  const todayMidnight = Date.UTC(today.y, today.m - 1, today.day);
   return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 

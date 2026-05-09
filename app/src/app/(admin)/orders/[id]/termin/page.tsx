@@ -17,23 +17,35 @@ function formatFlexDate(iso: string | null): string {
   return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
+/** Liefert (jahr, monat, tag) eines Date-Objekts in Europe/Zurich
+ *  via Intl.formatToParts (engine-stabil, anders als toLocaleDateString-Output). */
+function chDateParts(d: Date): { y: number; m: number; day: number } | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value;
+  const y = Number(get("year"));
+  const m = Number(get("month"));
+  const day = Number(get("day"));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) return null;
+  return { y, m, day };
+}
+
 /**
- * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich):
- *  - positiv: Deadline in zukünftigen Kalendertagen
- *  - 0:       Deadline ist heute
- *  - negativ: Deadline überfällig
- *
- * Vergleicht Mitternacht-zu-Mitternacht in CH-Zeitzone, damit Tagesübergänge
- * konsistent sind und keine Off-by-One-Fehler an Tageswechseln entstehen.
+ * Vorzeichen-behaftete Differenz in Kalendertagen (Europe/Zurich) via
+ * Mitternacht-zu-Mitternacht-Vergleich (Date.UTC, keine Locale-Annahmen).
  */
 function daysUntilDeadline(iso: string | null): number | null {
   if (!iso) return null;
-  const target = new Date(iso);
-  if (Number.isNaN(target.getTime())) return null;
-  const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
-  const targetMidnight = Date.parse(`${fmt(target)}T00:00:00Z`);
-  const todayMidnight = Date.parse(`${fmt(new Date())}T00:00:00Z`);
-  if (!Number.isFinite(targetMidnight) || !Number.isFinite(todayMidnight)) return null;
+  const target = chDateParts(new Date(iso));
+  const today = chDateParts(new Date());
+  if (!target || !today) return null;
+  const targetMidnight = Date.UTC(target.y, target.m - 1, target.day);
+  const todayMidnight = Date.UTC(today.y, today.m - 1, today.day);
   return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 
