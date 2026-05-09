@@ -71,9 +71,10 @@ function seedState(bookingKind: "fixed" | "flexible"): unknown {
       bookingKind,
       deadlineAt: "",
       flexibleEarliestAt: "",
-      billing: {
-        // Flache Legacy-Felder leer; structured.* leer; Store ergaenzt aus INITIAL.
-      },
+      // billing absichtlich weglassen — der Store-Merge ist shallow, ein
+      // leeres `billing: {}` wuerde die Default-INITIAL.billing-Struktur
+      // (incl. `structured.contacts[0]` etc.) komplett ersetzen und
+      // spaetere Renderings brechen.
       altBilling: false,
       discount: { code: "", percent: 0, amount: 0 },
       keyPickup: { enabled: false, address: "", info: "" },
@@ -132,8 +133,8 @@ test.describe("Buchungs-Wizard Flex (Smoke)", () => {
     const iso = deadline.toISOString().slice(0, 10);
     await deadlineInput.fill(iso);
 
-    // Kein Banner-Error sichtbar.
-    await expect(page.getByText(/Bitte wählen Sie eine Deadline/i)).toBeHidden();
+    // Kein Banner-Error sichtbar (i18n-stabil ueber data-testid).
+    await expect(page.getByTestId("booking-validation-errors")).toBeHidden();
 
     // "Weiter"-Button bleibt klickbar (kein disabled).
     const nextBtn = page.getByTestId("booking-nav-next");
