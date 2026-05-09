@@ -58,7 +58,12 @@ function formatDate(deadlineIso: string): string {
  *  - gelb: weniger als 14 Tage
  *  - neutral: ab 14 Tagen
  */
-export function DeadlineBadge({ deadlineAt, className }: { deadlineAt: string | null | undefined; className?: string }) {
+export interface DeadlineBadgeProps {
+  deadlineAt: string | null | undefined;
+  className?: string;
+}
+
+export function DeadlineBadge({ deadlineAt, className }: DeadlineBadgeProps) {
   if (!deadlineAt) return null;
   const days = daysUntil(deadlineAt);
   if (days === null) return null;
