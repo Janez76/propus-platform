@@ -41,12 +41,18 @@ function daysUntil(deadlineIso: string): number | null {
   return Math.round((targetMidnight - todayMidnight) / (24 * 60 * 60 * 1000));
 }
 
-/** Formatiert das Deadline-Datum (de-CH). */
+/** Formatiert das Deadline-Datum (de-CH) in Europe/Zurich, damit Tooltip
+ *  und `daysUntil()`-Label denselben Kalendertag anzeigen. */
 function formatDate(deadlineIso: string): string {
   try {
     const d = new Date(deadlineIso);
     if (!Number.isFinite(d.getTime())) return deadlineIso;
-    return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return d.toLocaleDateString("de-CH", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Europe/Zurich",
+    });
   } catch {
     return deadlineIso;
   }

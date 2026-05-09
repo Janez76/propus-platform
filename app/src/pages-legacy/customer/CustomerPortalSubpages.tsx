@@ -5,25 +5,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCustomerPermissions } from "@/hooks/useCustomerPermissions";
 import { isPortalHost } from "@/lib/portalHost";
 import { Loader2 } from "lucide-react";
-
-/** Gemeinsame Felder der Bestellungen wie sie im Customer-Portal benötigt werden.
- *  Wird sowohl von der Listen-View (`OrderRow`) als auch vom Detail-Cast genutzt. */
-interface CustomerOrderShape {
-  status?: string;
-  address?: string;
-  schedule?: { date?: string; time?: string };
-  /** Migration 092: bei flexiblen Buchungen 'flexible', sonst 'fixed' (default). */
-  bookingKind?: "fixed" | "flexible";
-  /** Spätestes Aufnahmedatum bei booking_kind='flexible'. */
-  deadlineAt?: string | null;
-  /** Frühestmögliches Aufnahmedatum bei booking_kind='flexible'. */
-  flexibleEarliestAt?: string | null;
-}
-
-interface OrderRow extends CustomerOrderShape {
-  orderNo?: number;
-  id?: number;
-}
+import type {
+  CustomerOrderDetail,
+  OrderRow,
+} from "@/api/customerPortal";
 
 type KindFilter = "all" | "fixed" | "flexible";
 
@@ -250,7 +235,7 @@ export function CustomerOrderDetailPage() {
   }
   if (loading) return <Loader2 className="h-6 w-6 animate-spin text-amber-500" />;
 
-  const o = order as (CustomerOrderShape & { orderNo?: number }) | null;
+  const o = order as CustomerOrderDetail | null;
   const isFlex = o?.bookingKind === "flexible";
   // Banner-Zustand am Status festmachen, nicht am Vorhandensein eines Datums.
   // Status muss explizit gesetzt sein — bei `undefined` würde

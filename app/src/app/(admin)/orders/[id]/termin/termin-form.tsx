@@ -114,19 +114,35 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
     // pg-driver kann TIMESTAMPTZ als JS-Date liefern. String(date).slice(0,10)
     // wuerde dann z.B. "Mon Jun 15..." erzeugen, was die Regex nicht matcht
     // → flexRange.deadline waere null, und der Inline-Hinweis bliebe aus.
+    // Date-Objekte werden in Europe/Zurich-Kalenderteilen zu YYYY-MM-DD,
+    // damit toISOString() (UTC) den Tag nicht z. B. von 2026-06-15 00:00 CH
+    // auf 2026-06-14 zurueckschiebt.
+    const toIsoDateInZurich = (date: Date): string | null => {
+      if (Number.isNaN(date.getTime())) return null;
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Zurich",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(date);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value;
+      const y = get("year");
+      const m = get("month");
+      const d = get("day");
+      if (!y || !m || !d) return null;
+      return `${y}-${m}-${d}`;
+    };
     const toDate = (iso: string | Date | null | undefined) => {
       if (!iso) return null;
       if (iso instanceof Date) {
-        if (Number.isNaN(iso.getTime())) return null;
-        return iso.toISOString().slice(0, 10);
+        return toIsoDateInZurich(iso);
       }
       const d = String(iso).slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
       // Auch volle ISO-Timestamps wie "2026-06-15T00:00:00.000Z" sauber
       // verdauen, falls slice(0,10) bereits einen ISO-Date geliefert hat.
       const parsed = new Date(String(iso));
-      if (Number.isNaN(parsed.getTime())) return null;
-      return parsed.toISOString().slice(0, 10);
+      return toIsoDateInZurich(parsed);
     };
     return {
       deadline: toDate(order.deadline_at),

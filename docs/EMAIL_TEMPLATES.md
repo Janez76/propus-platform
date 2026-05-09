@@ -146,6 +146,28 @@ Wie `buildCustomerEmail`, zusätzlich:
 
 ---
 
+### Flex-Buchung — DB-Templates (`email_templates`)
+
+**Speicherort:** `email_templates`-Tabelle im Booking-Schema (Mustache-`{{var}}`-Syntax).
+**Render:** `booking/template-renderer.js::renderTemplate(key, lang, vars)` mit Locale-Fallback `de-CH → de`.
+**Idempotent:** `sendMailIdempotent(key + orderNo + recipient)` via `email_send_log`.
+
+| Key | Lang | Auslöser | Empfänger | Quelle |
+|---|---|---|---|---|
+| `flex_booking_confirmation` | `de-ch` | Order-Anlage mit `booking_kind='flexible'` (Status-Side-Effect `pending → disposition_offen`) | Kunde | Migration `093_flex_booking_email_templates.sql` |
+| `flex_booking_disposition` | `de-ch` | Status-Wechsel `disposition_offen → confirmed` (Side-Effect `email.flex_booking_disposition`) | Kunde | Migration `093_flex_booking_email_templates.sql` |
+| `flex_deadline_office_reminder` | `de-ch` | Cron-Job `booking/jobs/flex-deadline-reminder.js` — täglich, wenn `deadline_at` im Fenster `(now → +7 Kalendertage Europe/Zurich]` und `flex_deadline_reminder_sent_at IS NULL` | Office (`OFFICE_EMAIL`) | Migration `095_flex_deadline_office_reminder_template.sql` |
+
+**Verfügbare Platzhalter** (siehe `template-renderer.js::AVAILABLE_PLACEHOLDERS`):
+
+- `flex_booking_confirmation`: `customerName`, `orderNo`, `address`, `deadlineDate`, `flexibleEarliestDate`, `companyName`
+- `flex_booking_disposition`: `customerName`, `orderNo`, `address`, `appointmentDate`, `appointmentTime`, `photographerName`, `companyName`
+- `flex_deadline_office_reminder`: `orderNo`, `customerName`, `address`, `deadlineDate`, `daysUntilDeadline`, `flexibleEarliestDate`, `adminOrderLink`, `companyName`
+
+**Idempotenz-Marker:** Nach erfolgreichem Versand setzt der Cron `orders.flex_deadline_reminder_sent_at = NOW()` (Migration `094`), damit der Reminder pro Order maximal einmal raus geht.
+
+---
+
 ## 3. Tour-Manager: DB-basierte Templates
 
 **Speicherort:** `tour_manager.settings` Key `email_templates` als JSONB  
