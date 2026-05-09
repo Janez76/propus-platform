@@ -1,13 +1,26 @@
+import { afterEach, beforeEach, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { DeadlineBadge } from "@/components/ui/DeadlineBadge";
 
+/** Fixierte Referenz-Zeit für deterministische 7d/14d-Boundary-Tests. */
+const FIXED_NOW = new Date("2026-06-01T12:00:00.000Z");
+
 function isoInDays(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
+  const d = new Date(FIXED_NOW);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString();
 }
 
 describe("DeadlineBadge", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FIXED_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("renders nothing without a deadline", () => {
     const { container } = render(<DeadlineBadge deadlineAt={null} />);
     expect(container.textContent).toBe("");
