@@ -1105,3 +1105,44 @@ Mobile-Strategie: Drive-Times werden NUR für Heute + Morgen geladen (≤ ~10 Le
 - §11 Fotograf-Vergabe (Slot-Generierung nutzt selben travel.js-Service)
 - §13 Routing-Service (Backend-Fallback-Kette für Distance Matrix)
 - `dashboard-v2/missionTimeline.ts` — Schweizer ZIP-Tabelle + Haversine + 28 km/h-Schätzung
+
+## 21. KI-Auftragsanlage via Propi (`create_order`-Tool)
+
+**Ziel**: Auftragsanlage über den Admin-Chat-Assistenten so eng am manuellen Admin-Form, dass kein Office-Nacharbeiten nötig ist (Preise, Kontaktperson, Schlüsselabholung).
+
+### Tool-Schema-Highlights
+
+| Parameter | Pflicht | Wirkung |
+|---|---|---|
+| `customer_id` + `address` | ja | Stammdaten + Objektadresse |
+| `service_items: [{code, qty?}]` | bevorzugt | Resolved gegen `booking.products` + `booking.pricing_rules` → echte Positionen + Total |
+| `services: {photography, …}` (Booleans) | Fallback | DEPRECATED — System-Prompt verbietet das, weil kein Pricing entsteht |
+| `custom_items: [{label, price, qty?}]` | optional | Ad-hoc Positionen für Sonderwünsche (z. B. Rendering, Reisepauschale) — Preis vom Nutzer bestätigt |
+| `key_pickup: {address, info}` | optional | Setzt `services.options.keyPickup`. Zusammen mit `service_items: [{code:"keypickup:main"}]` |
+| `booking_kind: "fixed"\|"flexible"` | ja | `"flexible"` → Status `disposition_offen` |
+| `deadline_at` | bei flex Pflicht | Office disponiert bis dahin |
+| `skip_customer_email` | optional | `true` → Kunden-Bestätigungsmail wird NICHT enqueued. Office-Mail bleibt |
+
+### System-Prompt-Regeln (lib/assistant/system-prompt.ts)
+
+- **Grundregel**: Im Zweifel fragen statt annehmen.
+- **Regel 1a**: Bei mehreren `customer_contacts` MUSS Propi den Kontakt erfragen.
+- **Regel 3a/3b/3c**: `service_items` mit Codes zwingend; bei unbekanntem Service → `custom_items` nach Preisbestätigung; Schlüsselabholung = `keypickup:main` + `key_pickup`-Block.
+- **Regel 7**: Zusammenfassung mit Total + Kontaktperson, dann Bestätigungspflicht.
+- **Regel 8**: Nach `create_order` `pricing._note` aktiv weitermelden.
+- **Regel 9**: `skip_customer_email: true` bei "keine Mail an Kunde", "Test-Buchung", "still anlegen".
+
+### Click-Antworten (Suggestion-Chips)
+
+Bot hängt am Ende einer Auswahlfrage `[[OPTIONS: a | b | c]]` an. UI parst (`extractSuggestions` in `app/src/lib/assistant/suggestions.ts`), entfernt den Marker aus der Anzeige und rendert Buttons. Klick sendet die Option als nächste User-Message. Cap: 8 Optionen, je ≤80 Zeichen.
+
+### Critical Files
+
+| Was | Datei |
+|---|---|
+| Tool-Schema + Handler | `app/src/lib/assistant/tools/writes.ts` (~`create_order`) |
+| System-Prompt | `app/src/lib/assistant/system-prompt.ts` |
+| Few-Shots | `app/src/lib/assistant/few-shot-examples.ts` |
+| Suggestion-Helper | `app/src/lib/assistant/suggestions.ts` |
+| Chat-UI Render | `app/src/app/(admin)/assistant/_components/ConversationView.tsx` |
+| Tests | `app/src/__tests__/{assistantWrites,assistantFewShots,suggestions,statusCoverage}.test.ts` |
