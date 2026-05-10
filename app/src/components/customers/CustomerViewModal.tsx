@@ -5,6 +5,7 @@ import { t } from "../../i18n";
 import { PhoneLink } from "../ui/PhoneLink";
 import { toDisplayString } from "../../lib/utils";
 import { useAuthStore } from "../../store/authStore";
+import { CustomerAccessPanel } from "./CustomerAccessPanel";
 import { CustomerContactsSection } from "./CustomerContactsSection";
 import { ImpersonateDialog } from "./ImpersonateDialog";
 
@@ -293,6 +294,7 @@ export function CustomerViewModal({ open, token, customer, onClose, onCreateOrde
             </div>
             <p className="text-xs text-zinc-500 mt-1">{t(lang, "customerView.hint.portalImpersonate")}</p>
           </div>
+          <CustomerAccessPanel token={token} customerId={customer.id} />
         </div>
       </div>
 
