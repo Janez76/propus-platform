@@ -14,7 +14,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, parse as parsePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,7 +42,8 @@ const PIN_MARKER = '<!-- impeccable-pinned-skill -->';
  */
 function findProjectRoot(startDir = process.cwd()) {
   let dir = resolve(startDir);
-  while (dir !== '/') {
+  const { root } = parsePath(dir); // Plattform-FS-Root (Windows: 'C:\\')
+  while (dir !== root) {
     if (
       existsSync(join(dir, 'package.json')) ||
       existsSync(join(dir, '.git')) ||
