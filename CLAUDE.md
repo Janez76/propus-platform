@@ -52,6 +52,7 @@ npm install
 npm run dev          # http://localhost:3000 (Webpack), proxyt API zu platform :3100
 npm run build        # Webpack-Build
 npm run lint         # ESLint
+npm run theme:lint   # Light/Dark-Token-Guard (Baseline-Diff, CI-erzwungen)
 npm run test         # Vitest (CI)
 npm run test:watch
 npm run test:e2e     # Playwright (e2e/)
@@ -93,8 +94,9 @@ cd booking && npm run audit:customer-stammdaten     # Stammdaten vs. Exxas
 ### CI-Guards (auch lokal als Pre-Commit nutzbar)
 
 ```bash
-scripts/guard-no-ejs.sh    # Blockt neue .ejs / res.render('portal|admin')
-scripts/guard-docs.sh      # Erinnert an docs/-Pflege bei Code-Änderungen
+scripts/guard-no-ejs.sh         # Blockt neue .ejs / res.render('portal|admin')
+scripts/guard-docs.sh           # Erinnert an docs/-Pflege bei Code-Änderungen
+scripts/guard-theme-tokens.sh   # Blockt neue hartkodierte Light/Dark-Farben in app/src (siehe docs/ADMIN-FRONTEND-DESIGN.md)
 scripts/guard-vps-env.sh
 ```
 
