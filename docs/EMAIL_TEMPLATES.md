@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei neuen E-Mail-Templates, geänderten Platzhaltern, neuem Mail-Transport oder neuen Auslösern dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026*
+*Zuletzt aktualisiert: Mai 2026*
 
 ---
 
@@ -11,7 +11,8 @@
 1. [Mail-Transport](#1-mail-transport)
 2. [Booking-Modul: Direkte Template-Builder](#2-booking-modul-direkte-template-builder)
 3. [Tour-Manager: DB-basierte Templates](#3-tour-manager-db-basierte-templates)
-4. [E-Mail-Logging](#4-e-mail-logging)
+4. [Website (Astro): Kontaktformular](#4-website-astro-kontaktformular)
+5. [E-Mail-Logging](#5-e-mail-logging)
 
 ---
 
@@ -327,7 +328,58 @@ Vollstaendiger Flow: [FLOWS_AUTH.md §5b](./FLOWS_AUTH.md#5b-self-serve-magic-li
 
 ---
 
-## 4. E-Mail-Logging
+## 4. Website (Astro): Kontaktformular
+
+**Quelle:** propus.ch/kontakt — Form-Component `website/src/components/ContactForm.astro` postet an `/api/contact`. Seit Mai 2026 eigener Endpoint statt FormSubmit.co (siehe AGENTS.md).
+
+### Auslöser
+
+| Auslöser | Endpoint | Empfänger |
+|---|---|---|
+| Submission über `/kontakt` (nach erfolgreichem Cloudflare Turnstile-Challenge) | `POST /api/contact` (`website/src/pages/api/contact.ts`) | `CONTACT_TO` (Default `office@propus.ch`) |
+
+### Schutz vor Bots / Spam
+
+1. **Honeypot** (`_gotcha`) — Server antwortet bei gefülltem Feld mit `{ ok: true }` ohne zu senden.
+2. **Cloudflare Turnstile** (invisible Widget) — Token wird serverseitig gegen `https://challenges.cloudflare.com/turnstile/v0/siteverify` validiert.
+3. **Field-Validation** — Pflichtfelder (`name`, `email`, `anfragegrund`, `message`), Max-Länge 5000 Bytes/Feld, Whitelist Anfragegründe (`Offerte` / `Support` / `Sonstiges`).
+
+### Mail-Builder
+
+`sendContactMail()` in `website/src/lib/contactMail.ts` baut Plain-Text + HTML-Mail mit folgenden Feldern aus dem Formular:
+
+| Feld | Quelle | Pflicht |
+|---|---|---|
+| Name | `name` | ✅ |
+| E-Mail | `email` (Reply-To) | ✅ |
+| Telefon | `phone` | — |
+| Anfragegrund | `anfragegrund` | ✅ |
+| Nachricht | `message` | ✅ |
+| Eingegangen / IP / User-Agent | Request-Metadaten | auto |
+
+**Subject-Format:** `Kontaktanfrage propus.ch – {name}`
+**Reply-To:** `{name} <{email}>` (Antwort geht direkt an den Absender)
+
+### Mail-Transport
+
+Eigener nodemailer-Transport (nicht der `sendMailWithFallback` aus dem Booking-Modul, weil `website/` separater Astro-Stack ist):
+
+| Variable | Default | Bemerkung |
+|---|---|---|
+| `CONTACT_SMTP_HOST` | `smtp.office365.com` | Alternativ `localhost` für VPS-Postfix |
+| `CONTACT_SMTP_PORT` | `587` | `465` → automatisch TLS |
+| `CONTACT_SMTP_USER` | — | M365 App-Account; bei Postfix leer |
+| `CONTACT_SMTP_PASS` | — | M365 App-Password; bei Postfix leer |
+| `CONTACT_FROM` | — | z. B. `"Propus Website <office@propus.ch>"` |
+| `CONTACT_TO` | — | z. B. `office@propus.ch` |
+| `PUBLIC_TURNSTILE_SITE_KEY` | — | Aus CF Dashboard → Turnstile |
+| `TURNSTILE_SECRET_KEY` | — | Aus CF Dashboard → Turnstile |
+
+Alle in `.env.vps.secrets` auf VPS. Wenn `TURNSTILE_SECRET_KEY` oder eine `CONTACT_*`-Pflichtvariable fehlt, antwortet der Endpoint mit `500 server_misconfigured` — Submissions schlagen also auffällig fehl statt stillzuschweigen.
+
+---
+
+## 5. E-Mail-Logging
 
 ### `tour_manager.outgoing_emails` — Tour-Manager-E-Mails
 
