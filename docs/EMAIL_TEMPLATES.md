@@ -146,6 +146,35 @@ Wie `buildCustomerEmail`, zusätzlich:
 
 ---
 
+### Self-Serve Magic-Link Login (PR #443, Mai 2026)
+
+**Inline-Template** in `booking/customer-magic-link.js::buildEmailContent(email, link)` — bewusst nicht ueber `booking/templates/emails.js`, weil das Template trivial und nur deutschsprachig ist (Lokalisierung folgt bei Bedarf).
+
+| Feld | Inhalt |
+|---|---|
+| **Subject** | `Ihr Login-Link fuer Propus` |
+| **Body (HTML)** | „Klicken Sie auf den folgenden Link, um sich anzumelden" + Button + Klartext-Fallback-URL + Hinweis auf 15-Min-Gueltigkeit |
+| **Body (text)** | Plaintext-Variante mit URL und TTL-Hinweis |
+| **From** | `MAIL_FROM` (Default `office@propus.ch`) |
+| **Transport** | SMTP via `mailer` falls konfiguriert, sonst Fallback auf `sendMailViaGraph()` |
+
+**Auslöser:** `POST /api/customer/magic-link/request { email }` durch den Kunden auf `portal.propus.ch/login`. Antwort ist immer 200 (kein Account-Enumeration), Mail wird nur versandt wenn Account in `core.customers` existiert.
+
+**Link-Format:**
+```
+<FRONTEND_URL>/api/customer/magic-link/callback?token=<base64url-token>
+```
+
+`FRONTEND_URL` defaultet auf `https://booking.propus.ch`. Der Link landet beim Klicken auf der Express-Route, die den Token konsumiert, eine `core.customer_sessions`-Zeile + `customer_session`-Cookie anlegt und dann ins Portal weiterleitet.
+
+**TTL:** `CUSTOMER_MAGIC_LINK_TTL_MIN` ENV (Default 15 Minuten). Single-Use enforced ueber `consumed_at`-Spalte in `core.customer_login_tokens`.
+
+**Idempotenz:** Keine — jeder Request erzeugt einen neuen Token. Rate-Limit `passwordResetLimiter` haelt Mail-Bombing in Schach.
+
+Vollstaendiger Flow: [FLOWS_AUTH.md §5b](./FLOWS_AUTH.md#5b-self-serve-magic-link-login-passwortlos).
+
+---
+
 ### Flex-Buchung — DB-Templates (`email_templates`)
 
 **Speicherort:** `email_templates`-Tabelle im Booking-Schema (Mustache-`{{var}}`-Syntax).

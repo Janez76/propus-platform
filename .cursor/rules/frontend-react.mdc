@@ -24,3 +24,11 @@ alwaysApply: false
 - Portal-API über `portalFetch('/portal/api/...')` (nutzt Session-Cookies)
 - Admin-API über `apiFetch('/api/...')` (nutzt Bearer-Token)
 - API-Typen und Funktionen in `app/src/api/portalTours.ts` bzw. `app/src/api/toursAdmin.ts`
+
+## Theme-Tokens (Light/Dark) — CI-erzwungen
+
+- Keine hartkodierten Farb-Klassen wie `bg-white`, `bg-zinc-900`, `text-gray-500`, `border-gray-200` ohne `dark:`-Pendant.
+- Nutze stattdessen Theme-Tokens: `bg-bg`, `bg-surface`, `bg-card`, `text-text`, `text-muted`, `text-subtle`, `border-border`, `border-border-strong`, `ring-accent` (definiert in `app/src/index.css` `@theme inline`).
+- Wenn ein hartkodierter Farbton wirklich noetig ist: `className="bg-white dark:bg-zinc-900 text-black dark:text-white"`.
+- Lint: `cd app && npm run theme:lint` (Baseline-Diff in `app/scripts/theme-tokens-baseline.json`). Greift in CI (`app-ci.yml`) bei jedem PR.
+- Details: `docs/ADMIN-FRONTEND-DESIGN.md` (Section "Theme-Tokens").

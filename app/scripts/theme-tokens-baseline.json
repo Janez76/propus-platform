@@ -1,0 +1,4852 @@
+{
+  "note": "Auto-generated. New violations relative to this snapshot fail CI. Run `npm run theme:lint:update` after intentional cleanups.",
+  "generatedAt": "2026-05-10T00:53:14.416Z",
+  "count": 969,
+  "violations": [
+    {
+      "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
+      "token": "text-white",
+      "line": 1339
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
+      "token": "text-white",
+      "line": 1395
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
+      "token": "bg-black",
+      "line": 1468
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
+      "token": "bg-white",
+      "line": 1513
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
+      "token": "bg-black",
+      "line": 1583
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/TrainingPanel.tsx",
+      "token": "text-white",
+      "line": 730
+    },
+    {
+      "file": "src/app/(admin)/assistant/_components/TrainingPanel.tsx",
+      "token": "text-white",
+      "line": 781
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/kommunikation/kommunikation-composer.tsx",
+      "token": "bg-white",
+      "line": 53
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/kommunikation/kommunikation-composer.tsx",
+      "token": "bg-white",
+      "line": 60
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/kommunikation/kommunikation-composer.tsx",
+      "token": "bg-white",
+      "line": 81
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 171
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 186
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "border-white",
+      "line": 214
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 214
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "border-white",
+      "line": 222
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 222
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 231
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/leistungen/leistungen-form.tsx",
+      "token": "bg-white",
+      "line": 259
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-300",
+      "line": 41
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-500",
+      "line": 42
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "divide-gray-100",
+      "line": 62
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "border-gray-200",
+      "line": 62
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "bg-gray-50",
+      "line": 67
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-500",
+      "line": 73
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-400",
+      "line": 79
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "bg-gray-100",
+      "line": 103
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-600",
+      "line": 103
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "bg-gray-100",
+      "line": 106
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/listing/page.tsx",
+      "token": "text-gray-600",
+      "line": 106
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 126
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 132
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 137
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 149
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 165
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 174
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 183
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 191
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "border-white",
+      "line": 203
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 203
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 206
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 210
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 213
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/objekt/objekt-form.tsx",
+      "token": "bg-white",
+      "line": 216
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 237
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 256
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 273
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 281
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 285
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/termin/termin-form.tsx",
+      "token": "bg-white",
+      "line": 302
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/copy-link-button.tsx",
+      "token": "bg-white",
+      "line": 25
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 124
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 132
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 143
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 161
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 236
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-spaces-list.tsx",
+      "token": "bg-white",
+      "line": 246
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-visibility-form.tsx",
+      "token": "bg-white",
+      "line": 56
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/matterport-visibility-form.tsx",
+      "token": "bg-white",
+      "line": 89
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx",
+      "token": "bg-white",
+      "line": 169
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx",
+      "token": "bg-white",
+      "line": 248
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx",
+      "token": "bg-white",
+      "line": 290
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx",
+      "token": "bg-white",
+      "line": 358
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verknuepfungen/verknuepfungen-view.tsx",
+      "token": "bg-white",
+      "line": 381
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verlauf/verlauf-filters.tsx",
+      "token": "bg-white",
+      "line": 41
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/verlauf/verlauf-timeline.tsx",
+      "token": "bg-white",
+      "line": 17
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "token": "border-white",
+      "line": 64
+    },
+    {
+      "file": "src/components/calendar/CalendarView.tsx",
+      "token": "text-zinc-50",
+      "line": 139
+    },
+    {
+      "file": "src/components/calendar/CalendarView.tsx",
+      "token": "border-zinc-200",
+      "line": 148
+    },
+    {
+      "file": "src/components/calendar/CalendarView.tsx",
+      "token": "bg-white",
+      "line": 148
+    },
+    {
+      "file": "src/components/calendar/CalendarView.tsx",
+      "token": "text-white",
+      "line": 211
+    },
+    {
+      "file": "src/components/calendar/CalendarView.tsx",
+      "token": "text-white",
+      "line": 221
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-white",
+      "line": 284
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-white",
+      "line": 292
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "bg-black",
+      "line": 304
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "bg-white",
+      "line": 305
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-500",
+      "line": 429
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-zinc-200",
+      "line": 431
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-zinc-100",
+      "line": 433
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-zinc-200",
+      "line": 440
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-600",
+      "line": 440
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-700",
+      "line": 441
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-800",
+      "line": 442
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-500",
+      "line": 468
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-white",
+      "line": 501
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-zinc-600",
+      "line": 504
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-300",
+      "line": 504
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "bg-zinc-800",
+      "line": 504
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-white",
+      "line": 515
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "border-zinc-600",
+      "line": 518
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "text-zinc-300",
+      "line": 518
+    },
+    {
+      "file": "src/components/customers/ContactModal.tsx",
+      "token": "bg-zinc-800",
+      "line": 518
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-900",
+      "line": 158
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "border-zinc-400",
+      "line": 160
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 187
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 202
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 214
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 228
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 240
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 252
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 264
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 276
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-300",
+      "line": 294
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-zinc-200",
+      "line": 313
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "border-zinc-600",
+      "line": 318
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "bg-zinc-800",
+      "line": 318
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "bg-slate-200",
+      "line": 332
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "text-white",
+      "line": 343
+    },
+    {
+      "file": "src/components/customers/CreateContactDialog.tsx",
+      "token": "border-white",
+      "line": 350
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "border-zinc-200",
+      "line": 78
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "text-zinc-500",
+      "line": 81
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "bg-zinc-50",
+      "line": 88
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "text-zinc-500",
+      "line": 91
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "text-zinc-500",
+      "line": 119
+    },
+    {
+      "file": "src/components/customers/CustomerAccessPanel.tsx",
+      "token": "border-zinc-300",
+      "line": 137
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "border-slate-200",
+      "line": 295
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-zinc-500",
+      "line": 297
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-zinc-500",
+      "line": 301
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-white",
+      "line": 339
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "border-slate-300",
+      "line": 350
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-slate-700",
+      "line": 350
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "bg-slate-50",
+      "line": 350
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-slate-600",
+      "line": 407
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "bg-slate-100",
+      "line": 407
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "text-slate-900",
+      "line": 407
+    },
+    {
+      "file": "src/components/customers/CustomerContactsSection.tsx",
+      "token": "border-slate-300",
+      "line": 432
+    },
+    {
+      "file": "src/components/customers/CustomerMergeModal.tsx",
+      "token": "bg-black",
+      "line": 83
+    },
+    {
+      "file": "src/components/customers/CustomerViewModal.tsx",
+      "token": "bg-black",
+      "line": 131
+    },
+    {
+      "file": "src/components/customers/CustomerViewModal.tsx",
+      "token": "text-white",
+      "line": 205
+    },
+    {
+      "file": "src/components/customers/CustomerViewModal.tsx",
+      "token": "text-zinc-500",
+      "line": 294
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "text-zinc-500",
+      "line": 133
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "text-zinc-500",
+      "line": 155
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-zinc-50",
+      "line": 211
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-zinc-200",
+      "line": 216
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "text-white",
+      "line": 224
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "border-zinc-200",
+      "line": 230
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-zinc-50",
+      "line": 230
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-zinc-200",
+      "line": 235
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-zinc-100",
+      "line": 255
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "text-white",
+      "line": 264
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "border-white",
+      "line": 268
+    },
+    {
+      "file": "src/components/customers/DuplicateWarningDialog.tsx",
+      "token": "bg-black",
+      "line": 291
+    },
+    {
+      "file": "src/components/customers/ImpersonateDialog.tsx",
+      "token": "text-zinc-500",
+      "line": 111
+    },
+    {
+      "file": "src/components/customers/ImpersonateDialog.tsx",
+      "token": "text-zinc-500",
+      "line": 114
+    },
+    {
+      "file": "src/components/customers/ImpersonateDialog.tsx",
+      "token": "text-zinc-500",
+      "line": 128
+    },
+    {
+      "file": "src/components/customers/ImpersonateDialog.tsx",
+      "token": "text-white",
+      "line": 168
+    },
+    {
+      "file": "src/components/employees/AbsenceCalendar.tsx",
+      "token": "border-zinc-200",
+      "line": 105
+    },
+    {
+      "file": "src/components/employees/AbsenceCalendar.tsx",
+      "token": "bg-white",
+      "line": 105
+    },
+    {
+      "file": "src/components/employees/AbsenceCalendar.tsx",
+      "token": "border-zinc-200",
+      "line": 151
+    },
+    {
+      "file": "src/components/employees/AbsenceCalendar.tsx",
+      "token": "text-zinc-500",
+      "line": 152
+    },
+    {
+      "file": "src/components/employees/AbsenceCalendar.tsx",
+      "token": "text-zinc-700",
+      "line": 163
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "border-zinc-400",
+      "line": 163
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "bg-zinc-500",
+      "line": 163
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "text-zinc-200",
+      "line": 163
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "bg-black",
+      "line": 640
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "bg-white",
+      "line": 832
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "bg-white",
+      "line": 849
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "text-white",
+      "line": 1240
+    },
+    {
+      "file": "src/components/employees/EmployeeModal.tsx",
+      "token": "bg-black",
+      "line": 1307
+    },
+    {
+      "file": "src/components/employees/PortraitCropDialog.tsx",
+      "token": "bg-black",
+      "line": 73
+    },
+    {
+      "file": "src/components/employees/PortraitCropDialog.tsx",
+      "token": "bg-zinc-900",
+      "line": 103
+    },
+    {
+      "file": "src/components/layout/AppShell.tsx",
+      "token": "bg-black",
+      "line": 73
+    },
+    {
+      "file": "src/components/layout/OfflineIndicator.tsx",
+      "token": "text-zinc-950",
+      "line": 12
+    },
+    {
+      "file": "src/components/layout/QuickImpersonateButton.tsx",
+      "token": "text-white",
+      "line": 163
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "bg-black",
+      "line": 45
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-900",
+      "line": 50
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-500",
+      "line": 51
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-500",
+      "line": 57
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "bg-black",
+      "line": 64
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-600",
+      "line": 64
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-500",
+      "line": 69
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "border-zinc-300",
+      "line": 76
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-900",
+      "line": 76
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-600",
+      "line": 87
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "bg-black",
+      "line": 107
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-600",
+      "line": 107
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-zinc-700",
+      "line": 118
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "bg-black",
+      "line": 118
+    },
+    {
+      "file": "src/components/orders/ChangePhotographerModal.tsx",
+      "token": "text-white",
+      "line": 125
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-slate-400",
+      "line": 266
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-300",
+      "line": 267
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-zinc-600",
+      "line": 821
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-100",
+      "line": 957
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-100",
+      "line": 1013
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-100",
+      "line": 1078
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-100",
+      "line": 1275
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "bg-slate-100",
+      "line": 1385
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-300",
+      "line": 1508
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-300",
+      "line": 1528
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-white",
+      "line": 1533
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-slate-800",
+      "line": 1536
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-slate-400",
+      "line": 1563
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-slate-300",
+      "line": 1591
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-white",
+      "line": 1636
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-white",
+      "line": 1812
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "bg-slate-200",
+      "line": 1813
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-white",
+      "line": 1840
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "bg-slate-200",
+      "line": 1841
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-slate-800",
+      "line": 1973
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "text-white",
+      "line": 2078
+    },
+    {
+      "file": "src/components/orders/CreateOrderWizard.tsx",
+      "token": "border-white",
+      "line": 2082
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "border-zinc-200",
+      "line": 30
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "bg-white",
+      "line": 30
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "text-zinc-500",
+      "line": 39
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "text-zinc-600",
+      "line": 40
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "text-zinc-600",
+      "line": 41
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "border-zinc-300",
+      "line": 48
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "border-zinc-300",
+      "line": 54
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "border-zinc-300",
+      "line": 62
+    },
+    {
+      "file": "src/components/orders/OrderCards.tsx",
+      "token": "border-zinc-300",
+      "line": 70
+    },
+    {
+      "file": "src/components/orders/OrderChat.tsx",
+      "token": "text-white",
+      "line": 198
+    },
+    {
+      "file": "src/components/orders/OrderCreate.tsx",
+      "token": "bg-black",
+      "line": 93
+    },
+    {
+      "file": "src/components/orders/OrderCreate.tsx",
+      "token": "bg-white",
+      "line": 94
+    },
+    {
+      "file": "src/components/orders/OrderCreate.tsx",
+      "token": "text-white",
+      "line": 150
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-black",
+      "line": 724
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-white",
+      "line": 725
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 801
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 810
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 811
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 812
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 818
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 819
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 820
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 821
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 822
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 823
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 882
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 884
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 885
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 887
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 888
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 889
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 890
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 915
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 916
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 947
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 948
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 949
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 950
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 951
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 952
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 953
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-100",
+      "line": 968
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 972
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 973
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-100",
+      "line": 979
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 982
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-700",
+      "line": 986
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-white",
+      "line": 988
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1003
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1009
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1009
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-300",
+      "line": 1009
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1012
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1025
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1031
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1031
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-300",
+      "line": 1031
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1044
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1072
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1094
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-100",
+      "line": 1111
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1112
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-zinc-50",
+      "line": 1126
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1134
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1141
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1142
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1148
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1155
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1162
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1170
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1170
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-100",
+      "line": 1177
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1179
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1185
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1186
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1187
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1188
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1206
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-700",
+      "line": 1214
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1216
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-700",
+      "line": 1221
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1223
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1227
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1228
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1238
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1242
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-zinc-200",
+      "line": 1248
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1248
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-gray-500",
+      "line": 1332
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-gray-600",
+      "line": 1332
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "border-gray-400",
+      "line": 1332
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-zinc-500",
+      "line": 1401
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1401
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1439
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1454
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-600",
+      "line": 1454
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1497
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-zinc-500",
+      "line": 1513
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-black",
+      "line": 1697
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "text-white",
+      "line": 1820
+    },
+    {
+      "file": "src/components/orders/OrderDetail.tsx",
+      "token": "bg-black",
+      "line": 1841
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 60
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 60
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 65
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 68
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 93
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-900",
+      "line": 97
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-400",
+      "line": 98
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 110
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 132
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-900",
+      "line": 134
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 137
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-900",
+      "line": 186
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 189
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 196
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 210
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-100",
+      "line": 210
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 211
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-700",
+      "line": 214
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 254
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 263
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 263
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-900",
+      "line": 263
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-300",
+      "line": 263
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-500",
+      "line": 268
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 275
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 275
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-900",
+      "line": 275
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-300",
+      "line": 275
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 289
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 289
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-700",
+      "line": 295
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 295
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 295
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 295
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-300",
+      "line": 295
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-700",
+      "line": 302
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 302
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 302
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 302
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-300",
+      "line": 302
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "text-slate-700",
+      "line": 309
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 309
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 309
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 309
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-300",
+      "line": 309
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 319
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 343
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 348
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-slate-50",
+      "line": 357
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "bg-white",
+      "line": 358
+    },
+    {
+      "file": "src/components/orders/OrderDetails.tsx",
+      "token": "border-slate-200",
+      "line": 358
+    },
+    {
+      "file": "src/components/orders/OrderDetailsExample.tsx",
+      "token": "bg-white",
+      "line": 90
+    },
+    {
+      "file": "src/components/orders/OrderDetailsExample.tsx",
+      "token": "border-slate-200",
+      "line": 90
+    },
+    {
+      "file": "src/components/orders/OrderDetailsExample.tsx",
+      "token": "text-white",
+      "line": 95
+    },
+    {
+      "file": "src/components/orders/OrderMessages.tsx",
+      "token": "bg-black",
+      "line": 36
+    },
+    {
+      "file": "src/components/orders/OrderMessages.tsx",
+      "token": "bg-white",
+      "line": 37
+    },
+    {
+      "file": "src/components/orders/OrderMessages.tsx",
+      "token": "text-zinc-500",
+      "line": 43
+    },
+    {
+      "file": "src/components/orders/OrderMessages.tsx",
+      "token": "text-zinc-500",
+      "line": 44
+    },
+    {
+      "file": "src/components/orders/OrderStoragePanel.tsx",
+      "token": "bg-black",
+      "line": 778
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 415
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 415
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 415
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-900",
+      "line": 416
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "from-zinc-800",
+      "line": 425
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "via-zinc-900",
+      "line": 425
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "to-black",
+      "line": 425
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 427
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 427
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-200",
+      "line": 427
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 433
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 439
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 446
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 447
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-900",
+      "line": 447
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-200",
+      "line": 447
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 455
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-white",
+      "line": 456
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 469
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 469
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-white",
+      "line": 469
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-700",
+      "line": 477
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 485
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-700",
+      "line": 489
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 489
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 492
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-200",
+      "line": 554
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 572
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 613
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 613
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-800",
+      "line": 1150
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-900",
+      "line": 1150
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-900",
+      "line": 1151
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-800",
+      "line": 1151
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 1154
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1162
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 1221
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1221
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 1221
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-500",
+      "line": 1221
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1267
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-500",
+      "line": 1267
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1267
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1282
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-600",
+      "line": 1286
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-600",
+      "line": 1289
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-white",
+      "line": 1302
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1303
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-700",
+      "line": 1303
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-200",
+      "line": 1303
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-200",
+      "line": 1312
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1324
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 1324
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1407
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1412
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1423
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1423
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 1425
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1428
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1440
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1440
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1441
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1495
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1495
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1496
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1526
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1526
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 1526
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1530
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 1539
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-white",
+      "line": 1545
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-white",
+      "line": 1545
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-white",
+      "line": 1545
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-black",
+      "line": 1560
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1561
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-900",
+      "line": 1561
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-800",
+      "line": 1563
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1564
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-700",
+      "line": 1577
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1577
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1592
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1602
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1622
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1631
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1631
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 1644
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1646
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1646
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1647
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1657
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1664
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1664
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-600",
+      "line": 1667
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1667
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-300",
+      "line": 1670
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1671
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-500",
+      "line": 1692
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "border-zinc-700",
+      "line": 1737
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "bg-zinc-800",
+      "line": 1737
+    },
+    {
+      "file": "src/components/orders/UploadTool.tsx",
+      "token": "text-zinc-100",
+      "line": 1738
+    },
+    {
+      "file": "src/components/products/ProductEditModal.tsx",
+      "token": "text-white",
+      "line": 128
+    },
+    {
+      "file": "src/components/products/ProductEditModal.tsx",
+      "token": "bg-black",
+      "line": 391
+    },
+    {
+      "file": "src/components/products/ProductEditModal.tsx",
+      "token": "bg-white",
+      "line": 876
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-100",
+      "line": 242
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-500",
+      "line": 242
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "border-slate-200",
+      "line": 247
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-white",
+      "line": 247
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-600",
+      "line": 247
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 247
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "border-slate-200",
+      "line": 261
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 261
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 275
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-400",
+      "line": 303
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-100",
+      "line": 303
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-400",
+      "line": 307
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-100",
+      "line": 307
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "border-slate-200",
+      "line": 331
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 331
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "border-slate-200",
+      "line": 416
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-white",
+      "line": 416
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 422
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "border-slate-200",
+      "line": 551
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "bg-slate-50",
+      "line": 551
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-400",
+      "line": 614
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-600",
+      "line": 614
+    },
+    {
+      "file": "src/components/products/RuleConfigEditor.tsx",
+      "token": "text-slate-900",
+      "line": 633
+    },
+    {
+      "file": "src/components/profile/ProfileModal.tsx",
+      "token": "bg-black",
+      "line": 308
+    },
+    {
+      "file": "src/components/ui/AddressAutocompleteInput.tsx",
+      "token": "bg-zinc-800",
+      "line": 617
+    },
+    {
+      "file": "src/components/ui/AddressAutocompleteInput.tsx",
+      "token": "text-zinc-300",
+      "line": 617
+    },
+    {
+      "file": "src/components/ui/badge.tsx",
+      "token": "text-white",
+      "line": 7
+    },
+    {
+      "file": "src/components/ui/badge.tsx",
+      "token": "text-white",
+      "line": 9
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 11
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "bg-white",
+      "line": 12
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 12
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 12
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "border-white",
+      "line": 13
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "bg-white",
+      "line": 13
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 13
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 13
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 14
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "bg-white",
+      "line": 15
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "text-white",
+      "line": 15
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "token": "bg-white",
+      "line": 15
+    },
+    {
+      "file": "src/components/ui/ConfirmDeleteDialog.tsx",
+      "token": "text-white",
+      "line": 45
+    },
+    {
+      "file": "src/components/ui/CustomerAutocompleteInput.tsx",
+      "token": "bg-zinc-800",
+      "line": 135
+    },
+    {
+      "file": "src/components/ui/CustomerAutocompleteInput.tsx",
+      "token": "text-zinc-200",
+      "line": 135
+    },
+    {
+      "file": "src/components/ui/CustomerAutocompleteInput.tsx",
+      "token": "border-slate-200",
+      "line": 144
+    },
+    {
+      "file": "src/components/ui/CustomerAutocompleteInput.tsx",
+      "token": "bg-white",
+      "line": 144
+    },
+    {
+      "file": "src/components/ui/CustomerAutocompleteInput.tsx",
+      "token": "bg-slate-50",
+      "line": 155
+    },
+    {
+      "file": "src/components/ui/dialog.tsx",
+      "token": "bg-black",
+      "line": 28
+    },
+    {
+      "file": "src/components/ui/OnsiteContactAutocompleteInput.tsx",
+      "token": "bg-zinc-800",
+      "line": 134
+    },
+    {
+      "file": "src/components/ui/OnsiteContactAutocompleteInput.tsx",
+      "token": "text-zinc-200",
+      "line": 134
+    },
+    {
+      "file": "src/components/ui/OnsiteContactAutocompleteInput.tsx",
+      "token": "border-slate-200",
+      "line": 143
+    },
+    {
+      "file": "src/components/ui/OnsiteContactAutocompleteInput.tsx",
+      "token": "bg-white",
+      "line": 143
+    },
+    {
+      "file": "src/components/ui/OnsiteContactAutocompleteInput.tsx",
+      "token": "bg-slate-50",
+      "line": 154
+    },
+    {
+      "file": "src/components/ui/ZipCitySuggestInput.tsx",
+      "token": "bg-zinc-800",
+      "line": 162
+    },
+    {
+      "file": "src/components/ui/ZipCitySuggestInput.tsx",
+      "token": "text-zinc-300",
+      "line": 162
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "bg-zinc-500",
+      "line": 109
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "text-zinc-500",
+      "line": 109
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "border-zinc-500",
+      "line": 109
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "bg-zinc-500",
+      "line": 112
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "text-zinc-500",
+      "line": 112
+    },
+    {
+      "file": "src/lib/orderTermin.ts",
+      "token": "border-zinc-500",
+      "line": 112
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-zinc-500",
+      "line": 67
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "border-zinc-500",
+      "line": 67
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-zinc-500",
+      "line": 68
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-slate-500",
+      "line": 95
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "text-slate-500",
+      "line": 95
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "border-slate-500",
+      "line": 95
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-slate-400",
+      "line": 96
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-zinc-500",
+      "line": 182
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "border-zinc-500",
+      "line": 182
+    },
+    {
+      "file": "src/lib/status.ts",
+      "token": "bg-zinc-500",
+      "line": 183
+    },
+    {
+      "file": "src/lib/utils.ts",
+      "token": "text-zinc-600",
+      "line": 83
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 472
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 485
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "from-white",
+      "line": 499
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "via-white",
+      "line": 499
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 501
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-900",
+      "line": 501
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "from-white",
+      "line": 509
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "via-white",
+      "line": 509
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 511
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-900",
+      "line": 511
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 527
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-900",
+      "line": 527
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-200",
+      "line": 531
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-700",
+      "line": 531
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-100",
+      "line": 568
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-700",
+      "line": 568
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-white",
+      "line": 586
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-white",
+      "line": 590
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 595
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-white",
+      "line": 599
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 601
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 601
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 619
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 626
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-200",
+      "line": 658
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 658
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-200",
+      "line": 670
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 671
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-200",
+      "line": 694
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 709
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 763
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 768
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 788
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-700",
+      "line": 798
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-700",
+      "line": 818
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-white",
+      "line": 832
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-white",
+      "line": 840
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 845
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-white",
+      "line": 862
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 865
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 869
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 878
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-600",
+      "line": 878
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 887
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "bg-neutral-50",
+      "line": 896
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 911
+    },
+    {
+      "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
+      "token": "text-neutral-500",
+      "line": 913
+    },
+    {
+      "file": "src/pages-legacy/admin/DispositionPage.tsx",
+      "token": "text-white",
+      "line": 242
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminExxasSyncPage.tsx",
+      "token": "text-white",
+      "line": 219
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminExxasSyncPage.tsx",
+      "token": "text-white",
+      "line": 280
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 366
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 430
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 441
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 485
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "bg-black",
+      "line": 573
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 639
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "bg-black",
+      "line": 653
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 724
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "bg-black",
+      "line": 738
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 804
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminOpenInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 205
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminOpenInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 216
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminOpenInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 237
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminOpenInvoicesPage.tsx",
+      "token": "bg-black",
+      "line": 306
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminOpenInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 377
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/AdminPaidInvoicesPage.tsx",
+      "token": "text-white",
+      "line": 134
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "bg-gray-500",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-gray-600",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "border-gray-400",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "bg-slate-500",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-slate-600",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "border-slate-400",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "bg-black",
+      "line": 534
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 768
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "bg-black",
+      "line": 1339
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1363
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1373
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1667
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "bg-black",
+      "line": 1742
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1921
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1940
+    },
+    {
+      "file": "src/pages-legacy/admin/invoices/invoice-components.tsx",
+      "token": "text-white",
+      "line": 1960
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingEditorPage.tsx",
+      "token": "bg-zinc-800",
+      "line": 411
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingEditorPage.tsx",
+      "token": "text-zinc-200",
+      "line": 411
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingEditorPage.tsx",
+      "token": "bg-white",
+      "line": 1917
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingEditorPage.tsx",
+      "token": "text-white",
+      "line": 2013
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingEditorPage.tsx",
+      "token": "bg-white",
+      "line": 2171
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingListPage.tsx",
+      "token": "bg-white",
+      "line": 508
+    },
+    {
+      "file": "src/pages-legacy/admin/listing/ListingListPage.tsx",
+      "token": "bg-white",
+      "line": 516
+    },
+    {
+      "file": "src/pages-legacy/admin/posteingang/PosteingangPage.tsx",
+      "token": "bg-black",
+      "line": 462
+    },
+    {
+      "file": "src/pages-legacy/booking/BookingPublicHeader.tsx",
+      "token": "text-white",
+      "line": 185
+    },
+    {
+      "file": "src/pages-legacy/booking/BookingTypeToggle.tsx",
+      "token": "text-white",
+      "line": 39
+    },
+    {
+      "file": "src/pages-legacy/booking/BookingWizardPage.tsx",
+      "token": "text-white",
+      "line": 57
+    },
+    {
+      "file": "src/pages-legacy/booking/BookingWizardPage.tsx",
+      "token": "text-white",
+      "line": 456
+    },
+    {
+      "file": "src/pages-legacy/booking/BookingWizardPage.tsx",
+      "token": "text-white",
+      "line": 466
+    },
+    {
+      "file": "src/pages-legacy/booking/LandingPage.tsx",
+      "token": "text-white",
+      "line": 302
+    },
+    {
+      "file": "src/pages-legacy/booking/LandingPage.tsx",
+      "token": "text-white",
+      "line": 391
+    },
+    {
+      "file": "src/pages-legacy/booking/LandingPage.tsx",
+      "token": "text-white",
+      "line": 572
+    },
+    {
+      "file": "src/pages-legacy/booking/LandingPage.tsx",
+      "token": "text-white",
+      "line": 653
+    },
+    {
+      "file": "src/pages-legacy/booking/StepBilling.tsx",
+      "token": "text-white",
+      "line": 308
+    },
+    {
+      "file": "src/pages-legacy/booking/StepSchedule.tsx",
+      "token": "text-white",
+      "line": 474
+    },
+    {
+      "file": "src/pages-legacy/booking/StepSchedule.tsx",
+      "token": "text-white",
+      "line": 484
+    },
+    {
+      "file": "src/pages-legacy/booking/StepSchedule.tsx",
+      "token": "text-white",
+      "line": 508
+    },
+    {
+      "file": "src/pages-legacy/booking/StepServices.tsx",
+      "token": "text-white",
+      "line": 163
+    },
+    {
+      "file": "src/pages-legacy/booking/ThankYouScreen.tsx",
+      "token": "text-white",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "bg-white",
+      "line": 540
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "text-white",
+      "line": 616
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "bg-white",
+      "line": 619
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "text-zinc-500",
+      "line": 677
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "text-zinc-500",
+      "line": 682
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "text-slate-900",
+      "line": 357
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "text-slate-300",
+      "line": 361
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 523
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 578
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 614
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "text-slate-400",
+      "line": 631
+    },
+    {
+      "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
+      "token": "text-slate-400",
+      "line": 637
+    },
+    {
+      "file": "src/pages-legacy/ChangelogPage.tsx",
+      "token": "bg-slate-50",
+      "line": 34
+    },
+    {
+      "file": "src/pages-legacy/ChangelogPage.tsx",
+      "token": "text-slate-400",
+      "line": 57
+    },
+    {
+      "file": "src/pages-legacy/ChangelogPage.tsx",
+      "token": "text-slate-400",
+      "line": 57
+    },
+    {
+      "file": "src/pages-legacy/ChangelogPage.tsx",
+      "token": "border-slate-100",
+      "line": 61
+    },
+    {
+      "file": "src/pages-legacy/ChangelogPage.tsx",
+      "token": "text-slate-400",
+      "line": 176
+    },
+    {
+      "file": "src/pages-legacy/ConfigurationPage.tsx",
+      "token": "text-white",
+      "line": 79
+    },
+    {
+      "file": "src/pages-legacy/ConfirmBookingPage.tsx",
+      "token": "bg-slate-100",
+      "line": 54
+    },
+    {
+      "file": "src/pages-legacy/ConfirmBookingPage.tsx",
+      "token": "border-zinc-200",
+      "line": 55
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-gray-50",
+      "line": 40
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-300",
+      "line": 40
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-600",
+      "line": 40
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-gray-50",
+      "line": 97
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-200",
+      "line": 97
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-600",
+      "line": 97
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-200",
+      "line": 155
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-gray-50",
+      "line": 155
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 158
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-white",
+      "line": 173
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-900",
+      "line": 176
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 192
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 231
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-300",
+      "line": 235
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-600",
+      "line": 235
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 254
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-300",
+      "line": 263
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-white",
+      "line": 263
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-800",
+      "line": 263
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 267
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 280
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 289
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 298
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-white",
+      "line": 307
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 316
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-950",
+      "line": 366
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-800",
+      "line": 369
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 380
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-500",
+      "line": 407
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "border-gray-300",
+      "line": 414
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "bg-white",
+      "line": 414
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-600",
+      "line": 414
+    },
+    {
+      "file": "src/pages-legacy/customer/CleanupDashboardPage.tsx",
+      "token": "text-gray-900",
+      "line": 414
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "bg-zinc-950",
+      "line": 43
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "text-zinc-200",
+      "line": 43
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "text-zinc-500",
+      "line": 45
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "bg-zinc-950",
+      "line": 61
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "text-zinc-100",
+      "line": 61
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "border-zinc-800",
+      "line": 62
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "bg-zinc-900",
+      "line": 62
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "border-zinc-600",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "text-zinc-300",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "bg-zinc-800",
+      "line": 68
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "border-zinc-800",
+      "line": 74
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "bg-zinc-800",
+      "line": 84
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalLayout.tsx",
+      "token": "text-zinc-200",
+      "line": 84
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 95
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-800",
+      "line": 102
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "bg-zinc-900",
+      "line": 102
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 103
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 130
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-700",
+      "line": 141
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "bg-zinc-900",
+      "line": 141
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-200",
+      "line": 141
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 151
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 153
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-800",
+      "line": 170
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "bg-zinc-900",
+      "line": 170
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 181
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 183
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 234
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-200",
+      "line": 261
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-300",
+      "line": 271
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-300",
+      "line": 280
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-400",
+      "line": 290
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-300",
+      "line": 299
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 301
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 305
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 310
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 316
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 329
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 337
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-800",
+      "line": 341
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "bg-zinc-900",
+      "line": 341
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 343
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 360
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 391
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-800",
+      "line": 394
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 396
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "border-zinc-700",
+      "line": 404
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "bg-zinc-900",
+      "line": 404
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-950",
+      "line": 413
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 437
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 452
+    },
+    {
+      "file": "src/pages-legacy/customer/CustomerPortalSubpages.tsx",
+      "token": "text-zinc-500",
+      "line": 458
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-white",
+      "line": 690
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-black",
+      "line": 1035
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "border-slate-200",
+      "line": 1041
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-white",
+      "line": 1041
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-500",
+      "line": 1054
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-slate-100",
+      "line": 1054
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-700",
+      "line": 1054
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "border-slate-300",
+      "line": 1152
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-700",
+      "line": 1152
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-slate-50",
+      "line": 1152
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-white",
+      "line": 1159
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-black",
+      "line": 1170
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "border-slate-200",
+      "line": 1176
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-white",
+      "line": 1176
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-500",
+      "line": 1183
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-slate-100",
+      "line": 1183
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-700",
+      "line": 1183
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "border-slate-200",
+      "line": 1197
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-white",
+      "line": 1197
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-900",
+      "line": 1197
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "border-slate-300",
+      "line": 1214
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-slate-700",
+      "line": 1214
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "bg-slate-50",
+      "line": 1214
+    },
+    {
+      "file": "src/pages-legacy/CustomersPage.tsx",
+      "token": "text-white",
+      "line": 1221
+    },
+    {
+      "file": "src/pages-legacy/EmailTemplatesPage.tsx",
+      "token": "text-slate-900",
+      "line": 480
+    },
+    {
+      "file": "src/pages-legacy/EmailTemplatesPage.tsx",
+      "token": "text-slate-300",
+      "line": 484
+    },
+    {
+      "file": "src/pages-legacy/EmailTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 728
+    },
+    {
+      "file": "src/pages-legacy/EmailTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 783
+    },
+    {
+      "file": "src/pages-legacy/EmailTemplatesPage.tsx",
+      "token": "bg-black",
+      "line": 819
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "border-slate-100",
+      "line": 437
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "border-slate-100",
+      "line": 442
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "border-slate-100",
+      "line": 447
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-slate-400",
+      "line": 516
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-slate-400",
+      "line": 538
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-slate-400",
+      "line": 548
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-slate-400",
+      "line": 562
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-slate-400",
+      "line": 565
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "border-slate-100",
+      "line": 1034
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-white",
+      "line": 1327
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-white",
+      "line": 1402
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "border-slate-100",
+      "line": 1612
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-white",
+      "line": 1694
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "bg-slate-50",
+      "line": 1736
+    },
+    {
+      "file": "src/pages-legacy/ExxasReconcilePage.tsx",
+      "token": "text-white",
+      "line": 1858
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "text-white",
+      "line": 177
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "text-white",
+      "line": 179
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "border-slate-100",
+      "line": 207
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "bg-white",
+      "line": 227
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "text-slate-400",
+      "line": 255
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "text-slate-400",
+      "line": 281
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "text-slate-400",
+      "line": 306
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "bg-slate-50",
+      "line": 342
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "border-slate-100",
+      "line": 394
+    },
+    {
+      "file": "src/pages-legacy/ExxasSettingsPage.tsx",
+      "token": "bg-slate-50",
+      "line": 423
+    },
+    {
+      "file": "src/pages-legacy/InvoiceTemplatePage.tsx",
+      "token": "text-white",
+      "line": 400
+    },
+    {
+      "file": "src/pages-legacy/InvoiceTemplatePage.tsx",
+      "token": "text-white",
+      "line": 603
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 715
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "border-black",
+      "line": 725
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-white",
+      "line": 725
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 736
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 736
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 746
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 746
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "bg-black",
+      "line": 754
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "text-white",
+      "line": 836
+    },
+    {
+      "file": "src/pages-legacy/PaymentSettingsPage.tsx",
+      "token": "text-white",
+      "line": 274
+    },
+    {
+      "file": "src/pages-legacy/PrintOrderPage.tsx",
+      "token": "bg-white",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/PrintOrderPage.tsx",
+      "token": "text-zinc-500",
+      "line": 70
+    },
+    {
+      "file": "src/pages-legacy/PrintOrderPage.tsx",
+      "token": "bg-white",
+      "line": 78
+    },
+    {
+      "file": "src/pages-legacy/PrintOrderPage.tsx",
+      "token": "bg-white",
+      "line": 85
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 245
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 564
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 565
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 577
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-400",
+      "line": 577
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 584
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 607
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 608
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 610
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-200",
+      "line": 615
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 622
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 623
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 624
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 858
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 859
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 871
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-400",
+      "line": 871
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 878
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 901
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 902
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 904
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-200",
+      "line": 909
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 916
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 917
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 918
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-slate-50",
+      "line": 1424
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1432
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1436
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 1439
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 1441
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-white",
+      "line": 1441
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-slate-500",
+      "line": 1456
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-300",
+      "line": 1462
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-700",
+      "line": 1462
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-100",
+      "line": 1462
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-300",
+      "line": 1463
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-700",
+      "line": 1463
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-100",
+      "line": 1463
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-300",
+      "line": 1487
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1487
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1501
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1507
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-400",
+      "line": 1520
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1527
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1546
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1561
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1563
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-200",
+      "line": 1568
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-black",
+      "line": 1588
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 1592
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-white",
+      "line": 1592
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-300",
+      "line": 1600
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-600",
+      "line": 1600
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-100",
+      "line": 1600
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-200",
+      "line": 1644
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-100",
+      "line": 1646
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-zinc-300",
+      "line": 1660
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "bg-zinc-200",
+      "line": 1663
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-700",
+      "line": 1663
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1665
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "border-slate-200",
+      "line": 1748
+    },
+    {
+      "file": "src/pages-legacy/ProductsPage.tsx",
+      "token": "text-zinc-500",
+      "line": 1766
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "border-slate-500",
+      "line": 230
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "bg-slate-500",
+      "line": 230
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "text-slate-400",
+      "line": 234
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "bg-slate-500",
+      "line": 235
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "border-slate-500",
+      "line": 235
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "text-slate-400",
+      "line": 642
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "text-white",
+      "line": 699
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "bg-black",
+      "line": 861
+    },
+    {
+      "file": "src/pages-legacy/RoleMatrixPage.tsx",
+      "token": "text-white",
+      "line": 909
+    },
+    {
+      "file": "src/pages-legacy/selekto/SelektoListPage.tsx",
+      "token": "bg-white",
+      "line": 412
+    },
+    {
+      "file": "src/pages-legacy/selekto/SelektoListPage.tsx",
+      "token": "bg-white",
+      "line": 420
+    },
+    {
+      "file": "src/pages-legacy/settings/ApiKeysSection.tsx",
+      "token": "text-white",
+      "line": 108
+    },
+    {
+      "file": "src/pages-legacy/settings/ApiKeysSection.tsx",
+      "token": "text-slate-500",
+      "line": 149
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 459
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 821
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 830
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 839
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 848
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 857
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 866
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 876
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "bg-white",
+      "line": 1244
+    },
+    {
+      "file": "src/pages-legacy/SettingsPage.tsx",
+      "token": "text-white",
+      "line": 1379
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/AdminTicketsPage.tsx",
+      "token": "text-white",
+      "line": 634
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/FloorplanOrderDialog.tsx",
+      "token": "bg-black",
+      "line": 101
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/FloorplanOrderDialog.tsx",
+      "token": "text-white",
+      "line": 295
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/MatterportVisibilityPanel.tsx",
+      "token": "text-white",
+      "line": 126
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TicketCreateDialog.tsx",
+      "token": "bg-black",
+      "line": 110
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TicketCreateDialog.tsx",
+      "token": "text-white",
+      "line": 258
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourActionsPanel.tsx",
+      "token": "text-white",
+      "line": 118
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourCleanupSection.tsx",
+      "token": "bg-white",
+      "line": 76
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourCleanupSection.tsx",
+      "token": "text-white",
+      "line": 183
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourInvoicesSection.tsx",
+      "token": "text-white",
+      "line": 246
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "bg-black",
+      "line": 688
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "text-white",
+      "line": 772
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "bg-black",
+      "line": 785
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "text-white",
+      "line": 899
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "bg-black",
+      "line": 911
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/components/TourMatterportSection.tsx",
+      "token": "text-white",
+      "line": 959
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/TourDetailPage.tsx",
+      "token": "bg-black",
+      "line": 178
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "bg-zinc-500",
+      "line": 203
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-zinc-600",
+      "line": 203
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "border-zinc-500",
+      "line": 203
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-white",
+      "line": 403
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-zinc-500",
+      "line": 474
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "bg-black",
+      "line": 560
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-white",
+      "line": 598
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "bg-zinc-500",
+      "line": 621
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "border-zinc-500",
+      "line": 621
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-zinc-600",
+      "line": 622
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-zinc-500",
+      "line": 623
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminBankImportPage.tsx",
+      "token": "text-white",
+      "line": 665
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-gray-100",
+      "line": 69
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-gray-700",
+      "line": 69
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-slate-100",
+      "line": 74
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-slate-700",
+      "line": 74
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-gray-100",
+      "line": 84
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-gray-600",
+      "line": 84
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-slate-100",
+      "line": 124
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-slate-600",
+      "line": 124
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-white",
+      "line": 277
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-white",
+      "line": 329
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-white",
+      "line": 473
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "bg-white",
+      "line": 488
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-white",
+      "line": 916
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-white",
+      "line": 969
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-white",
+      "line": 992
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminCleanupPage.tsx",
+      "token": "text-white",
+      "line": 1015
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminDashboardPage.tsx",
+      "token": "text-white",
+      "line": 168
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkExxasCustomerPage.tsx",
+      "token": "text-white",
+      "line": 404
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "bg-slate-500",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "text-slate-700",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "border-slate-500",
+      "line": 67
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "text-white",
+      "line": 217
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "text-white",
+      "line": 299
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkInvoicePage.tsx",
+      "token": "text-white",
+      "line": 414
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkMatterportPage.tsx",
+      "token": "text-white",
+      "line": 594
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminLinkMatterportPage.tsx",
+      "token": "text-white",
+      "line": 989
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminListPage.tsx",
+      "token": "text-white",
+      "line": 512
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminListPage.tsx",
+      "token": "text-white",
+      "line": 555
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminTeamPage.tsx",
+      "token": "text-white",
+      "line": 141
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminTourSettingsPage.tsx",
+      "token": "text-white",
+      "line": 178
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 196
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 398
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 427
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 464
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/ToursAdminWorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 488
+    },
+    {
+      "file": "src/pages-legacy/UploadsPage.tsx",
+      "token": "text-white",
+      "line": 429
+    },
+    {
+      "file": "src/pages-legacy/UploadsPage.tsx",
+      "token": "text-white",
+      "line": 773
+    },
+    {
+      "file": "src/pages-legacy/UploadsPage.tsx",
+      "token": "text-white",
+      "line": 812
+    },
+    {
+      "file": "src/pages-legacy/UploadsPage.tsx",
+      "token": "bg-black",
+      "line": 887
+    },
+    {
+      "file": "src/pages-legacy/WorkflowSettingsPage.tsx",
+      "token": "text-slate-400",
+      "line": 203
+    },
+    {
+      "file": "src/pages-legacy/WorkflowSettingsPage.tsx",
+      "token": "text-white",
+      "line": 222
+    }
+  ]
+}
