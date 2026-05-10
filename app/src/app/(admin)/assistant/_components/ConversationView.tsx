@@ -322,6 +322,22 @@ export function ConversationView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading, pendingConfirmation]);
 
+  // Seed-Prompt aus URL-Parameter `?seed=...` einmalig nach Mount auto-senden.
+  // Genutzt vom Posteingang-Knopf "Auftrag mit Propi": navigiert hierher mit
+  // einem vorbereiteten Prompt im Query, das gleich an den Bot gesendet wird.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const seed = params.get("seed");
+    if (!seed) return;
+    setPendingSendQueue((prev) => (prev.includes(seed) ? prev : [...prev, seed]));
+    params.delete("seed");
+    const next = params.toString();
+    const url = window.location.pathname + (next ? `?${next}` : "") + window.location.hash;
+    window.history.replaceState({}, "", url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!memoryToast) return;
     const t = window.setTimeout(() => setMemoryToast(false), 3200);

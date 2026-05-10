@@ -603,6 +603,33 @@ export function PosteingangPage() {
                   <span className="text-xs text-[#888]">
                     {detail.conversation.channel === "email" ? <Mail className="inline h-3 w-3" /> : null}
                   </span>
+                  <button
+                    type="button"
+                    title="Auftrag aus dieser Mail mit Propi anlegen"
+                    onClick={() => {
+                      const conv = detail.conversation;
+                      const lastInbound = [...detail.messages].reverse().find((m) => m.direction === "inbound");
+                      const sender = lastInbound?.from_email || conv.last_inbound_from || "";
+                      const subject = conv.subject || "";
+                      const customer = conv.customer?.name || conv.customer?.company || "";
+                      const bodyExcerpt = lastInbound?.body_text
+                        ? lastInbound.body_text.replace(/\s+/g, " ").trim().slice(0, 600)
+                        : "";
+                      const lines = [
+                        "Lege einen Auftrag aus dieser E-Mail an. Bitte zuerst Kunde + Kontaktperson, Adresse und gewuenschte Services klaeren — falls etwas fehlt, frag mit Click-Chips nach (NICHT raten).",
+                        "",
+                        `Konversation #${conv.id}: ${subject}`,
+                        sender ? `Absender: ${sender}` : "",
+                        customer ? `Erkannter Kunde: ${customer}` : "",
+                        bodyExcerpt ? `\nMail-Inhalt (Auszug):\n${bodyExcerpt}` : "",
+                      ].filter(Boolean);
+                      const seed = lines.join("\n");
+                      window.location.assign(`/assistant?seed=${encodeURIComponent(seed)}`);
+                    }}
+                    className="inline-flex items-center gap-1 rounded border border-[#B68E20]/40 bg-[#B68E20]/10 px-2 py-1 text-xs text-[#B68E20] hover:bg-[#B68E20]/20"
+                  >
+                    <ShoppingCart className="h-3 w-3" /> Auftrag mit Propi
+                  </button>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   {detail.tags?.map((tagName) => (
