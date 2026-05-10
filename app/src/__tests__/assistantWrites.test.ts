@@ -157,8 +157,8 @@ describe("create_order service_items resolution", () => {
 
     // Ersatz fuer withTransaction + outbox, sonst reisst der Default-Pfad gegen
     // die echte DB.
-    const tx = {} as any;
-    const withTransaction = vi.fn(async (fn: any) => fn(tx));
+    const tx: object = {};
+    const withTransaction = vi.fn(async <R>(fn: (t: object) => Promise<R>) => fn(tx));
     const enqueueOutbox = vi.fn().mockResolvedValue({ id: 1 });
 
     const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
@@ -204,7 +204,7 @@ describe("create_order service_items resolution", () => {
 
     // INSERT bekommt das aufgeloeste services-JSON mit echten addons und
     // ein gefuelltes pricing-JSON (nicht mehr leer wie im Boolean-Fallback).
-    const insertCall = deps.queryOne.mock.calls.find((c: any[]) =>
+    const insertCall = deps.queryOne.mock.calls.find((c) =>
       String(c[0]).includes("INSERT INTO booking.orders"),
     );
     expect(insertCall).toBeTruthy();

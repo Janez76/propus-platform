@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../api/orders';
 import { formatCHF } from '../../lib/format';
@@ -82,6 +82,8 @@ function aggregateTopCustomers(orders: Order[], days: number): CustomerBucket[] 
 
 export function TopCustomersTable({ orders, lang, days = 90 }: TopCustomersTableProps) {
   const navigate = useNavigate();
+  /** Einmal pro Mount — vermeidet Date.now() direkt im Rendern (react-hooks/purity). */
+  const [nowMs] = useState(() => Date.now());
   const top = useMemo(() => aggregateTopCustomers(orders, days).slice(0, 6), [orders, days]);
   const max = top[0]?.totalAmount ?? 0;
 
@@ -135,7 +137,7 @@ export function TopCustomersTable({ orders, lang, days = 90 }: TopCustomersTable
               const bucket = avatarBucket(c.key);
               const inactiveDays =
                 c.lastOrderDate != null
-                  ? Math.floor((Date.now() - c.lastOrderDate) / 86_400_000)
+                  ? Math.floor((nowMs - c.lastOrderDate) / 86_400_000)
                   : null;
               const subLine =
                 inactiveDays != null
