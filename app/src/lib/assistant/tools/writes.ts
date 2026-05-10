@@ -40,6 +40,89 @@ function optionalPositiveInt(value: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+type ServiceItemNorm = { code: string; qty: number };
+
+function parseServiceItems(input: unknown): ServiceItemNorm[] {
+  if (!Array.isArray(input)) return [];
+  const out: ServiceItemNorm[] = [];
+  for (const raw of input) {
+    if (typeof raw === "string") {
+      const code = raw.trim();
+      if (code) out.push({ code, qty: 1 });
+      continue;
+    }
+    if (raw && typeof raw === "object") {
+      const code = typeof (raw as Record<string, unknown>).code === "string"
+        ? String((raw as Record<string, unknown>).code).trim()
+        : "";
+      if (!code) continue;
+      const qtyRaw = Number((raw as Record<string, unknown>).qty);
+      const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? Math.trunc(qtyRaw) : 1;
+      out.push({ code, qty });
+    }
+  }
+  return out;
+}
+
+type ProductRow = {
+  id: number;
+  code: string;
+  name: string;
+  kind: string;
+  group_key: string | null;
+  rule_type: string | null;
+  config_json: Record<string, unknown> | null;
+};
+
+type PriceContext = { area: string | null; floors: number; rooms: string | null; qty: number };
+
+function priceFromRule(ruleType: string | null, config: Record<string, unknown> | null, ctx: PriceContext): number {
+  if (!ruleType) return 0;
+  const cfg = (config || {}) as Record<string, unknown>;
+  if (ruleType === "fixed") {
+    return Number(cfg.price || 0);
+  }
+  if (ruleType === "per_floor") {
+    return Number(cfg.unitPrice || 0) * Math.max(1, ctx.floors);
+  }
+  if (ruleType === "per_room") {
+    const r = parseInt(String(ctx.rooms || "0"), 10);
+    const rooms = Number.isFinite(r) && r > 0 ? r : 0;
+    return Number(cfg.unitPrice || 0) * rooms;
+  }
+  if (ruleType === "area_tier") {
+    const n = Number(ctx.area);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    const tiers = Array.isArray(cfg.tiers) ? (cfg.tiers as Array<Record<string, unknown>>) : [];
+    for (const tier of tiers) {
+      const maxArea = Number(tier?.maxArea);
+      const price = Number(tier?.price);
+      if (Number.isFinite(maxArea) && Number.isFinite(price) && n <= maxArea) return price;
+    }
+    const basePrice = Number(cfg.basePrice || 0);
+    const incrementArea = Math.max(1, Number(cfg.incrementArea || 100));
+    const incrementPrice = Number(cfg.incrementPrice || 0);
+    if (basePrice <= 0) return 0;
+    const maxTierArea = tiers
+      .map((t) => Number(t?.maxArea))
+      .filter((x) => Number.isFinite(x))
+      .sort((a, b) => a - b)
+      .pop() || 0;
+    if (n <= maxTierArea) return basePrice;
+    if (incrementPrice <= 0) return basePrice;
+    const extra = Math.ceil((n - maxTierArea) / incrementArea);
+    return basePrice + extra * incrementPrice;
+  }
+  // 'conditional' und sonstige Regeltypen vom Assistant nicht aufgeloest —
+  // Office finalisiert den Preis dann manuell.
+  return 0;
+}
+
+function roundCHF(value: number, step = 0.05): number {
+  if (!Number.isFinite(value) || step <= 0) return value;
+  return parseFloat((Math.round(value / step) * step).toFixed(10));
+}
+
 export const writeTools: ToolDefinition[] = [
   {
     name: "create_posteingang_task",
@@ -125,17 +208,46 @@ export const writeTools: ToolDefinition[] = [
   {
     name: "create_order",
     description:
-      "Erstellt einen neuen Buchungsauftrag. Nutze dieses Tool am Ende des Auftragsanlage-Gesprächs, nachdem alle Pflichtfelder gesammelt und dem Benutzer zur Bestätigung zusammengefasst wurden.",
+      "Erstellt einen neuen Buchungsauftrag. Zwei Buchungsarten:\n" +
+      "- booking_kind=\"fixed\" (Default): fester Termin. schedule_date PFLICHT (ISO YYYY-MM-DD).\n" +
+      "- booking_kind=\"flexible\": Office disponiert den Termin innerhalb eines Zeitraums. deadline_at PFLICHT (spätestes Datum, ISO). flexible_earliest_at optional (frühestes Datum, muss < deadline_at sein). Es wird KEIN schedule_date gesetzt, der Auftrag startet im Status 'disposition_offen'.\n" +
+      "DIENSTLEISTUNGEN: Bevorzuge `service_items` mit konkreten Produktcodes aus list_available_services (z. B. 'camera:foto20', 'tour:main', 'floorplans:tour'). Tool resolved Name + Preis aus booking.products / pricing_rules und schreibt sie als richtige Positionen + pricing-Totals (genau wie ein manueller Admin-Auftrag). Boolean-`services`-Flags sind nur ein Fallback, wenn keine Codes bekannt sind — dann muss Office im Admin Leistungen-Tab nachziehen.\n" +
+      "Bei area-/floor-basierten Produkten (tour:main = area_tier; floorplans:* = per_floor) `area_sqm` bzw. `floors` mitgeben, sonst kann der Preis nicht berechnet werden.\n" +
+      "Nutze dieses Tool am Ende des Auftragsanlage-Gesprächs, nachdem alle Pflichtfelder gesammelt und zur Bestätigung zusammengefasst wurden.",
     kind: "write",
     requiresConfirmation: true,
     input_schema: {
       type: "object",
       properties: {
         customer_id: { type: "number", description: "Kunden-ID (aus search_customers)" },
+        contact_id: {
+          type: "number",
+          description:
+            "Optionale customer_contacts.id wenn der Auftraggeber NICHT der primaere Kunde ist (Firma mit mehreren Kontakten). Tool ueberschreibt billing.name + billing.email mit dem Kontakt. Bei nur einem oder keinem Kontakt weglassen.",
+        },
         address: { type: "string", description: "Objektadresse (wo fotografiert werden soll)" },
+        service_items: {
+          type: "array",
+          description:
+            "BEVORZUGT: Liste konkreter Produktcodes aus list_available_services. Tool zieht Name + Preis aus booking.products / pricing_rules und persistiert echte Positionen. Akzeptiert Strings (['camera:foto20','tour:main']) ODER Objekte ([{code:'camera:foto20'},{code:'floorplans:tour',qty:1}]).",
+          items: {
+            anyOf: [
+              { type: "string" },
+              {
+                type: "object",
+                properties: {
+                  code: { type: "string", description: "Produktcode aus booking.products.code (z. B. 'camera:foto20')" },
+                  qty: { type: "number", description: "Stückzahl, Default 1" },
+                },
+                required: ["code"],
+              },
+            ],
+          },
+        },
         services: {
           type: "object",
-          description: "Gewählte Dienstleistungen als Boolean-Flags",
+          description:
+            "FALLBACK: Boolean-Flags wenn konkrete Produktcodes (noch) nicht bekannt sind. Nutze stattdessen `service_items`, sobald list_available_services gelaufen ist — sonst bleibt das Pricing leer und Office muss manuell nachziehen.",
           properties: {
             photography: { type: "boolean" },
             drone: { type: "boolean" },
@@ -145,12 +257,46 @@ export const writeTools: ToolDefinition[] = [
             staging: { type: "boolean" },
           },
         },
-        schedule_date: { type: "string", description: "Wunschtermin Datum (ISO, z.B. 2026-05-15)" },
-        schedule_time: { type: "string", description: "Wunschtermin Uhrzeit (HH:mm, z.B. 10:00)" },
+        custom_items: {
+          type: "array",
+          description:
+            "Ad-hoc Positionen ohne Eintrag im Produktkatalog (z. B. Sonderwunsch 'Rendering 3 Bilder', 'Reisepauschale Tessin'). Nutze NUR wenn `list_available_services` keinen passenden Code liefert UND der Nutzer Name + Preis bestaetigt hat. Werden als addons mit id='custom:<slug>' hinzugefuegt und in pricing.subtotal/total aufgenommen.",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "Bezeichnung der Position (z. B. 'Rendering 3 Bilder')" },
+              price: { type: "number", description: "Preis pro Stueck in CHF (netto, ohne MwSt — Tool addiert 8.1% MwSt)" },
+              qty: { type: "number", description: "Stueckzahl, Default 1" },
+            },
+            required: ["label", "price"],
+          },
+        },
+        area_sqm: { type: "number", description: "Objektfläche in m² (für area_tier-Pricing wie tour:main)." },
+        floors: { type: "number", description: "Anzahl Geschosse (für per_floor-Pricing wie floorplans:*). Default 1." },
+        rooms: { type: "string", description: "Zimmerzahl/-beschreibung (z. B. '4.5')." },
+        booking_kind: { type: "string", enum: ["fixed", "flexible"], description: "Buchungsart. Default 'fixed'." },
+        schedule_date: { type: "string", description: "Wunschtermin Datum (ISO YYYY-MM-DD). Nur bei booking_kind='fixed'. Bei 'flexible' nicht setzen." },
+        schedule_time: { type: "string", description: "Wunschtermin Uhrzeit (HH:mm). Nur bei 'fixed'." },
+        deadline_at: { type: "string", description: "Spätestes Aufnahmedatum (ISO 8601, z. B. 2026-05-20 oder 2026-05-20T17:00:00Z). PFLICHT bei booking_kind='flexible'." },
+        flexible_earliest_at: { type: "string", description: "Frühestmögliches Datum (ISO). Optional, nur bei 'flexible'. Muss vor deadline_at liegen." },
         photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional, aus list_photographers)" },
         notes: { type: "string", description: "Zusätzliche Hinweise oder Notizen (optional)" },
+        key_pickup: {
+          type: "object",
+          description:
+            "Schluesselabholung-Block fuer Auftraege mit Code `keypickup:main` in service_items. Setzt das `keyPickup`-JSON auf der Order (Admin sieht Adresse + Info). NICHT als Notiz-Hack verwenden — der Code keypickup:main muss zusaetzlich in service_items, sonst fehlt die Position in der Rechnung.",
+          properties: {
+            address: { type: "string", description: "Abholadresse (z. B. 'Empfang CSL', 'Schluesseldepot Zuerich')" },
+            info: { type: "string", description: "Zusatzinfo (z. B. Code, Ansprechpartner, Oeffnungszeiten)" },
+          },
+        },
+        skip_customer_email: {
+          type: "boolean",
+          description:
+            "Wenn true: keine Bestätigungsmail an den Kunden enqueuen (Office-Mail bleibt). Default false. Nutzen wenn der User explizit sagt 'keine Mail an Kunde', 'still anlegen', 'ohne Bestätigung an Kunde' — typisch bei Test-Buchungen oder wenn der Auftrag manuell anders kommuniziert wird.",
+        },
       },
-      required: ["customer_id", "address", "services"],
+      required: ["customer_id", "address"],
     },
   },
 ];
@@ -287,29 +433,242 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // ganze Outbox-Integration eigentlich verhindern soll (Bug-Hunt HIGH-5).
       // Lieber das Modell zwingen, beim User nach der E-Mail zu fragen, als
       // schweigend einen halben Workflow zu produzieren.
-      const customerEmail = (customer.email || "").trim();
+      // Optionaler Kontakt-Override fuer Firmen mit mehreren customer_contacts.
+      // Wenn gesetzt, ueberschreibt der Kontakt billing.name + billing.email,
+      // damit Liste/Detail/Mail den Auftraggeber zeigen, nicht den primaeren
+      // Kunden-Datensatz (sonst Symptom: #100110 zeigte 'Cvacho Jordan' obwohl
+      // Auftraggeber Annette Doerfel war).
+      const contactId = optionalPositiveInt(input.contact_id);
+      let contactName: string | null = null;
+      let contactEmail: string | null = null;
+      if (contactId) {
+        const contact = await runQueryOne<{ name: string | null; email: string | null }>(
+          `SELECT name, email FROM core.customer_contacts WHERE id = $1 AND customer_id = $2`,
+          [contactId, customerId],
+        );
+        if (!contact) {
+          return { error: `Kontakt ${contactId} nicht bei Kunde ${customerId} gefunden — mit get_customer_contacts pruefen.` };
+        }
+        contactName = (contact.name || "").trim() || null;
+        contactEmail = (contact.email || "").trim() || null;
+      }
+
+      const customerEmail = (contactEmail || customer.email || "").trim();
       if (!customerEmail) {
         return {
-          error: `Kunde ${customerId} hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.`,
+          error: contactId
+            ? `Kunde ${customerId} (Kontakt ${contactId}) hat keine E-Mail-Adresse hinterlegt — bitte E-Mail erfaessen, dann erneut versuchen.`
+            : `Kunde ${customerId} hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.`,
         };
       }
 
-      const services = (input.services && typeof input.services === "object") ? input.services as Record<string, unknown> : {};
-      const VALID_SERVICE_KEYS = new Set(["photography", "drone", "matterport", "floorplan", "video", "staging"]);
-      const servicesJson: Record<string, boolean> = {};
-      for (const [key, value] of Object.entries(services)) {
-        if (VALID_SERVICE_KEYS.has(key) && value === true) {
-          servicesJson[key] = true;
+      // Object-Infos fuer Pricing (area_tier, per_floor, per_room).
+      // Werden auch in object{} persistiert, damit der Assistant-Auftrag dem
+      // manuellen Admin-Flow gleich aussieht.
+      const areaInput = input.area_sqm;
+      const objectArea = (() => {
+        if (typeof areaInput === "number" && Number.isFinite(areaInput) && areaInput > 0) return String(Math.trunc(areaInput));
+        const s = optionalString(areaInput);
+        if (!s) return null;
+        const n = Number(s);
+        return Number.isFinite(n) && n > 0 ? s : null;
+      })();
+      const objectFloorsRaw = Number(input.floors);
+      const objectFloors = Number.isFinite(objectFloorsRaw) && objectFloorsRaw > 0
+        ? Math.max(1, Math.trunc(objectFloorsRaw))
+        : 1;
+      const objectRooms = optionalString(input.rooms);
+
+      // service_items > services-Booleans. Mit konkreten Codes resolved der
+      // Assistant Name + Preis aus booking.products / pricing_rules — derselbe
+      // Datenstand wie der manuelle Admin-Form. Boolean-Flags sind der alte
+      // Fallback (Pricing leer, Office finalisiert).
+      const serviceItems = parseServiceItems(input.service_items);
+      const hasCustomItems = Array.isArray(input.custom_items) && input.custom_items.length > 0;
+      type AddonOut = { id: string; label: string; price: number; qty?: number; group?: string };
+      let servicesJson: Record<string, unknown>;
+      let pricingJson: Record<string, unknown> = {};
+      let resolvedItemSummary: string[] = [];
+
+      if (serviceItems.length > 0 || hasCustomItems) {
+        const codes = Array.from(new Set(serviceItems.map((s) => s.code)));
+        const products = await runQuery<ProductRow>(
+          `SELECT p.id, p.code, p.name, p.kind, p.group_key,
+                  pr.rule_type, pr.config_json
+           FROM booking.products p
+           LEFT JOIN LATERAL (
+             SELECT rule_type, config_json
+             FROM booking.pricing_rules
+             WHERE product_id = p.id
+               AND active = TRUE
+               AND (valid_from IS NULL OR valid_from <= CURRENT_DATE)
+               AND (valid_to IS NULL OR valid_to >= CURRENT_DATE)
+             ORDER BY priority ASC, id ASC
+             LIMIT 1
+           ) pr ON TRUE
+           WHERE p.code = ANY($1::text[]) AND p.active = TRUE`,
+          [codes],
+        );
+        const byCode = new Map(products.map((p) => [p.code, p]));
+        const missing = codes.filter((c) => !byCode.has(c));
+        if (missing.length > 0) {
+          return {
+            error: `Unbekannter/inaktiver Produktcode: ${missing.join(", ")}. Mit list_available_services pruefen.`,
+          };
         }
-      }
-      if (Object.keys(servicesJson).length === 0) {
-        return { error: "Mindestens eine Dienstleistung muss ausgewählt sein" };
+
+        let pkg: { key: string; label: string; price: number } | null = null;
+        const addons: AddonOut[] = [];
+        let subtotal = 0;
+        const unpriced: string[] = [];
+
+        for (const item of serviceItems) {
+          const product = byCode.get(item.code)!;
+          const qty = item.qty;
+          const priceCtx: PriceContext = {
+            area: objectArea,
+            floors: objectFloors,
+            rooms: objectRooms,
+            qty,
+          };
+          const unitPrice = priceFromRule(product.rule_type, product.config_json, priceCtx);
+          const lineTotal = roundCHF(unitPrice * qty, 0.05);
+          if (unitPrice <= 0) unpriced.push(product.code);
+          subtotal += lineTotal;
+
+          if (product.kind === "package") {
+            // Falls Modell mehrere "package"-Codes liefert, gewinnt das erste —
+            // mehr als ein Hauptpaket ist im Booking-Datenmodell (services.package
+            // ist Singular) nicht vorgesehen.
+            if (!pkg) {
+              pkg = { key: product.code, label: product.name, price: lineTotal };
+            } else {
+              addons.push({ id: product.code, label: product.name, price: lineTotal, ...(qty > 1 ? { qty } : {}), ...(product.group_key ? { group: product.group_key } : {}) });
+            }
+          } else {
+            addons.push({ id: product.code, label: product.name, price: lineTotal, ...(qty > 1 ? { qty } : {}), ...(product.group_key ? { group: product.group_key } : {}) });
+          }
+          resolvedItemSummary.push(`${product.name}${qty > 1 ? ` x${qty}` : ""} - ${lineTotal} CHF`);
+        }
+
+        // Ad-hoc Positionen ohne Produktkatalog-Eintrag (Sonderwuensche wie
+        // 'Rendering 3 Bilder', 'Reisepauschale Tessin'). Werden mit id='custom:<slug>'
+        // zu addons hinzugefuegt und in subtotal aufsummiert.
+        const customItemsRaw = Array.isArray(input.custom_items) ? input.custom_items : [];
+        for (const raw of customItemsRaw) {
+          if (!raw || typeof raw !== "object") continue;
+          const ci = raw as Record<string, unknown>;
+          const label = optionalString(ci.label);
+          const priceNum = Number(ci.price);
+          if (!label || !Number.isFinite(priceNum) || priceNum < 0) continue;
+          const qtyNum = Number(ci.qty);
+          const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? Math.max(1, Math.trunc(qtyNum)) : 1;
+          const lineTotal = roundCHF(priceNum * qty, 0.05);
+          const slug = label
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[^\w\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-")
+            .slice(0, 30) || "item";
+          addons.push({ id: `custom:${slug}`, label, price: lineTotal, ...(qty > 1 ? { qty } : {}) });
+          subtotal += lineTotal;
+          resolvedItemSummary.push(`${label}${qty > 1 ? ` x${qty}` : ""} - ${lineTotal} CHF (manuell)`);
+        }
+
+        const VAT_RATE = 0.081;
+        const subtotalRounded = roundCHF(subtotal, 0.05);
+        const vat = roundCHF(subtotalRounded * VAT_RATE, 0.05);
+        const total = roundCHF(subtotalRounded + vat, 0.05);
+
+        // Schluesselabholung: wenn der Aufrufer einen `key_pickup`-Block
+        // mitgibt ODER ein `keypickup:*`-Code in den service_items war, dann
+        // setzen wir services.options.keyPickup, damit der Admin die Adresse
+        // im Detail-Modal sieht (admin-order-mapping.js liest services.options.keyPickup).
+        const keyPickupInput = input.key_pickup;
+        const hasKeyPickupCode = serviceItems.some((s) => s.code.toLowerCase().includes("keypickup"));
+        const keyPickupBlock = (() => {
+          if (keyPickupInput && typeof keyPickupInput === "object") {
+            const obj = keyPickupInput as Record<string, unknown>;
+            const address = optionalString(obj.address) || "";
+            const info = optionalString(obj.info) || "";
+            if (address || info) return { enabled: true, address, notes: info };
+          }
+          if (hasKeyPickupCode) return { enabled: true, address: "", notes: "" };
+          return null;
+        })();
+        const optionsBlock: Record<string, unknown> = {};
+        if (keyPickupBlock) optionsBlock.keyPickup = keyPickupBlock;
+        servicesJson = {
+          package: pkg || {},
+          addons,
+          ...(Object.keys(optionsBlock).length > 0 ? { options: optionsBlock } : {}),
+        };
+        pricingJson = { subtotal: subtotalRounded, discount: 0, vat, total };
+
+        if (unpriced.length > 0 && !pricingJson._note) {
+          pricingJson._note = `Fuer ${unpriced.join(", ")} konnte der Assistant keinen Preis aus den pricing_rules ableiten — Office bitte im Leistungen-Tab nachziehen.`;
+        }
+      } else {
+        const services = (input.services && typeof input.services === "object") ? input.services as Record<string, unknown> : {};
+        const VALID_SERVICE_KEYS = new Set(["photography", "drone", "matterport", "floorplan", "video", "staging"]);
+        const flagsJson: Record<string, boolean> = {};
+        for (const [key, value] of Object.entries(services)) {
+          if (VALID_SERVICE_KEYS.has(key) && value === true) {
+            flagsJson[key] = true;
+          }
+        }
+        if (Object.keys(flagsJson).length === 0) {
+          return {
+            error:
+              "Mindestens eine Dienstleistung erforderlich — entweder service_items mit Produktcodes (bevorzugt, aus list_available_services) oder services mit Boolean-Flags (Fallback).",
+          };
+        }
+        servicesJson = flagsJson;
       }
 
+      const bookingKindRaw = optionalString(input.booking_kind);
+      const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
       const scheduleDate = optionalString(input.schedule_date);
       const scheduleTime = optionalString(input.schedule_time);
       const photographerKey = optionalString(input.photographer_key);
       const notes = optionalString(input.notes);
+
+      // Buchungsart-spezifische Validierung — entspricht orders_booking_kind_dates_chk
+      // (Migration 092). Ohne diesen Check schlaegt der INSERT mit einem CHECK-
+      // constraint-Fehler fehl ("Option/Status-Kombination ohne Datum"), den der
+      // Assistant fuer den Endnutzer kaum sinnvoll erklaeren kann.
+      let deadlineIso: string | null = null;
+      let flexibleEarliestIso: string | null = null;
+      if (bookingKind === "flexible") {
+        const deadlineRaw = optionalString(input.deadline_at);
+        if (!deadlineRaw) {
+          return {
+            error:
+              "deadline_at ist Pflicht bei booking_kind='flexible'. Bitte das spaeteste Aufnahmedatum vom Nutzer erfragen (ISO 8601, z. B. 2026-05-20).",
+          };
+        }
+        deadlineIso = normalizeTimestamptzParam(deadlineRaw);
+        if (!deadlineIso) {
+          return { error: `deadline_at: ungueltiges Datumsformat "${deadlineRaw}". Bitte ISO 8601 verwenden.` };
+        }
+        const earliestRaw = optionalString(input.flexible_earliest_at);
+        if (earliestRaw) {
+          flexibleEarliestIso = normalizeTimestamptzParam(earliestRaw);
+          if (!flexibleEarliestIso) {
+            return { error: `flexible_earliest_at: ungueltiges Datumsformat "${earliestRaw}".` };
+          }
+          if (new Date(flexibleEarliestIso).getTime() >= new Date(deadlineIso).getTime()) {
+            return { error: "flexible_earliest_at muss vor deadline_at liegen." };
+          }
+        }
+      } else if (!scheduleDate) {
+        // bookingKind='fixed' braucht ein Datum (CHECK schedule->>'date' NOT NULL).
+        return {
+          error:
+            "schedule_date ist Pflicht bei booking_kind='fixed'. Wenn der Termin noch offen ist, mit booking_kind='flexible' und deadline_at buchen.",
+        };
+      }
 
       if (photographerKey) {
         const photographer = await runQueryOne<{ key: string }>(
@@ -319,16 +678,24 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         if (!photographer) return { error: `Fotograf "${photographerKey}" nicht gefunden oder nicht aktiv` };
       }
 
-      const status = scheduleDate ? "pending" : "pending";
+      const status = bookingKind === "flexible" ? "disposition_offen" : "pending";
 
       const scheduleJson = scheduleDate ? { date: scheduleDate, ...(scheduleTime ? { time: scheduleTime } : {}) } : {};
       const photographerJson = photographerKey ? { key: photographerKey } : {};
       const billingJson = {
-        name: customer.name || customer.company || "",
+        // Wenn ein Kontakt gewaehlt wurde, ist der Auftraggeber dieser Kontakt —
+        // sonst Fallback auf den primaeren Kunden-Datensatz.
+        name: contactName || customer.name || customer.company || "",
         email: customerEmail,
         ...(customer.company ? { company: customer.company } : {}),
+        ...(contactId ? { contactId } : {}),
       };
-      const objectJson = { type: "Immobilie" };
+      // Object-Infos werden mitgespeichert, damit area_tier-/per_floor-Pricing
+      // und Tour-Verknuepfungen spaeter dieselben Werte sehen wie der Assistant.
+      const objectJson: Record<string, unknown> = { type: "Immobilie" };
+      if (objectArea) objectJson.area = objectArea;
+      if (objectFloors > 1) objectJson.floors = String(objectFloors);
+      if (objectRooms) objectJson.rooms = objectRooms;
       const settingsJson = notes ? { assistant_notes: notes } : {};
 
       // INSERT + Mail-Outbox in einer Tx, damit Auftrag und Workflow-Mails
@@ -343,9 +710,14 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // mockable Varianten injiziert (sonst ECONNREFUSED gegen :5432 im CI).
       const orderNo = await runWithTransaction(async (tx) => {
         const inserted = await runQueryOne<{ order_no: number }>(
-          `INSERT INTO booking.orders (customer_id, status, address, object, services, photographer, schedule, billing, pricing, settings_snapshot)
+          `INSERT INTO booking.orders (
+             customer_id, status, address, object, services, photographer, schedule,
+             billing, pricing, settings_snapshot,
+             booking_kind, deadline_at, flexible_earliest_at
+           )
            VALUES (
-             $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, '{}'::jsonb, $9::jsonb
+             $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb,
+             $11, $12::timestamptz, $13::timestamptz
            )
            RETURNING order_no`,
           [
@@ -357,7 +729,11 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
             JSON.stringify(photographerJson),
             JSON.stringify(scheduleJson),
             JSON.stringify(billingJson),
+            JSON.stringify(pricingJson),
             JSON.stringify(settingsJson),
+            bookingKind,
+            deadlineIso,
+            flexibleEarliestIso,
           ],
           tx,
         );
@@ -367,8 +743,15 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         // Workflow-Mails: Kunde bekommt Provisorisch-Bestätigung, Office
         // bekommt einen Hinweis dass der KI-Assistent neu gebucht hat und
         // Pricing finalisiert werden muss.
+        // skip_customer_email schaltet nur die Kunden-Bestätigung ab (Test-
+        // Buchungen, Auftrag-aus-Sondervereinbarung) — Office-Mail bleibt
+        // immer, sonst wüsste niemand vom neuen Auftrag.
+        const skipCustomerMail = input.skip_customer_email === true;
+        const mailKeys = skipCustomerMail
+          ? ["email.provisional_office"]
+          : ["email.provisional_created", "email.provisional_office"];
         const rendered = renderWorkflowMails(
-          ["email.provisional_created", "email.provisional_office"],
+          mailKeys,
           {
             orderNo: no,
             customerEmail,
@@ -376,7 +759,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
             scheduleDate,
             scheduleTime,
           },
-          { customer: true, office: true, photographer: false, cc: false },
+          { customer: !skipCustomerMail, office: true, photographer: false, cc: false },
         );
         for (const mail of rendered) {
           await runEnqueueOutbox(tx, no, "workflow_status_mail", {
@@ -392,17 +775,35 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         return no;
       });
 
+      const flexInfo = bookingKind === "flexible"
+        ? `Flexibel: Office disponiert bis ${deadlineIso}${flexibleEarliestIso ? ` (frühestens ab ${flexibleEarliestIso})` : ""}.`
+        : "";
+      const usedExplicitItems = serviceItems.length > 0;
+      const total = Number((pricingJson as { total?: unknown }).total) || 0;
+      const pricingInfo = usedExplicitItems
+        ? `Positionen ${total > 0 ? `mit Total CHF ${total.toFixed(2)} (inkl. MwSt) ` : ""}aus Produktkatalog uebernommen.`
+        : "Pricing wird im Admin via Leistungen-Tab finalisiert.";
+      const mailInfo = input.skip_customer_email === true
+        ? "Nur Office-Mail eingereiht (Kunden-Mail unterdrueckt)."
+        : "Bestaetigungs-Mails an Kunde und Office in Outbox eingereiht.";
       return {
         ok: true,
         orderNo,
         customerId,
         customerName: customer.name || customer.company,
         address,
-        services: Object.keys(servicesJson),
+        services: usedExplicitItems
+          ? resolvedItemSummary
+          : Object.keys(servicesJson),
+        pricing: usedExplicitItems ? pricingJson : null,
+        bookingKind,
         schedule: scheduleDate ? { date: scheduleDate, time: scheduleTime } : null,
+        deadlineAt: deadlineIso,
+        flexibleEarliestAt: flexibleEarliestIso,
         photographer: photographerKey,
         status,
-        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. Bestätigungs-Mails an Kunde und Office in Outbox eingereiht. Pricing wird im Admin via Leistungen-Tab finalisiert.`,
+        skipCustomerEmail: input.skip_customer_email === true,
+        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. ${flexInfo} ${mailInfo} ${pricingInfo}`.trim(),
       };
     },
 

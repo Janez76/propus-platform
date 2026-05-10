@@ -203,6 +203,33 @@ Initialisiert via `core/migrations/000_init_schemas.sql`.
 
 ---
 
+### `core.customer_login_tokens` — Self-Serve Magic-Link Tokens (PR #443, Mai 2026)
+
+Single-Use-Tokens fuer den passwortlosen Login-Flow auf `portal.propus.ch`. Eingeloest via
+`GET /api/customer/magic-link/callback` -> erzeugt regulaere Session in `core.customer_sessions`.
+Vollstaendiger Flow: [FLOWS_AUTH.md §5b](./FLOWS_AUTH.md#5b-self-serve-magic-link-login-passwortlos).
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | BIGSERIAL PK | |
+| `customer_id` | INTEGER FK CASCADE | -> `core.customers(id)` |
+| `token_hash` | TEXT UNIQUE | SHA-256(raw-token); Klartext nie in DB |
+| `purpose` | TEXT | `'login'` \| `'invite'` (CHECK-Constraint) |
+| `expires_at` | TIMESTAMPTZ | Default `NOW() + 15 min` (`CUSTOMER_MAGIC_LINK_TTL_MIN`) |
+| `consumed_at` | TIMESTAMPTZ | NULL = unverbraucht; gesetzt von `consumeCustomerLoginToken()` |
+| `created_ip` | INET | Audit |
+| `created_at` | TIMESTAMPTZ | NOW() |
+
+**Indexe:**
+- `idx_core_customer_login_tokens_customer (customer_id, created_at DESC)`
+- `idx_core_customer_login_tokens_expires (expires_at) WHERE consumed_at IS NULL`
+
+**Cleanup:** `db.deleteExpiredCustomerLoginTokens()` loescht Eintraege > 7 Tage abgelaufen — fuer Nightly-Cron vorgesehen, aktuell manuell.
+
+**Migration:** `core/migrations/064_customer_login_tokens.sql`
+
+---
+
 ### `core.booking_sessions` & `core.tours_sessions` — Express-Session-Stores
 
 Connect-pg-simple-kompatible Session-Stores für die zwei Express-Apps. Der
@@ -252,7 +279,11 @@ Migration: `core/migrations/039_api_keys.sql`
 |---|---|---|
 | `order_no` | INT PK | Auftragsnummer |
 | `customer_id` | INT FK → core.customers | |
-| `status` | TEXT | `pending`, `provisional`, `confirmed`, `completed`, `done`, `cancelled`, `paused`, `archived` |
+| `status` | TEXT | `pending`, `provisional`, `disposition_offen`, `confirmed`, `completed`, `done`, `cancelled`, `paused`, `archived` |
+| `booking_kind` | TEXT NOT NULL DEFAULT `'fixed'` | `'fixed'` (Wunschtermin) oder `'flexible'` (Disposition durch Office innerhalb [`flexible_earliest_at`, `deadline_at`]). Migration 092. |
+| `deadline_at` | TIMESTAMPTZ | Spätestes Aufnahmedatum bei `booking_kind='flexible'` (sonst NULL). Migration 092. |
+| `flexible_earliest_at` | TIMESTAMPTZ | Frühestmögliches Aufnahmedatum bei `booking_kind='flexible'` (optional). Migration 092. |
+| `flex_deadline_reminder_sent_at` | TIMESTAMPTZ | Setzt der Cron-Job `booking/jobs/flex-deadline-reminder.js` auf NOW(), wenn die 7-Tage-Vorab-Mail an Office gesendet wurde — verhindert Doppelversand. Migration 094. |
 | `address` | TEXT | Auftrittsadresse |
 | `address_lat` / `address_lon` | NUMERIC | Geocoordinaten |
 | `photographer_event_id` | TEXT | MS Graph Event-ID |

@@ -39,6 +39,7 @@ import { formatModelLabel } from "@/lib/assistant/model-router";
 import { VoiceButton } from "./VoiceButton";
 import { TrainingPanel } from "./TrainingPanel";
 import { LinkifiedText } from "./LinkifiedText";
+import { extractSuggestions } from "@/lib/assistant/suggestions";
 import { useGeolocation } from "@/components/cockpit/useGeolocation";
 
 type DisplayMessage = {
@@ -1171,13 +1172,36 @@ export function ConversationView() {
                   ))}
                 </div>
               ) : null}
-              <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                {message.role === "assistant" ? (
-                  <LinkifiedText text={message.content} />
-                ) : (
-                  message.content
-                )}
-              </div>
+              {(() => {
+                const isAssistant = message.role === "assistant";
+                // Suggestions nur am Ende fertiger Bot-Antworten parsen, sonst
+                // ploppt der Marker mitten im Streaming auf.
+                const { displayContent, suggestions } = isAssistant && !message.isStreaming
+                  ? extractSuggestions(message.content)
+                  : { displayContent: message.content, suggestions: [] as string[] };
+                return (
+                  <>
+                    <div className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                      {isAssistant ? <LinkifiedText text={displayContent} /> : displayContent}
+                    </div>
+                    {isAssistant && suggestions.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {suggestions.map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            disabled={inputDisabled}
+                            onClick={() => void send(opt)}
+                            className="rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-3 py-1 text-xs text-[var(--gold-text,var(--accent))] transition hover:border-[var(--accent)]/60 hover:bg-[var(--accent)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()}
               {message.isStreaming ? (
                 <span className="mt-1 inline-block h-4 w-1 animate-pulse bg-[var(--accent)]" />
               ) : null}

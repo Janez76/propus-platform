@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: April 2026 - Admin-Bestell-Detail routet alte `/admin/orders/:id/...`-Links per Next.js-Redirect auf `/orders/:id/...`; zuvor Kunden-Deduplizierung und Kalender-Sync.*
+*Zuletzt aktualisiert: Mai 2026 — Flexible Buchung mit Deadline (PR #424): zweiter Discriminator-Branch in `POST /api/booking`, neuer Status `disposition_offen`, Kanban-Spalte mit Deadline-Sortierung, zwei neue de-CH Mail-Templates.*
 
 ---
 
@@ -10,6 +10,7 @@
 
 1. [Haupt-Buchungsfluss (POST /api/booking)](#1-haupt-buchungsfluss)
 2. [Provisorische Buchung](#2-provisorische-buchung)
+    - [2b. Flexible Buchung mit Deadline](#2b-flexible-buchung-mit-deadline)
 3. [Status-Übergänge](#3-status-übergänge)
 4. [Kalender-Sync (MS Graph)](#4-kalender-sync-ms-graph)
 5. [Reschedule-Flow](#5-reschedule-flow)
@@ -149,21 +150,153 @@ Cron-Jobs:
 
 ---
 
+## 2b. Flexible Buchung mit Deadline
+
+**Status nach Buchung:** `status = "disposition_offen"`
+**Discriminator:** `schedule.bookingKind` ∈ `'fixed' | 'flexible'` (Default `fixed`).
+
+Kunden auf booking.propus.ch wählen in `StepSchedule` zwischen Fix-Termin und
+Flex-Buchung. Bei flex reserviert das Buchen **keinen Slot** und es findet
+**kein Photographer-Routing / Distance-Matrix** statt — Office disponiert
+später Fotograf+Termin und der Statuswechsel `disposition_offen → confirmed`
+schickt eine Disposition-Mail mit dem konkreten Termin.
+
+```text
+POST /api/booking { schedule: { bookingKind: "flexible", deadlineAt, flexibleEarliestAt? } }
+  │
+  ├── 1. Diskriminator früh prüfen (server.js:4607ff) → handleFlexibleBookingSubmit()
+  │
+  ├── 2. Validierung (KEINE Slot/Calendar-Calls):
+  │        ├── customerEmail erforderlich
+  │        ├── deadlineAt parsebar UND ≥ now() + 24h
+  │        └── flexibleEarliestAt (optional) parsebar UND < deadlineAt
+  │
+  ├── 3. Pricing aus Frontend-Payload (Fallback: computePricing).
+  │
+  ├── 4. orderNo vergeben → orderRecord:
+  │        ├── status = "disposition_offen"
+  │        ├── booking_kind = "flexible"
+  │        ├── deadline_at = ISO
+  │        ├── flexible_earliest_at = ISO | null
+  │        ├── photographer = {}     (Office trägt später ein)
+  │        └── schedule = {}          (Office trägt später date+time ein)
+  │
+  ├── 5. saveOrder() → db.insertOrder() persistiert die neuen Spalten.
+  │
+  └── 6. flex_booking_confirmation per sendMailIdempotent() an Kunden.
+```
+
+**Disposition durch Office:**
+
+```text
+PATCH /api/admin/orders/:orderNo/status  (status="confirmed", schedule.date+time, photographer)
+  │
+  ├── getTransitionError() prüft: photographer + schedule.date + schedule.time gesetzt
+  │
+  ├── getSideEffects("disposition_offen", "confirmed"):
+  │        ├── calendar.create_final
+  │        ├── email.flex_booking_disposition       ← Kunde (statt confirmed_customer)
+  │        ├── email.confirmed_office               ← Büro
+  │        └── email.confirmed_photographer         ← Fotograf
+  │
+  └── sendMailIdempotent() schickt flex_booking_disposition mit Hinweisblock
+       oben (Datum, Uhrzeit, Fotograf) und sonst Standard-Layout.
+```
+
+### CHECK-Constraint (Migration 092)
+
+```sql
+CHECK (
+  (booking_kind = 'fixed'    AND (schedule->>'date') IS NOT NULL)
+  OR
+  (booking_kind = 'flexible' AND deadline_at IS NOT NULL
+                              AND (flexible_earliest_at IS NULL OR flexible_earliest_at < deadline_at))
+)
+```
+
+### Index für Disposition-Queue
+
+```sql
+CREATE INDEX idx_orders_deadline_disposition
+  ON orders (deadline_at)
+  WHERE booking_kind = 'flexible' AND status = 'disposition_offen';
+```
+
+### Kanban
+
+| Spalte | Routing | Sortierung |
+|---|---|---|
+| `disposition-offen` (links) | `status === 'disposition_offen'` | `deadline_at ASC` |
+| Card-Badge | `DeadlineBadge` (`app/src/components/ui/DeadlineBadge.tsx`) | rot < 7d, gelb < 14d, neutral sonst |
+
+### Listenansicht (`/admin/orders`, View "Liste")
+
+`disposition_offen` ist eine eigene Tabellen-Sektion zwischen `provisional` und `confirmed`
+(`SECTION_ORDER` in `app/src/components/orders/OrderTable.tsx`, `DEFAULT_EXPANDED=true`).
+Der Chip-Filter "Offen" zählt `disposition_offen` mit (`CHIP_GROUPS` in
+`app/src/pages-legacy/OrdersPage.tsx`, Members `["pending","provisional","disposition_offen"]`).
+Ohne diese beiden Einträge werden Orders mit dem Status durch `grouped.get(key)?.push(order)`
+schweigend verworfen — Regression-Test: `app/src/__tests__/statusCoverage.test.ts`.
+
+### Karten-/Map-Ansicht
+
+Map-Pin orange (`#C25E1F` Ring auf `#FCE7CE` Bg) — siehe
+`STATUS_PALETTE.disposition_offen` und `paletteForStatus()` in
+`app/src/components/orders/mapStatusColors.ts`. Locale-Labels in
+`app/src/i18n/{de,en,fr,it}.json` unter `dashboardV2.map.status.disposition_offen`.
+
+### Order-Chat
+
+Chat ist im Status `disposition_offen` aktiv (Office tauscht sich vor der Disposition mit Kunde
+und Fotograf aus). `ACTIVE_STATUSES` in `app/src/components/orders/OrderChat.tsx` enthält
+`pending`, `provisional`, `disposition_offen`, `paused`, `confirmed`, `completed`. Geblockt
+bleibt nur `cancelled` und `archived`; `done` ist passiv (Feedback-Fenster).
+
+### Mail-Templates (DB)
+
+| Key | Trigger | Layout |
+|---|---|---|
+| `flex_booking_confirmation` | direkt nach Buchung (im POST-Handler) | Eingangsbestätigung mit Deadline + Frühestens-ab |
+| `flex_booking_disposition` | `disposition_offen → confirmed` (Side-Effect) | Hinweisblock oben mit Datum/Uhrzeit/Fotograf, sonst Standard |
+
+Beide de-CH (Schweizer Spelling, "ss" statt "ß"), idempotent via
+`email_send_log` (Key `<orderNo>_<templateKey>_<recipient>`).
+
+### Critical Files
+
+| Was | Datei |
+|---|---|
+| Discriminator-Branch | `booking/server.js` `handleFlexibleBookingSubmit()` |
+| DB-Insert | `booking/db.js::insertOrder()` (Spalten `booking_kind`, `deadline_at`, `flexible_earliest_at`) |
+| State + Side-Effects | `booking/order-status.js`, `booking/state-machine.js`, `booking/admin-status-email.js` |
+| Migration | `booking/migrations/092_orders_flex_booking.sql`, `093_flex_booking_email_templates.sql` |
+| Wizard-Toggle | `app/src/pages-legacy/booking/BookingTypeToggle.tsx` |
+| Wizard-Step | `app/src/pages-legacy/booking/StepSchedule.tsx` |
+| Wizard-State | `app/src/store/bookingWizardStore.ts` (`bookingKind`, `deadlineAt`, `flexibleEarliestAt`, persist v7) |
+| Validation | `app/src/lib/bookingValidation.ts::validateStep3` |
+| Status-Mirror | `app/src/lib/status.ts`, `app/src/lib/orderWorkflow/orderStatus.ts` |
+| Kanban | `app/src/pages-legacy/OrdersKanbanPage.tsx` |
+| Badge | `app/src/components/ui/DeadlineBadge.tsx` |
+
+---
+
 ## 3. Status-Übergänge
 
 **Mögliche Status-Werte:**
 
-```
-pending     → provisional → confirmed → completed → done → archived
-   │              │            │            │
-   ├→ paused      ├→ paused    ├→ paused    └→ archived
-   ├→ cancelled   └→ cancelled └→ cancelled
+```text
+pending           → provisional       → confirmed → completed → done → archived
+   │                    │                  │            │
+   ├→ disposition_offen ├→ paused          ├→ paused    └→ archived
+   ├→ paused            └→ cancelled       └→ cancelled
+   ├→ cancelled
    ├→ archived
    └→ confirmed / completed / done
 
-paused    → pending / provisional / cancelled
-cancelled → archived
-archived  → pending
+disposition_offen → confirmed / paused / cancelled
+paused            → pending / provisional / disposition_offen / cancelled
+cancelled         → archived / pending
+archived          → pending
 
 Sonderfall:
 provisional → pending nur automatisch via expiry_job
@@ -172,7 +305,8 @@ provisional → pending nur automatisch via expiry_job
 | Status | Bedeutung | Kalender |
 |---|---|---|
 | `pending` | Offen / noch nicht bearbeitet | — |
-| `provisional` | Provisorisch reserviert | tentative |
+| `provisional` | Provisorisch reserviert (Fix-Flow) | tentative |
+| `disposition_offen` | Flexible Buchung — wartet auf Disposition durch Office (siehe §2b) | — |
 | `confirmed` | Bestätigt | final (busy) |
 | `completed` | Shooting abgeschlossen | — |
 | `done` | Vollständig abgeschlossen | — |
@@ -971,3 +1105,44 @@ Mobile-Strategie: Drive-Times werden NUR für Heute + Morgen geladen (≤ ~10 Le
 - §11 Fotograf-Vergabe (Slot-Generierung nutzt selben travel.js-Service)
 - §13 Routing-Service (Backend-Fallback-Kette für Distance Matrix)
 - `dashboard-v2/missionTimeline.ts` — Schweizer ZIP-Tabelle + Haversine + 28 km/h-Schätzung
+
+## 21. KI-Auftragsanlage via Propi (`create_order`-Tool)
+
+**Ziel**: Auftragsanlage über den Admin-Chat-Assistenten so eng am manuellen Admin-Form, dass kein Office-Nacharbeiten nötig ist (Preise, Kontaktperson, Schlüsselabholung).
+
+### Tool-Schema-Highlights
+
+| Parameter | Pflicht | Wirkung |
+|---|---|---|
+| `customer_id` + `address` | ja | Stammdaten + Objektadresse |
+| `service_items: [{code, qty?}]` | bevorzugt | Resolved gegen `booking.products` + `booking.pricing_rules` → echte Positionen + Total |
+| `services: {photography, …}` (Booleans) | Fallback | DEPRECATED — System-Prompt verbietet das, weil kein Pricing entsteht |
+| `custom_items: [{label, price, qty?}]` | optional | Ad-hoc Positionen für Sonderwünsche (z. B. Rendering, Reisepauschale) — Preis vom Nutzer bestätigt |
+| `key_pickup: {address, info}` | optional | Setzt `services.options.keyPickup`. Zusammen mit `service_items: [{code:"keypickup:main"}]` |
+| `booking_kind: "fixed"\|"flexible"` | ja | `"flexible"` → Status `disposition_offen` |
+| `deadline_at` | bei flex Pflicht | Office disponiert bis dahin |
+| `skip_customer_email` | optional | `true` → Kunden-Bestätigungsmail wird NICHT enqueued. Office-Mail bleibt |
+
+### System-Prompt-Regeln (lib/assistant/system-prompt.ts)
+
+- **Grundregel**: Im Zweifel fragen statt annehmen.
+- **Regel 1a**: Bei mehreren `customer_contacts` MUSS Propi den Kontakt erfragen.
+- **Regel 3a/3b/3c**: `service_items` mit Codes zwingend; bei unbekanntem Service → `custom_items` nach Preisbestätigung; Schlüsselabholung = `keypickup:main` + `key_pickup`-Block.
+- **Regel 7**: Zusammenfassung mit Total + Kontaktperson, dann Bestätigungspflicht.
+- **Regel 8**: Nach `create_order` `pricing._note` aktiv weitermelden.
+- **Regel 9**: `skip_customer_email: true` bei "keine Mail an Kunde", "Test-Buchung", "still anlegen".
+
+### Click-Antworten (Suggestion-Chips)
+
+Bot hängt am Ende einer Auswahlfrage `[[OPTIONS: a | b | c]]` an. UI parst (`extractSuggestions` in `app/src/lib/assistant/suggestions.ts`), entfernt den Marker aus der Anzeige und rendert Buttons. Klick sendet die Option als nächste User-Message. Cap: 8 Optionen, je ≤80 Zeichen.
+
+### Critical Files
+
+| Was | Datei |
+|---|---|
+| Tool-Schema + Handler | `app/src/lib/assistant/tools/writes.ts` (~`create_order`) |
+| System-Prompt | `app/src/lib/assistant/system-prompt.ts` |
+| Few-Shots | `app/src/lib/assistant/few-shot-examples.ts` |
+| Suggestion-Helper | `app/src/lib/assistant/suggestions.ts` |
+| Chat-UI Render | `app/src/app/(admin)/assistant/_components/ConversationView.tsx` |
+| Tests | `app/src/__tests__/{assistantWrites,assistantFewShots,suggestions,statusCoverage}.test.ts` |

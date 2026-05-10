@@ -19,14 +19,15 @@ const {
  * Hinweis: pending ist fuer provisional nur via expiry_job erlaubt.
  */
 const ALLOWED_TRANSITIONS = {
-  [ORDER_STATUS.PENDING]:     [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
-  [ORDER_STATUS.PROVISIONAL]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.PAUSED]:      [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]:   [ORDER_STATUS.COMPLETED, ORDER_STATUS.DONE, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.COMPLETED]:   [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.DONE]:        [ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.CANCELLED]:   [ORDER_STATUS.ARCHIVED, ORDER_STATUS.PENDING],
-  [ORDER_STATUS.ARCHIVED]:    [ORDER_STATUS.PENDING],
+  [ORDER_STATUS.PENDING]:           [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
+  [ORDER_STATUS.PROVISIONAL]:       [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.DISPOSITION_OFFEN]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PAUSED]:            [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]:         [ORDER_STATUS.COMPLETED, ORDER_STATUS.DONE, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.COMPLETED]:         [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.DONE]:              [ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.CANCELLED]:         [ORDER_STATUS.ARCHIVED, ORDER_STATUS.PENDING],
+  [ORDER_STATUS.ARCHIVED]:          [ORDER_STATUS.PENDING],
 };
 
 function isTransitionAllowed(from, to, context) {
@@ -114,9 +115,24 @@ function getSideEffects(fromStatus, toStatus) {
     } else {
       effects.push("calendar.create_final");
     }
-    effects.push("email.confirmed_customer");
-    effects.push("email.confirmed_photographer");
-    effects.push("email.confirmed_office");
+    if (from === ORDER_STATUS.DISPOSITION_OFFEN) {
+      // Flexible Buchung: Kunde erhält Disposition-Mail mit Hinweisblock,
+      // Office/Fotograf werden wie üblich informiert.
+      effects.push("email.flex_booking_disposition");
+      effects.push("email.confirmed_photographer");
+      effects.push("email.confirmed_office");
+    } else {
+      effects.push("email.confirmed_customer");
+      effects.push("email.confirmed_photographer");
+      effects.push("email.confirmed_office");
+    }
+  }
+
+  if (to === ORDER_STATUS.DISPOSITION_OFFEN) {
+    // Bei direkter Anlage einer Flex-Buchung: Bestätigungs-Mail an Kunden.
+    // (Der eigentliche Trigger geschieht im POST /api/booking direkt; dieses
+    // Side-Effect-Mapping deckt manuelle Statuswechsel im Admin ab.)
+    effects.push("email.flex_booking_confirmation");
   }
 
   if (to === ORDER_STATUS.PAUSED) {

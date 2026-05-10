@@ -40,6 +40,46 @@ Das gilt fuer:
 - Wenn ein neues Muster mehrfach gebraucht wird, als wiederverwendbaren Baustein einfuehren statt seitenlokal zu duplizieren.
 - User-facing Texte immer ueber i18n ausgeben, nicht inline hart codieren.
 
+## Theme-Tokens (Light/Dark) — CI-erzwungen
+
+Die Plattform unterstuetzt Light- und Dark-Mode (`html.dark` schaltet via Tailwind-v4-`@custom-variant`).
+Hartkodierte Farb-Utility-Klassen (`bg-white`, `bg-zinc-900`, `text-gray-500` ...) ohne `dark:`-Pendant
+verursachen wiederkehrende Bugs (Komponente rendert dunkel auf hellem Theme oder umgekehrt) und werden
+seit Mai 2026 vom CI blockiert.
+
+### Was nutzen
+
+| Statt | Nutze Token |
+|---|---|
+| `bg-white` / `bg-zinc-900` | `bg-bg`, `bg-surface`, `bg-card`, `bg-bg-input` |
+| `text-black` / `text-gray-700` | `text-text`, `text-muted`, `text-subtle`, `text-on-primary` |
+| `border-gray-200` / `border-zinc-700` | `border-border`, `border-border-strong` |
+| `ring-gray-300` | `ring-accent` |
+
+Tokens sind in `app/src/index.css` (`@theme inline { ... }`) definiert und schalten automatisch
+zwischen `:root` (Light) und `html.dark` (Dark).
+
+Wenn ein hartkodierter Farbton wirklich noetig ist, **immer** mit `dark:`-Variante paaren:
+
+```tsx
+className="bg-white dark:bg-zinc-900 text-black dark:text-white"
+```
+
+### Lint-Workflow
+
+| Befehl | Wirkung |
+|---|---|
+| `cd app && npm run theme:lint` | Bricht bei NEUEN Verstoessen (Baseline-Diff). Laeuft auch in CI (`app-ci.yml`). |
+| `cd app && npm run theme:lint:report` | Listet alle aktuellen Verstoesse (auch Bestand). Kein Exit-Fail. |
+| `cd app && npm run theme:lint:update` | Schreibt aktuelle Verstoesse in die Baseline (`app/scripts/theme-tokens-baseline.json`). Nach absichtlichem Refactor / Cleanup. Diff im PR mit reviewen. |
+| `scripts/guard-theme-tokens.sh` | Wrapper im `guard-no-ejs.sh`-Stil — fuer lokale Pre-Commit-Hooks. |
+
+### Visual Smoke (Playwright)
+
+`app/e2e/theme-modes.spec.ts` toggelt `html.dark` und prueft, dass Container-Backgrounds nicht
+near-black (Light) bzw. near-white (Dark) sind. Vorerst nur `/` und `/login` — bei neuen E2E-Auth-
+Fixtures weitere Routen an die `ROUTES`-Liste anhaengen (`/admin/posteingang`, `/admin/customers`, ...).
+
 ## Listing-Editor: Zuweisungs-Bausteine
 
 Referenz: `app/src/pages-legacy/admin/listing/ListingEditorPage.tsx`, CSS in `app/src/styles/listing-admin.css`.

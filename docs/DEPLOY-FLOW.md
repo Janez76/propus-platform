@@ -108,7 +108,7 @@ Constraints**:
 
 | Workflow | Auslösung | Inhalt |
 |---|---|---|
-| [`app-ci.yml`](../.github/workflows/app-ci.yml) | PR / `push` `master`, wenn `app/**` oder diese Workflow-Datei geändert | `npm ci` + `npm test` (Vitest) in `app/` |
+| [`app-ci.yml`](../.github/workflows/app-ci.yml) | PR / `push` `master`, wenn `app/**` oder diese Workflow-Datei geändert | `npm ci` + `npm run theme:lint` (Light/Dark-Token-Guard, Baseline-Diff in `app/scripts/theme-tokens-baseline.json`) + `npm test` (Vitest) in `app/` |
 | [`booking-ci.yml`](../.github/workflows/booking-ci.yml) | PR / `push` `master`, wenn `booking/**` oder diese Workflow-Datei geändert | `npm ci` + `npm test` (node:test) + `npm run lint:html` (htmlhint) in `booking/` |
 
 Änderungen **nur** in `booking/**` lösen Deploy **und** Booking-CI aus; Änderungen **nur** in `app/**` lösen Deploy (sofern kein Nur-Doku-Push) und App-CI aus — je nach Änderungsmenge können beide Parallel laufen.

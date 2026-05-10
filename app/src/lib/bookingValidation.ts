@@ -109,13 +109,41 @@ export function validateStep2(s: Step2State): ValidationError[] {
 }
 
 export type Step3State = {
+  bookingKind: "fixed" | "flexible";
+  /** Fix-Termin: Pflicht. Flex: ignoriert. */
   photographer: { key: string } | null;
+  /** Fix-Termin: Pflicht (ISO-Date). Flex: ignoriert. */
   date: string;
+  /** Fix-Termin: Pflicht ("HH:MM"). Flex: ignoriert. */
   time: string;
+  /** Flex: Pflicht (ISO-Date, mindestens morgen). Fix: ignoriert. */
+  deadlineAt?: string;
+  /** Flex: optional (ISO-Date < deadlineAt). Fix: ignoriert. */
+  flexibleEarliestAt?: string;
 };
+
+function tomorrowISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 export function validateStep3(s: Step3State): ValidationError[] {
   const errors: ValidationError[] = [];
+  if (s.bookingKind === "flexible") {
+    const deadline = String(s.deadlineAt || "").trim();
+    if (!deadline) {
+      errors.push({ field: "deadlineAt", message: "booking.step3.flex.deadlineRequired" });
+    } else if (deadline < tomorrowISO()) {
+      errors.push({ field: "deadlineAt", message: "booking.step3.flex.deadlineRequired" });
+    }
+    const earliest = String(s.flexibleEarliestAt || "").trim();
+    if (deadline && earliest && earliest >= deadline) {
+      errors.push({ field: "flexibleEarliestAt", message: "booking.step3.flex.earliestBeforeDeadline" });
+    }
+    return errors;
+  }
+  // fixed (default): bestehende Validierung unverändert.
   if (!s.photographer) errors.push({ field: "photographer", message: "booking.validation.photographerRequired" });
   if (!String(s.date).trim()) errors.push({ field: "date", message: "booking.validation.dateRequired" });
   if (!String(s.time).trim()) errors.push({ field: "time", message: "booking.validation.timeRequired" });

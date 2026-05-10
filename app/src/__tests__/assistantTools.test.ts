@@ -737,7 +737,7 @@ describe("assistant create_order write tool", () => {
     const queryOne = vi.fn().mockResolvedValueOnce({ id: 1, name: "Test", email: "t@t.ch", company: null });
     const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
     const result = await handlers.create_order({ customer_id: 1, address: "Musterweg 5", services: {} }, ctx);
-    expect(result).toEqual({ error: "Mindestens eine Dienstleistung muss ausgewählt sein" });
+    expect(result).toMatchObject({ error: expect.stringContaining("Mindestens eine Dienstleistung") });
   });
 
   it("rejects when customer is not found", async () => {
@@ -756,16 +756,30 @@ describe("assistant create_order write tool", () => {
       customer_id: 1,
       address: "Musterweg 5",
       services: { photography: true },
+      schedule_date: "2026-05-15",
       photographer_key: "unknown",
     }, ctx);
     expect(result).toEqual({ error: 'Fotograf "unknown" nicht gefunden oder nicht aktiv' });
   });
 
-  it("creates order without optional fields", async () => {
+  it("rejects fixed booking without schedule_date (Migration 092 CHECK)", async () => {
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" });
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({
+      customer_id: 3,
+      address: "Seestrasse 10, Luzern",
+      services: { matterport: true },
+    }, ctx) as Record<string, unknown>;
+    expect(typeof result.error).toBe("string");
+    expect(String(result.error)).toMatch(/schedule_date ist Pflicht|booking_kind='flexible'/);
+  });
+
+  it("creates flexible order with deadline_at (no fixed slot)", async () => {
     const query = vi.fn();
     const queryOne = vi.fn()
       .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" })
-      .mockResolvedValueOnce({ order_no: 143 });
+      .mockResolvedValueOnce({ order_no: 144 });
     const withTransaction = async <T,>(fn: (tx: never) => Promise<T>) => fn({} as never);
     const enqueueOutbox = vi.fn().mockResolvedValue({ id: 1 });
 
@@ -774,12 +788,44 @@ describe("assistant create_order write tool", () => {
       customer_id: 3,
       address: "Seestrasse 10, Luzern",
       services: { matterport: true },
+      booking_kind: "flexible",
+      deadline_at: "2026-05-20",
     }, ctx) as Record<string, unknown>;
 
     expect(result.ok).toBe(true);
-    expect(result.orderNo).toBe(143);
+    expect(result.orderNo).toBe(144);
+    expect(result.bookingKind).toBe("flexible");
+    expect(result.status).toBe("disposition_offen");
     expect(result.schedule).toBeNull();
-    expect(result.photographer).toBeNull();
-    expect(result.customerName).toBe("TestCo");
+    expect(result.deadlineAt).toBeTruthy();
+  });
+
+  it("rejects flexible booking without deadline_at", async () => {
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" });
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({
+      customer_id: 3,
+      address: "Seestrasse 10, Luzern",
+      services: { matterport: true },
+      booking_kind: "flexible",
+    }, ctx) as Record<string, unknown>;
+    expect(typeof result.error).toBe("string");
+    expect(String(result.error)).toMatch(/deadline_at/);
+  });
+
+  it("rejects flexible booking when earliest >= deadline", async () => {
+    const queryOne = vi.fn()
+      .mockResolvedValueOnce({ id: 3, name: null, email: "test@test.ch", company: "TestCo" });
+    const handlers = createWriteHandlers({ query: vi.fn(), queryOne });
+    const result = await handlers.create_order({
+      customer_id: 3,
+      address: "Seestrasse 10, Luzern",
+      services: { matterport: true },
+      booking_kind: "flexible",
+      deadline_at: "2026-05-20",
+      flexible_earliest_at: "2026-05-25",
+    }, ctx) as Record<string, unknown>;
+    expect(String(result.error || "")).toMatch(/vor deadline_at/);
   });
 });

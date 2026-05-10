@@ -119,6 +119,127 @@ describe("draft_email", () => {
   });
 });
 
+describe("create_order service_items resolution", () => {
+  it("rejects unknown product codes before INSERT", async () => {
+    const deps = makeDeps();
+    deps.queryOne.mockResolvedValueOnce({ id: 7, name: "CSL", email: "csl@example.ch", company: "CSL Immobilien AG" });
+    // products query returns only one of two requested codes
+    deps.query.mockResolvedValueOnce([
+      { id: 5, code: "camera:foto20", name: "20 Bodenfotos", kind: "addon", group_key: "camera", rule_type: "fixed", config_json: { price: 199 } },
+    ]);
+    const handlers = createWriteHandlers(deps);
+    const result = await handlers.create_order(
+      {
+        customer_id: 7,
+        address: "Attenhoferstrasse 37, 8645 Jona",
+        service_items: ["camera:foto20", "imaginary:xyz"],
+        booking_kind: "fixed",
+        schedule_date: "2026-05-20",
+      },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("imaginary:xyz") });
+    // Tx never opened — keine INSERT-Aufrufe trotz gefundenem Kunden.
+    expect(deps.queryOne).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves codes to products + prices and persists addons + pricing JSON", async () => {
+    const deps = makeDeps();
+    deps.queryOne
+      .mockResolvedValueOnce({ id: 7, name: "CSL", email: "csl@example.ch", company: "CSL Immobilien AG" })
+      .mockResolvedValueOnce({ order_no: 100107 });
+    deps.query.mockResolvedValueOnce([
+      { id: 5, code: "camera:foto20", name: "20 Bodenfotos", kind: "addon", group_key: "camera", rule_type: "fixed", config_json: { price: 199 } },
+      { id: 8, code: "dronePhoto:foto8", name: "8 Luftaufnahmen", kind: "addon", group_key: "dronePhoto", rule_type: "fixed", config_json: { price: 159 } },
+      { id: 10, code: "tour:main", name: "360° Tour", kind: "addon", group_key: "tour", rule_type: "area_tier", config_json: { tiers: [{ maxArea: 99, price: 199 }, { maxArea: 199, price: 299 }, { maxArea: 299, price: 399 }], basePrice: 399, incrementArea: 100, incrementPrice: 79 } },
+      { id: 11, code: "floorplans:tour", name: "2D Grundriss von Tour", kind: "addon", group_key: "floorplans", rule_type: "per_floor", config_json: { unitPrice: 79 } },
+    ]);
+
+    // Ersatz fuer withTransaction + outbox, sonst reisst der Default-Pfad gegen
+    // die echte DB.
+    const tx = {} as any;
+    const withTransaction = vi.fn(async (fn: any) => fn(tx));
+    const enqueueOutbox = vi.fn().mockResolvedValue({ id: 1 });
+
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.create_order(
+      {
+        customer_id: 7,
+        address: "Attenhoferstrasse 37, 8645 Jona",
+        service_items: [
+          "camera:foto20",
+          "dronePhoto:foto8",
+          "tour:main",
+          "floorplans:tour",
+        ],
+        area_sqm: 100,
+        floors: 1,
+        booking_kind: "flexible",
+        deadline_at: "2026-05-20",
+      },
+      ctx,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      orderNo: 100107,
+      bookingKind: "flexible",
+      pricing: expect.objectContaining({
+        // 199 (20 Bodenfotos fixed) + 159 (8 Luftaufnahmen fixed)
+        // + 299 (tour:main area_tier @ 100m² → 2. Stufe)
+        // + 79 (floorplans:tour per_floor @ 1 Geschoss) = 736
+        subtotal: 736,
+        vat: expect.any(Number),
+        total: expect.any(Number),
+      }),
+    });
+    expect(Array.isArray(result.services)).toBe(true);
+    expect(result.services).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("20 Bodenfotos"),
+        expect.stringContaining("360° Tour"),
+        expect.stringContaining("2D Grundriss"),
+      ]),
+    );
+
+    // INSERT bekommt das aufgeloeste services-JSON mit echten addons und
+    // ein gefuelltes pricing-JSON (nicht mehr leer wie im Boolean-Fallback).
+    const insertCall = deps.queryOne.mock.calls.find((c: any[]) =>
+      String(c[0]).includes("INSERT INTO booking.orders"),
+    );
+    expect(insertCall).toBeTruthy();
+    const insertParams = insertCall![1] as unknown[];
+    const servicesJsonStr = insertParams[4] as string;
+    const pricingJsonStr = insertParams[8] as string;
+    const services = JSON.parse(servicesJsonStr);
+    const pricing = JSON.parse(pricingJsonStr);
+    expect(services.addons).toHaveLength(4);
+    expect(services.addons[0]).toMatchObject({ id: "camera:foto20", label: "20 Bodenfotos", price: 199, group: "camera" });
+    expect(services.addons[2]).toMatchObject({ id: "tour:main", price: 299 });
+    expect(pricing.subtotal).toBe(736);
+    expect(pricing.total).toBeGreaterThan(736);
+
+    // object{} traegt area + (default 1 → kein floors-Eintrag) — wichtig fuers
+    // spaetere Pricing-Re-Compute im Admin.
+    const objectJsonStr = insertParams[3] as string;
+    expect(JSON.parse(objectJsonStr)).toMatchObject({ type: "Immobilie", area: "100" });
+
+    expect(enqueueOutbox).toHaveBeenCalled();
+  });
+
+  it("rejects when neither service_items nor services boolean flags provided", async () => {
+    const deps = makeDeps({
+      queryOneRow: { id: 7, name: "X", email: "x@example.ch", company: null },
+    });
+    const handlers = createWriteHandlers(deps);
+    const result = await handlers.create_order(
+      { customer_id: 7, address: "Test 1, 8001 Zuerich", schedule_date: "2026-06-01" },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("Mindestens eine Dienstleistung") });
+  });
+});
+
 describe("create_order (Bug-Hunt HIGH-5)", () => {
   it("rejects when customer has no email so the workflow mail is never silently dropped", async () => {
     const deps = makeDeps({

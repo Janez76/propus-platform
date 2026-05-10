@@ -26,9 +26,10 @@ type Props = {
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total";
 type SortDir = "asc" | "desc";
 
-const SECTION_ORDER: StatusKey[] = [
+export const SECTION_ORDER: StatusKey[] = [
   "pending",
   "provisional",
+  "disposition_offen",
   "confirmed",
   "paused",
   "completed",
@@ -39,6 +40,7 @@ const SECTION_ORDER: StatusKey[] = [
 
 const DEFAULT_EXPANDED: Record<StatusKey, boolean> = {
   pending: true,
+  disposition_offen: true,
   provisional: true,
   confirmed: true,
   paused: true,

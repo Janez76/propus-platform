@@ -77,6 +77,60 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["auftrag", "booking"],
   },
   {
+    id: "order-explicit-product-codes",
+    user: "Auftrag CSL, Attenhoferstrasse 37 Jona, 100m², 20 Bodenfotos, 8 Luftaufnahmen, 360° Tour, 2D Grundriss von Tour, Schlüsselabholung am Empfang CSL, deadline 20.05.",
+    assistantToolPlan:
+      "search_customers, list_available_services → ALLE genannten Services dort suchen, auch Schlüsselabholung (Code `keypickup:main`). Codes: camera:foto20, dronePhoto:foto8, tour:main, floorplans:tour, keypickup:main. create_order mit service_items=[{code:'camera:foto20'},{code:'dronePhoto:foto8'},{code:'tour:main'},{code:'floorplans:tour'},{code:'keypickup:main'}], key_pickup={address:'Empfang CSL'}, area_sqm=100, floors=1, booking_kind='flexible', deadline_at='2026-05-20'. KEINE services-Booleans, KEINE Schluessel-Notiz im notes-Feld — Schluessel ist eigene Position MIT Preis und eigenem keyPickup-Block.",
+    assistantFinal:
+      "Zusammenfassung mit echten Positionen + berechnetem Total CHF aus dem Produktkatalog (Subtotal/MwSt/Total), Schluesselabholung als eigene Position mit Adresse, und Hinweis dass Office den Termin innerhalb des Zeitraums disponiert.",
+    tags: ["auftrag", "booking", "service_items", "produktcode", "pricing", "schluessel", "keypickup"],
+  },
+  {
+    id: "order-flex-deadline",
+    user: "Auftrag für CSL, Termin offen, wir disponieren — bis spätestens 20. Mai",
+    assistantToolPlan:
+      "search_customers (CSL), Adresse + Services klären, dann create_order mit booking_kind='flexible', deadline_at='2026-05-20'. KEIN schedule_date setzen. Status startet auf 'disposition_offen'.",
+    assistantFinal:
+      "Zusammenfassung mit Buchungsart 'Flexibel mit Deadline 20.05.', Hinweis dass Office den Termin innerhalb des Zeitraums disponiert. Bestätigung einholen, dann create_order aufrufen.",
+    tags: ["auftrag", "booking", "flexibel", "deadline", "disposition", "termin offen"],
+  },
+  {
+    id: "order-flex-no-date-fallback",
+    user: "lege Auftrag an, Termin haben wir noch nicht",
+    assistantToolPlan:
+      "Keinen Platzhalter-Datum erfinden. Stattdessen booking_kind='flexible' anbieten und nach Deadline (spätestes Datum) fragen. Optional flexible_earliest_at erfragen. Erst nach Bestätigung create_order aufrufen.",
+    assistantFinal:
+      "Frage: 'Bis wann muss die Aufnahme spätestens stattfinden? Ich lege den Auftrag dann als Flexibel mit Deadline an — Office disponiert den genauen Termin innerhalb des Zeitraums.'",
+    tags: ["auftrag", "booking", "kein termin", "flexibel", "deadline"],
+  },
+  {
+    id: "order-multiple-contacts-ask",
+    user: "Auftrag für CSL Immobilien, Attenhoferstrasse 37 Jona, Bodenfotos + Tour",
+    assistantToolPlan:
+      "search_customers (CSL) → contactNames zeigt mehrere Eintraege. get_customer_contacts(customer_id) für Liste mit E-Mails. NICHT stillschweigend den primären Kontakt nehmen — explizit nachfragen welcher Kontakt der Auftraggeber ist. Den gewählten Kontakt im notes-Feld von create_order festhalten, damit Office im Detail nachvollziehen kann (Tool persistiert keine contact_id).",
+    assistantFinal:
+      "Frage: 'Bei CSL Immobilien sind mehrere Kontakte hinterlegt — Annette, Cvacho Jordan, Iemmello. Wer ist der Auftraggeber für diese Aufnahme?' Erst nach Antwort weiter mit Services + Buchungsart.",
+    tags: ["auftrag", "booking", "kontaktperson", "kontakt", "ruckfrage"],
+  },
+  {
+    id: "order-skip-customer-mail",
+    user: "Auftrag CSL Attenhoferstrasse 37 anlegen, aber keine Mail an den Kunden",
+    assistantToolPlan:
+      "Normalflow (search_customers, list_available_services, Adresse + Buchungsart). Beim create_order zusaetzlich `skip_customer_email: true` setzen. Office-Mail bleibt automatisch, damit Office den Auftrag sieht.",
+    assistantFinal:
+      "Zusammenfassung mit Hinweis 'Kunde bekommt KEINE Bestaetigungsmail (auf deinen Wunsch)' und Bestaetigung einholen. Nach create_order: 'Auftrag #X angelegt, Office wurde informiert, Kunde bekam keine Mail.'",
+    tags: ["auftrag", "booking", "skip mail", "kein versand", "test", "ohne kundenmail"],
+  },
+  {
+    id: "order-unknown-service-ask",
+    user: "Auftrag CSL, 20 Bodenfotos und ein Rendering 3 Bilder dazu",
+    assistantToolPlan:
+      "list_available_services prüfen → camera:foto20 ist da, 'Rendering' nicht. NICHT in notes verstecken, NICHT services-Booleans nutzen. Den Nutzer fragen welcher Preis fürs Rendering. Nach Preisangabe create_order mit service_items=[{code:'camera:foto20'}] UND custom_items=[{label:'Rendering 3 Bilder', price:<vom Nutzer>, qty:1}].",
+    assistantFinal:
+      "Frage: 'Rendering 3 Bilder finde ich nicht im Produktkatalog (camera:foto20 für die Fotos hab ich). Soll ich Rendering als manuelle Position aufnehmen — und zu welchem Preis pro Stück? Den nehme ich dann mit in die Auftrags-Position auf, damit Office den Total inkl. MwSt sieht.'",
+    tags: ["auftrag", "booking", "custom_items", "manuelle position", "rendering", "ruckfrage", "pricing"],
+  },
+  {
     id: "weather-honest-ch",
     user: "Wie wird das Wetter morgen in Bern?",
     assistantToolPlan:
@@ -125,6 +179,24 @@ export const FEW_SHOTS: FewShot[] = [
     assistantFinal:
       "Liste der überfälligen Aufträge mit Anzahl Tage Rückstand pro Eintrag.",
     tags: ["auftrag", "überfällig", "rückstand", "open"],
+  },
+  {
+    id: "click-chips-yesno",
+    user: "mail von annette",
+    assistantToolPlan:
+      "search_posteingang_conversations / get_posteingang_conversation_detail — neueste Mail von Annette zusammenfassen. Antwort endet mit Frage 'Soll ich den vollständigen Thread öffnen?' und MUSS den Marker [[OPTIONS: Ja, Thread öffnen | Nein, danke]] am Zeilenende anhängen, damit der Nutzer klickbare Buttons sieht.",
+    assistantFinal:
+      "Kurze Mail-Zusammenfassung (Konversations-Nr, Betreff, Datum, Status). Letzte Zeile: 'Soll ich den vollständigen Thread öffnen?'. ALLERLETZTE Zeile: '[[OPTIONS: Ja, Thread öffnen | Nein, danke]]'.",
+    tags: ["click-chip", "options", "ja nein", "mail", "posteingang"],
+  },
+  {
+    id: "click-chips-contact-pick",
+    user: "Auftrag CSL Immobilien anlegen",
+    assistantToolPlan:
+      "search_customers (CSL) liefert mehrere customer_contacts. Frage 'Wer ist der Auftraggeber?' und MUSS den Marker [[OPTIONS: <Name1> | <Name2> | <Name3>]] mit den echten Kontakt-Namen aus get_customer_contacts am Zeilenende setzen.",
+    assistantFinal:
+      "'Bei CSL Immobilien sind mehrere Kontakte hinterlegt. Wer ist der Auftraggeber?' — letzte Zeile: '[[OPTIONS: Annette Doerfel | Bruno Iemmello | Cvacho Jordan]]' (mit den tatsaechlichen Kontakten aus dem Tool-Ergebnis).",
+    tags: ["click-chip", "options", "kontaktauswahl", "auftrag"],
   },
   {
     id: "weather-future-order",

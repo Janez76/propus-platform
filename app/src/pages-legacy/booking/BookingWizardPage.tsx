@@ -75,6 +75,7 @@ export function BookingWizardPage() {
     submitted, submitting, setSubmitting, setSubmitted,
     selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted,
     address, coords, object, discount, provisional, keyPickup,
+    bookingKind, deadlineAt, flexibleEarliestAt,
   } = store;
 
   const [showLanding, setShowLanding] = useState(true);
@@ -123,10 +124,21 @@ export function BookingWizardPage() {
         if (e.field === "time" && time.trim()) return false;
         if (e.field === "date" && date.trim()) return false;
         if (e.field === "photographer" && photographer) return false;
+        if (e.field === "deadlineAt" && deadlineAt.trim()) return false;
+        if (e.field === "flexibleEarliestAt") {
+          // Fehler "earliest >= deadline" entfernen, sobald die Bedingung
+          // nicht mehr gilt:
+          //  - Earliest geloescht
+          //  - Deadline geloescht (kein Vergleichspunkt mehr)
+          //  - Earliest jetzt < Deadline
+          if (!flexibleEarliestAt.trim()) return false;
+          if (!deadlineAt.trim()) return false;
+          if (flexibleEarliestAt < deadlineAt) return false;
+        }
         return true;
       }),
     );
-  }, [time, date, photographer, step]);
+  }, [time, date, photographer, deadlineAt, flexibleEarliestAt, step]);
 
   /** Step 1: Fehler-Banner gegen aktuellen State neu auswerten, sobald
    * Adressfelder editiert werden. Ohne diesen Pass blieb ein veraltetes
@@ -190,10 +202,10 @@ export function BookingWizardPage() {
       object,
     }).length === 0;
     v[2] = validateStep2({ selectedPackage, addons }).length === 0;
-    v[3] = validateStep3({ photographer, date, time }).length === 0;
+    v[3] = validateStep3({ bookingKind, photographer, date, time, deadlineAt, flexibleEarliestAt }).length === 0;
     v[4] = validateStep4({ billing, altBilling, agbAccepted }).length === 0;
     return v;
-  }, [address, store.parsedAddress, object, selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted]);
+  }, [address, store.parsedAddress, object, selectedPackage, addons, photographer, date, time, billing, altBilling, agbAccepted, bookingKind, deadlineAt, flexibleEarliestAt]);
 
   function validateCurrentStep(): boolean {
     let errs: ValidationError[] = [];
@@ -209,7 +221,7 @@ export function BookingWizardPage() {
         object,
       });
     else if (step === 2) errs = validateStep2({ selectedPackage, addons });
-    else if (step === 3) errs = validateStep3({ photographer, date, time });
+    else if (step === 3) errs = validateStep3({ bookingKind, photographer, date, time, deadlineAt, flexibleEarliestAt });
     else if (step === 4) errs = validateStep4({ billing, altBilling, agbAccepted });
     setErrors(errs);
     return errs.length === 0;
@@ -240,6 +252,20 @@ export function BookingWizardPage() {
     const subtotal = (selectedPackage?.price ?? 0) + addons.reduce((s, a) => s + a.price * a.qty, 0);
     const pricing = computePricing(subtotal, discount.percent, pricingConfig);
 
+    const schedule: BookingPayload["schedule"] = bookingKind === "flexible"
+      ? {
+          bookingKind: "flexible",
+          deadlineAt,
+          flexibleEarliestAt: flexibleEarliestAt || undefined,
+        }
+      : {
+          bookingKind: "fixed",
+          photographer: bookingPhotographerForPayload(lang, photographer),
+          date,
+          time,
+          provisional,
+        };
+
     const payload: BookingPayload = {
       address: { text: address, coords },
       object: {
@@ -259,12 +285,7 @@ export function BookingWizardPage() {
         package: selectedPackage ? { key: selectedPackage.key, price: selectedPackage.price, label: selectedPackage.label, labelKey: selectedPackage.labelKey } : null,
         addons: addons.map((a) => ({ id: a.id, group: a.group, label: a.label, labelKey: a.labelKey, price: a.price, qty: a.qty })),
       },
-      schedule: {
-        photographer: bookingPhotographerForPayload(lang, photographer),
-        date,
-        time,
-        provisional,
-      },
+      schedule,
       billing: {
         ...billing,
         language: lang,
@@ -400,7 +421,10 @@ export function BookingWizardPage() {
 
             {/* Validation Errors */}
             {errors.length > 0 && (
-              <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+              <div
+                data-testid="booking-validation-errors"
+                className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              >
                 <ul className="list-inside list-disc space-y-1">
                   {errors.map((e) => <li key={e.field}>{t(lang, e.message)}</li>)}
                 </ul>

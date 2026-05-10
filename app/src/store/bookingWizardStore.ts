@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BookingConfig, CatalogData, PhotographerInfo } from "../api/bookingPublic";
 
+/** localStorage-Key fuer den Wizard-Zustand. */
+export const BOOKING_WIZARD_STORE_NAME = "propus-booking-wizard-draft";
+/** Version des persistierten Wizard-Zustands. Inkrementieren, sobald
+ *  Pflichtfelder ergaenzt oder umbenannt werden — der `migrate`-Hook
+ *  unten muss dann den Aufstiegspfad bereitstellen. */
+export const BOOKING_WIZARD_STORE_VERSION = 7;
+
 /** Weitere Personen vor Ort – nur Bestellung, keine Kundenkartei */
 export type OnsiteContactRow = {
   name: string;
@@ -275,6 +282,10 @@ export const EMPTY_OBJECT: ObjectData = {
   address: makeEmptyStructuredAddress(),
 };
 
+/** Buchungsart: fixed = klassischer Wunschtermin (Slot wird beim Buchen blockiert),
+ *  flexible = Office disponiert innerhalb [flexibleEarliestAt, deadlineAt]. */
+export type BookingKind = "fixed" | "flexible";
+
 export type BookingWizardState = {
   step: number;
   address: string;
@@ -287,6 +298,12 @@ export type BookingWizardState = {
   date: string;
   time: string;
   provisional: boolean;
+  /** Diskriminator zwischen Fix-Termin und Flex-Buchung mit Deadline. */
+  bookingKind: BookingKind;
+  /** ISO-Date "YYYY-MM-DD" — bei flexible: Pflicht, spätestes Datum. */
+  deadlineAt: string;
+  /** ISO-Date "YYYY-MM-DD" — bei flexible: optional, frühestens-ab. */
+  flexibleEarliestAt: string;
   billing: BillingData;
   altBilling: boolean;
   discount: { code: string; percent: number; amount: number };
@@ -322,6 +339,9 @@ export type BookingWizardState = {
   setDate: (d: string) => void;
   setTime: (t: string) => void;
   setProvisional: (p: boolean) => void;
+  setBookingKind: (k: BookingKind) => void;
+  setDeadlineAt: (d: string) => void;
+  setFlexibleEarliestAt: (d: string) => void;
   setBilling: (patch: Partial<BillingData>) => void;
   setAltBilling: (v: boolean) => void;
   setDiscount: (d: { code: string; percent: number; amount: number }) => void;
@@ -364,7 +384,8 @@ export type BookingWizardState = {
 const INITIAL: Omit<BookingWizardState,
   "setStep" | "setAddress" | "setCoords" | "setParsedAddress" | "setObject" | "setPackage" |
   "upsertAddon" | "removeAddonGroup" | "removeAddon" | "setPhotographer" | "setDate" |
-  "setTime" | "setProvisional" | "setBilling" | "setAltBilling" | "setDiscount" |
+  "setTime" | "setProvisional" | "setBookingKind" | "setDeadlineAt" | "setFlexibleEarliestAt" |
+  "setBilling" | "setAltBilling" | "setDiscount" |
   "setKeyPickup" | "setAgbAccepted" | "setSlotPeriod" | "setAvailableSlots" |
   "setSlotsLoading" | "setSkillWarning" | "setConfig" | "setCatalog" | "setPhotographers" |
   "setConfigLoading" | "setSubmitting" | "setSubmitted" | "setScheduleAutoPickSignature" |
@@ -386,6 +407,9 @@ const INITIAL: Omit<BookingWizardState,
   date: "",
   time: "",
   provisional: false,
+  bookingKind: "fixed",
+  deadlineAt: "",
+  flexibleEarliestAt: "",
   billing: { ...EMPTY_BILLING, structured: makeEmptyBillingStructured() },
   altBilling: false,
   discount: { code: "", percent: 0, amount: 0 },
@@ -430,9 +454,12 @@ export const useBookingWizardStore = create<BookingWizardState>()(
       removeAddonGroup: (group) => set((s) => ({ addons: s.addons.filter((a) => a.group !== group) })),
       removeAddon: (id) => set((s) => ({ addons: s.addons.filter((a) => a.id !== id) })),
       setPhotographer: (photographer) => set({ photographer }),
-      setDate: (date) => set({ date, time: "", availableSlots: [] }),
+      setDate: (date) => set((s) => (s.date === date ? {} : { date, time: "", availableSlots: [] })),
       setTime: (time) => set({ time }),
       setProvisional: (provisional) => set({ provisional }),
+      setBookingKind: (bookingKind) => set({ bookingKind }),
+      setDeadlineAt: (deadlineAt) => set({ deadlineAt }),
+      setFlexibleEarliestAt: (flexibleEarliestAt) => set({ flexibleEarliestAt }),
       setBilling: (patch) => set((s) => ({ billing: { ...s.billing, ...patch } })),
       setAltBilling: (altBilling) => set({ altBilling }),
       setDiscount: (discount) => set({ discount }),
@@ -562,8 +589,8 @@ export const useBookingWizardStore = create<BookingWizardState>()(
         })),
     }),
     {
-      name: "propus-booking-wizard-draft",
-      version: 6,
+      name: BOOKING_WIZARD_STORE_NAME,
+      version: BOOKING_WIZARD_STORE_VERSION,
       merge: (persistedState, currentState) => {
         const p =
           persistedState && typeof persistedState === "object"
@@ -653,6 +680,16 @@ export const useBookingWizardStore = create<BookingWizardState>()(
             },
           };
         }
+        if (fromVersion < 7 && p && typeof p === "object" && p !== null) {
+          // v7: Flexible Buchung — neue Felder, Default 'fixed' für Altzustände.
+          const po = p as Record<string, unknown>;
+          p = {
+            ...po,
+            bookingKind: po.bookingKind === "flexible" ? "flexible" : "fixed",
+            deadlineAt: typeof po.deadlineAt === "string" ? po.deadlineAt : "",
+            flexibleEarliestAt: typeof po.flexibleEarliestAt === "string" ? po.flexibleEarliestAt : "",
+          };
+        }
         return p;
       },
       partialize: (s) => ({
@@ -667,6 +704,9 @@ export const useBookingWizardStore = create<BookingWizardState>()(
         date: s.date,
         time: s.time,
         provisional: s.provisional,
+        bookingKind: s.bookingKind,
+        deadlineAt: s.deadlineAt,
+        flexibleEarliestAt: s.flexibleEarliestAt,
         billing: s.billing,
         altBilling: s.altBilling,
         discount: s.discount,

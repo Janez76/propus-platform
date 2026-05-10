@@ -15,6 +15,8 @@ import { MobileSearchBar, MobileState } from "./MobileUI";
 import {
   MobileDaySectionHeader,
   MobileDepartureChip,
+  MobileFlexDispositionSection,
+  type MobileFlexDispositionItem,
   MobileHomeDivider,
   MobileKpiPills,
   type MobileKpiPillSpec,
@@ -231,10 +233,42 @@ export function MobileOrdersTab() {
     });
   }, [orders, query, filters, activeKpi]);
 
+  /** Flex-Aufts mit Status `disposition_offen` haben *keinen* Termin und
+   *  werden daher von `bucketOrdersByDay` (sortiert per `appointmentDate`)
+   *  in den `later`-Bucket geschoben. Wir ziehen sie hier explizit aus,
+   *  damit dieselben Aufts nicht *doppelt* erscheinen — einmal in der
+   *  eigenen Disposition-Sektion und einmal als anonyme Card unter
+   *  „Später". `today_due`-KPI-Filter verschluckt Flex-Aufts bewusst
+   *  (kein appointmentDate). */
+  const isFlexDispositionOrder = (o: Order) =>
+    o.bookingKind === "flexible" && o.status === "disposition_offen";
+
   const buckets: BucketedDay[] = useMemo(
-    () => bucketOrdersByDay(filteredOrders, { hideStatuses: HIDDEN_STATUSES }),
+    () =>
+      bucketOrdersByDay(
+        filteredOrders.filter((o) => !isFlexDispositionOrder(o)),
+        { hideStatuses: HIDDEN_STATUSES },
+      ),
     [filteredOrders],
   );
+
+  /** Eigene Liste: nach Deadline aufsteigend, ueberfaellige zuerst. */
+  const flexDispositionItems: MobileFlexDispositionItem[] = useMemo(() => {
+    return filteredOrders
+      .filter(isFlexDispositionOrder)
+      .map((o): MobileFlexDispositionItem => ({
+        orderNo: o.orderNo,
+        customerName: o.customerName ?? null,
+        address: o.address ?? null,
+        deadlineAt: o.deadlineAt ?? null,
+        flexibleEarliestAt: o.flexibleEarliestAt ?? null,
+      }))
+      .sort((a, b) => {
+        const ta = a.deadlineAt ? new Date(a.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+        const tb = b.deadlineAt ? new Date(b.deadlineAt).getTime() : Number.POSITIVE_INFINITY;
+        return ta - tb;
+      });
+  }, [filteredOrders]);
 
   /** KPI-Pills aus den gefilterten Orders ableiten. Kennzahlen aus dem
    *  *ungefilterten* Bestand (orders) — Filter-State soll Zaehlung nicht
@@ -403,15 +437,29 @@ export function MobileOrdersTab() {
             }
           />
         ) : (
-          <DaySectionsList
-            buckets={buckets}
-            home={home}
-            navigate={navigate}
-            resolveTravelMin={resolveTravelMin}
-            resolveHomeMin={resolveHomeMin}
-            geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
-            nowMs={nowMs}
-          />
+          <>
+            <MobileFlexDispositionSection
+              items={flexDispositionItems}
+              onSelect={(orderNo) => {
+                // /orders/:no/termin ist eine Next.js-App-Router-Route —
+                // react-router-dom (SPA) hat sie nicht registriert, also
+                // muss hier eine *Full-Page-Navigation* erfolgen, sonst
+                // landet der Tap im SPA-NotFound.
+                if (typeof window !== "undefined") {
+                  window.location.assign(`/orders/${orderNo}/termin?edit=1`);
+                }
+              }}
+            />
+            <DaySectionsList
+              buckets={buckets}
+              home={home}
+              navigate={navigate}
+              resolveTravelMin={resolveTravelMin}
+              resolveHomeMin={resolveHomeMin}
+              geoPosLabel={geo.position ? "GPS-Standort" : "Studio · 8005"}
+              nowMs={nowMs}
+            />
+          </>
         )}
 
         <MobileFilterSheet
@@ -669,6 +717,11 @@ const DayRowEntry = memo(function DayRowEntry({
                 <span style={{ color: "var(--text-muted)", margin: "0 6px" }}>·</span>
                 <span>{o.customerName}</span>
               </>
+            )}
+            {o.bookingKind === "flexible" && (
+              <span className="mob-pill mob-pill--flex" style={{ marginLeft: 6 }} title="Flex-Buchung mit Deadline">
+                Flex
+              </span>
             )}
           </div>
           {street && (

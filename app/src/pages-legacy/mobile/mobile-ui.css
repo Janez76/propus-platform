@@ -1257,3 +1257,98 @@
   .mob-skel-section-h,
   .mob-skel-row { animation: none; }
 }
+
+/* ── Flex-Disposition-Section (Migration 092 — booking_kind='flexible') ─────
+   Eigene Section ueber den Day-Buckets fuer Aufts mit Status
+   `disposition_offen` — ohne Termin, sortiert nach Deadline-Dringlichkeit. */
+.mob-flex-section-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 6px;
+  margin-top: 4px;
+}
+.mob-flex-section-h-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+.mob-flex-section-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mob-flex-section-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.mob-flex-section-meta {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* Deadline-Chip — analog zur "mob-time-chip" (Spalten-Layout links).
+   Farben mappen DeadlineBadge: rot < 7d / heute / überfällig,
+   gelb < 14d, neutral sonst. */
+.mob-flex-deadline-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 78px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  border: 1px solid;
+  text-align: center;
+}
+.mob-flex-deadline-chip-h {
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+.mob-flex-deadline-chip-sub {
+  font-size: 9.5px;
+  margin-top: 2px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.mob-flex-deadline-chip--danger {
+  color: #dc2626;
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+  border-color: color-mix(in srgb, #dc2626 32%, transparent);
+}
+.mob-flex-deadline-chip--warn {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+}
+.mob-flex-deadline-chip--ok {
+  color: var(--text-muted);
+  background: var(--paper-strip);
+  border-color: var(--border-soft);
+}
+
+/* Flex-Pille (klein, im Title-Stream — auch fuer disponierte Flex-Aufts). */
+.mob-pill--flex {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  font-size: 9.5px;
+  padding: 2px 7px;
+}
+
+/* Linker Akzent fuer die Disposition-Liste — visuell anders als Day-Buckets. */
+.mob-list-item--flex {
+  border-left: 3px solid color-mix(in srgb, #f59e0b 50%, transparent);
+}

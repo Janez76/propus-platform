@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useOrderEditShellOptional } from "../order-edit-shell-context";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
@@ -41,6 +41,11 @@ type Props = {
     schedule_time: string | null;
     duration_min: number | null;
     photographer_key: string | null;
+    /** Bei booking_kind='flexible' gesetzt — fuer Datum-Range-Hint waehrend der Disposition.
+     *  pg-driver kann TIMESTAMPTZ als JS-`Date` oder ISO-String zurueckgeben. */
+    booking_kind?: "fixed" | "flexible" | null;
+    deadline_at?: string | Date | null;
+    flexible_earliest_at?: string | Date | null;
   };
   /** Einmal pro Request von der Server-Page gesetzt, damit SSR und Hydration dasselbe Default-Datum nutzen. */
   scheduleDateFallback: string;
@@ -99,6 +104,66 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
   }, [form, isDirty, shell]);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+
+  /** Bei flex-Disposition: ISO-Date "YYYY-MM-DD" der Deadline und des
+   *  Frueheste-ab. Wenn das gewaehlte Datum aus dem Fenster faellt,
+   *  zeigen wir einen Inline-Hinweis (kein harter Block — Office kann
+   *  bewusst ueberreichen, z. B. wenn der Kunde zugestimmt hat). */
+  const flexRange = useMemo(() => {
+    if (order.booking_kind !== "flexible") return null;
+    // pg-driver kann TIMESTAMPTZ als JS-Date liefern. String(date).slice(0,10)
+    // wuerde dann z.B. "Mon Jun 15..." erzeugen, was die Regex nicht matcht
+    // → flexRange.deadline waere null, und der Inline-Hinweis bliebe aus.
+    // Date-Objekte werden in Europe/Zurich-Kalenderteilen zu YYYY-MM-DD,
+    // damit toISOString() (UTC) den Tag nicht z. B. von 2026-06-15 00:00 CH
+    // auf 2026-06-14 zurueckschiebt.
+    const toIsoDateInZurich = (date: Date): string | null => {
+      if (Number.isNaN(date.getTime())) return null;
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Europe/Zurich",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).formatToParts(date);
+      const get = (type: string) => parts.find((p) => p.type === type)?.value;
+      const y = get("year");
+      const m = get("month");
+      const d = get("day");
+      if (!y || !m || !d) return null;
+      return `${y}-${m}-${d}`;
+    };
+    const toDate = (iso: string | Date | null | undefined) => {
+      if (!iso) return null;
+      if (iso instanceof Date) {
+        return toIsoDateInZurich(iso);
+      }
+      const d = String(iso).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+      // Auch volle ISO-Timestamps wie "2026-06-15T00:00:00.000Z" sauber
+      // verdauen, falls slice(0,10) bereits einen ISO-Date geliefert hat.
+      const parsed = new Date(String(iso));
+      return toIsoDateInZurich(parsed);
+    };
+    return {
+      deadline: toDate(order.deadline_at),
+      earliest: toDate(order.flexible_earliest_at),
+    };
+  }, [order.booking_kind, order.deadline_at, order.flexible_earliest_at]);
+  const watchedScheduleDate = form.watch("scheduleDate");
+  const flexHint = useMemo(() => {
+    if (!flexRange) return null;
+    const date = String(watchedScheduleDate || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    if (flexRange.deadline && date > flexRange.deadline) {
+      const fmt = (iso: string) => iso.split("-").reverse().join(".");
+      return { tone: "danger" as const, msg: `Datum liegt nach der Kunden-Deadline (${fmt(flexRange.deadline)}).` };
+    }
+    if (flexRange.earliest && date < flexRange.earliest) {
+      const fmt = (iso: string) => iso.split("-").reverse().join(".");
+      return { tone: "warn" as const, msg: `Datum liegt vor "Frühestens ab" (${fmt(flexRange.earliest)}).` };
+    }
+    return null;
+  }, [flexRange, watchedScheduleDate]);
 
   const onSubmit = useCallback(
     (v: TerminFormValues) => {
@@ -173,6 +238,17 @@ export function TerminForm({ order, scheduleDateFallback, photographers }: Props
                 {...form.register("scheduleDate")}
               />
               <FieldError<TerminFormValues> name="scheduleDate" />
+              {flexHint && (
+                <p
+                  className={
+                    flexHint.tone === "danger"
+                      ? "mt-1 text-xs font-medium text-red-700 dark:text-red-400"
+                      : "mt-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+                  }
+                >
+                  {flexHint.msg}
+                </p>
+              )}
             </div>
             <div>
               <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">Uhrzeit (15 min) *</span>

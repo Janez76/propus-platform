@@ -1559,11 +1559,23 @@ async function getOrdersForCustomerId(customerId, { limit = 200 } = {}) {
 
 // ─── Bestellungen ─────────────────────────────────────────────────────────────
 
-async function insertOrder(record, customerId) {
-  const normalizedRecord = normalizeTextDeep(record || {});
-  const keyPickupValue = normalizedRecord.keyPickup && typeof normalizedRecord.keyPickup === "object"
-    ? normalizedRecord.keyPickup
-    : null;
+/**
+ * Pure: baut SQL + Param-Array fuer einen INSERT in `orders`.
+ *
+ * Ausgelagert aus `insertOrder`, damit Param-Konstruktion ohne DB testbar
+ * ist. Konvention:
+ *  - `bookingKind` defaultet auf `'fixed'`, ungueltige Werte werden auf
+ *    `'fixed'` gemappt.
+ *  - `deadlineAt` / `flexibleEarliestAt` werden zu JS-`Date` geparsed
+ *    (oder `null`, wenn nicht gesetzt).
+ *  - `key_pickup` ist hier `null` (Platzhalter) — der Caller setzt es
+ *    nachtraeglich, weil ein BOOLEAN-Fallback fuer Legacy-Schemas existiert.
+ *
+ * @param {object} record - bereits via normalizeTextDeep durchgereinigtes Record.
+ * @param {number|null} customerId
+ * @returns {{ sql: string, params: Array<unknown> }}
+ */
+function buildInsertOrderParams(record, customerId) {
   const sql = `INSERT INTO orders (
       order_no, customer_id, status, address,
       object, services, photographer, schedule, billing, pricing,
@@ -1571,7 +1583,8 @@ async function insertOrder(record, customerId) {
       created_at,
       confirmation_token, confirmation_token_expires_at, confirmation_pending_since,
       attendee_emails, onsite_email, onsite_contacts,
-      address_lat, address_lon, assignment_trace
+      address_lat, address_lon, assignment_trace,
+      booking_kind, deadline_at, flexible_earliest_at
     ) VALUES (
       $1,$2,$3,$4,
       $5,$6,$7,$8,$9,$10,
@@ -1579,49 +1592,78 @@ async function insertOrder(record, customerId) {
       $17,
       $18,$19,$20,
       $21,$22,$23,
-      $24,$25,$26::jsonb
+      $24,$25,$26::jsonb,
+      $27,$28,$29
     ) RETURNING id`;
-  const latRaw = Number(normalizedRecord.address_lat);
-  const lonRaw = Number(normalizedRecord.address_lon);
-  const addressLat = Number.isFinite(latRaw) ? latRaw : null;
-  const addressLon = Number.isFinite(lonRaw) ? lonRaw : null;
+
+  const parseNullableNumber = (value) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "string" && value.trim() === "") return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+  const addressLat = parseNullableNumber(record.address_lat);
+  const addressLon = parseNullableNumber(record.address_lon);
   const assignmentTraceRaw =
-    normalizedRecord.assignment_trace !== undefined && normalizedRecord.assignment_trace !== null
-      ? normalizedRecord.assignment_trace
-      : normalizedRecord.assignmentTrace;
+    record.assignment_trace !== undefined && record.assignment_trace !== null
+      ? record.assignment_trace
+      : record.assignmentTrace;
   const assignmentTraceJson =
     assignmentTraceRaw !== undefined && assignmentTraceRaw !== null
       ? JSON.stringify(assignmentTraceRaw)
       : null;
 
-  const baseParams = [
-    normalizedRecord.orderNo,
+  const bookingKindRaw = String(record.bookingKind || record.booking_kind || "fixed").toLowerCase();
+  const bookingKind = bookingKindRaw === "flexible" ? "flexible" : "fixed";
+  const parseOptionalDate = (value) => {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const deadlineAtParam = parseOptionalDate(record.deadlineAt);
+  const flexibleEarliestAtParam = parseOptionalDate(record.flexibleEarliestAt);
+
+  const params = [
+    record.orderNo,
     customerId,
-    normalizedRecord.status || "pending",
-    normalizedRecord.address || "",
-    JSON.stringify(normalizedRecord.object || {}),
-    JSON.stringify(normalizedRecord.services || {}),
-    JSON.stringify(normalizedRecord.photographer || {}),
-    JSON.stringify(normalizedRecord.schedule || {}),
-    JSON.stringify(normalizedRecord.billing || {}),
-    JSON.stringify(normalizedRecord.pricing || {}),
-    JSON.stringify(normalizedRecord.settingsSnapshot || {}),
-    normalizedRecord.discount ? JSON.stringify(normalizedRecord.discount) : null,
-    null, // key_pickup placeholder
-    normalizedRecord.icsUid || null,
-    normalizedRecord.photographerEventId || null,
-    normalizedRecord.officeEventId || null,
-    normalizedRecord.createdAt ? new Date(normalizedRecord.createdAt) : new Date(),
-    normalizedRecord.confirmationToken || null,
-    normalizedRecord.confirmationTokenExpiresAt ? new Date(normalizedRecord.confirmationTokenExpiresAt) : null,
-    normalizedRecord.confirmationPendingSince ? new Date(normalizedRecord.confirmationPendingSince) : null,
-    normalizedRecord.attendeeEmails || null,
-    normalizedRecord.onsiteEmail || normalizedRecord.billing?.onsiteEmail || null,
-    JSON.stringify(Array.isArray(normalizedRecord.onsiteContacts) ? normalizedRecord.onsiteContacts : []),
+    record.status || "pending",
+    record.address || "",
+    JSON.stringify(record.object || {}),
+    JSON.stringify(record.services || {}),
+    JSON.stringify(record.photographer || {}),
+    JSON.stringify(record.schedule || {}),
+    JSON.stringify(record.billing || {}),
+    JSON.stringify(record.pricing || {}),
+    JSON.stringify(record.settingsSnapshot || {}),
+    record.discount ? JSON.stringify(record.discount) : null,
+    null, // key_pickup Platzhalter — wird vom Caller mit JSONB|BOOLEAN befuellt
+    record.icsUid || null,
+    record.photographerEventId || null,
+    record.officeEventId || null,
+    record.createdAt ? new Date(record.createdAt) : new Date(),
+    record.confirmationToken || null,
+    record.confirmationTokenExpiresAt ? new Date(record.confirmationTokenExpiresAt) : null,
+    record.confirmationPendingSince ? new Date(record.confirmationPendingSince) : null,
+    record.attendeeEmails || null,
+    record.onsiteEmail || record.billing?.onsiteEmail || null,
+    JSON.stringify(Array.isArray(record.onsiteContacts) ? record.onsiteContacts : []),
     addressLat,
     addressLon,
     assignmentTraceJson,
+    bookingKind,
+    deadlineAtParam,
+    flexibleEarliestAtParam,
   ];
+
+  return { sql, params };
+}
+
+async function insertOrder(record, customerId) {
+  const normalizedRecord = normalizeTextDeep(record || {});
+  const keyPickupValue = normalizedRecord.keyPickup && typeof normalizedRecord.keyPickup === "object"
+    ? normalizedRecord.keyPickup
+    : null;
+  const { sql, params: baseParams } = buildInsertOrderParams(normalizedRecord, customerId);
 
   const insertWithKeyPickup = async (keyPickupParam) => {
     const params = baseParams.slice();
@@ -2250,6 +2292,45 @@ async function deletePasswordResetToken(customerId) {
   await query("DELETE FROM customer_password_resets WHERE customer_id = $1", [customerId]);
 }
 
+// ─── Magic-Link Login Tokens ─────────────────────────────────────────────────
+//
+// Self-Serve passwortloser Login: customer_login_tokens speichert
+// Single-Use-Tokens, die per Mail an den Kunden gehen. Nach Einlosen wird ein
+// regulaerer core.customer_sessions-Eintrag erzeugt (siehe createCustomerSession).
+//
+// Unterschied zu customer_password_resets: hier setzen wir kein Passwort, der
+// erfolgreiche Token-Verbrauch authentifiziert direkt eine Session.
+
+async function createCustomerLoginToken({ customerId, tokenHash, expiresAt, purpose = "login", ip = null }) {
+  const { rows } = await query(
+    `INSERT INTO customer_login_tokens (customer_id, token_hash, purpose, expires_at, created_ip)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [customerId, tokenHash, purpose, expiresAt, ip]
+  );
+  return rows[0]?.id || null;
+}
+
+async function consumeCustomerLoginToken(tokenHash) {
+  const { rows } = await query(
+    `UPDATE customer_login_tokens
+       SET consumed_at = NOW()
+     WHERE token_hash = $1
+       AND consumed_at IS NULL
+       AND expires_at > NOW()
+     RETURNING customer_id, purpose`,
+    [tokenHash]
+  );
+  if (!rows[0]) return null;
+  return { customerId: rows[0].customer_id, purpose: rows[0].purpose };
+}
+
+async function deleteExpiredCustomerLoginTokens() {
+  await query(
+    "DELETE FROM customer_login_tokens WHERE expires_at < NOW() - INTERVAL '7 days'"
+  );
+}
+
 // ─── Fotografen-Einstellungen ─────────────────────────────────────────────────
 
 async function getPhotographer(key) {
@@ -2684,6 +2765,9 @@ function dbRowToRecord(row) {
     address_lat: row.address_lat != null ? Number(row.address_lat) : null,
     address_lon: row.address_lon != null ? Number(row.address_lon) : null,
     assignmentTrace: row.assignment_trace != null ? row.assignment_trace : null,
+    bookingKind: row.booking_kind || "fixed",
+    deadlineAt: row.deadline_at || null,
+    flexibleEarliestAt: row.flexible_earliest_at || null,
   });
 }
 
@@ -2730,6 +2814,9 @@ module.exports = {
   createPasswordResetToken,
   verifyPasswordResetToken,
   deletePasswordResetToken,
+  createCustomerLoginToken,
+  consumeCustomerLoginToken,
+  deleteExpiredCustomerLoginTokens,
   getPhotographer,
   getPhotographerPhone,
   getPhotographerSettings,
@@ -2743,6 +2830,7 @@ module.exports = {
   deactivatePhotographer,
   reactivatePhotographer,
   insertOrder,
+  buildInsertOrderParams,
   getOrders,
   getOrderByNo,
   getOrdersByPhotographerAndDate,

@@ -38,6 +38,8 @@ const EFFECT_TO_TEMPLATE_AND_ROLE = {
   "email.paused_customer": { templateKey: "paused_customer", role: "customer" },
   "email.paused_office": { templateKey: "paused_office", role: "office" },
   "email.paused_photographer": { templateKey: "paused_photographer", role: "photographer" },
+  "email.flex_booking_confirmation": { templateKey: "flex_booking_confirmation", role: "customer" },
+  "email.flex_booking_disposition": { templateKey: "flex_booking_disposition", role: "customer" },
   "email.cancelled_all": null,
 };
 

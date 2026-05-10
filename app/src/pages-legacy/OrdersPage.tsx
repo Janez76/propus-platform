@@ -31,7 +31,7 @@ import { useOrderStore } from "../store/orderStore";
 import { FilterBar, PageHeader } from "../components/handoff";
 
 type ViewMode = "list" | "kanban" | "calendar" | "map";
-type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "mine";
+type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine";
 
 // Grouped chips per redesign:
 //  Offen        → pending + provisional
@@ -49,8 +49,8 @@ type ChipGroup = {
   hiddenByDefault?: boolean;
 };
 
-const CHIP_GROUPS: ChipGroup[] = [
-  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional"], dot: "#f59e0b" },
+export const CHIP_GROUPS: ChipGroup[] = [
+  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional", "disposition_offen"], dot: "#f59e0b" },
   { id: "confirmed", labelKey: "orders.chip.confirmed", fallbackLabel: "Bestätigt", members: ["confirmed"], dot: "#3b82f6" },
   { id: "completed", labelKey: "orders.chip.completed", fallbackLabel: "Abgeschlossen", members: ["completed", "done"], dot: "#10b981" },
   { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Pausiert", members: ["paused"], dot: "#71717a" },
@@ -111,6 +111,7 @@ export function OrdersPage() {
   const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("none");
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "fixed" | "flexible">("all");
   const [showArchivedChip, setShowArchivedChip] = useState(false);
 
   const [msgNo, setMsgNo] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function OrdersPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<StatusKey, number> = {
       pending: 0,
+      disposition_offen: 0,
       provisional: 0,
       confirmed: 0,
       paused: 0,
@@ -182,6 +184,16 @@ export function OrdersPage() {
       const pEmail = o.photographer?.email?.toLowerCase() || "";
       return Boolean(myEmail && pEmail && myEmail === pEmail);
     }
+    if (quickFilter === "overdueFlex") {
+      // Flex-Auftraege deren Deadline vorbei ist und die noch in Disposition
+      // haengen — so sieht Office sofort, was dringend disponiert werden muss.
+      if (o.bookingKind !== "flexible") return false;
+      if (normalizeStatusKey(o.status) !== "disposition_offen") return false;
+      if (!o.deadlineAt) return false;
+      const dl = new Date(o.deadlineAt);
+      if (Number.isNaN(dl.getTime())) return false;
+      return dl.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    }
     if (!o.appointmentDate) return quickFilter === "overdue" ? false : false;
     const d = new Date(o.appointmentDate);
     if (Number.isNaN(d.getTime())) return false;
@@ -215,11 +227,15 @@ export function OrdersPage() {
         if (photographerFilter !== "all") {
           if ((o.photographer?.key || "") !== photographerFilter) return false;
         }
+        if (kindFilter !== "all") {
+          const kind = o.bookingKind || "fixed";
+          if (kind !== kindFilter) return false;
+        }
         if (!matchesQuickFilter(o)) return false;
         return true;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allOrders, query, statusSelection, photographerFilter, quickFilter, adminProfile, now],
+    [allOrders, query, statusSelection, photographerFilter, kindFilter, quickFilter, adminProfile, now],
   );
 
   const visibleOrderNoSet = useMemo(() => new Set(orders.map((o) => String(o.orderNo))), [orders]);
@@ -437,7 +453,22 @@ export function OrdersPage() {
     [allOrders, lang, now],
   );
 
-  const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || query.length > 0;
+  // Anzahl der Flex-Auftraege deren Deadline bereits vorbei ist und die noch
+  // in Disposition haengen — dringliche Office-Aufgabe.
+  const overdueFlexCount = useMemo(
+    () =>
+      allOrders.filter((o) => {
+        if (o.bookingKind !== "flexible") return false;
+        if (normalizeStatusKey(o.status) !== "disposition_offen") return false;
+        if (!o.deadlineAt) return false;
+        const dl = new Date(o.deadlineAt);
+        if (Number.isNaN(dl.getTime())) return false;
+        return dl.getTime() < new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      }).length,
+    [allOrders, now],
+  );
+
+  const hasAnyActiveFilter = statusSelection.size > 0 || quickFilter !== "none" || photographerFilter !== "all" || kindFilter !== "all" || query.length > 0;
 
   // ── KPIs (Propus admin redesign) ──────────────────────
   // Active = open orders that aren't done/cancelled/archived.
@@ -542,6 +573,12 @@ export function OrdersPage() {
     { id: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
     { id: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
     { id: "overdue", label: `${t(lang, "orders.quick.overdue")}${overdueCount > 0 ? ` (${overdueCount})` : ""}` },
+    // "Flex überfällig" nur einblenden, wenn es überhaupt offene Flex-Aufträge
+    // mit verpasster Deadline gibt — sonst belastet der Pill den Filter-Bar
+    // unnötig für Setups ohne Flex-Buchungen.
+    ...(overdueFlexCount > 0
+      ? [{ id: "overdueFlex", label: `${t(lang, "orders.quick.overdueFlex")} (${overdueFlexCount})` }]
+      : []),
     { id: "mine", label: t(lang, "orders.quick.mine") },
   ];
 
@@ -596,6 +633,16 @@ export function OrdersPage() {
                   <option key={p.key} value={p.key}>{p.name || p.key}</option>
                 ))}
               </select>
+              <select
+                value={kindFilter}
+                onChange={(e) => setKindFilter(e.target.value as "all" | "fixed" | "flexible")}
+                aria-label={t(lang, "orders.filter.kind.label")}
+                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+              >
+                <option value="all">{t(lang, "orders.filter.kind.all")}</option>
+                <option value="fixed">{t(lang, "orders.filter.kind.fixed")}</option>
+                <option value="flexible">{t(lang, "orders.filter.kind.flexible")}</option>
+              </select>
               {hasAnyActiveFilter ? (
                 <button
                   type="button"
@@ -603,6 +650,7 @@ export function OrdersPage() {
                     setStatusSelection(new Set());
                     setQuickFilter("none");
                     setPhotographerFilter("all");
+                    setKindFilter("all");
                     setQuery("");
                   }}
                   className="h-9 rounded-lg border border-[var(--border-soft)] bg-transparent px-3 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
