@@ -31,15 +31,14 @@ export function formatArea(area: number): string {
 
 export function sanitizePhoneInput(input: string): string {
   return String(input || "")
-    .replace(/┬á/g, " ")
     .replace(/[\u00A0\u2007\u202F]/g, " ")
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     // Doppelte CH-Vorwahlen deduplizieren ("+41 +41 ...").
     // Nur literal-doppelte Marker, sonst zerschlagen wir Luzern-Festnetz "+41 41 410 12 34".
-    .replace(/^(+41)(?:s*+41)+/g, "$1")
-    .replace(/^(0041)(?:s*0041)+/g, "$1");
+    .replace(/^(\+41)(?:\s*\+41)+/g, "$1")
+    .replace(/^(0041)(?:\s*0041)+/g, "$1");
 }
 
 /**
