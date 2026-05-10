@@ -3291,6 +3291,24 @@ function absoluteCustomerRedirectTarget(pathOrUrl) {
   }
 }
 
+// /account/* lebt auf PORTAL_BASE_URL (z. B. portal.propus.ch), nicht auf
+// FRONTEND_URL (booking.propus.ch). Ohne separate Helper landen Magic-Link-
+// Redirects sonst auf der Buchungs-Domain und der Kunde sieht das Admin-Login.
+function resolvePortalBaseUrl() {
+  return String(process.env.PORTAL_BASE_URL || "https://portal.propus.ch").trim() || "https://portal.propus.ch";
+}
+
+function absolutePortalRedirectTarget(pathOrUrl) {
+  const portalBase = resolvePortalBaseUrl().replace(/\/?$/, "/");
+  const p = String(pathOrUrl || "/").trim() || "/";
+  if (p.startsWith("http://") || p.startsWith("https://")) return p;
+  try {
+    return new URL(p.startsWith("/") ? p : `/${p}`, portalBase).toString();
+  } catch {
+    return portalBase;
+  }
+}
+
 function customerSessionCookieOptions(maxAgeMs) {
   const options = {
     httpOnly: true,
@@ -3473,7 +3491,7 @@ app.get("/api/customer/magic-link/callback", confirmTokenLimiter, async (req, re
     if (!result) {
       return res.redirect(
         302,
-        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "invalid_token"),
+        appendCustomerAuthQueryParam(resolvePortalBaseUrl(), "auth_error", "invalid_token"),
       );
     }
 
@@ -3490,12 +3508,12 @@ app.get("/api/customer/magic-link/callback", confirmTokenLimiter, async (req, re
     res.cookie("customer_session", sessionToken, customerSessionCookieOptions(days * 24 * 60 * 60 * 1000));
 
     const targetPath = safeCustomerMagicReturnPath(req.query.returnTo);
-    return res.redirect(302, absoluteCustomerRedirectTarget(targetPath));
+    return res.redirect(302, absolutePortalRedirectTarget(targetPath));
   } catch (err) {
     console.error("[customer/magic-link/callback]", err?.message || err);
     return res.redirect(
       302,
-      appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "server_error"),
+      appendCustomerAuthQueryParam(resolvePortalBaseUrl(), "auth_error", "server_error"),
     );
   }
 });
