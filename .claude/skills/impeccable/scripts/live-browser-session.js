@@ -10,7 +10,22 @@
 
   function createLiveBrowserSessionState({ prefix, storage, idFactory }) {
     if (!prefix) throw new Error('prefix required');
-    const store = storage || root.localStorage;
+    // Direkter root.localStorage-Zugriff wirft in sandboxed iframes /
+    // private mode / mit Tracking-Schutz, BEVOR safeRead/Write greifen können.
+    // try/catch + In-Memory-Fallback sorgt dafür, dass die Session nicht
+    // komplett blockiert.
+    let store = storage || null;
+    if (!store) {
+      try { store = root.localStorage; } catch { store = null; }
+    }
+    if (!store) {
+      const mem = new Map();
+      store = {
+        getItem: (k) => (mem.has(k) ? mem.get(k) : null),
+        setItem: (k, v) => { mem.set(k, String(v)); },
+        removeItem: (k) => { mem.delete(k); },
+      };
+    }
     const makeId = idFactory || function () { return Math.random().toString(16).slice(2, 10); };
     const sessionKey = prefix + '-session';
     const handledKey = sessionKey + '-handled';

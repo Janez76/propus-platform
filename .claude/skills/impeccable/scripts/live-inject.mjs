@@ -153,12 +153,16 @@ export function resolveFiles(rootDir, config) {
   const out = [];
   for (const pat of patterns) {
     if (!isGlob(pat)) {
-      // Literal path — include even if it doesn't exist yet; the caller
-      // reports file_not_found per-entry. Exclude list doesn't apply to
-      // explicit literal entries (user named it on purpose).
-      if (!seen.has(pat)) {
-        seen.add(pat);
-        out.push(pat);
+      // Literal path — normalize, dann gegen Repo-Grenze und HARD_EXCLUDES
+      // prüfen. Sonst können absolute Pfade, '../'-Escapes oder explizite
+      // node_modules-Ziele die Hard-Excludes umgehen.
+      const abs = path.resolve(rootDir, pat);
+      const rel = path.relative(rootDir, abs).split(path.sep).join('/');
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      if (isExcluded(rel)) continue;
+      if (!seen.has(rel)) {
+        seen.add(rel);
+        out.push(rel);
       }
       continue;
     }

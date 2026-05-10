@@ -87,7 +87,11 @@ const META_TAG_HINT = /http-equiv\s*=\s*["']Content-Security-Policy["']/i;
 export function detectCsp(cwd = process.cwd()) {
   const hits = { appendArrays: [], appendString: [], middleware: [], metaTag: [] };
 
-  walk(cwd, cwd, 0, (absPath, relPath, body) => {
+  walk(cwd, cwd, 0, (absPath, rawRelPath, body) => {
+    // Auf Windows liefert path.relative '\\' — alle nachfolgenden Regex-Tests
+    // erwarten aber '/'. Posix-normalisieren, damit appendArrays/appendString
+    // /isConfig-Checks plattformunabhängig matchen.
+    const relPath = rawRelPath.split(path.sep).join('/');
     const ext = path.extname(absPath);
     const base = path.basename(absPath).toLowerCase();
     const isConfig = (name) =>
