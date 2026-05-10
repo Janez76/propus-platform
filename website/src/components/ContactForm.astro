@@ -1,8 +1,6 @@
 ---
-/** FormSubmit: erste Anfrage löst Bestätigungs-Mail an diese Adresse aus; danach Zustellung an Postfach. */
-const formSubmitEmail = 'office@propus.ch';
-const formActionFallback = `https://formsubmit.co/${formSubmitEmail}`;
-const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+const contactEndpoint = '/api/contact';
 ---
 
 <div class="contact-form-page">
@@ -10,12 +8,10 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 		<form
 			class="contact-form"
 			id="contact-form"
-			action={formActionFallback}
+			action={contactEndpoint}
 			method="POST"
 			novalidate
 		>
-			<input type="hidden" name="_subject" value="Kontaktanfrage Propus Website" />
-			<input type="hidden" name="_captcha" value="false" />
 			<input
 				type="text"
 				name="_gotcha"
@@ -143,8 +139,27 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 					<p class="contact-form__error" id="cf-message-err" role="alert" hidden></p>
 				</div>
 
+				<div
+					class="cf-turnstile contact-form__turnstile"
+					data-sitekey={turnstileSiteKey}
+					data-size="invisible"
+					data-action="contact"
+					data-execution="execute"
+					data-callback="onPropusContactTurnstileSuccess"
+					data-error-callback="onPropusContactTurnstileError"
+					data-expired-callback="onPropusContactTurnstileExpired"
+					data-timeout-callback="onPropusContactTurnstileTimeout"
+				></div>
+
+				<script
+					is:inline
+					src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+					async
+					defer></script>
+
 				<div class="contact-form__footer">
 					<p class="contact-form__form-error" id="contact-form-global-err" role="alert" hidden></p>
+					<p class="contact-form__bot-note">Spam-Schutz durch Cloudflare Turnstile.</p>
 					<button class="btn btn--primary contact-form__submit" type="submit">Anfrage senden</button>
 					<div
 						class="contact-form__sending"
@@ -184,7 +199,7 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 	</div>
 </div>
 
-<script define:vars={{ formActionAjax }}>
+<script define:vars={{ contactEndpoint }}>
 	function qs(sel, root = document) {
 		return root.querySelector(sel);
 	}
@@ -406,7 +421,83 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 			});
 		});
 
-		form.addEventListener('submit', async (e) => {
+		const resetTurnstile = () => {
+			if (window.turnstile && typeof window.turnstile.reset === 'function') {
+				try { window.turnstile.reset(); } catch (_e) { /* ignore */ }
+			}
+		};
+
+		const sendForm = async (token) => {
+			const f = qs('#contact-form');
+			if (!f) return;
+			try {
+				const fd = new FormData(f);
+				fd.set('cf-turnstile-response', token || '');
+				const res = await minVisible(
+					550,
+					fetch(contactEndpoint, {
+						method: 'POST',
+						body: fd,
+						headers: { Accept: 'application/json' },
+					}),
+				);
+				const data = await res.json().catch(() => ({}));
+				if (res.ok && data && data.ok) {
+					f.reset();
+					showSuccess();
+				} else {
+					const errRaw = data && typeof data === 'object' && data.error != null ? String(data.error) : '';
+					showGlobalError(
+						f,
+						errRaw.trim() || 'Senden fehlgeschlagen. Bitte versuchen Sie es später erneut.',
+					);
+				}
+			} catch {
+				showGlobalError(f, 'Keine Verbindung. Bitte versuchen Sie es später erneut.');
+			} finally {
+				resetTurnstile();
+				setSending(f, false);
+			}
+		};
+
+		window.onPropusContactTurnstileSuccess = (token) => {
+			if (!window.__propusContactPending) return;
+			window.__propusContactPending = false;
+			sendForm(token || '');
+		};
+		window.onPropusContactTurnstileError = (errCode) => {
+			if (!window.__propusContactPending) return;
+			window.__propusContactPending = false;
+			console.warn('[contact] turnstile error', errCode);
+			const f = qs('#contact-form');
+			if (f) {
+				showGlobalError(f, 'Bot-Schutz fehlgeschlagen – bitte erneut absenden oder direkt an office@propus.ch schreiben.');
+				setSending(f, false);
+			}
+			resetTurnstile();
+		};
+		window.onPropusContactTurnstileExpired = () => {
+			if (!window.__propusContactPending) return;
+			window.__propusContactPending = false;
+			const f = qs('#contact-form');
+			if (f) {
+				showGlobalError(f, 'Bot-Prüfung abgelaufen – bitte erneut absenden.');
+				setSending(f, false);
+			}
+			resetTurnstile();
+		};
+		window.onPropusContactTurnstileTimeout = () => {
+			if (!window.__propusContactPending) return;
+			window.__propusContactPending = false;
+			const f = qs('#contact-form');
+			if (f) {
+				showGlobalError(f, 'Bot-Prüfung dauerte zu lange – bitte Seite neu laden und erneut versuchen.');
+				setSending(f, false);
+			}
+			resetTurnstile();
+		};
+
+		form.addEventListener('submit', (e) => {
 			if (!validate(form)) {
 				e.preventDefault();
 				const firstInvalid =
@@ -421,32 +512,20 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 			}
 
 			e.preventDefault();
-			setSending(form, true);
 
+			if (!window.turnstile || typeof window.turnstile.execute !== 'function') {
+				showGlobalError(form, 'Bot-Schutz konnte nicht geladen werden – bitte Seite neu laden und erneut versuchen.');
+				return;
+			}
+
+			setSending(form, true);
+			window.__propusContactPending = true;
 			try {
-				const res = await minVisible(
-					550,
-					fetch(formActionAjax, {
-						method: 'POST',
-						body: new FormData(form),
-						headers: { Accept: 'application/json' },
-					}),
-				);
-				const data = await res.json().catch(() => ({}));
-				if (res.ok) {
-					form.reset();
-					showSuccess();
-				} else {
-					const errRaw =
-						data && typeof data === 'object' && data.error != null ? String(data.error) : '';
-					showGlobalError(
-						form,
-						errRaw.trim() || 'Senden fehlgeschlagen. Bitte versuchen Sie es später erneut.',
-					);
-				}
-			} catch {
-				showGlobalError(form, 'Keine Verbindung. Bitte versuchen Sie es später erneut.');
-			} finally {
+				window.turnstile.execute();
+			} catch (err) {
+				window.__propusContactPending = false;
+				console.warn('[contact] turnstile.execute() threw', err);
+				showGlobalError(form, 'Bot-Schutz konnte nicht gestartet werden – bitte Seite neu laden.');
 				setSending(form, false);
 			}
 		});
@@ -546,6 +625,23 @@ const formActionAjax = `https://formsubmit.co/ajax/${formSubmitEmail}`;
 		overflow: hidden;
 		opacity: 0;
 		pointer-events: none;
+	}
+
+	/* Turnstile (invisible) — kein eigener Platz im Layout; CF zeigt bei Bedarf ein Modal-Overlay nach Submit. */
+	.contact-form__turnstile {
+		position: absolute;
+		width: 0;
+		height: 0;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.contact-form__bot-note {
+		margin: 0;
+		font-size: 0.6875rem;
+		letter-spacing: 0.04em;
+		color: var(--color-text-muted);
+		opacity: 0.75;
 	}
 
 	.contact-form__fields {
