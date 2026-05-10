@@ -9,7 +9,14 @@ function parseArgs(argv) {
   const out = { id: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--id') out.id = argv[++i];
+    if (arg === '--id') {
+      const v = argv[i + 1];
+      if (!v || v.startsWith('-')) {
+        throw new Error('Missing value for --id');
+      }
+      out.id = v;
+      i++;
+    }
     else if (arg.startsWith('--id=')) out.id = arg.slice('--id='.length);
     else if (arg === '--help' || arg === '-h') out.help = true;
   }
@@ -24,7 +31,16 @@ export async function resumeCli() {
   }
 
   const store = createLiveSessionStore({ cwd: process.cwd(), sessionId: args.id || undefined });
-  const snapshot = args.id ? store.getSnapshot(args.id) : store.listActiveSessions()[0] || null;
+  // Ohne --id die zuletzt aktualisierte Session wählen (nicht alphabetisch erste).
+  let snapshot = null;
+  if (args.id) {
+    snapshot = store.getSnapshot(args.id);
+  } else {
+    const sessions = store.listActiveSessions().slice().sort(
+      (a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0)
+    );
+    snapshot = sessions[0] || null;
+  }
   if (!snapshot) {
     console.log(JSON.stringify({ active: false, nextAction: 'No active durable live session found.' }, null, 2));
     return;
@@ -44,5 +60,8 @@ export async function resumeCli() {
 
 const _running = process.argv[1];
 if (_running?.endsWith('live-resume.mjs') || _running?.endsWith('live-resume.mjs/')) {
-  resumeCli();
+  resumeCli().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+  });
 }

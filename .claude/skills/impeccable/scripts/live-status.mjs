@@ -12,12 +12,22 @@ function readServerInfo() {
 
 async function fetchServerStatus(info) {
   if (!info) return null;
+  // Token im Authorization-Header statt Query-String, damit es nicht in
+  // Logs/Shell-History landet. AbortController, damit ein hängender Server
+  // die CLI nicht blockiert.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
   try {
-    const res = await fetch(`http://localhost:${info.port}/status?token=${info.token}`);
+    const res = await fetch(`http://localhost:${info.port}/status`, {
+      headers: { Authorization: `Bearer ${info.token}` },
+      signal: controller.signal,
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -43,5 +53,8 @@ export async function statusCli() {
 
 const _running = process.argv[1];
 if (_running?.endsWith('live-status.mjs') || _running?.endsWith('live-status.mjs/')) {
-  statusCli();
+  statusCli().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
+  });
 }

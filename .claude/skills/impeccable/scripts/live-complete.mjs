@@ -8,12 +8,25 @@ import { readLiveServerInfo } from './impeccable-paths.mjs';
 
 function parseArgs(argv) {
   const out = { status: 'complete' };
+  const takeValue = (i) => {
+    const v = argv[i + 1];
+    return (!v || v.startsWith('--')) ? undefined : v;
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--id') out.id = argv[++i];
+    if (arg === '--id') {
+      const v = takeValue(i);
+      if (v === undefined) { out.help = true; continue; }
+      out.id = v; i++;
+    }
     else if (arg.startsWith('--id=')) out.id = arg.slice('--id='.length);
     else if (arg === '--discarded' || arg === '--discard') out.status = 'discarded';
-    else if (arg === '--error') { out.status = 'agent_error'; out.message = argv[++i] || 'unknown error'; }
+    else if (arg === '--error') {
+      const v = takeValue(i);
+      out.status = 'agent_error';
+      out.message = v || 'unknown error';
+      if (v !== undefined) i++;
+    }
     else if (arg.startsWith('--error=')) { out.status = 'agent_error'; out.message = arg.slice('--error='.length); }
     else if (arg === '--help' || arg === '-h') out.help = true;
   }
@@ -56,16 +69,24 @@ async function completeThroughServer(info, args) {
     : args.status === 'agent_error'
       ? 'error'
       : 'complete';
+  // Timeout via AbortController, sonst hängt der CLI-Pfad bei
+  // Netzwerk-/Socket-Problemen unbegrenzt statt sauber auf den
+  // Store-Fallback durchzufallen.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`http://localhost:${info.port}/poll`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
       body: JSON.stringify({ token: info.token, id: args.id, type, message: args.message }),
     });
     if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -52,6 +52,10 @@ The agent should insert variant HTML at insertLine.`);
 
   const id = argVal(args, '--id');
   const count = parseInt(argVal(args, '--count') || '3');
+  if (!Number.isInteger(count) || count < 1 || count > 8) {
+    console.error('Invalid --count: must be integer 1–8');
+    process.exit(1);
+  }
   const elementId = argVal(args, '--element-id');
   const classes = argVal(args, '--classes');
   const tag = argVal(args, '--tag');
