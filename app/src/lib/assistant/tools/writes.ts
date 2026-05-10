@@ -529,7 +529,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       type AddonOut = { id: string; label: string; price: number; qty?: number; group?: string };
       let servicesJson: Record<string, unknown>;
       let pricingJson: Record<string, unknown> = {};
-      let resolvedItemSummary: string[] = [];
+      const resolvedItemSummary: string[] = [];
 
       if (serviceItems.length > 0 || hasCustomItems) {
         const codes = Array.from(new Set(serviceItems.map((s) => s.code)));
