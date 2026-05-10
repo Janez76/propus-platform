@@ -159,7 +159,12 @@ export function useDashboardMetrics(orders: Order[], now: Date) {
     const currentCapacity = capacityData[capacityData.length - 1];
 
     // Pipeline buckets
-    const isAngefragt = (o: Order) => statusMatches(o.status, "pending");
+    // `disposition_offen` (Flex-Auftrag wartet auf Office-Disposition) hat
+    // semantisch keinen Termin — gehoert in "Angefragt", sonst faellt der Auftrag
+    // durch alle vier Pipeline-Buckets, weil Geplant/InProgress `appointmentDate`
+    // erfordern und Geliefert nur done/completed greift.
+    const isAngefragt = (o: Order) =>
+      statusMatches(o.status, "pending") || statusMatches(o.status, "disposition_offen");
     const isGeplant = (o: Order) =>
       (statusMatches(o.status, "provisional") || statusMatches(o.status, "confirmed")) &&
       !!o.appointmentDate &&

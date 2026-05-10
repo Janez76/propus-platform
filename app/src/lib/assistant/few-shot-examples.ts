@@ -104,6 +104,33 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["auftrag", "booking", "kein termin", "flexibel", "deadline"],
   },
   {
+    id: "order-multiple-contacts-ask",
+    user: "Auftrag für CSL Immobilien, Attenhoferstrasse 37 Jona, Bodenfotos + Tour",
+    assistantToolPlan:
+      "search_customers (CSL) → contactNames zeigt mehrere Eintraege. get_customer_contacts(customer_id) für Liste mit E-Mails. NICHT stillschweigend den primären Kontakt nehmen — explizit nachfragen welcher Kontakt der Auftraggeber ist. Den gewählten Kontakt im notes-Feld von create_order festhalten, damit Office im Detail nachvollziehen kann (Tool persistiert keine contact_id).",
+    assistantFinal:
+      "Frage: 'Bei CSL Immobilien sind mehrere Kontakte hinterlegt — Annette, Cvacho Jordan, Iemmello. Wer ist der Auftraggeber für diese Aufnahme?' Erst nach Antwort weiter mit Services + Buchungsart.",
+    tags: ["auftrag", "booking", "kontaktperson", "kontakt", "ruckfrage"],
+  },
+  {
+    id: "order-skip-customer-mail",
+    user: "Auftrag CSL Attenhoferstrasse 37 anlegen, aber keine Mail an den Kunden",
+    assistantToolPlan:
+      "Normalflow (search_customers, list_available_services, Adresse + Buchungsart). Beim create_order zusaetzlich `skip_customer_email: true` setzen. Office-Mail bleibt automatisch, damit Office den Auftrag sieht.",
+    assistantFinal:
+      "Zusammenfassung mit Hinweis 'Kunde bekommt KEINE Bestaetigungsmail (auf deinen Wunsch)' und Bestaetigung einholen. Nach create_order: 'Auftrag #X angelegt, Office wurde informiert, Kunde bekam keine Mail.'",
+    tags: ["auftrag", "booking", "skip mail", "kein versand", "test", "ohne kundenmail"],
+  },
+  {
+    id: "order-unknown-service-ask",
+    user: "Auftrag CSL, Drohnenvideos und Twilight-Shooting",
+    assistantToolPlan:
+      "list_available_services prüfen — wenn 'Twilight' kein eindeutiger Code im Katalog ist, NICHT auf services-Booleans ausweichen (würde CHF 0.00 liefern). Stattdessen den Nutzer fragen, ob ein vorhandener Code passt oder Office den Service erst im Katalog anlegen muss.",
+    assistantFinal:
+      "Frage: 'Twilight-Shooting finde ich im Produktkatalog so nicht. Soll ich es als Spezialposition aufnehmen, die Office im Leistungen-Tab nachzieht — oder gibt es einen passenden bestehenden Code (z. B. ein Premium-Foto-Paket)? Dann lege ich's mit echtem Preis an.'",
+    tags: ["auftrag", "booking", "service", "produktcode", "ruckfrage", "pricing"],
+  },
+  {
     id: "weather-honest-ch",
     user: "Wie wird das Wetter morgen in Bern?",
     assistantToolPlan:
