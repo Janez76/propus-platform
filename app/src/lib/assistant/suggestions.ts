@@ -27,7 +27,7 @@ export function extractSuggestions(content: string): SuggestionExtraction {
     .map((s) => s.trim())
     .filter(Boolean)
     // Caps gegen ueberlange/zu viele Chips, die das Layout sprengen wuerden.
-    .slice(0, 8)
+    .slice(0, 6)
     .map((s) => (s.length > 80 ? s.slice(0, 77) + "..." : s));
   return {
     displayContent: content.replace(OPTIONS_MARKER, "").trimEnd(),
