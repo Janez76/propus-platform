@@ -139,21 +139,12 @@ const contactEndpoint = '/api/contact';
 					<p class="contact-form__error" id="cf-message-err" role="alert" hidden></p>
 				</div>
 
-				<div
-					class="cf-turnstile contact-form__turnstile"
-					data-sitekey={turnstileSiteKey}
-					data-size="invisible"
-					data-action="contact"
-					data-execution="execute"
-					data-callback="onPropusContactTurnstileSuccess"
-					data-error-callback="onPropusContactTurnstileError"
-					data-expired-callback="onPropusContactTurnstileExpired"
-					data-timeout-callback="onPropusContactTurnstileTimeout"
-				></div>
+				<!-- Explizites Rendering per JS (Astro View Transitions: implizites Scanning greift nach clientseitiger Navigation nicht zuverlässig). -->
+				<div id="propus-contact-turnstile" class="contact-form__turnstile"></div>
 
 				<script
 					is:inline
-					src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+					src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
 					async
 					defer></script>
 
@@ -199,7 +190,7 @@ const contactEndpoint = '/api/contact';
 	</div>
 </div>
 
-<script define:vars={{ contactEndpoint }}>
+<script define:vars={{ contactEndpoint, turnstileSiteKey }}>
 	function qs(sel, root = document) {
 		return root.querySelector(sel);
 	}
@@ -421,9 +412,17 @@ const contactEndpoint = '/api/contact';
 			});
 		});
 
+		const turnstileHost = qs('#propus-contact-turnstile', form);
+		if (!turnstileHost) return;
+
 		const resetTurnstile = () => {
-			if (window.turnstile && typeof window.turnstile.reset === 'function') {
-				try { window.turnstile.reset(); } catch (_e) { /* ignore */ }
+			const wid = form.dataset.propusTurnstileWidgetId;
+			if (window.turnstile && wid && typeof window.turnstile.reset === 'function') {
+				try {
+					window.turnstile.reset(wid);
+				} catch (_e) {
+					/* ignore */
+				}
 			}
 		};
 
@@ -460,42 +459,80 @@ const contactEndpoint = '/api/contact';
 			}
 		};
 
-		window.onPropusContactTurnstileSuccess = (token) => {
-			if (!window.__propusContactPending) return;
-			window.__propusContactPending = false;
-			sendForm(token || '');
-		};
-		window.onPropusContactTurnstileError = (errCode) => {
-			if (!window.__propusContactPending) return;
-			window.__propusContactPending = false;
-			console.warn('[contact] turnstile error', errCode);
-			const f = qs('#contact-form');
-			if (f) {
-				showGlobalError(f, 'Bot-Schutz fehlgeschlagen – bitte erneut absenden oder direkt an office@propus.ch schreiben.');
-				setSending(f, false);
+		let turnstileMountPromise = null;
+		function ensureContactTurnstile() {
+			const key = (turnstileSiteKey || '').trim();
+			if (!key) {
+				return Promise.reject(new Error('no_sitekey'));
 			}
-			resetTurnstile();
-		};
-		window.onPropusContactTurnstileExpired = () => {
-			if (!window.__propusContactPending) return;
-			window.__propusContactPending = false;
-			const f = qs('#contact-form');
-			if (f) {
-				showGlobalError(f, 'Bot-Prüfung abgelaufen – bitte erneut absenden.');
-				setSending(f, false);
+			if (!window.turnstile) {
+				return Promise.reject(new Error('no_turnstile'));
 			}
-			resetTurnstile();
-		};
-		window.onPropusContactTurnstileTimeout = () => {
-			if (!window.__propusContactPending) return;
-			window.__propusContactPending = false;
-			const f = qs('#contact-form');
-			if (f) {
-				showGlobalError(f, 'Bot-Prüfung dauerte zu lange – bitte Seite neu laden und erneut versuchen.');
-				setSending(f, false);
+			if (turnstileMountPromise) {
+				return turnstileMountPromise;
 			}
-			resetTurnstile();
-		};
+			turnstileMountPromise = new Promise((resolve, reject) => {
+				window.turnstile.ready(() => {
+					try {
+						const prev = form.dataset.propusTurnstileWidgetId;
+						if (prev) {
+							try {
+								window.turnstile.remove(prev);
+							} catch (_e) {
+								/* ignore */
+							}
+							delete form.dataset.propusTurnstileWidgetId;
+						}
+						turnstileHost.innerHTML = '';
+						const wid = window.turnstile.render(turnstileHost, {
+							sitekey: key,
+							action: 'contact',
+							size: 'invisible',
+							execution: 'execute',
+							callback: (token) => {
+								if (!window.__propusContactPending) return;
+								window.__propusContactPending = false;
+								sendForm(token || '');
+							},
+							'error-callback': (errCode) => {
+								if (!window.__propusContactPending) return;
+								window.__propusContactPending = false;
+								console.warn('[contact] turnstile error', errCode);
+								showGlobalError(
+									form,
+									'Bot-Schutz fehlgeschlagen – bitte erneut absenden oder direkt an office@propus.ch schreiben.',
+								);
+								setSending(form, false);
+								resetTurnstile();
+							},
+							'expired-callback': () => {
+								if (!window.__propusContactPending) return;
+								window.__propusContactPending = false;
+								showGlobalError(form, 'Bot-Prüfung abgelaufen – bitte erneut absenden.');
+								setSending(form, false);
+								resetTurnstile();
+							},
+							'timeout-callback': () => {
+								if (!window.__propusContactPending) return;
+								window.__propusContactPending = false;
+								showGlobalError(
+									form,
+									'Bot-Prüfung dauerte zu lange – bitte Seite neu laden und erneut versuchen.',
+								);
+								setSending(form, false);
+								resetTurnstile();
+							},
+						});
+						form.dataset.propusTurnstileWidgetId = String(wid);
+						resolve(wid);
+					} catch (err) {
+						turnstileMountPromise = null;
+						reject(err);
+					}
+				});
+			});
+			return turnstileMountPromise;
+		}
 
 		form.addEventListener('submit', (e) => {
 			if (!validate(form)) {
@@ -513,6 +550,14 @@ const contactEndpoint = '/api/contact';
 
 			e.preventDefault();
 
+			if (!(turnstileSiteKey || '').trim()) {
+				showGlobalError(
+					form,
+					'Bot-Schutz nicht konfiguriert. Bitte direkt an office@propus.ch schreiben.',
+				);
+				return;
+			}
+
 			if (!window.turnstile || typeof window.turnstile.execute !== 'function') {
 				showGlobalError(form, 'Bot-Schutz konnte nicht geladen werden – bitte Seite neu laden und erneut versuchen.');
 				return;
@@ -520,14 +565,18 @@ const contactEndpoint = '/api/contact';
 
 			setSending(form, true);
 			window.__propusContactPending = true;
-			try {
-				window.turnstile.execute();
-			} catch (err) {
-				window.__propusContactPending = false;
-				console.warn('[contact] turnstile.execute() threw', err);
-				showGlobalError(form, 'Bot-Schutz konnte nicht gestartet werden – bitte Seite neu laden.');
-				setSending(form, false);
-			}
+			void (async () => {
+				try {
+					await ensureContactTurnstile();
+					/* Cloudflare: execute() braucht Container oder Widget-ID; ohne Argument wird oft eine Exception geworfen. */
+					window.turnstile.execute(turnstileHost);
+				} catch (err) {
+					window.__propusContactPending = false;
+					console.warn('[contact] turnstile mount/execute failed', err);
+					showGlobalError(form, 'Bot-Schutz konnte nicht gestartet werden – bitte Seite neu laden.');
+					setSending(form, false);
+				}
+			})();
 		});
 
 		form.addEventListener(
