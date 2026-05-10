@@ -12,6 +12,10 @@ COPY . .
 ARG SUPABASE_URL=""
 ENV SUPABASE_URL=$SUPABASE_URL
 
+# Öffentlicher Turnstile-Site-Key — zur Build-Zeit in Client-Bundle (import.meta.env.PUBLIC_*).
+ARG PUBLIC_TURNSTILE_SITE_KEY=""
+ENV PUBLIC_TURNSTILE_SITE_KEY=$PUBLIC_TURNSTILE_SITE_KEY
+
 RUN npm run build
 
 # ─── Stage 2: Runtime ────────────────────────────────────────────────────────

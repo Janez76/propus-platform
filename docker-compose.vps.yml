@@ -241,6 +241,7 @@ services:
       dockerfile: Dockerfile
       args:
         SUPABASE_URL: ${WEBSITE_SUPABASE_URL}
+        PUBLIC_TURNSTILE_SITE_KEY: ${PUBLIC_TURNSTILE_SITE_KEY:-}
     ports:
       - "127.0.0.1:${WEBSITE_PORT:-4343}:4343"
     environment:
@@ -265,6 +266,13 @@ services:
       GUIDELINE_SECRET: ${WEBSITE_GUIDELINE_SECRET:-}
       GUIDELINE_PASSWORD: ${WEBSITE_GUIDELINE_PASSWORD:-}
       GUIDELINE_CSRF_ORIGINS: ${WEBSITE_GUIDELINE_CSRF_ORIGINS:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      CONTACT_SMTP_HOST: ${CONTACT_SMTP_HOST:-}
+      CONTACT_SMTP_PORT: ${CONTACT_SMTP_PORT:-587}
+      CONTACT_SMTP_USER: ${CONTACT_SMTP_USER:-}
+      CONTACT_SMTP_PASS: ${CONTACT_SMTP_PASS:-}
+      CONTACT_FROM: ${CONTACT_FROM:-}
+      CONTACT_TO: ${CONTACT_TO:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4343/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
