@@ -609,9 +609,9 @@ export function PosteingangPage() {
                     onClick={() => {
                       const conv = detail.conversation;
                       const lastInbound = [...detail.messages].reverse().find((m) => m.direction === "inbound");
-                      const sender = lastInbound?.from_email || conv.last_inbound_from || "";
+                      const sender = lastInbound?.from_email || "";
                       const subject = conv.subject || "";
-                      const customer = conv.customer?.name || conv.customer?.company || "";
+                      const customer = conv.customer_name || "";
                       const bodyExcerpt = lastInbound?.body_text
                         ? lastInbound.body_text.replace(/\s+/g, " ").trim().slice(0, 600)
                         : "";
