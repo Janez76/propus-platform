@@ -67,13 +67,18 @@ Sobald der Server läuft, sind unter anderem diese Tools verfügbar
 - **Erstellen / Bearbeiten** von Notizen
 - **Tags** und Backlinks abfragen
 
+> ⚠️ **Sicherheit**: Das Plugin hat **Schreibrechte** auf den Vault. Vor erstem
+> Einsatz Vault-Backup machen (Obsidian Sync, Git, Nextcloud) und nur in
+> vertrauenswürdigen Vaults aktivieren. Bei sensiblen Notizen empfiehlt sich
+> ein dedizierter "Claude-Vault" statt der Hauptvault.
+
 ## Troubleshooting
 
 | Symptom | Ursache | Fix |
 |---|---|---|
 | `mcp-remote` Connection-refused | Obsidian zu, oder Plugin nicht aktiviert | Obsidian öffnen, Plugin enablen |
 | Port belegt | anderer Dienst auf 22360 | Plugin-Port ändern, `.mcp.json` nachziehen |
-| Server taucht nach Restart nicht auf | Cache | `npx mcp-remote http://localhost:22360/sse` einmal manuell laufen lassen |
+| Server taucht nach Restart nicht auf | Cache | `npx -y mcp-remote@0.1.38 http://localhost:22360/sse` einmal manuell laufen lassen |
 | Mehrere Claude Code-Instanzen | Plugin bedient nur eine | pro Vault einen Port vergeben |
 
 ## Web-Sessions / VPS

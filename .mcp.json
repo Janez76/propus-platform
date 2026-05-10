@@ -13,7 +13,7 @@
     },
     "obsidian": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:22360/sse"],
+      "args": ["-y", "mcp-remote@0.1.38", "http://localhost:22360/sse"],
       "env": {}
     }
   }
