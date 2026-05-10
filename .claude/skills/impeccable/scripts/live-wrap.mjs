@@ -51,8 +51,14 @@ The agent should insert variant HTML at insertLine.`);
   }
 
   const id = argVal(args, '--id');
-  const count = parseInt(argVal(args, '--count') || '3');
-  if (!Number.isInteger(count) || count < 1 || count > 8) {
+  // Strenge Validierung: nur ganze Ziffern (parseInt akzeptiert "3abc"/"2.5").
+  const countRaw = argVal(args, '--count') || '3';
+  if (!/^\d+$/.test(countRaw)) {
+    console.error('Invalid --count: must be integer 1–8');
+    process.exit(1);
+  }
+  const count = Number(countRaw);
+  if (count < 1 || count > 8) {
     console.error('Invalid --count: must be integer 1–8');
     process.exit(1);
   }

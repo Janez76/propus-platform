@@ -41,7 +41,9 @@ export function isGeneratedFile(filePath, options = {}) {
 
 function isGitIgnored(absPath, cwd) {
   try {
-    execFileSync('git', ['check-ignore', '--quiet', absPath], {
+    // '--' Separator vor absPath — verhindert dass Pfade beginnend mit '-'
+    // als git-Option interpretiert werden.
+    execFileSync('git', ['check-ignore', '--quiet', '--', absPath], {
       cwd,
       stdio: 'ignore',
     });

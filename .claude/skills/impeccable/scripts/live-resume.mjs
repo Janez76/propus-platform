@@ -36,8 +36,10 @@ export async function resumeCli() {
   if (args.id) {
     snapshot = store.getSnapshot(args.id);
   } else {
+    // Date.parse(0) → NaN. Erst parsen, dann || 0, damit fehlende/unparsbare
+    // Timestamps deterministisch zu 0 fallen.
     const sessions = store.listActiveSessions().slice().sort(
-      (a, b) => Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0)
+      (a, b) => (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0)
     );
     snapshot = sessions[0] || null;
   }

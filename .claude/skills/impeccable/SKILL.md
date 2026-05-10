@@ -7,7 +7,19 @@ argument-hint: "[craft|shape · audit|critique · animate|bolder|colorize|deligh
 license: Apache 2.0. Based on Anthropic's frontend-design skill. See NOTICE.md for attribution.
 allowed-tools:
   - Bash(npx impeccable *)
-  - Bash(node .claude/skills/impeccable/scripts/*)
+  - Bash(node .claude/skills/impeccable/scripts/load-context.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-poll.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-wrap.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-accept.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-complete.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-status.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-resume.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-server.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/live-inject.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/detect-csp.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/pin.mjs*)
+  - Bash(node .claude/skills/impeccable/scripts/cleanup-deprecated.mjs*)
 ---
 
 Designs and iterates production-grade frontend interfaces. Real working code, committed design choices, exceptional craft.
