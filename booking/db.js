@@ -2292,6 +2292,45 @@ async function deletePasswordResetToken(customerId) {
   await query("DELETE FROM customer_password_resets WHERE customer_id = $1", [customerId]);
 }
 
+// ─── Magic-Link Login Tokens ─────────────────────────────────────────────────
+//
+// Self-Serve passwortloser Login: customer_login_tokens speichert
+// Single-Use-Tokens, die per Mail an den Kunden gehen. Nach Einlosen wird ein
+// regulaerer core.customer_sessions-Eintrag erzeugt (siehe createCustomerSession).
+//
+// Unterschied zu customer_password_resets: hier setzen wir kein Passwort, der
+// erfolgreiche Token-Verbrauch authentifiziert direkt eine Session.
+
+async function createCustomerLoginToken({ customerId, tokenHash, expiresAt, purpose = "login", ip = null }) {
+  const { rows } = await query(
+    `INSERT INTO customer_login_tokens (customer_id, token_hash, purpose, expires_at, created_ip)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id`,
+    [customerId, tokenHash, purpose, expiresAt, ip]
+  );
+  return rows[0]?.id || null;
+}
+
+async function consumeCustomerLoginToken(tokenHash) {
+  const { rows } = await query(
+    `UPDATE customer_login_tokens
+       SET consumed_at = NOW()
+     WHERE token_hash = $1
+       AND consumed_at IS NULL
+       AND expires_at > NOW()
+     RETURNING customer_id, purpose`,
+    [tokenHash]
+  );
+  if (!rows[0]) return null;
+  return { customerId: rows[0].customer_id, purpose: rows[0].purpose };
+}
+
+async function deleteExpiredCustomerLoginTokens() {
+  await query(
+    "DELETE FROM customer_login_tokens WHERE expires_at < NOW() - INTERVAL '7 days'"
+  );
+}
+
 // ─── Fotografen-Einstellungen ─────────────────────────────────────────────────
 
 async function getPhotographer(key) {
@@ -2775,6 +2814,9 @@ module.exports = {
   createPasswordResetToken,
   verifyPasswordResetToken,
   deletePasswordResetToken,
+  createCustomerLoginToken,
+  consumeCustomerLoginToken,
+  deleteExpiredCustomerLoginTokens,
   getPhotographer,
   getPhotographerPhone,
   getPhotographerSettings,

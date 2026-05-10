@@ -155,6 +155,7 @@ const {
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
+const customerMagicLink = require("./customer-magic-link");
 const { authLimiter, confirmTokenLimiter, passwordResetLimiter, bookingLimiter } = require("./rate-limiters");
 const travel = require("./travel");
 const { resolveAnyPhotographer, resolveExplicitPhotographer, buildNeededSkills } = require("./photographer-resolver");
@@ -3408,6 +3409,94 @@ app.post("/api/customer/login", authLimiter, async (req, res) => {
   } catch (err) {
     console.error("[customer/login]", err?.message || err);
     res.status(500).json({ error: err?.message || "Login fehlgeschlagen" });
+  }
+});
+
+// ─── Self-Serve Magic-Link Login ─────────────────────────────────────────────
+// Passwortloser Login-Flow:
+//   1. POST /api/customer/magic-link/request { email }
+//      -> Antwortet IMMER 200 (kein Account-Enumeration). Sendet Mail, falls
+//         ein Account existiert.
+//   2. GET /api/customer/magic-link/callback?token=...
+//      -> Konsumiert Token, erzeugt customer_session, redirectet ins Frontend.
+//
+// Nutzt fuer Identitaet ausschliesslich core.customers + core.customer_sessions.
+// Tour-Manager (portal_users / portal_team_members) wird nicht angefasst — der
+// passwortbasierte Login in POST /api/customer/login bleibt unveraendert
+// daneben verfuegbar.
+
+async function _sendCustomerLoginEmail(toEmail, subject, html, text) {
+  if (mailer) {
+    await mailer.sendMail({ from: MAIL_FROM, to: toEmail, subject, html, text });
+    return;
+  }
+  await sendMailViaGraph(toEmail, subject, html, text, null);
+}
+
+app.post("/api/customer/magic-link/request", passwordResetLimiter, async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL) {
+      // Kein Account-Enumeration — auch ohne DB neutral antworten.
+      return res.json({ ok: true });
+    }
+    const email = String(req.body?.email || "").trim();
+    if (!email) return res.status(400).json({ error: "E-Mail erforderlich" });
+
+    const ip = String(req.ip || req.headers["x-forwarded-for"] || "").split(",")[0].trim() || null;
+    const frontendBaseUrl = String(process.env.FRONTEND_URL || "https://booking.propus.ch").trim();
+
+    await customerMagicLink.requestLoginLink(
+      {
+        db,
+        sendMail: _sendCustomerLoginEmail,
+        frontendBaseUrl,
+        callbackPath: "/api/customer/magic-link/callback",
+      },
+      email,
+      ip,
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[customer/magic-link/request]", err?.message || err);
+    // Auch im Fehlerfall neutral antworten — kein Leak.
+    return res.json({ ok: true });
+  }
+});
+
+app.get("/api/customer/magic-link/callback", confirmTokenLimiter, async (req, res) => {
+  try {
+    const rawToken = String(req.query.token || "").trim();
+    const result = rawToken
+      ? await customerMagicLink.consumeLoginToken({ db }, rawToken)
+      : null;
+
+    if (!result) {
+      return res.redirect(
+        302,
+        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "invalid_token"),
+      );
+    }
+
+    const customer = result.customer;
+    const sessionToken = customerAuth.createSessionToken();
+    const sessionTokenHash = customerAuth.hashSha256Hex(sessionToken);
+    const days = Math.max(1, Number(CUSTOMER_SESSION_DAYS) || 30);
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    await db.createCustomerSession({
+      customerId: Number(customer.id),
+      tokenHash: sessionTokenHash,
+      expiresAt,
+    });
+    res.cookie("customer_session", sessionToken, customerSessionCookieOptions(days * 24 * 60 * 60 * 1000));
+
+    const targetPath = safeCustomerMagicReturnPath(req.query.returnTo);
+    return res.redirect(302, absoluteCustomerRedirectTarget(targetPath));
+  } catch (err) {
+    console.error("[customer/magic-link/callback]", err?.message || err);
+    return res.redirect(
+      302,
+      appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "server_error"),
+    );
   }
 });
 
