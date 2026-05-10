@@ -220,6 +220,11 @@ export const writeTools: ToolDefinition[] = [
       type: "object",
       properties: {
         customer_id: { type: "number", description: "Kunden-ID (aus search_customers)" },
+        contact_id: {
+          type: "number",
+          description:
+            "Optionale customer_contacts.id wenn der Auftraggeber NICHT der primaere Kunde ist (Firma mit mehreren Kontakten). Tool ueberschreibt billing.name + billing.email mit dem Kontakt. Bei nur einem oder keinem Kontakt weglassen.",
+        },
         address: { type: "string", description: "Objektadresse (wo fotografiert werden soll)" },
         service_items: {
           type: "array",
@@ -428,10 +433,32 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // ganze Outbox-Integration eigentlich verhindern soll (Bug-Hunt HIGH-5).
       // Lieber das Modell zwingen, beim User nach der E-Mail zu fragen, als
       // schweigend einen halben Workflow zu produzieren.
-      const customerEmail = (customer.email || "").trim();
+      // Optionaler Kontakt-Override fuer Firmen mit mehreren customer_contacts.
+      // Wenn gesetzt, ueberschreibt der Kontakt billing.name + billing.email,
+      // damit Liste/Detail/Mail den Auftraggeber zeigen, nicht den primaeren
+      // Kunden-Datensatz (sonst Symptom: #100110 zeigte 'Cvacho Jordan' obwohl
+      // Auftraggeber Annette Doerfel war).
+      const contactId = optionalPositiveInt(input.contact_id);
+      let contactName: string | null = null;
+      let contactEmail: string | null = null;
+      if (contactId) {
+        const contact = await runQueryOne<{ name: string | null; email: string | null }>(
+          `SELECT name, email FROM core.customer_contacts WHERE id = $1 AND customer_id = $2`,
+          [contactId, customerId],
+        );
+        if (!contact) {
+          return { error: `Kontakt ${contactId} nicht bei Kunde ${customerId} gefunden — mit get_customer_contacts pruefen.` };
+        }
+        contactName = (contact.name || "").trim() || null;
+        contactEmail = (contact.email || "").trim() || null;
+      }
+
+      const customerEmail = (contactEmail || customer.email || "").trim();
       if (!customerEmail) {
         return {
-          error: `Kunde ${customerId} hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.`,
+          error: contactId
+            ? `Kunde ${customerId} (Kontakt ${contactId}) hat keine E-Mail-Adresse hinterlegt — bitte E-Mail erfaessen, dann erneut versuchen.`
+            : `Kunde ${customerId} hat keine E-Mail-Adresse hinterlegt — bitte E-Mail beim Kunden ergaenzen, dann erneut versuchen.`,
         };
       }
 
@@ -656,9 +683,12 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       const scheduleJson = scheduleDate ? { date: scheduleDate, ...(scheduleTime ? { time: scheduleTime } : {}) } : {};
       const photographerJson = photographerKey ? { key: photographerKey } : {};
       const billingJson = {
-        name: customer.name || customer.company || "",
+        // Wenn ein Kontakt gewaehlt wurde, ist der Auftraggeber dieser Kontakt —
+        // sonst Fallback auf den primaeren Kunden-Datensatz.
+        name: contactName || customer.name || customer.company || "",
         email: customerEmail,
         ...(customer.company ? { company: customer.company } : {}),
+        ...(contactId ? { contactId } : {}),
       };
       // Object-Infos werden mitgespeichert, damit area_tier-/per_floor-Pricing
       // und Tour-Verknuepfungen spaeter dieselben Werte sehen wie der Assistant.
