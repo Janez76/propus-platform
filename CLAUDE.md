@@ -79,7 +79,7 @@ und Next.js liefert dann `503 auth backend unavailable`.
 ### Hotfix einer Migration in den laufenden VPS-Container kopieren
 
 ```bash
-docker cp ./migrations/082_fix.sql propus-platform-platform-1:/app/booking/migrations/082_fix.sql
+docker cp ./booking/migrations/082_fix.sql propus-platform-platform-1:/app/booking/migrations/082_fix.sql
 docker compose -p propus-platform -f docker-compose.vps.yml restart platform
 ```
 
