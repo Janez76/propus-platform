@@ -262,6 +262,11 @@ export const writeTools: ToolDefinition[] = [
         flexible_earliest_at: { type: "string", description: "Frühestmögliches Datum (ISO). Optional, nur bei 'flexible'. Muss vor deadline_at liegen." },
         photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional, aus list_photographers)" },
         notes: { type: "string", description: "Zusätzliche Hinweise oder Notizen (optional)" },
+        skip_customer_email: {
+          type: "boolean",
+          description:
+            "Wenn true: keine Bestätigungsmail an den Kunden enqueuen (Office-Mail bleibt). Default false. Nutzen wenn der User explizit sagt 'keine Mail an Kunde', 'still anlegen', 'ohne Bestätigung an Kunde' — typisch bei Test-Buchungen oder wenn der Auftrag manuell anders kommuniziert wird.",
+        },
       },
       required: ["customer_id", "address"],
     },
@@ -637,8 +642,15 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         // Workflow-Mails: Kunde bekommt Provisorisch-Bestätigung, Office
         // bekommt einen Hinweis dass der KI-Assistent neu gebucht hat und
         // Pricing finalisiert werden muss.
+        // skip_customer_email schaltet nur die Kunden-Bestätigung ab (Test-
+        // Buchungen, Auftrag-aus-Sondervereinbarung) — Office-Mail bleibt
+        // immer, sonst wüsste niemand vom neuen Auftrag.
+        const skipCustomerMail = input.skip_customer_email === true;
+        const mailKeys = skipCustomerMail
+          ? ["email.provisional_office"]
+          : ["email.provisional_created", "email.provisional_office"];
         const rendered = renderWorkflowMails(
-          ["email.provisional_created", "email.provisional_office"],
+          mailKeys,
           {
             orderNo: no,
             customerEmail,
@@ -646,7 +658,7 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
             scheduleDate,
             scheduleTime,
           },
-          { customer: true, office: true, photographer: false, cc: false },
+          { customer: !skipCustomerMail, office: true, photographer: false, cc: false },
         );
         for (const mail of rendered) {
           await runEnqueueOutbox(tx, no, "workflow_status_mail", {
@@ -670,6 +682,9 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       const pricingInfo = usedExplicitItems
         ? `Positionen ${total > 0 ? `mit Total CHF ${total.toFixed(2)} (inkl. MwSt) ` : ""}aus Produktkatalog uebernommen.`
         : "Pricing wird im Admin via Leistungen-Tab finalisiert.";
+      const mailInfo = input.skip_customer_email === true
+        ? "Nur Office-Mail eingereiht (Kunden-Mail unterdrueckt)."
+        : "Bestaetigungs-Mails an Kunde und Office in Outbox eingereiht.";
       return {
         ok: true,
         orderNo,
@@ -686,7 +701,8 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         flexibleEarliestAt: flexibleEarliestIso,
         photographer: photographerKey,
         status,
-        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. ${flexInfo} Bestätigungs-Mails an Kunde und Office in Outbox eingereiht. ${pricingInfo}`.trim(),
+        skipCustomerEmail: input.skip_customer_email === true,
+        message: `Auftrag #${orderNo} für "${customer.name || customer.company}" an "${address}" erstellt. ${flexInfo} ${mailInfo} ${pricingInfo}`.trim(),
       };
     },
 
