@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei Änderungen an Login-Logik, Session-Verwaltung, Token-Handling oder Portal-Auth dieses Dokument aktualisieren.
 
-*Zuletzt aktualisiert: April 2026 (PR #94: admin_users Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern über `core.admin_users` ersetzt). PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id. PR #91: API-Key-Auth-Pfad in Middleware. PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
+*Zuletzt aktualisiert: Mai 2026 (PR #443: Self-Serve Magic-Link Login fuer Kunden — neue Tabelle `core.customer_login_tokens`, Endpoints `POST /api/customer/magic-link/request` + `GET /api/customer/magic-link/callback`, Toggle in LoginPage; siehe §5b). PR #94: admin_users Legacy-Tabellen durch Views mit INSTEAD-OF-Triggern über `core.admin_users` ersetzt. PR #92: API-Key-Auth bindet req.user.id auf numerische admin_users.id. PR #91: API-Key-Auth-Pfad in Middleware. PR #89: Rate-Limiting auf Login-Endpunkte. PR #88: Unified Login, Portal-Session-Bridge, Profil-Endpunkt, Passwort-Reset-Fix*
 
 ---
 
@@ -13,6 +13,7 @@
 3. [Portal-Session-Bridge](#3-portal-session-bridge)
 4. [Kunden-Profil-Endpunkt (GET /auth/profile)](#4-kunden-profil-endpunkt-get-authprofile)
 5. [Magic-Link-Flow (Buchungs-Mail)](#5-magic-link-flow-buchungs-mail)
+5b. [Self-Serve Magic-Link Login (passwortlos)](#5b-self-serve-magic-link-login-passwortlos)
 6. [Passwort-Reset-Flow (Portal)](#6-passwort-reset-flow-portal)
 7. [Post-Login-Redirect](#7-post-login-redirect)
 8. [Session-Tabellen & Cookies](#8-session-tabellen--cookies)
@@ -196,6 +197,8 @@ Kunde klickt Link: GET /auth/customer/magic?magic=<token>
 
 **Hinweis:** Der Magic-Link-Flow ist vom Unified-Login getrennt. Er nutzt `booking.customer_sessions` (nicht `admin_sessions`) und den Cookie `customer_session` (nicht `admin_session`).
 
+> **Abgrenzung zu §5b:** Dieser Flow erzeugt einen Link **vom Admin/System aus** und bettet ihn in eine Buchungs-Bestaetigungs-Mail ein (Token = direkt der Session-Token in `customer_sessions`). Section 5b beschreibt den **vom Kunden selbst angeforderten** Magic-Link mit eigener Token-Tabelle und 15-Min-TTL.
+
 ### Hostname-Strategie (Kunden-Portal, ab April 2026)
 
 | Host | Rolle |
@@ -205,6 +208,103 @@ Kunde klickt Link: GET /auth/customer/magic?magic=<token>
 | `tour.propus.ch` | deprecated (nicht mehr im Tunnel) |
 
 Gleiche Next.js-App, gleicher Container. Für eine gemeinsame Session über beide Hosts: `SESSION_COOKIE_DOMAIN=.propus.ch` in `.env.vps` / `docker-compose.vps.yml`.
+
+---
+
+## 5b. Self-Serve Magic-Link Login (passwortlos)
+
+> **Eingefuehrt mit PR #443 (Mai 2026).** Erlaubt Kunden, sich auf `portal.propus.ch` ohne Passwort anzumelden — sie geben nur ihre E-Mail ein und bekommen einen Login-Link.
+
+**Endpunkte:**
+- `POST /api/customer/magic-link/request  { email }` — Token erzeugen + Mail senden
+- `GET  /api/customer/magic-link/callback?token=<t>` — Token einlosen + Cookie setzen + Redirect
+
+**Dateien:**
+- `booking/customer-magic-link.js` — `requestLoginLink()`, `consumeLoginToken()`
+- `booking/server.js` — Routen + `_sendCustomerLoginEmail()` Wrapper
+- `booking/db.js` — `createCustomerLoginToken()`, `consumeCustomerLoginToken()`, `deleteExpiredCustomerLoginTokens()`
+- `core/migrations/064_customer_login_tokens.sql` — neue Tabelle
+- `app/src/pages-legacy/LoginPage.tsx` — Toggle `mode='magic'|'password'`
+
+### Ablauf
+
+```
+POST /api/customer/magic-link/request  { email }
+  │
+  ├── Antwort IMMER 200 (kein Account-Enumeration)
+  ├── Customer in core.customers via db.getCustomerByEmail() (inkl. Aliase)
+  ├── Token (32 Byte base64url) → SHA-256 → INSERT INTO core.customer_login_tokens
+  │     (purpose='login', expires_at = NOW() + 15 min)
+  └── _sendCustomerLoginEmail() → Mailer (SMTP) oder Fallback Graph
+        Subject: "Ihr Login-Link fuer Propus"
+        Link: <FRONTEND_URL>/api/customer/magic-link/callback?token=<raw>
+```
+
+```
+GET /api/customer/magic-link/callback?token=<raw>
+  │
+  ├── consumeLoginToken(): UPDATE customer_login_tokens
+  │     SET consumed_at = NOW()
+  │     WHERE token_hash = sha256($1)
+  │       AND consumed_at IS NULL
+  │       AND expires_at > NOW()
+  │     RETURNING customer_id, purpose
+  │     (Single-Use enforced atomar)
+  │
+  ├── Bei Erfolg:
+  │     - core.customers Row laden
+  │     - blocked? -> redirect mit auth_error=invalid_token
+  │     - createSessionToken() (32 Byte) -> sha256
+  │     - INSERT INTO core.customer_sessions (TTL: CUSTOMER_SESSION_DAYS, default 30d)
+  │     - res.cookie("customer_session", raw, customerSessionCookieOptions(...))
+  │     - res.redirect(302, safeCustomerMagicReturnPath(returnTo))
+  │
+  └── Bei Misserfolg (kein/abgelaufener/verbrauchter Token):
+        - res.redirect(302, "/?auth_error=invalid_token")  (open-redirect-sicher)
+```
+
+### Datentabelle `core.customer_login_tokens`
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | BIGSERIAL PK | |
+| `customer_id` | INTEGER FK CASCADE | -> `core.customers(id)` |
+| `token_hash` | TEXT UNIQUE | SHA-256 des Klartext-Tokens; Klartext nie in DB |
+| `purpose` | TEXT | `'login'` oder `'invite'` (CHECK-Constraint) |
+| `expires_at` | TIMESTAMPTZ | Default `NOW() + 15 min` (`CUSTOMER_MAGIC_LINK_TTL_MIN` ENV) |
+| `consumed_at` | TIMESTAMPTZ | NULL bis Token verbraucht; danach gesperrt |
+| `created_ip` | INET | Optional fuer Audit |
+| `created_at` | TIMESTAMPTZ | |
+
+**Cleanup:** `db.deleteExpiredCustomerLoginTokens()` loescht Eintraege deren `expires_at` mehr als 7 Tage zurueckliegt — kann von einem nightly Cron aufgerufen werden (noch nicht angeschlossen).
+
+### Sicherheits-Eigenschaften
+
+| Thema | Massnahme |
+|---|---|
+| **Account-Enumeration** | `POST /api/customer/magic-link/request` antwortet IMMER 200, unabhaengig davon ob ein Account existiert; Mail wird nur bei Treffer versandt |
+| **Token-Hashing** | Klartext-Token wird sha256-gehashed gespeichert; bei Token-Verbrauch wird der Hash verglichen |
+| **Single-Use** | `UPDATE … SET consumed_at = NOW() WHERE consumed_at IS NULL AND expires_at > NOW()` ist atomar — ein zweites GET liefert `auth_error=invalid_token` |
+| **Kurze TTL** | 15 Minuten (`CUSTOMER_MAGIC_LINK_TTL_MIN`) |
+| **Rate-Limiting** | `passwordResetLimiter` auf request, `confirmTokenLimiter` auf callback |
+| **E-Mail-Aliase** | Lookup ueber `db.getCustomerByEmail()` -> `core.customer_email_matches()` (siehe `AGENTS.md`) |
+| **Redirect-Sicherheit** | `safeCustomerMagicReturnPath()` blockt `//`-Prefixe und externe URLs (siehe §7) |
+
+### Frontend (LoginPage)
+
+| Host | Default-Modus |
+|---|---|
+| `portal.propus.ch` | `mode='magic'` (Magic-Link primaer, Toggle "Mit Passwort anmelden") |
+| `admin-booking.propus.ch` | `mode='password'` (klassisch, kein Toggle) |
+| URL-Override | `?mode=password` erzwingt Passwort-Form (z. B. fuer Reset-Mails) |
+
+`magicLinkSent`-State zeigt nach erfolgreicher request-Anfrage einen "Mail unterwegs"-Bildschirm mit Mail-Icon und "nochmal versuchen"-Link. Da das Backend kein Account-Enumeration zulaesst, sieht dieser Bildschirm immer gleich aus, unabhaengig davon, ob die Mail tatsaechlich versandt wurde.
+
+### Limitationen / nicht enthalten
+
+- **Kein Firmen-Scope:** Nach erfolgreichem Magic-Link-Login kommt die **Rolle** (`customer_user` vs `customer_admin`) weiterhin aus `tour_manager.portal_team_members` (siehe §2 `getPortalCustomerRole`). Die Lücke „Numme sieht alle Orders seiner Firma" wird erst durch die [Tour-Manager-Konsolidierung](../docs/PLAN_TOUR_MANAGER_CONSOLIDATION.md) Phase 1 geschlossen.
+- **Kein Self-Signup:** Wer nicht in `core.customers` liegt, bekommt keinen Magic-Link.
+- **Cron-Cleanup nicht angeschlossen:** Abgelaufene Tokens muessen manuell oder per zukuenftigem Nightly-Job aufgeraeumt werden.
 
 ---
 
@@ -315,7 +415,24 @@ function isSafeInternalPath(path: string): boolean {
 | `expires_at` | TIMESTAMPTZ | |
 | `created_at` | TIMESTAMPTZ | |
 
-**Verwendet von:** Magic-Link-Flow
+**Verwendet von:** Magic-Link-Flow (§5 Buchungs-Mail), Self-Serve Magic-Link Login (§5b — nach Token-Verbrauch), Passwort-Login `POST /api/customer/login`
+
+### `core.customer_login_tokens`
+
+Single-Use Tokens fuer den Self-Serve Magic-Link Flow (§5b). Detail siehe dort.
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | BIGSERIAL PK | |
+| `customer_id` | INTEGER FK CASCADE | -> `core.customers` |
+| `token_hash` | TEXT UNIQUE | SHA-256 des Klartexts |
+| `purpose` | TEXT | `'login'` oder `'invite'` |
+| `expires_at` | TIMESTAMPTZ | Default 15 Min ab Erzeugung |
+| `consumed_at` | TIMESTAMPTZ | NULL = unverbraucht |
+| `created_ip` | INET | Audit |
+| `created_at` | TIMESTAMPTZ | |
+
+**Migration:** `core/migrations/064_customer_login_tokens.sql`
 
 ### Express-Session (`propus_tours.sid`)
 
@@ -442,7 +559,8 @@ Eingehender Request mit Bearer ppk_live_<secret>
 
 | Thema | Maßnahme |
 |---|---|
-| **E-Mail-Enumeration** | `/forgot-password` antwortet immer mit derselben Nachricht; Mail wird fire-and-forget versandt (keine Timing-Korrelation) |
+| **E-Mail-Enumeration** | `/forgot-password` UND `/api/customer/magic-link/request` antworten immer mit derselben Nachricht (200); Mail wird fire-and-forget versandt (keine Timing-Korrelation) |
+| **Magic-Link Single-Use** | `core.customer_login_tokens` setzt `consumed_at` atomar in derselben UPDATE-Anweisung; ein zweites Einlosen schlaegt deterministisch fehl |
 | **Open-Redirect** | `isSafeInternalPath()` blockiert `//`-Prefixe und externe URLs |
 | **Token-Hashing** | Alle Tokens werden als SHA-256-Hash in der DB gespeichert (nie Klartext) |
 | **Passwort-Hashing** | Admin-Users: scrypt (Node.js crypto) · Portal-Users: bcrypt (bcryptjs) |
