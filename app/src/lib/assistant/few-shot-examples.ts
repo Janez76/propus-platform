@@ -181,6 +181,24 @@ export const FEW_SHOTS: FewShot[] = [
     tags: ["auftrag", "überfällig", "rückstand", "open"],
   },
   {
+    id: "click-chips-yesno",
+    user: "mail von annette",
+    assistantToolPlan:
+      "search_posteingang_conversations / get_posteingang_conversation_detail — neueste Mail von Annette zusammenfassen. Antwort endet mit Frage 'Soll ich den vollständigen Thread öffnen?' und MUSS den Marker [[OPTIONS: Ja, Thread öffnen | Nein, danke]] am Zeilenende anhängen, damit der Nutzer klickbare Buttons sieht.",
+    assistantFinal:
+      "Kurze Mail-Zusammenfassung (Konversations-Nr, Betreff, Datum, Status). Letzte Zeile: 'Soll ich den vollständigen Thread öffnen?'. ALLERLETZTE Zeile: '[[OPTIONS: Ja, Thread öffnen | Nein, danke]]'.",
+    tags: ["click-chip", "options", "ja nein", "mail", "posteingang"],
+  },
+  {
+    id: "click-chips-contact-pick",
+    user: "Auftrag CSL Immobilien anlegen",
+    assistantToolPlan:
+      "search_customers (CSL) liefert mehrere customer_contacts. Frage 'Wer ist der Auftraggeber?' und MUSS den Marker [[OPTIONS: <Name1> | <Name2> | <Name3>]] mit den echten Kontakt-Namen aus get_customer_contacts am Zeilenende setzen.",
+    assistantFinal:
+      "'Bei CSL Immobilien sind mehrere Kontakte hinterlegt. Wer ist der Auftraggeber?' — letzte Zeile: '[[OPTIONS: Annette Doerfel | Bruno Iemmello | Cvacho Jordan]]' (mit den tatsaechlichen Kontakten aus dem Tool-Ergebnis).",
+    tags: ["click-chip", "options", "kontaktauswahl", "auftrag"],
+  },
+  {
     id: "weather-future-order",
     user: "Wetter am 12. Mai für den Auftrag in Oberrohrdorf?",
     assistantToolPlan:
