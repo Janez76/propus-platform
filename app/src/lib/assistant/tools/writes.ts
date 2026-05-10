@@ -252,6 +252,20 @@ export const writeTools: ToolDefinition[] = [
             staging: { type: "boolean" },
           },
         },
+        custom_items: {
+          type: "array",
+          description:
+            "Ad-hoc Positionen ohne Eintrag im Produktkatalog (z. B. Sonderwunsch 'Rendering 3 Bilder', 'Reisepauschale Tessin'). Nutze NUR wenn `list_available_services` keinen passenden Code liefert UND der Nutzer Name + Preis bestaetigt hat. Werden als addons mit id='custom:<slug>' hinzugefuegt und in pricing.subtotal/total aufgenommen.",
+          items: {
+            type: "object",
+            properties: {
+              label: { type: "string", description: "Bezeichnung der Position (z. B. 'Rendering 3 Bilder')" },
+              price: { type: "number", description: "Preis pro Stueck in CHF (netto, ohne MwSt — Tool addiert 8.1% MwSt)" },
+              qty: { type: "number", description: "Stueckzahl, Default 1" },
+            },
+            required: ["label", "price"],
+          },
+        },
         area_sqm: { type: "number", description: "Objektfläche in m² (für area_tier-Pricing wie tour:main)." },
         floors: { type: "number", description: "Anzahl Geschosse (für per_floor-Pricing wie floorplans:*). Default 1." },
         rooms: { type: "string", description: "Zimmerzahl/-beschreibung (z. B. '4.5')." },
@@ -262,6 +276,15 @@ export const writeTools: ToolDefinition[] = [
         flexible_earliest_at: { type: "string", description: "Frühestmögliches Datum (ISO). Optional, nur bei 'flexible'. Muss vor deadline_at liegen." },
         photographer_key: { type: "string", description: "Fotografen-Schlüssel (optional, aus list_photographers)" },
         notes: { type: "string", description: "Zusätzliche Hinweise oder Notizen (optional)" },
+        key_pickup: {
+          type: "object",
+          description:
+            "Schluesselabholung-Block fuer Auftraege mit Code `keypickup:main` in service_items. Setzt das `keyPickup`-JSON auf der Order (Admin sieht Adresse + Info). NICHT als Notiz-Hack verwenden — der Code keypickup:main muss zusaetzlich in service_items, sonst fehlt die Position in der Rechnung.",
+          properties: {
+            address: { type: "string", description: "Abholadresse (z. B. 'Empfang CSL', 'Schluesseldepot Zuerich')" },
+            info: { type: "string", description: "Zusatzinfo (z. B. Code, Ansprechpartner, Oeffnungszeiten)" },
+          },
+        },
         skip_customer_email: {
           type: "boolean",
           description:
@@ -434,12 +457,13 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
       // Datenstand wie der manuelle Admin-Form. Boolean-Flags sind der alte
       // Fallback (Pricing leer, Office finalisiert).
       const serviceItems = parseServiceItems(input.service_items);
+      const hasCustomItems = Array.isArray(input.custom_items) && input.custom_items.length > 0;
       type AddonOut = { id: string; label: string; price: number; qty?: number; group?: string };
       let servicesJson: Record<string, unknown>;
       let pricingJson: Record<string, unknown> = {};
       let resolvedItemSummary: string[] = [];
 
-      if (serviceItems.length > 0) {
+      if (serviceItems.length > 0 || hasCustomItems) {
         const codes = Array.from(new Set(serviceItems.map((s) => s.code)));
         const products = await runQuery<ProductRow>(
           `SELECT p.id, p.code, p.name, p.kind, p.group_key,
@@ -500,12 +524,59 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
           resolvedItemSummary.push(`${product.name}${qty > 1 ? ` x${qty}` : ""} - ${lineTotal} CHF`);
         }
 
+        // Ad-hoc Positionen ohne Produktkatalog-Eintrag (Sonderwuensche wie
+        // 'Rendering 3 Bilder', 'Reisepauschale Tessin'). Werden mit id='custom:<slug>'
+        // zu addons hinzugefuegt und in subtotal aufsummiert.
+        const customItemsRaw = Array.isArray(input.custom_items) ? input.custom_items : [];
+        for (const raw of customItemsRaw) {
+          if (!raw || typeof raw !== "object") continue;
+          const ci = raw as Record<string, unknown>;
+          const label = optionalString(ci.label);
+          const priceNum = Number(ci.price);
+          if (!label || !Number.isFinite(priceNum) || priceNum < 0) continue;
+          const qtyNum = Number(ci.qty);
+          const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? Math.max(1, Math.trunc(qtyNum)) : 1;
+          const lineTotal = roundCHF(priceNum * qty, 0.05);
+          const slug = label
+            .toLowerCase()
+            .normalize("NFKD")
+            .replace(/[^\w\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-")
+            .slice(0, 30) || "item";
+          addons.push({ id: `custom:${slug}`, label, price: lineTotal, ...(qty > 1 ? { qty } : {}) });
+          subtotal += lineTotal;
+          resolvedItemSummary.push(`${label}${qty > 1 ? ` x${qty}` : ""} - ${lineTotal} CHF (manuell)`);
+        }
+
         const VAT_RATE = 0.081;
         const subtotalRounded = roundCHF(subtotal, 0.05);
         const vat = roundCHF(subtotalRounded * VAT_RATE, 0.05);
         const total = roundCHF(subtotalRounded + vat, 0.05);
 
-        servicesJson = { package: pkg || {}, addons };
+        // Schluesselabholung: wenn der Aufrufer einen `key_pickup`-Block
+        // mitgibt ODER ein `keypickup:*`-Code in den service_items war, dann
+        // setzen wir services.options.keyPickup, damit der Admin die Adresse
+        // im Detail-Modal sieht (admin-order-mapping.js liest services.options.keyPickup).
+        const keyPickupInput = input.key_pickup;
+        const hasKeyPickupCode = serviceItems.some((s) => s.code.toLowerCase().includes("keypickup"));
+        const keyPickupBlock = (() => {
+          if (keyPickupInput && typeof keyPickupInput === "object") {
+            const obj = keyPickupInput as Record<string, unknown>;
+            const address = optionalString(obj.address) || "";
+            const info = optionalString(obj.info) || "";
+            if (address || info) return { enabled: true, address, notes: info };
+          }
+          if (hasKeyPickupCode) return { enabled: true, address: "", notes: "" };
+          return null;
+        })();
+        const optionsBlock: Record<string, unknown> = {};
+        if (keyPickupBlock) optionsBlock.keyPickup = keyPickupBlock;
+        servicesJson = {
+          package: pkg || {},
+          addons,
+          ...(Object.keys(optionsBlock).length > 0 ? { options: optionsBlock } : {}),
+        };
         pricingJson = { subtotal: subtotalRounded, discount: 0, vat, total };
 
         if (unpriced.length > 0 && !pricingJson._note) {

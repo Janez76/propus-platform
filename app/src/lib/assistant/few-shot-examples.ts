@@ -78,12 +78,12 @@ export const FEW_SHOTS: FewShot[] = [
   },
   {
     id: "order-explicit-product-codes",
-    user: "Auftrag CSL, Attenhoferstrasse 37 Jona, 100m², 20 Bodenfotos, 8 Luftaufnahmen, 360° Tour, 2D Grundriss von Tour, deadline 20.05.",
+    user: "Auftrag CSL, Attenhoferstrasse 37 Jona, 100m², 20 Bodenfotos, 8 Luftaufnahmen, 360° Tour, 2D Grundriss von Tour, Schlüsselabholung am Empfang CSL, deadline 20.05.",
     assistantToolPlan:
-      "search_customers, list_available_services -> Codes camera:foto20, dronePhoto:foto8, tour:main, floorplans:tour ablesen. Dann create_order mit service_items=[{code:'camera:foto20'},{code:'dronePhoto:foto8'},{code:'tour:main'},{code:'floorplans:tour'}], area_sqm=100, floors=1, booking_kind='flexible', deadline_at='2026-05-20'. KEINE services-Booleans verwenden — die persistieren weder Name noch Preis.",
+      "search_customers, list_available_services → ALLE genannten Services dort suchen, auch Schlüsselabholung (Code `keypickup:main`). Codes: camera:foto20, dronePhoto:foto8, tour:main, floorplans:tour, keypickup:main. create_order mit service_items=[{code:'camera:foto20'},{code:'dronePhoto:foto8'},{code:'tour:main'},{code:'floorplans:tour'},{code:'keypickup:main'}], key_pickup={address:'Empfang CSL'}, area_sqm=100, floors=1, booking_kind='flexible', deadline_at='2026-05-20'. KEINE services-Booleans, KEINE Schluessel-Notiz im notes-Feld — Schluessel ist eigene Position MIT Preis und eigenem keyPickup-Block.",
     assistantFinal:
-      "Zusammenfassung mit echten Positionen + berechnetem Total CHF aus dem Produktkatalog (Subtotal/MwSt/Total) und Hinweis dass Office den Termin innerhalb des Zeitraums disponiert.",
-    tags: ["auftrag", "booking", "service_items", "produktcode", "pricing"],
+      "Zusammenfassung mit echten Positionen + berechnetem Total CHF aus dem Produktkatalog (Subtotal/MwSt/Total), Schluesselabholung als eigene Position mit Adresse, und Hinweis dass Office den Termin innerhalb des Zeitraums disponiert.",
+    tags: ["auftrag", "booking", "service_items", "produktcode", "pricing", "schluessel", "keypickup"],
   },
   {
     id: "order-flex-deadline",
@@ -123,12 +123,12 @@ export const FEW_SHOTS: FewShot[] = [
   },
   {
     id: "order-unknown-service-ask",
-    user: "Auftrag CSL, Drohnenvideos und Twilight-Shooting",
+    user: "Auftrag CSL, 20 Bodenfotos und ein Rendering 3 Bilder dazu",
     assistantToolPlan:
-      "list_available_services prüfen — wenn 'Twilight' kein eindeutiger Code im Katalog ist, NICHT auf services-Booleans ausweichen (würde CHF 0.00 liefern). Stattdessen den Nutzer fragen, ob ein vorhandener Code passt oder Office den Service erst im Katalog anlegen muss.",
+      "list_available_services prüfen → camera:foto20 ist da, 'Rendering' nicht. NICHT in notes verstecken, NICHT services-Booleans nutzen. Den Nutzer fragen welcher Preis fürs Rendering. Nach Preisangabe create_order mit service_items=[{code:'camera:foto20'}] UND custom_items=[{label:'Rendering 3 Bilder', price:<vom Nutzer>, qty:1}].",
     assistantFinal:
-      "Frage: 'Twilight-Shooting finde ich im Produktkatalog so nicht. Soll ich es als Spezialposition aufnehmen, die Office im Leistungen-Tab nachzieht — oder gibt es einen passenden bestehenden Code (z. B. ein Premium-Foto-Paket)? Dann lege ich's mit echtem Preis an.'",
-    tags: ["auftrag", "booking", "service", "produktcode", "ruckfrage", "pricing"],
+      "Frage: 'Rendering 3 Bilder finde ich nicht im Produktkatalog (camera:foto20 für die Fotos hab ich). Soll ich Rendering als manuelle Position aufnehmen — und zu welchem Preis pro Stück? Den nehme ich dann mit in die Auftrags-Position auf, damit Office den Total inkl. MwSt sieht.'",
+    tags: ["auftrag", "booking", "custom_items", "manuelle position", "rendering", "ruckfrage", "pricing"],
   },
   {
     id: "weather-honest-ch",
