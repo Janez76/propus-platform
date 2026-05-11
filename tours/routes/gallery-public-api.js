@@ -27,12 +27,32 @@ function parsePublicThumbWidth(raw) {
   return ALLOWED_PUBLIC_THUMB_WIDTHS.has(w) ? w : null;
 }
 
-async function ensurePublicThumb(srcPath, galleryId, imageId, width) {
+/**
+ * Watermark-SVG passgenau zur resized JPEG-Groesse. Wird per sharp-Composite
+ * eingebrannt; der Kunde lädt dadurch fertig watermarkte Bilder und der
+ * Browser muss keinen Canvas-Burn mehr machen (das war der eigentliche
+ * Bottleneck bei 65+ Bildern).
+ */
+function watermarkSvgFor(w, h) {
+  const fs2 = Math.max(20, Math.round(w / 12));
+  const sw = Math.max(1, Math.round(w / 400));
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
+    `<g transform="translate(${w / 2} ${h / 2}) rotate(-25.7)">` +
+    `<text x="0" y="0" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" ` +
+    `font-weight="700" font-size="${fs2}" text-anchor="middle" dominant-baseline="middle" ` +
+    `fill="rgba(255,255,255,0.26)" stroke="rgba(0,0,0,0.35)" stroke-width="${sw}">PROPUS</text>` +
+    `</g></svg>`
+  );
+}
+
+async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWatermark) {
   let stat;
   try { stat = await fs.promises.stat(srcPath); } catch { return null; }
   const mtime = Math.floor(stat.mtimeMs);
   const cacheDir = path.join(PUBLIC_THUMB_CACHE_DIR, String(galleryId));
-  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}.jpg`);
+  const suffix = withWatermark ? '_wm' : '';
+  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}${suffix}.jpg`);
   try {
     const c = await fs.promises.stat(cachePath);
     if (c.isFile() && c.size > 0) return cachePath;
@@ -44,11 +64,28 @@ async function ensurePublicThumb(srcPath, galleryId, imageId, width) {
   const p = (async () => {
     await fs.promises.mkdir(cacheDir, { recursive: true });
     const tmp = `${cachePath}.${process.pid}.tmp`;
-    await sharp(srcPath, { failOn: 'none' })
-      .rotate()
-      .resize({ width, withoutEnlargement: true, fit: 'inside' })
-      .jpeg({ quality: 82, mozjpeg: true })
-      .toFile(tmp);
+    if (withWatermark) {
+      /**
+       * Zwei-Pass: erst resize in einen Roh-Buffer (damit wir die exakte
+       * Zielgroesse fuer das SVG kennen), dann composite + JPEG-Encode.
+       */
+      const { data, info } = await sharp(srcPath, { failOn: 'none' })
+        .rotate()
+        .resize({ width, withoutEnlargement: true, fit: 'inside' })
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const svg = watermarkSvgFor(info.width, info.height);
+      await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+        .composite([{ input: svg, blend: 'over' }])
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toFile(tmp);
+    } else {
+      await sharp(srcPath, { failOn: 'none' })
+        .rotate()
+        .resize({ width, withoutEnlargement: true, fit: 'inside' })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toFile(tmp);
+    }
     await fs.promises.rename(tmp, cachePath);
   })();
   publicThumbInflight.set(cachePath, p);
@@ -218,7 +255,13 @@ router.get('/:slug/images/:imgId', async (req, res) => {
       if (!filePath) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
       const resizeWidth = parsePublicThumbWidth(req.query.w);
       if (resizeWidth) {
-        const cachePath = await ensurePublicThumb(filePath, g.id, img.id, resizeWidth);
+        /**
+         * Watermark wird nur fuer Bildauswahl-Kundenseiten serverseitig
+         * eingebrannt — Listing-Galerien liefern weiterhin unwatermarkte
+         * Bilder (der Listing-Kunde sieht eine andere UI, kein Picdrop).
+         */
+        const withWatermark = pickKind(req) === 'bildauswahl' && g.watermark_enabled !== false;
+        const cachePath = await ensurePublicThumb(filePath, g.id, img.id, resizeWidth, withWatermark);
         if (cachePath) {
           res.set('Cache-Control', 'public, max-age=14400, s-maxage=14400, immutable');
           res.type('jpg');

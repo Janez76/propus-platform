@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import {
   PicdropSelectionView,
   type PicdropImage,
   type PicdropSubmissionAdapter,
 } from "../../components/selekto/PicdropSelectionView";
-import { tryCreateWatermarkedBlobUrl } from "../../lib/selekto/clientWatermarkImage";
 import {
   bildauswahlImageUrl,
   getPublicBildauswahlBySlug,
@@ -33,17 +32,6 @@ export function ClientBildauswahlPage() {
   const deepLinkBild = searchParams.get("bild")?.trim() || null;
 
   const [data, setData] = useState<BildauswahlPublicPayload | null | undefined>(undefined);
-  const [mediaLoading, setMediaLoading] = useState(true);
-  const [urls, setUrls] = useState<Record<string, string[]>>({});
-  const [wmBurnUseCssOverlay, setWmBurnUseCssOverlay] = useState(false);
-  const wmBlobUrlsRef = useRef<string[]>([]);
-
-  const revokeWmBlobs = useCallback(() => {
-    for (const u of wmBlobUrlsRef.current) {
-      if (u.startsWith("blob:")) URL.revokeObjectURL(u);
-    }
-    wmBlobUrlsRef.current = [];
-  }, []);
 
   // Daten laden
   useEffect(() => {
@@ -63,85 +51,25 @@ export function ClientBildauswahlPage() {
     void recordBildauswahlViewed(slug).catch(() => {});
   }, [slug, data]);
 
-  // Bilder + Watermark
-  useEffect(() => {
-    if (!data) return;
-    if (data.images.length === 0) {
-      revokeWmBlobs();
-      setUrls({});
-      setMediaLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setMediaLoading(true);
-    revokeWmBlobs();
-    setUrls({});
-    setWmBurnUseCssOverlay(false);
-
-    const wmOn = data.watermark_enabled !== false;
-    const items = data.images.map((im) => ({
-      id: im.id,
-      src: bildauswahlImageUrl(data.slug, im.id),
-    }));
-
-    if (!wmOn) {
-      const next: Record<string, string[]> = {};
-      for (const it of items) next[it.id] = [it.src];
-      setUrls(next);
-      setMediaLoading(false);
-      return;
-    }
-
-    let pending = items.length;
-    let anyFail = false;
-    const settleOne = () => {
-      pending -= 1;
-      if (pending <= 0 && !cancelled) {
-        setWmBurnUseCssOverlay(anyFail);
-        setMediaLoading(false);
-      }
-    };
-
-    void Promise.all(
-      items.map(async (it) => {
-        const burned = await tryCreateWatermarkedBlobUrl(it.src);
-        if (cancelled) {
-          if (burned?.startsWith("blob:")) URL.revokeObjectURL(burned);
-          return;
-        }
-        if (burned) {
-          wmBlobUrlsRef.current.push(burned);
-          setUrls((prev) => ({ ...prev, [it.id]: [burned] }));
-        } else {
-          anyFail = true;
-          setUrls((prev) => ({ ...prev, [it.id]: [it.src] }));
-        }
-        settleOne();
-      }),
-    );
-
-    return () => {
-      cancelled = true;
-      revokeWmBlobs();
-    };
-  }, [data, revokeWmBlobs]);
-
-  useEffect(() => () => revokeWmBlobs(), [revokeWmBlobs]);
-
+  /**
+   * Wichtig: das Watermark wird serverseitig in sharp eingebrannt (siehe
+   * tours/routes/gallery-public-api.js → ensurePublicThumb). Der Client lädt
+   * fertig watermarkte JPEGs vom Server bzw. aus dem Cloudflare-Edge-Cache
+   * und muss kein Canvas mehr aufmachen. Damit sind 65 Bilder sofort da
+   * (browser-paralleler Image-Decode statt sequentiellem UI-Thread-Burn).
+   */
   const picdropImages: PicdropImage[] = useMemo(() => {
     if (!data?.images?.length) return [];
     const sorted = [...data.images].sort((a, b) => a.sort_order - b.sort_order);
-    return sorted.map((im, idx) => {
-      const list = urls[im.id];
-      return {
-        key: im.id,
-        name: imageLabel(im, idx),
-        thumbUrl: list?.[0] || null,
-        thumbFallbacks: list && list.length > 1 ? list.slice(1) : undefined,
-        placeholderColor: hashColor(im.id),
-      };
-    });
-  }, [data, urls]);
+    return sorted.map((im, idx) => ({
+      key: im.id,
+      name: imageLabel(im, idx),
+      thumbUrl: bildauswahlImageUrl(data.slug, im.id),
+      placeholderColor: hashColor(im.id),
+    }));
+  }, [data]);
+
+  const mediaLoading = data === undefined;
 
   useEffect(() => {
     const metaRobots = document.createElement("meta");
@@ -205,7 +133,7 @@ export function ClientBildauswahlPage() {
       galleryId={data.id}
       gallerySlug={slug ?? null}
       initialPicdropDraftJson={data.picdrop_selection_json ?? null}
-      watermarkEnabled={wmBurnUseCssOverlay}
+      watermarkEnabled={false}
       submissionAdapter={adapter}
     />
   );
