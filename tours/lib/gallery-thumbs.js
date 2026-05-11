@@ -192,6 +192,52 @@ async function prewarmPublicThumbs({
   return { warmed, skipped, failed, total: totalSteps };
 }
 
+/**
+ * Boot-Hook (fire-and-forget): pre-rendert die Default-Varianten fuer alle
+ * aktiven Bildauswahl-Galerien. Wichtig nach einem Deploy, der neue Varianten
+ * einfuehrt (z. B. WebP 600) — bestehende Galerien haben sonst nur die alten
+ * JPEG-1200-Thumbs auf Disk und der naechste Kunden-Aufruf trifft den Cold-Start.
+ *
+ * Concurrency wird durch `prewarmPublicThumbs` selbst begrenzt; wir verarbeiten
+ * Galerien sequentiell, damit nicht mehrere parallele Galerien × 4 Sharp-Worker
+ * den Container in die Knie zwingen.
+ */
+async function backfillPrewarmAllBildauswahl(galleryLib) {
+  if (!galleryLib || typeof galleryLib.listGalleries !== 'function') return;
+  let totalWarmed = 0;
+  let processed = 0;
+  let listed;
+  try {
+    listed = await galleryLib.listGalleries({ kind: 'bildauswahl' });
+  } catch (e) {
+    console.warn('[gallery-thumbs] backfill listGalleries failed:', e?.message || e);
+    return;
+  }
+  const rows = Array.isArray(listed?.rows) ? listed.rows : Array.isArray(listed) ? listed : [];
+  for (const summary of rows) {
+    if (summary?.status === 'inactive') continue;
+    try {
+      const g = await galleryLib.getGallery(summary.id, { kind: 'bildauswahl' });
+      if (!g) continue;
+      const images = await galleryLib.listGalleryImages(g.id);
+      const r = await prewarmPublicThumbs({
+        gallery: g,
+        images,
+        variants: PREWARM_DEFAULT_VARIANTS,
+        resolveImageFile: (img) =>
+          galleryLib.resolvePreferredImageFile(img) || galleryLib.resolveGalleryImageFile(img),
+      });
+      totalWarmed += r.warmed;
+      processed += 1;
+    } catch (e) {
+      console.warn(`[gallery-thumbs] backfill failed for ${summary?.id}:`, e?.message || e);
+    }
+  }
+  if (processed > 0) {
+    console.log(`[gallery-thumbs] backfill done: ${processed} bildauswahl galleries, ${totalWarmed} thumbs warmed`);
+  }
+}
+
 module.exports = {
   ALLOWED_PUBLIC_THUMB_WIDTHS,
   ALLOWED_PUBLIC_THUMB_FORMATS,
@@ -201,5 +247,6 @@ module.exports = {
   parsePublicThumbFormat,
   ensurePublicThumb,
   prewarmPublicThumbs,
+  backfillPrewarmAllBildauswahl,
   watermarkSvgFor,
 };

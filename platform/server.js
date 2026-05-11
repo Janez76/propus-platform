@@ -175,6 +175,8 @@ main.use(booking.app);
 const PORT = parseInt(process.env.PORT || "3100", 10);
 
 const { ensureDefaultBildauswahlEmailTemplates } = require("../tours/lib/bildauswahl-emails");
+const { backfillPrewarmAllBildauswahl } = require("../tours/lib/gallery-thumbs");
+const galleryLib = require("../tours/lib/gallery");
 
 (async () => {
   try {
@@ -182,6 +184,15 @@ const { ensureDefaultBildauswahlEmailTemplates } = require("../tours/lib/bildaus
     /** Bildauswahl: leere E-Mail-Vorlagen beim Boot mit Default-HTML füllen. */
     void ensureDefaultBildauswahlEmailTemplates().catch((err) =>
       console.warn("[propus-platform] bildauswahl ensureDefaultEmailTemplates failed:", err?.message || err),
+    );
+    /**
+     * Bildauswahl: nach Boot alle aktiven Galerien einmalig in den neuen
+     * Thumbnail-Varianten warm rendern (WebP 600/1200, JPG 1200). Laeuft
+     * im Hintergrund, blockiert weder Boot noch eingehende Requests —
+     * dedupliziert sich gegen Customer-Aufrufe ueber `publicThumbInflight`.
+     */
+    void backfillPrewarmAllBildauswahl(galleryLib).catch((err) =>
+      console.warn("[propus-platform] bildauswahl backfill prewarm failed:", err?.message || err),
     );
     main.listen(PORT, "0.0.0.0", () => {
       console.log(`[propus-platform] listening on http://0.0.0.0:${PORT}`);
