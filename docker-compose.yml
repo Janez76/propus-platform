@@ -79,6 +79,7 @@ services:
         required: false
     volumes:
       - platform-logs:/app/logs
+      - ticket-uploads:/app/tours/uploads/tickets
     depends_on:
       postgres:
         condition: service_healthy
@@ -152,6 +153,7 @@ services:
 volumes:
   postgres-data:
   platform-logs:
+  ticket-uploads:
 
 networks:
   propus:

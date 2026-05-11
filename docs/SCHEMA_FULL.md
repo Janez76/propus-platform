@@ -892,8 +892,30 @@ Read-only View: vereinheitlicht `renewal_invoices` und `exxas_invoices` für Rep
 | `priority` | TEXT DEFAULT `'normal'` | |
 | `created_by` | TEXT | |
 | `created_by_role` | TEXT DEFAULT `'admin'` | |
-| `assigned_to` | TEXT | |
+| `assigned_to` | TEXT | beim Setzen Benachrichtigungs-Mail an den Bearbeiter |
+| `customer_id` | INTEGER FK → `core.customers(id)` | nullable (Migration `booking/migrations/074_tickets_customer_id.sql`) |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
+
+Indizes: `idx_tickets_module`, `idx_tickets_status`, `idx_tickets_ref`, `idx_tickets_status_created` `(status, created_at DESC)`, `idx_tickets_assigned_to`.
+
+---
+
+### `tour_manager.ticket_comments` — Verlauf / Notizen pro Ticket
+
+Migration: `core/migrations/065_ticket_comments.sql`
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `id` | SERIAL PK | |
+| `ticket_id` | INTEGER FK → `tour_manager.tickets(id)` ON DELETE CASCADE | |
+| `author` | TEXT | E-Mail des Verfassers |
+| `author_role` | TEXT DEFAULT `'admin'` | |
+| `kind` | TEXT DEFAULT `'comment'` | `'comment'` = manuelle Notiz, `'system'` = autom. Eintrag (Statuswechsel, Zuweisung) |
+| `body` | TEXT NOT NULL | |
+| `attachment_path` | TEXT | optionaler Anhang |
+| `created_at` | TIMESTAMPTZ | |
+
+Index: `idx_ticket_comments_ticket` `(ticket_id, created_at)`.
 
 ---
 
