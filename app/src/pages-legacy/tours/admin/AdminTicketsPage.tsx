@@ -17,10 +17,16 @@ import {
   Paperclip,
   ExternalLink,
   Search,
+  MessageSquare,
+  Send,
+  History,
+  ChevronLeft,
 } from "lucide-react";
 import {
   getTicketsList,
   getTicketDetail,
+  getTicketComments,
+  postTicketComment,
   patchTicketAssignment,
   patchTicketStatus,
   getMailInbox,
@@ -29,8 +35,11 @@ import {
   getToursAdminToursList,
   type TicketRow,
   type TicketStatus,
+  type TicketComment,
   type InboxMessage,
 } from "../../../api/toursAdmin";
+
+const PAGE_SIZE = 50;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +397,11 @@ function TicketDetailPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [comments, setComments] = useState<TicketComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [newComment, setNewComment] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -402,7 +416,19 @@ function TicketDetailPanel({
     }
   }, [ticketId]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadComments = useCallback(async () => {
+    setCommentsLoading(true);
+    try {
+      const res = await getTicketComments(ticketId);
+      setComments(res.comments);
+    } catch {
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => { load(); loadComments(); }, [load, loadComments]);
 
   async function changeStatus(status: TicketStatus) {
     if (!ticket) return;
@@ -410,6 +436,7 @@ function TicketDetailPanel({
     try {
       const res = await patchTicketStatus(ticket.id, status);
       setTicket(res.ticket);
+      await loadComments();
       onUpdated();
     } finally {
       setStatusSaving(false);
@@ -418,7 +445,24 @@ function TicketDetailPanel({
 
   async function handleAssignUpdated() {
     await load();
+    await loadComments();
     onUpdated();
+  }
+
+  async function submitComment() {
+    const body = newComment.trim();
+    if (!body || postingComment) return;
+    setPostingComment(true);
+    setCommentError(null);
+    try {
+      await postTicketComment(ticketId, { body });
+      setNewComment("");
+      await loadComments();
+    } catch (err) {
+      setCommentError((err as Error).message ?? "Fehler beim Speichern");
+    } finally {
+      setPostingComment(false);
+    }
   }
 
   const labelCls = "text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide";
@@ -549,6 +593,81 @@ function TicketDetailPanel({
               </div>
             )}
 
+            {/* Verlauf / Notizen */}
+            <div className="border-t border-[var(--border-soft)] pt-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-main)] uppercase tracking-wide">
+                <History className="h-3.5 w-3.5" /> Verlauf &amp; Notizen
+              </div>
+              {commentsLoading ? (
+                <div className="flex justify-center py-3">
+                  <Loader2 className="h-4 w-4 animate-spin text-[var(--text-subtle)]" />
+                </div>
+              ) : comments.length === 0 ? (
+                <p className="text-xs text-[var(--text-subtle)]">Noch keine Einträge.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {comments.map((cm) => (
+                    <li key={cm.id} className="text-sm">
+                      {cm.kind === "system" ? (
+                        <div className="flex items-start gap-1.5 text-xs text-[var(--text-subtle)] italic">
+                          <History className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span>
+                            {cm.body}
+                            <span className="ml-1.5 not-italic">· {fmtDate(cm.created_at)}{cm.author && cm.author !== "admin" ? ` · ${cm.author}` : ""}</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2">
+                          <div className="mb-1 flex items-center justify-between gap-2 text-xs text-[var(--text-subtle)]">
+                            <span className="font-medium text-[var(--text-main)] truncate">{cm.author ?? "—"}</span>
+                            <span className="shrink-0">{fmtDate(cm.created_at)}</span>
+                          </div>
+                          <div className="whitespace-pre-wrap text-[var(--text-main)]">{cm.body}</div>
+                          {cm.attachment_path && (
+                            <a
+                              href={`/api/tours/admin/tickets/attachment/${cm.attachment_path.split("/").pop()}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
+                            >
+                              <Paperclip className="h-3 w-3" />
+                              {cm.attachment_path.split("/").pop()}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {commentError && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {commentError}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submitComment(); } }}
+                  placeholder="Notiz hinzufügen…"
+                  rows={2}
+                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent)] resize-y"
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => void submitComment()}
+                    disabled={postingComment || !newComment.trim()}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50"
+                  >
+                    {postingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Notiz hinzufügen
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Divider */}
             <div className="border-t border-[var(--border-soft)] pt-4">
               <div className="mb-3 text-xs font-semibold text-[var(--text-main)] uppercase tracking-wide">
@@ -565,53 +684,112 @@ function TicketDetailPanel({
 
 // ─── Tickets Tab ──────────────────────────────────────────────────────────────
 
-function TicketsTab() {
+function TicketsTab({ onChanged }: { onChanged: () => void }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = (searchParams.get("status") ?? "all") as TicketStatus | "all";
   const moduleFilter = searchParams.get("module") ?? "all";
+  const search = searchParams.get("q") ?? "";
+  const page = Math.max(parseInt(searchParams.get("page") ?? "1", 10) || 1, 1);
+  const idParam = searchParams.get("id");
 
   const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<TicketStatus, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(idParam ? Number(idParam) : null);
   const [detailKey, setDetailKey] = useState(0);
+  const [searchInput, setSearchInput] = useState(search);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setSearchInput(search); }, [search]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const filters = {
+      const res = await getTicketsList({
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(moduleFilter !== "all" ? { module: moduleFilter } : {}),
-      };
-      const res = await getTicketsList(filters);
+        ...(search ? { search } : {}),
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+      });
       setTickets(res.tickets);
+      setTotal(res.total);
+      setCounts(res.counts);
     } catch (err) {
       setError((err as Error).message ?? "Fehler beim Laden");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, moduleFilter]);
+  }, [statusFilter, moduleFilter, search, page]);
 
   useEffect(() => { load(); }, [load]);
 
-  function setParam(key: string, value: string | null) {
+  useEffect(() => {
+    if (idParam) { setSelectedId(Number(idParam)); setDetailKey((k) => k + 1); }
+  }, [idParam]);
+
+  function patchParams(mut: (next: URLSearchParams) => void) {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (!value || value === "all") next.delete(key);
-      else next.set(key, value);
+      mut(next);
       return next;
     });
   }
 
-  function onRowClick(id: number) {
+  function setParam(key: string, value: string | null) {
+    patchParams((next) => {
+      if (!value || value === "all") next.delete(key);
+      else next.set(key, value);
+      next.delete("page");
+    });
+  }
+
+  function onSearchInput(v: string) {
+    setSearchInput(v);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      patchParams((next) => {
+        if (v.trim()) next.set("q", v.trim());
+        else next.delete("q");
+        next.delete("page");
+      });
+    }, 400);
+  }
+
+  function goToPage(p: number) {
+    patchParams((next) => {
+      if (p <= 1) next.delete("page");
+      else next.set("page", String(p));
+    });
+  }
+
+  function openDetail(id: number) {
     setSelectedId(id);
     setDetailKey((k) => k + 1);
+  }
+
+  function closeDetail() {
+    setSelectedId(null);
+    if (idParam) patchParams((next) => next.delete("id"));
   }
 
   function onDetailUpdated() {
     load();
     setDetailKey((k) => k + 1);
+    onChanged();
+  }
+
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+  const rangeFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(page * PAGE_SIZE, total);
+
+  function tabCount(v: TicketStatus | "all"): number | null {
+    if (!counts) return null;
+    if (v === "all") return counts.open + counts.in_progress + counts.done + counts.rejected;
+    return counts[v] ?? 0;
   }
 
   const thCls = "px-3 py-2.5 text-left text-xs font-medium text-[var(--text-subtle)] uppercase tracking-wide";
@@ -623,21 +801,35 @@ function TicketsTab() {
       <div className="flex-1 min-w-0 space-y-4">
         {/* Filters */}
         <div className="surface-card-strong rounded-xl p-4 space-y-3">
+          {/* Suche */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-subtle)]" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => onSearchInput(e.target.value)}
+              placeholder="Tickets durchsuchen (Betreff, Beschreibung)…"
+              className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] pl-8 pr-3 py-2 text-sm text-[var(--text-main)] placeholder:text-[var(--text-subtle)] focus:outline-none focus:border-[var(--accent)]"
+            />
+          </div>
           {/* Status-Tabs */}
           <div className="flex flex-wrap gap-1.5">
-            {STATUS_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setParam("status", tab.value)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  statusFilter === tab.value
-                    ? "bg-[var(--accent)] text-white"
-                    : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {STATUS_TABS.map((tab) => {
+              const n = tabCount(tab.value);
+              return (
+                <button
+                  key={tab.value}
+                  onClick={() => setParam("status", tab.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    statusFilter === tab.value
+                      ? "bg-[var(--accent)] text-white"
+                      : "border border-[var(--border-soft)] bg-[var(--surface)] text-[var(--text-subtle)] hover:text-[var(--text-main)]"
+                  }`}
+                >
+                  {tab.label}{n != null ? ` (${n})` : ""}
+                </button>
+              );
+            })}
           </div>
           {/* Modul-Filter */}
           <div className="flex items-center gap-2">
@@ -698,14 +890,21 @@ function TicketsTab() {
                 {tickets.map((t) => (
                   <tr
                     key={t.id}
-                    onClick={() => onRowClick(t.id)}
+                    onClick={() => openDetail(t.id)}
                     className={`cursor-pointer transition-colors hover:bg-[var(--surface)] ${selectedId === t.id ? "bg-[var(--accent)]/5" : ""}`}
                   >
                     <td className={tdCls}>
                       <StatusBadge status={t.status} />
                     </td>
                     <td className={tdCls}>
-                      <div className="font-medium">{t.subject}</div>
+                      <div className="font-medium flex items-center gap-1.5">
+                        {t.subject}
+                        {(t.comment_count ?? 0) > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-xs text-[var(--text-subtle)] font-normal">
+                            <MessageSquare className="h-3 w-3" />{t.comment_count}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-[var(--text-subtle)]">
                         {CATEGORY_LABELS[t.category] ?? t.category}
                         {t.module === "booking" && " · Buchung"}
@@ -747,6 +946,29 @@ function TicketsTab() {
               </tbody>
             </table>
           )}
+          {/* Pager */}
+          {!loading && !error && total > 0 && (
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--border-soft)] px-3 py-2.5 text-xs text-[var(--text-subtle)]">
+              <span>{rangeFrom}–{rangeTo} von {total}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1 hover:text-[var(--text-main)] disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Zurück
+                </button>
+                <span className="px-1">Seite {page} / {totalPages}</span>
+                <button
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-soft)] px-2 py-1 hover:text-[var(--text-main)] disabled:opacity-40"
+                >
+                  Weiter <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -756,7 +978,7 @@ function TicketsTab() {
           <TicketDetailPanel
             key={detailKey}
             ticketId={selectedId}
-            onClose={() => setSelectedId(null)}
+            onClose={closeDetail}
             onUpdated={onDetailUpdated}
           />
         </div>
@@ -971,23 +1193,20 @@ interface TicketKpiCounts {
   high: number;
 }
 
-function useTicketKpiCounts(enabled: boolean): TicketKpiCounts | null {
+function useTicketKpiCounts(enabled: boolean, refreshKey: number): TicketKpiCounts | null {
   const [counts, setCounts] = useState<TicketKpiCounts | null>(null);
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    getTicketsList()
+    getTicketsList({ limit: 1 })
       .then((res) => {
         if (cancelled) return;
-        const open = res.tickets.filter((t) => t.status === "open").length;
-        const inProgress = res.tickets.filter((t) => t.status === "in_progress").length;
-        const unassigned = res.tickets.filter(
-          (t) => t.status !== "done" && t.status !== "rejected" && !t.assigned_to,
-        ).length;
-        const high = res.tickets.filter(
-          (t) => t.priority === "high" && t.status !== "done" && t.status !== "rejected",
-        ).length;
-        setCounts({ open, inProgress, unassigned, high });
+        setCounts({
+          open: res.counts.open,
+          inProgress: res.counts.in_progress,
+          unassigned: res.unassigned,
+          high: res.highPriority,
+        });
       })
       .catch(() => {
         if (cancelled) return;
@@ -996,14 +1215,15 @@ function useTicketKpiCounts(enabled: boolean): TicketKpiCounts | null {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, refreshKey]);
   return counts;
 }
 
 export function AdminTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get("tab") as TabId) ?? "tickets";
-  const counts = useTicketKpiCounts(tab === "tickets");
+  const [kpiRefresh, setKpiRefresh] = useState(0);
+  const counts = useTicketKpiCounts(tab === "tickets", kpiRefresh);
 
   function setTab(t: TabId) {
     setSearchParams((prev) => {
@@ -1077,7 +1297,7 @@ export function AdminTicketsPage() {
 
       {/* Tab content */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {tab === "tickets" && <TicketsTab />}
+        {tab === "tickets" && <TicketsTab onChanged={() => setKpiRefresh((k) => k + 1)} />}
         {tab === "inbox" && <InboxTab />}
       </div>
       </div>

@@ -854,6 +854,8 @@ export interface TicketRow {
   /** JOIN core.customers */
   customer_name?: string | null;
   customer_email?: string | null;
+  /** Anzahl Notizen (kind='comment') */
+  comment_count?: number;
 }
 
 export interface TicketCreatePayload {
@@ -875,6 +877,33 @@ export interface TicketPatchPayload {
   customer_id?: number | null;
   reference_type?: string | null;
   reference_id?: string | null;
+}
+
+export interface TicketComment {
+  id: number;
+  ticket_id: number;
+  author: string | null;
+  author_role: string | null;
+  kind: "comment" | "system" | string;
+  body: string;
+  attachment_path: string | null;
+  created_at: string;
+}
+
+export interface TicketsListResponse {
+  ok: true;
+  tickets: TicketRow[];
+  /** Anzahl Treffer für den aktiven Status-Filter (bzw. alle, wenn kein Filter) */
+  total: number;
+  /** Gesamtzahl über alle Status (mit aktiven Modul-/Such-Filtern) */
+  totalAll: number;
+  counts: Record<TicketStatus, number>;
+  /** Offene/in Arbeit ohne Bearbeiter */
+  unassigned: number;
+  /** Offene/in Arbeit mit Priorität "high" */
+  highPriority: number;
+  limit: number;
+  offset: number;
 }
 
 export interface InboxMessage {
@@ -922,6 +951,9 @@ export function getTicketsList(filters?: {
   reference_id?: string;
   reference_type?: string;
   customer_id?: number;
+  search?: string;
+  limit?: number;
+  offset?: number;
 }) {
   const params = new URLSearchParams();
   if (filters?.status) params.set("status", filters.status);
@@ -929,12 +961,26 @@ export function getTicketsList(filters?: {
   if (filters?.reference_id) params.set("reference_id", filters.reference_id);
   if (filters?.reference_type) params.set("reference_type", filters.reference_type);
   if (filters?.customer_id) params.set("customer_id", String(filters.customer_id));
+  if (filters?.search && filters.search.trim()) params.set("search", filters.search.trim());
+  if (filters?.limit != null) params.set("limit", String(filters.limit));
+  if (filters?.offset != null) params.set("offset", String(filters.offset));
   const qs = params.toString();
-  return toursAdminFetch<{ ok: true; tickets: TicketRow[] }>(`/tickets${qs ? `?${qs}` : ""}`);
+  return toursAdminFetch<TicketsListResponse>(`/tickets${qs ? `?${qs}` : ""}`);
 }
 
 export function getTicketDetail(id: number | string) {
   return toursAdminFetch<{ ok: true; ticket: TicketRow }>(`/tickets/${id}`);
+}
+
+export function getTicketComments(id: number | string) {
+  return toursAdminFetch<{ ok: true; comments: TicketComment[] }>(`/tickets/${id}/comments`);
+}
+
+export function postTicketComment(id: number | string, payload: { body: string; attachment_path?: string | null }) {
+  return toursAdminFetch<{ ok: true; comment: TicketComment }>(`/tickets/${id}/comments`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function patchTicketStatus(id: number | string, status: TicketStatus, assigned_to?: string) {

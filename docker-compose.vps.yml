@@ -157,6 +157,7 @@ services:
       - platform-state:/data/state
       - ./backups:/data/backups
       - platform-logs:/app/logs
+      - ticket-uploads:/app/tours/uploads/tickets
       - ${BOOKING_UPLOAD_STAGING_HOST_PATH:-/opt/propus-upload-staging}:/upload_staging
       - ${BOOKING_UPLOAD_CUSTOMER_HOST_PATH:-/mnt/propus-nas-customers}:/booking_upload_customer
       - ${BOOKING_UPLOAD_RAW_HOST_PATH:-/mnt/propus-nas-raw}:/booking_upload_raw
@@ -287,6 +288,7 @@ volumes:
   postgres-data:
   platform-state:
   platform-logs:
+  ticket-uploads:
 
 networks:
   propus:

@@ -4241,7 +4241,9 @@ function ticketSelectQuery(whereClause = '', params = []) {
                   t.matterport_space_id AS tour_space_id,
                   o.order_no            AS reference_order_no,
                   c.name                AS customer_name,
-                  c.email               AS customer_email
+                  c.email               AS customer_email,
+                  (SELECT COUNT(*) FROM tour_manager.ticket_comments tc
+                     WHERE tc.ticket_id = tk.id AND tc.kind = 'comment')::int AS comment_count
            FROM tour_manager.tickets tk
            LEFT JOIN tour_manager.tours t
              ON tk.reference_type = 'tour' AND tk.reference_id = t.id::TEXT
@@ -4326,22 +4328,76 @@ router.post('/tickets/from-email', async (req, res) => {
   }
 });
 
-// Tickets auflisten
+// Tickets auflisten (server-seitige Suche + Pagination + Status-Zähler)
 router.get('/tickets', async (req, res) => {
   try {
-    const { status, module: mod, reference_id, reference_type, customer_id } = req.query;
-    const conditions = [];
-    const params = [];
+    const { status, module: mod, reference_id, reference_type, customer_id, search } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+    // Bedingungen, die für Liste UND Status-Zähler gelten (alles außer dem status-Filter):
+    const baseConditions = [];
+    const baseParams = [];
     let i = 1;
-    if (status && TICKET_STATUSES.includes(status)) { conditions.push(`tk.status = $${i++}`); params.push(status); }
-    if (mod) { conditions.push(`tk.module = $${i++}`); params.push(mod); }
-    if (reference_id) { conditions.push(`tk.reference_id = $${i++}`); params.push(String(reference_id)); }
-    if (reference_type) { conditions.push(`tk.reference_type = $${i++}`); params.push(reference_type); }
-    if (customer_id) { conditions.push(`tk.customer_id = $${i++}`); params.push(Number(customer_id)); }
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const q = ticketSelectQuery(`${where} ORDER BY tk.created_at DESC LIMIT 500`, params);
+    if (mod) { baseConditions.push(`tk.module = $${i++}`); baseParams.push(mod); }
+    if (reference_id) { baseConditions.push(`tk.reference_id = $${i++}`); baseParams.push(String(reference_id)); }
+    if (reference_type) { baseConditions.push(`tk.reference_type = $${i++}`); baseParams.push(reference_type); }
+    if (customer_id) { baseConditions.push(`tk.customer_id = $${i++}`); baseParams.push(Number(customer_id)); }
+    if (search && String(search).trim()) {
+      baseConditions.push(`(tk.subject ILIKE $${i} OR tk.description ILIKE $${i})`);
+      baseParams.push(`%${String(search).trim()}%`);
+      i++;
+    }
+    const baseWhere = baseConditions.length ? `WHERE ${baseConditions.join(' AND ')}` : '';
+
+    // Status-Zähler (mit allen Bedingungen außer status):
+    const countsRes = await pool.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE tk.status = 'open')::int        AS open,
+         COUNT(*) FILTER (WHERE tk.status = 'in_progress')::int AS in_progress,
+         COUNT(*) FILTER (WHERE tk.status = 'done')::int        AS done,
+         COUNT(*) FILTER (WHERE tk.status = 'rejected')::int    AS rejected,
+         COUNT(*) FILTER (WHERE tk.status NOT IN ('done','rejected')
+                            AND (tk.assigned_to IS NULL OR tk.assigned_to = ''))::int AS unassigned,
+         COUNT(*) FILTER (WHERE tk.status NOT IN ('done','rejected')
+                            AND tk.priority = 'high')::int      AS high_priority
+       FROM tour_manager.tickets tk ${baseWhere}`,
+      baseParams
+    );
+    const c0 = countsRes.rows[0] || {};
+    const counts = {
+      open: c0.open || 0,
+      in_progress: c0.in_progress || 0,
+      done: c0.done || 0,
+      rejected: c0.rejected || 0,
+    };
+    const totalAll = counts.open + counts.in_progress + counts.done + counts.rejected;
+
+    // Listen-Query (zusätzlich status-Filter + Pagination):
+    const listConditions = [...baseConditions];
+    const listParams = [...baseParams];
+    let total = totalAll;
+    if (status && TICKET_STATUSES.includes(status)) {
+      listConditions.push(`tk.status = $${i++}`);
+      listParams.push(status);
+      total = counts[status] || 0;
+    }
+    const listWhere = listConditions.length ? `WHERE ${listConditions.join(' AND ')}` : '';
+    const limPos = i++; listParams.push(limit);
+    const offPos = i++; listParams.push(offset);
+    const q = ticketSelectQuery(`${listWhere} ORDER BY tk.created_at DESC LIMIT $${limPos} OFFSET $${offPos}`, listParams);
     const result = await pool.query(q.text, q.values);
-    return res.json({ ok: true, tickets: result.rows });
+    return res.json({
+      ok: true,
+      tickets: result.rows,
+      total,
+      totalAll,
+      counts,
+      unassigned: c0.unassigned || 0,
+      highPriority: c0.high_priority || 0,
+      limit,
+      offset,
+    });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
@@ -4366,6 +4422,13 @@ router.patch('/tickets/:id', async (req, res) => {
     if (status && !TICKET_STATUSES.includes(status)) {
       return res.status(400).json({ ok: false, error: `Ungültiger Status: ${status}` });
     }
+    const beforeRes = await pool.query(
+      'SELECT id, status, assigned_to, subject FROM tour_manager.tickets WHERE id = $1',
+      [req.params.id]
+    );
+    const before = beforeRes.rows[0];
+    if (!before) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
+
     const setClauses = [];
     const params = [];
     let i = 1;
@@ -4377,14 +4440,81 @@ router.patch('/tickets/:id', async (req, res) => {
     if (setClauses.length === 0) return res.status(400).json({ ok: false, error: 'Keine Felder' });
     setClauses.push(`updated_at = NOW()`);
     params.push(req.params.id);
-    await pool.query(
-      `UPDATE tour_manager.tickets SET ${setClauses.join(', ')} WHERE id = $${i}`,
-      params
-    );
+    await pool.query(`UPDATE tour_manager.tickets SET ${setClauses.join(', ')} WHERE id = $${i}`, params);
+
+    const actor = adminEmail(req);
+
+    // Statuswechsel → System-Eintrag im Verlauf
+    if (status && status !== before.status) {
+      await insertTicketComment(req.params.id, {
+        author: actor, authorRole: 'admin', kind: 'system',
+        body: `Status geändert: ${before.status} → ${status}`,
+      }).catch((e) => console.error('[tickets] system comment failed:', e.message));
+    }
+
+    // Neue Zuweisung → System-Eintrag + Benachrichtigung an den Bearbeiter
+    const newAssignee = assigned_to !== undefined ? (assigned_to || null) : undefined;
+    if (newAssignee !== undefined && newAssignee && newAssignee !== before.assigned_to) {
+      await insertTicketComment(req.params.id, {
+        author: actor, authorRole: 'admin', kind: 'system',
+        body: `Zugewiesen an ${newAssignee}`,
+      }).catch((e) => console.error('[tickets] system comment failed:', e.message));
+      const adminBase = String(process.env.ADMIN_BASE_URL || 'https://admin-booking.propus.ch').replace(/\/$/, '');
+      const ticketUrl = `${adminBase}/admin/tickets?id=${encodeURIComponent(req.params.id)}`;
+      const subject = `Ticket #${req.params.id} dir zugewiesen: ${before.subject || ''}`.trim();
+      const html = `<p>Dir wurde ein Ticket zugewiesen${actor && actor !== 'admin' ? ` (durch ${escapeHtml(actor)})` : ''}.</p>`
+        + `<p><strong>${escapeHtml(before.subject || `Ticket #${req.params.id}`)}</strong></p>`
+        + `<p><a href="${escapeHtml(ticketUrl)}">Ticket öffnen</a></p>`;
+      Promise.resolve(sendMailDirect({ to: newAssignee, subject, htmlBody: html }))
+        .then((r) => { if (!r || !r.success) console.warn('[tickets] assignment mail not sent:', r && r.error); })
+        .catch((e) => console.error('[tickets] assignment mail error:', e && e.message));
+    }
+
     const q = ticketSelectQuery('WHERE tk.id = $1', [req.params.id]);
     const result = await pool.query(q.text, q.values);
-    if (!result.rows[0]) return res.status(404).json({ ok: false, error: 'Nicht gefunden' });
     return res.json({ ok: true, ticket: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── Ticket-Kommentare / Verlauf ────────────────────────────────────────────
+async function insertTicketComment(ticketId, { author = null, authorRole = 'admin', kind = 'comment', body, attachmentPath = null }) {
+  const r = await pool.query(
+    `INSERT INTO tour_manager.ticket_comments (ticket_id, author, author_role, kind, body, attachment_path)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [ticketId, author, authorRole, kind, body, attachmentPath]
+  );
+  return r.rows[0];
+}
+
+router.get('/tickets/:id/comments', async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT * FROM tour_manager.ticket_comments WHERE ticket_id = $1 ORDER BY created_at ASC, id ASC`,
+      [req.params.id]
+    );
+    return res.json({ ok: true, comments: r.rows });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/tickets/:id/comments', async (req, res) => {
+  try {
+    const { body, attachment_path } = req.body || {};
+    if (!body || !String(body).trim()) return res.status(400).json({ ok: false, error: 'Text fehlt' });
+    const exists = await pool.query('SELECT id FROM tour_manager.tickets WHERE id = $1', [req.params.id]);
+    if (!exists.rows[0]) return res.status(404).json({ ok: false, error: 'Ticket nicht gefunden' });
+    const comment = await insertTicketComment(req.params.id, {
+      author: adminEmail(req),
+      authorRole: 'admin',
+      kind: 'comment',
+      body: String(body).trim(),
+      attachmentPath: attachment_path || null,
+    });
+    await pool.query('UPDATE tour_manager.tickets SET updated_at = NOW() WHERE id = $1', [req.params.id]);
+    return res.json({ ok: true, comment });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }

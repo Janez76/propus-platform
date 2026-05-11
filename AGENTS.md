@@ -195,26 +195,44 @@ Zentrales Ticketsystem für alle Module (Touren, Buchung), erreichbar unter `/ad
 | `status` | TEXT | `open` / `in_progress` / `done` / `rejected` |
 | `priority` | TEXT | `normal` / `high` / `low` |
 | `created_by` | TEXT | E-Mail des Erstellers |
-| `assigned_to` | TEXT | E-Mail des Bearbeiters |
-| `attachment_path` | TEXT | Relativer Pfad zu Datei in `tours/uploads/tickets/` |
+| `assigned_to` | TEXT | E-Mail des Bearbeiters — beim Setzen Benachrichtigungs-Mail via `sendMailDirect` (Graph) |
+| `attachment_path` | TEXT | Relativer Pfad zu Datei in `tours/uploads/tickets/` (als Docker-Volume `ticket-uploads` gemountet → überlebt Redeploy) |
+
+### DB-Tabelle: `tour_manager.ticket_comments` (Verlauf / Notizen)
+
+| Spalte | Typ | Beschreibung |
+|--------|-----|-------------|
+| `id` | SERIAL PK | |
+| `ticket_id` | INTEGER FK | → `tour_manager.tickets(id)` ON DELETE CASCADE |
+| `author` | TEXT | E-Mail des Verfassers |
+| `author_role` | TEXT | Default `'admin'` |
+| `kind` | TEXT | `'comment'` (manuelle Notiz) oder `'system'` (autom. Eintrag: Statuswechsel, Zuweisung) |
+| `body` | TEXT | Text (Pflichtfeld) |
+| `attachment_path` | TEXT | optionaler Anhang (selber Ordner wie Ticket-Uploads) |
+| `created_at` | TIMESTAMPTZ | |
+
+Migration: `core/migrations/065_ticket_comments.sql` (legt zusätzlich Indizes `idx_tickets_status_created`, `idx_tickets_assigned_to`, `idx_ticket_comments_ticket` an).
 
 ### API-Endpunkte (unter `/api/tours/admin`)
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
-| `GET` | `/tickets` | Liste (Filter: status, module, reference_id, reference_type, customer_id) |
-| `GET` | `/tickets/:id` | Einzelticket mit JOINs (Tour, Bestellung, Kunde) |
+| `GET` | `/tickets` | Liste — Filter `status, module, reference_id, reference_type, customer_id, search` + Pagination `limit` (Default 50, Max 200) / `offset`. Response: `{ tickets, total, totalAll, counts, unassigned, highPriority, limit, offset }` (`counts` = Anzahl je Status) |
+| `GET` | `/tickets/:id` | Einzelticket mit JOINs (Tour, Bestellung, Kunde) + `comment_count` |
 | `POST` | `/tickets` | Neues Ticket erstellen (inkl. customer_id) |
 | `POST` | `/tickets/from-email` | Ticket aus eingehender E-Mail erstellen |
-| `PATCH` | `/tickets/:id` | Status, Zuweisung, customer_id, reference ändern |
-| `POST` | `/tickets/upload` | Screenshot hochladen |
+| `PATCH` | `/tickets/:id` | Status, Zuweisung, customer_id, reference ändern (schreibt `system`-Kommentar bei Status-/Zuweisungs-Wechsel; bei neuer Zuweisung Mail an den Bearbeiter) |
+| `GET` | `/tickets/:id/comments` | Verlauf/Notizen eines Tickets (chronologisch) |
+| `POST` | `/tickets/:id/comments` | Notiz hinzufügen (`{ body, attachment_path? }`) |
+| `POST` | `/tickets/upload` | Screenshot hochladen (auch für Notiz-Anhänge nutzbar) |
 
 ### Frontend
 
 | Datei | Beschreibung |
 |-------|-------------|
-| `app/src/pages-legacy/tours/admin/AdminTicketsPage.tsx` | Hauptseite (Tab: Tickets + Postfach) |
+| `app/src/pages-legacy/tours/admin/AdminTicketsPage.tsx` | Hauptseite (Tab: Tickets + Postfach); server-seitige Suche/Pagination, Status-Tabs mit Zählern, Detail-Panel inkl. „Verlauf & Notizen"; öffnet ein Ticket auch via `?id=` |
 | `app/src/pages-legacy/tours/admin/components/TicketCreateDialog.tsx` | Dialog für neues Ticket (auch von Tour-Detail nutzbar) |
+| `app/src/api/toursAdmin.ts` | API-Client: `getTicketsList` (Suche/Pagination), `getTicketComments`, `postTicketComment`, `TicketComment` |
 
 ### Postfach-Tab
 
