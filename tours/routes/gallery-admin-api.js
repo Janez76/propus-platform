@@ -70,11 +70,20 @@ async function ensureGalleryThumb(srcPath, galleryId, imageId, width) {
   return cachePath;
 }
 
+/**
+ * Modul-Discriminator: alle Mount-Pfade (siehe platform/server.js) setzen
+ * `req.galleryKind` auf 'listing' bzw. 'bildauswahl'. So teilt sich die
+ * gleiche Router-Instanz zwischen Listing und Bildauswahl ohne Code-Klon.
+ */
+function pickKind(req) {
+  return req.galleryKind === 'bildauswahl' ? 'bildauswahl' : 'listing';
+}
+
 // GET / — Liste aller Galerien
 router.get('/', async (req, res) => {
   try {
     const { search, filter, sort } = req.query;
-    const rows = await gallery.listGalleries({ search, filter, sort });
+    const rows = await gallery.listGalleries({ search, filter, sort, kind: pickKind(req) });
     res.json({ ok: true, rows });
   } catch (e) {
     console.error('gallery list error:', e);
@@ -85,7 +94,7 @@ router.get('/', async (req, res) => {
 // POST / — Neue Galerie erstellen
 router.post('/', async (req, res) => {
   try {
-    const row = await gallery.createGallery(req.body);
+    const row = await gallery.createGallery({ ...req.body, kind: pickKind(req) });
     res.json({ ok: true, gallery: row });
   } catch (e) {
     console.error('gallery create error:', e);
@@ -93,10 +102,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET /email-templates — E-Mail-Vorlagen
-router.get('/email-templates', async (_req, res) => {
+// GET /email-templates — E-Mail-Vorlagen (nur Module-relevante)
+router.get('/email-templates', async (req, res) => {
   try {
-    const rows = await gallery.listEmailTemplates();
+    const rows = await gallery.listEmailTemplates({ kind: pickKind(req) });
     res.json({ ok: true, rows });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

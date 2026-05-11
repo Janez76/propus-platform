@@ -1,81 +1,17 @@
-/** Bildauswahl Admin JSON-API (Session-Cookie, gleiche Origin). */
+/**
+ * Bildauswahl Admin JSON-API (Klon von Listing — kind=bildauswahl im Backend gefiltert) (Session-Cookie, gleiche Origin).
+ */
+import type {
+  ClientGalleryRow,
+  EmailTemplateRow,
+  GalleryFeedbackRow,
+  GalleryImageRow,
+  GalleryListRow,
+} from "../components/listing/types";
 
 const BASE = "/api/tours/admin/bildauswahl";
 
-export type BildauswahlRow = {
-  id: string;
-  slug: string;
-  friendly_slug: string | null;
-  title: string;
-  address: string | null;
-  client_name: string | null;
-  client_email: string | null;
-  client_contact: string | null;
-  client_delivery_status: "open" | "sent";
-  client_delivery_sent_at: string | null;
-  client_log_email_received_at: string | null;
-  client_log_gallery_opened_at: string | null;
-  client_log_selection_sent_at: string | null;
-  status: "active" | "inactive";
-  cloud_share_url: string | null;
-  watermark_enabled: boolean;
-  picdrop_selection_json: string | null;
-  customer_id: number | null;
-  customer_contact_id: number | null;
-  booking_order_no: number | null;
-  storage_source_type: string | null;
-  storage_root_kind: string | null;
-  storage_relative_path: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type BildauswahlListRow = BildauswahlRow & {
-  image_count: number;
-  feedback_count: number;
-};
-
-export type BildauswahlImage = {
-  id: string;
-  gallery_id: string;
-  sort_order: number;
-  enabled: boolean;
-  category: string | null;
-  file_name: string | null;
-  remote_src: string | null;
-  source_type: string | null;
-  source_root_kind: string | null;
-  source_path: string | null;
-  created_at: string;
-};
-
-export type BildauswahlFeedbackRow = {
-  id: string;
-  gallery_id: string;
-  gallery_slug: string;
-  asset_key: string;
-  asset_label: string;
-  body: string;
-  author: "client" | "office";
-  selection_flags_json: string | null;
-  revision: number;
-  resolved_at: string | null;
-  created_at: string;
-};
-
-export type BildauswahlNasEntry = { name: string; relativePath: string };
-export type BildauswahlNasContext = {
-  ok: true;
-  rootKind: "customer" | "raw";
-  rootPath: string;
-  currentRelativePath: string;
-  parentRelativePath: string | null;
-  entries: BildauswahlNasEntry[];
-  mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
-  orderGuess: number | null;
-};
-
-async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
+async function galleryFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) },
@@ -88,137 +24,379 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// ─── Galleries ──────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Galleries
+// ---------------------------------------------------------------------------
 
-export async function listBildauswahl(params?: { search?: string; filter?: string; sort?: string }) {
+export function listGalleries(params?: { search?: string; filter?: string; sort?: string }) {
   const sp = new URLSearchParams();
   if (params?.search) sp.set("search", params.search);
   if (params?.filter) sp.set("filter", params.filter);
   if (params?.sort) sp.set("sort", params.sort);
   const q = sp.toString();
-  const data = await adminFetch<{ ok: boolean; rows: BildauswahlListRow[] }>(q ? `/?${q}` : "/");
-  return data.rows;
+  return galleryFetch<{ ok: boolean; rows: GalleryListRow[] }>(q ? `?${q}` : "");
 }
 
-export async function getBildauswahl(id: string) {
-  return adminFetch<{ ok: boolean; gallery: BildauswahlRow; images: BildauswahlImage[] }>(
-    `/${encodeURIComponent(id)}`,
-  );
+export function getGallery(id: string) {
+  return galleryFetch<{
+    ok: boolean;
+    gallery: ClientGalleryRow;
+    images: GalleryImageRow[];
+    feedback: GalleryFeedbackRow[];
+  }>(`/${id}`);
 }
 
-export async function createBildauswahl(data?: Partial<BildauswahlRow>) {
-  const r = await adminFetch<{ ok: boolean; gallery: BildauswahlRow }>("/", {
+export function createGallery(data?: Partial<ClientGalleryRow>) {
+  return galleryFetch<{ ok: boolean; gallery: ClientGalleryRow }>("", {
     method: "POST",
     body: JSON.stringify(data ?? {}),
   });
-  return r.gallery;
 }
 
-export async function updateBildauswahl(id: string, patch: Partial<BildauswahlRow>) {
-  const r = await adminFetch<{ ok: boolean; gallery: BildauswahlRow }>(`/${encodeURIComponent(id)}`, {
+export function updateGallery(id: string, patch: Partial<ClientGalleryRow>) {
+  return galleryFetch<{ ok: boolean; gallery: ClientGalleryRow }>(`/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
   });
-  return r.gallery;
 }
 
-export async function deleteBildauswahl(id: string) {
-  await adminFetch<{ ok: boolean }>(`/${encodeURIComponent(id)}`, { method: "DELETE" });
+export function deleteGallery(id: string) {
+  return galleryFetch<{ ok: boolean }>(`/${id}`, { method: "DELETE" });
 }
 
-// ─── Images ─────────────────────────────────────────────────────────────────
+export type BulkDeleteResult = {
+  deleted: string[];
+  failed: Array<{ id: string; error: string }>;
+};
 
-export async function listBildauswahlImages(galleryId: string) {
-  const r = await adminFetch<{ ok: boolean; rows: BildauswahlImage[] }>(
-    `/${encodeURIComponent(galleryId)}/images`,
-  );
-  return r.rows;
+export async function bulkDeleteGalleries(ids: string[]): Promise<BulkDeleteResult> {
+  const results = await Promise.allSettled(ids.map((id) => deleteGallery(id)));
+  const deleted: string[] = [];
+  const failed: BulkDeleteResult["failed"] = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") deleted.push(ids[i]);
+    else failed.push({ id: ids[i], error: r.reason instanceof Error ? r.reason.message : String(r.reason) });
+  });
+  return { deleted, failed };
 }
 
-export function adminBildauswahlThumbUrl(galleryId: string, imageId: string, width = 400): string {
-  return `${BASE}/${encodeURIComponent(galleryId)}/images/${encodeURIComponent(imageId)}/thumb?w=${width}`;
-}
-
-// ─── NAS ────────────────────────────────────────────────────────────────────
-
-export function browseBildauswahlNas(rootKind: "customer" | "raw", relativePath = "") {
-  const sp = new URLSearchParams({ rootKind, relativePath });
-  return adminFetch<BildauswahlNasContext>(`/nas/browse?${sp.toString()}`);
-}
-
-export async function importBildauswahlFromNas(
-  galleryId: string,
-  source: {
-    rootKind: "customer" | "raw";
-    relativePath: string;
-    storageSourceType?: "nas_browser" | "order_folder";
-  },
-) {
-  return adminFetch<{ ok: boolean; added: number }>(
-    `/${encodeURIComponent(galleryId)}/import-nas`,
-    { method: "POST", body: JSON.stringify(source) },
-  );
-}
-
-// ─── Feedback ───────────────────────────────────────────────────────────────
-
-export async function listBildauswahlFeedback(galleryId: string) {
-  const r = await adminFetch<{ ok: boolean; rows: BildauswahlFeedbackRow[] }>(
-    `/${encodeURIComponent(galleryId)}/feedback`,
-  );
-  return r.rows;
-}
-
-export async function setBildauswahlFeedbackResolved(feedbackId: string, resolved: boolean) {
-  await adminFetch<{ ok: boolean }>(`/feedback/${encodeURIComponent(feedbackId)}`, {
-    method: "PATCH",
-    body: JSON.stringify({ resolved }),
+export function duplicateGallery(id: string) {
+  return galleryFetch<{ ok: boolean; gallery: ClientGalleryRow }>(`/${id}/duplicate`, {
+    method: "POST",
   });
 }
 
-// ─── E-Mail-Vorlagen ────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
 
-export type BildauswahlEmailTemplate = {
-  id: string;
-  name: string;
-  subject: string;
-  body: string;
-  is_default: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-export async function listBildauswahlEmailTemplates() {
-  const r = await adminFetch<{ ok: boolean; rows: BildauswahlEmailTemplate[] }>("/email-templates");
-  return r.rows;
+export function addGalleryImage(galleryId: string, data: Partial<GalleryImageRow>) {
+  return galleryFetch<{ ok: boolean; image: GalleryImageRow }>(`/${galleryId}/images`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
-export async function saveBildauswahlEmailTemplate(id: string, subject: string, body: string) {
-  await adminFetch<{ ok: boolean }>(`/email-templates/${encodeURIComponent(id)}`, {
+export function updateImage(galleryId: string, imageId: string, patch: Partial<GalleryImageRow>) {
+  return galleryFetch<{ ok: boolean; image: GalleryImageRow }>(`/${galleryId}/images/${imageId}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function deleteImage(galleryId: string, imageId: string) {
+  return galleryFetch<{ ok: boolean }>(`/${galleryId}/images/${imageId}`, { method: "DELETE" });
+}
+
+export function reorderImages(galleryId: string, orderedIds: string[]) {
+  return galleryFetch<{ ok: boolean }>(`/${galleryId}/images/order`, {
+    method: "PUT",
+    body: JSON.stringify({ orderedIds }),
+  });
+}
+
+export function importImagesFromShare(galleryId: string, urls: Array<{ url: string }>) {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; videos?: number; hasVideo: boolean }>(`/${galleryId}/import-share`, {
+    method: "POST",
+    body: JSON.stringify({ urls }),
+  });
+}
+
+export function getGalleryNasContext(galleryId: string, orderNoOverride?: number | null) {
+  const qs = orderNoOverride != null ? `?orderNo=${encodeURIComponent(String(orderNoOverride))}` : "";
+  return galleryFetch<{
+    ok: boolean;
+    storageHealth: Array<{ key: string; path: string; ok: boolean; mounted: boolean | null; error?: string }>;
+    suggestions: Array<{
+      folderType: "raw_material" | "customer_folder";
+      rootKind: "customer" | "raw";
+      relativePath: string;
+      displayName: string;
+      companyName: string;
+      status: string;
+      exists: boolean;
+      mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+      nextcloudShareUrl: string | null;
+    }>;
+    currentSource: {
+      storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;
+      storage_root_kind: "customer" | "raw" | null;
+      storage_relative_path: string | null;
+    };
+  }>(`/${galleryId}/nas-context${qs}`);
+}
+
+export function browseGalleryNas(
+  galleryId: string,
+  params: { rootKind: "customer" | "raw"; relativePath?: string | null },
+) {
+  const search = new URLSearchParams();
+  search.set("rootKind", params.rootKind);
+  if (params.relativePath?.trim()) search.set("relativePath", params.relativePath.trim());
+  return galleryFetch<{
+    ok: boolean;
+    rootKind: "customer" | "raw";
+    rootPath: string;
+    currentRelativePath: string;
+    parentRelativePath: string | null;
+    entries: Array<{ name: string; relativePath: string }>;
+    mediaSummary: { images: number; floorPlans: number; hasVideo: boolean };
+  }>(`/${galleryId}/nas-browse?${search.toString()}`);
+}
+
+export function importGalleryFromNas(
+  galleryId: string,
+  body: {
+    rootKind: "customer" | "raw";
+    relativePath: string;
+    storageSourceType: "order_folder" | "nas_browser";
+  },
+) {
+  return galleryFetch<{ ok: boolean; added: number; floorPlans: number; videos?: number; hasVideo: boolean }>(`/${galleryId}/import-nas`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function adminGalleryImageUrl(galleryId: string, imageId: string) {
+  return `${BASE}/${galleryId}/images/${imageId}/file`;
+}
+
+/** Server-seitig erzeugtes JPG-Thumbnail (mit Disk-Cache) für den Editor-Grid. */
+export function adminGalleryImageThumbUrl(
+  galleryId: string,
+  imageId: string,
+  width: 200 | 400 | 600 = 400,
+) {
+  return `${BASE}/${galleryId}/images/${imageId}/thumb?w=${width}`;
+}
+
+export function adminGalleryFloorPlanUrl(galleryId: string, index: number) {
+  return `${BASE}/${galleryId}/floorplans/${index}/file`;
+}
+
+export function adminGalleryFloorPlanThumbUrl(
+  galleryId: string,
+  index: number,
+  width: 200 | 400 | 600 | 1200 = 600,
+) {
+  return `${BASE}/${galleryId}/floorplans/${index}/thumb?w=${width}`;
+}
+
+export type AdminFloorPlanItem = {
+  title: string;
+  url: string | null;
+  source_type: string | null;
+};
+
+export function parseAdminFloorPlans(raw: string | null | undefined): AdminFloorPlanItem[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+      .map((entry) => ({
+        title: String(entry.title || "Grundriss").trim() || "Grundriss",
+        url: entry.url ? String(entry.url).trim() : null,
+        source_type: entry.source_type ? String(entry.source_type).trim() : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+export function submitOfficeFeedback(
+  galleryId: string,
+  data: { asset_type: string; asset_key: string; asset_label: string; body: string },
+) {
+  return galleryFetch<{ ok: boolean; feedback: GalleryFeedbackRow }>(`/${galleryId}/feedback`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function setFeedbackResolved(galleryId: string, feedbackId: string, resolved: boolean) {
+  return galleryFetch<{ ok: boolean; feedback: GalleryFeedbackRow }>(
+    `/${galleryId}/feedback/${feedbackId}`,
+    { method: "PATCH", body: JSON.stringify({ resolved }) },
+  );
+}
+
+export function deleteFeedback(galleryId: string, feedbackId: string) {
+  return galleryFetch<{ ok: boolean }>(`/${galleryId}/feedback/${feedbackId}`, {
+    method: "DELETE",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Email Templates
+// ---------------------------------------------------------------------------
+
+export function listEmailTemplates() {
+  return galleryFetch<{ ok: boolean; rows: EmailTemplateRow[] }>("/email-templates");
+}
+
+export function saveEmailTemplate(id: string, subject: string, body: string) {
+  return galleryFetch<{ ok: boolean; template: EmailTemplateRow }>(`/email-templates/${id}`, {
     method: "PUT",
     body: JSON.stringify({ subject, body }),
   });
 }
 
-export async function markBildauswahlEmailSent(galleryId: string) {
-  await adminFetch<{ ok: boolean }>(`/${encodeURIComponent(galleryId)}/mark-email-sent`, {
+// ---------------------------------------------------------------------------
+// Record sent
+// ---------------------------------------------------------------------------
+
+export function recordEmailSent(galleryId: string) {
+  return galleryFetch<{ ok: boolean; gallery: ClientGalleryRow }>(`/${galleryId}/record-sent`, {
     method: "POST",
   });
 }
 
-/** Verschickt die Einladungsmail per Microsoft Graph an die Kundenadresse. */
-export async function sendBildauswahlInvite(galleryId: string) {
-  return adminFetch<{ ok: boolean; to: string; subject: string }>(
-    `/${encodeURIComponent(galleryId)}/send-invite`,
-    { method: "POST" },
-  );
+// ---------------------------------------------------------------------------
+// Send email via server (Microsoft Graph)
+// ---------------------------------------------------------------------------
+
+export function sendGalleryEmail(galleryId: string, data: { to: string; subject: string; htmlBody: string }) {
+  return galleryFetch<{ ok: boolean }>(`/${galleryId}/send-email`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
-/** Erstellt eine Bildauswahl mit Order-Vorbelegung (Kunde + Adresse + order_no). */
-export async function createBildauswahlForOrder(orderNo: number) {
-  const r = await adminFetch<{ ok: boolean; gallery: BildauswahlRow }>(
-    `/create-for-order/${encodeURIComponent(String(orderNo))}`,
-    { method: "POST" },
-  );
-  return r.gallery;
+// ---------------------------------------------------------------------------
+// Helpers (client-side, kept from original)
+// ---------------------------------------------------------------------------
+
+/** Bevorzugt den leserlichen friendly_slug, fällt sonst auf den Zufalls-slug zurück. */
+export function preferredGallerySlug(
+  source: string | { slug: string; friendly_slug?: string | null } | null | undefined,
+): string {
+  if (!source) return "";
+  if (typeof source === "string") return source;
+  const friendly = (source.friendly_slug ?? "").trim();
+  if (friendly) return friendly;
+  return (source.slug ?? "").trim();
+}
+
+export function publicGalleryUrl(
+  source: string | { slug: string; friendly_slug?: string | null },
+): string {
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  return `${base}/bildauswahl/${encodeURIComponent(preferredGallerySlug(source))}`;
+}
+
+export function publicGalleryDeepLink(
+  source: string | { slug: string; friendly_slug?: string | null },
+  opts: { bild?: string | null; grundriss?: number | null },
+): string {
+  const base = publicGalleryUrl(source);
+  const sp = new URLSearchParams();
+  if (opts.bild?.trim()) sp.set("bild", opts.bild.trim());
+  if (opts.grundriss != null && Number.isFinite(opts.grundriss) && opts.grundriss >= 0) {
+    sp.set("grundriss", String(Math.floor(opts.grundriss)));
+  }
+  const q = sp.toString();
+  return q ? `${base}?${q}` : base;
+}
+
+export function displayNameForGalleryImage(img: GalleryImageRow): string {
+  const fn = img.file_name?.trim();
+  if (fn) return fn;
+  if (img.remote_src) {
+    try {
+      const u = new URL(img.remote_src);
+      const seg = u.pathname.split("/").filter(Boolean).pop();
+      if (seg) return decodeURIComponent(seg);
+    } catch { /* ignore */ }
+  }
+  return `Bild-${img.id.slice(0, 8)}`;
+}
+
+export const BILDAUSWAHL_INVITE_TEMPLATE_ID = "propus-bildauswahl-invite-v1";
+export const BILDAUSWAHL_FOLLOWUP_TEMPLATE_ID = "propus-bildauswahl-followup-v1";
+export const BILDAUSWAHL_REVISION_DONE_TEMPLATE_ID = "propus-bildauswahl-revision-done-v1";
+
+export function htmlEmailToPlainText(html: string): string {
+  if (typeof document === "undefined") {
+    return html
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+  const el = document.createElement("div");
+  el.innerHTML = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n");
+  return (el.textContent || "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
+export type EmailTemplateVars = {
+  gallery_link: string;
+  title: string;
+  customer_name: string;
+  address?: string;
+  feedback_body?: string;
+  customer_comment?: string;
+  asset_label?: string;
+  direct_link?: string;
+  revision?: string;
+};
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+export function applyTemplateVars(text: string, vars: EmailTemplateVars): string {
+  const name = vars.customer_name.trim();
+  const nameEsc = escapeHtml(name);
+  const customer_name_line = name ? ` ${nameEsc}` : "";
+  const fb = escapeHtml(vars.feedback_body ?? "");
+  const cc = escapeHtml(vars.customer_comment ?? "");
+  const al = escapeHtml(vars.asset_label ?? "");
+  const rev = escapeHtml(vars.revision ?? "");
+  const direct = (vars.direct_link ?? vars.gallery_link).trim();
+  const addr = escapeHtml(vars.address ?? "");
+  return text
+    .replaceAll("{{gallery_link}}", vars.gallery_link)
+    .replaceAll("{{title}}", escapeHtml(vars.title))
+    .replaceAll("{{customer_name}}", nameEsc)
+    .replaceAll("{{customer_name_line}}", customer_name_line)
+    .replaceAll("{{address}}", addr)
+    .replaceAll("{{feedback_body}}", fb)
+    .replaceAll("{{customer_comment}}", cc)
+    .replaceAll("{{asset_label}}", al)
+    .replaceAll("{{direct_link}}", direct)
+    .replaceAll("{{revision}}", rev);
 }

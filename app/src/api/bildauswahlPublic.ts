@@ -45,8 +45,8 @@ export async function getPublicBildauswahlBySlug(
   }
 }
 
-export function bildauswahlImageUrl(slug: string, imageId: string, width = 1200): string {
-  return `${BASE}/${encodeURIComponent(slug)}/images/${imageId}?w=${width}`;
+export function bildauswahlImageUrl(slug: string, imageId: string): string {
+  return `${BASE}/${encodeURIComponent(slug)}/images/${imageId}`;
 }
 
 export function recordBildauswahlViewed(slug: string) {

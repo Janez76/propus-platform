@@ -1,7 +1,7 @@
 {
   "note": "Auto-generated. New violations relative to this snapshot fail CI. Run `npm run theme:lint:update` after intentional cleanups.",
-  "generatedAt": "2026-05-11T13:29:37.463Z",
-  "count": 986,
+  "generatedAt": "2026-05-11T14:03:27.857Z",
+  "count": 993,
   "violations": [
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
@@ -41,32 +41,32 @@
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "text-gray-300",
-      "line": 46
+      "line": 41
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "text-gray-500",
-      "line": 47
+      "line": 42
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "divide-gray-100",
-      "line": 61
+      "line": 62
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "border-gray-200",
-      "line": 61
+      "line": 62
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "bg-gray-50",
-      "line": 66
+      "line": 67
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "text-gray-500",
-      "line": 72
+      "line": 73
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
@@ -76,22 +76,22 @@
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "bg-gray-100",
-      "line": 99
+      "line": 103
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "text-gray-600",
-      "line": 99
+      "line": 103
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "bg-gray-100",
-      "line": 101
+      "line": 106
     },
     {
       "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
       "token": "text-gray-600",
-      "line": 101
+      "line": 106
     },
     {
       "file": "src/app/(admin)/orders/[id]/kommunikation/kommunikation-composer.tsx",
@@ -2742,6 +2742,41 @@
       "file": "src/lib/utils.ts",
       "token": "text-zinc-600",
       "line": 83
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlEditorPage.tsx",
+      "token": "bg-zinc-800",
+      "line": 411
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlEditorPage.tsx",
+      "token": "text-zinc-200",
+      "line": 411
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlEditorPage.tsx",
+      "token": "bg-white",
+      "line": 1917
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlEditorPage.tsx",
+      "token": "text-white",
+      "line": 2013
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlEditorPage.tsx",
+      "token": "bg-white",
+      "line": 2171
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlListPage.tsx",
+      "token": "bg-white",
+      "line": 508
+    },
+    {
+      "file": "src/pages-legacy/admin/bildauswahl/BildauswahlListPage.tsx",
+      "token": "bg-white",
+      "line": 516
     },
     {
       "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",

@@ -81,7 +81,7 @@ export function ClientBildauswahlPage() {
     const wmOn = data.watermark_enabled !== false;
     const items = data.images.map((im) => ({
       id: im.id,
-      src: bildauswahlImageUrl(data.slug, im.id, 1200),
+      src: bildauswahlImageUrl(data.slug, im.id),
     }));
 
     if (!wmOn) {

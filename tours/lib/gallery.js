@@ -608,10 +608,20 @@ async function listMediaFromNextcloudPublicShare(sharePageUrl) {
 // Galleries CRUD
 // ---------------------------------------------------------------------------
 
-async function listGalleries({ search, filter, sort } = {}) {
+async function listGalleries({ search, filter, sort, kind } = {}) {
   let where = 'WHERE 1=1';
   const params = [];
   let idx = 1;
+
+  /**
+   * `kind` ist 'listing' (Default) oder 'bildauswahl'. Ohne Filter werden
+   * nur Listings angezeigt — Bildauswahl-Galerien tauchen erst auf, wenn
+   * sie explizit angefragt werden.
+   */
+  const wantedKind = kind === 'bildauswahl' ? 'bildauswahl' : 'listing';
+  params.push(wantedKind);
+  where += ` AND g.kind = $${idx}`;
+  idx++;
 
   if (search && search.trim()) {
     const q = `%${search.trim().toLowerCase()}%`;
@@ -708,7 +718,16 @@ async function getGallery(idOrSlug) {
   return rows[0] || null;
 }
 
-async function getGalleryBySlug(slug) {
+async function getGalleryBySlug(slug, { kind } = {}) {
+  if (kind) {
+    const { rows } = await pool.query(
+      `SELECT * FROM tour_manager.galleries
+       WHERE (slug = $1 OR friendly_slug = $1) AND status = 'active' AND kind = $2
+       LIMIT 1`,
+      [slug, kind],
+    );
+    return rows[0] || null;
+  }
   const { rows } = await pool.query(
     `SELECT * FROM tour_manager.galleries
      WHERE (slug = $1 OR friendly_slug = $1) AND status = 'active'
@@ -718,7 +737,16 @@ async function getGalleryBySlug(slug) {
   return rows[0] || null;
 }
 
-async function getGalleryBySlugAny(slug) {
+async function getGalleryBySlugAny(slug, { kind } = {}) {
+  if (kind) {
+    const { rows } = await pool.query(
+      `SELECT * FROM tour_manager.galleries
+       WHERE (slug = $1 OR friendly_slug = $1) AND kind = $2
+       LIMIT 1`,
+      [slug, kind],
+    );
+    return rows[0] || null;
+  }
   const { rows } = await pool.query(
     `SELECT * FROM tour_manager.galleries
      WHERE slug = $1 OR friendly_slug = $1
@@ -784,15 +812,16 @@ async function createGallery(data = {}) {
     address: data.address,
     booking_order_no: data.booking_order_no,
   });
+  const kind = data.kind === 'bildauswahl' ? 'bildauswahl' : 'listing';
   const { rows } = await pool.query(
     `INSERT INTO tour_manager.galleries (
        slug, friendly_slug, title, address, customer_id, customer_contact_id, booking_order_no,
        client_name, client_contact, client_email, status, matterport_input, cloud_share_url,
        storage_source_type, storage_root_kind, storage_relative_path,
        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json,
-       videos_json
+       videos_json, kind, watermark_enabled
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
      RETURNING *`,
     [
       slug,
@@ -817,6 +846,8 @@ async function createGallery(data = {}) {
       data.video_url || null,
       data.floor_plans_json || null,
       data.videos_json || null,
+      kind,
+      data.watermark_enabled !== false,
     ]
   );
   return rows[0];
@@ -828,11 +859,12 @@ async function updateGallery(id, patch) {
     'client_name', 'client_contact', 'client_email',
     'client_delivery_status', 'client_delivery_sent_at',
     'client_log_email_received_at', 'client_log_gallery_opened_at',
-    'client_log_files_downloaded_at',
+    'client_log_files_downloaded_at', 'client_log_selection_sent_at',
     'status', 'matterport_input', 'cloud_share_url',
     'storage_source_type', 'storage_root_kind', 'storage_relative_path',
     'video_source_type', 'video_source_root_kind', 'video_source_path', 'video_url', 'floor_plans_json',
     'videos_json',
+    'watermark_enabled', 'picdrop_selection_json',
   ];
   const sets = [];
   const params = [];
@@ -1564,16 +1596,78 @@ async function submitFeedback(data) {
 
   const { rows } = await pool.query(
     `INSERT INTO tour_manager.gallery_feedback
-       (gallery_id, gallery_slug, asset_type, asset_key, asset_label, body, author, revision)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (gallery_id, gallery_slug, asset_type, asset_key, asset_label, body, author, revision, selection_flags_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [
       data.gallery_id, data.gallery_slug,
       data.asset_type, data.asset_key, data.asset_label || '',
       data.body || '', data.author || 'client', revision,
+      data.selection_flags_json || null,
     ]
   );
   return rows[0];
+}
+
+const PICDROP_FLAGS = new Set(['bearbeiten', 'staging', 'retusche']);
+
+/**
+ * Bildauswahl: ein "Submit"-Click vom Kunden enthält mehrere Items.
+ * Jedes Item mit Flaggen oder Kommentar wird zu einer Feedback-Zeile
+ * (asset_type='image', selection_flags_json gesetzt).
+ */
+async function submitPicdropSelection({ galleryId, gallerySlug, items }) {
+  const filtered = (items || []).filter(
+    (it) =>
+      (Array.isArray(it.flags) && it.flags.length > 0) ||
+      (Array.isArray(it.messageLines) && it.messageLines.some((l) => String(l || '').trim())),
+  );
+  if (filtered.length === 0) throw new Error('Nichts zu senden.');
+
+  const out = [];
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const it of filtered) {
+      const validFlags = (it.flags || []).filter((f) => PICDROP_FLAGS.has(f));
+      const body = (it.messageLines || []).map((l) => String(l || '').trim()).filter(Boolean).join('\n');
+      if (validFlags.length === 0 && !body) continue;
+      if (body.length > 4000) throw new Error('Kommentar ist zu lang (max. 4000 Zeichen).');
+      const maxRes = await client.query(
+        'SELECT COALESCE(MAX(revision), 0) + 1 AS next FROM tour_manager.gallery_feedback WHERE gallery_id = $1',
+        [galleryId],
+      );
+      const revision = maxRes.rows[0].next;
+      const { rows } = await client.query(
+        `INSERT INTO tour_manager.gallery_feedback
+           (gallery_id, gallery_slug, asset_type, asset_key, asset_label, body, author, revision, selection_flags_json)
+         VALUES ($1, $2, 'image', $3, $4, $5, 'client', $6, $7)
+         RETURNING *`,
+        [
+          galleryId, gallerySlug, it.asset_key,
+          String(it.asset_label || 'Bild').trim() || 'Bild',
+          body, revision,
+          validFlags.length > 0 ? JSON.stringify(validFlags) : null,
+        ],
+      );
+      out.push(rows[0]);
+    }
+    await client.query(
+      `UPDATE tour_manager.galleries
+       SET client_log_selection_sent_at = COALESCE(client_log_selection_sent_at, NOW()),
+           client_log_gallery_opened_at = COALESCE(client_log_gallery_opened_at, NOW()),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [galleryId],
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return out;
 }
 
 async function setFeedbackResolved(feedbackId, resolved) {
@@ -1594,7 +1688,14 @@ async function deleteFeedback(feedbackId) {
 // Email Templates
 // ---------------------------------------------------------------------------
 
-async function listEmailTemplates() {
+async function listEmailTemplates({ kind } = {}) {
+  if (kind) {
+    const { rows } = await pool.query(
+      'SELECT * FROM tour_manager.gallery_email_templates WHERE kind = $1 ORDER BY name',
+      [kind],
+    );
+    return rows;
+  }
   const { rows } = await pool.query(
     'SELECT * FROM tour_manager.gallery_email_templates ORDER BY name'
   );
@@ -1692,6 +1793,7 @@ module.exports = {
   listGalleryFeedback,
   listFeedbackForAsset,
   submitFeedback,
+  submitPicdropSelection,
   setFeedbackResolved,
   deleteFeedback,
   listEmailTemplates,

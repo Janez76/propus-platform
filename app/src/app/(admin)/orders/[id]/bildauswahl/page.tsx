@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { queryOne, query } from "@/lib/db";
 import Link from "next/link";
-import { ExternalLink, Image } from "lucide-react";
-import { CreateBildauswahlForOrderButton } from "./create-button";
+import { ExternalLink, Plus, Image } from "lucide-react";
 
-type BildauswahlRow = {
+type GalleryRow = {
   id: string;
   slug: string;
   friendly_slug: string | null;
@@ -12,8 +11,6 @@ type BildauswahlRow = {
   status: string;
   client_delivery_status: string | null;
   created_at: string;
-  image_count: number;
-  feedback_count: number;
 };
 
 export default async function BildauswahlPage({
@@ -29,13 +26,11 @@ export default async function BildauswahlPage({
   );
   if (!orderCheck) notFound();
 
-  const galleries = await query<BildauswahlRow>(
-    `SELECT g.id, g.slug, g.friendly_slug, g.title, g.status, g.client_delivery_status, g.created_at,
-       COALESCE((SELECT COUNT(*)::int FROM tour_manager.bildauswahl_images WHERE gallery_id = g.id AND enabled = TRUE), 0) AS image_count,
-       COALESCE((SELECT COUNT(*)::int FROM tour_manager.bildauswahl_feedback WHERE gallery_id = g.id AND author = 'client' AND resolved_at IS NULL), 0) AS feedback_count
-     FROM tour_manager.bildauswahl_galleries g
-     WHERE g.booking_order_no = $1
-     ORDER BY g.created_at DESC`,
+  const galleries = await query<GalleryRow>(
+    `SELECT id, slug, friendly_slug, title, status, client_delivery_status, created_at
+     FROM tour_manager.galleries
+     WHERE booking_order_no = $1 AND kind = 'bildauswahl'
+     ORDER BY created_at DESC`,
     [orderCheck.order_no],
   );
 
@@ -47,7 +42,13 @@ export default async function BildauswahlPage({
           <p className="text-sm text-gray-500">
             Für diese Bestellung existiert noch keine Bildauswahl.
           </p>
-          <CreateBildauswahlForOrderButton orderNo={orderCheck.order_no} />
+          <Link
+            href={`/admin/bildauswahl/new?orderNo=${orderCheck.order_no}`}
+            className="admin-btn admin-btn--primary inline-flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Bildauswahl erstellen
+          </Link>
         </div>
       </div>
     );
@@ -56,7 +57,7 @@ export default async function BildauswahlPage({
   return (
     <div className="bd-panel space-y-4">
       <h2 className="text-base font-semibold">
-        {galleries.length === 1 ? "Bildauswahl" : `${galleries.length} Bildauswahl-Galerien`}
+        {galleries.length === 1 ? "Bildauswahl" : `${galleries.length} Bildauswahlen`}
       </h2>
       <div className="divide-y divide-gray-100 rounded-lg border border-gray-200">
         {galleries.map((g) => (
@@ -70,8 +71,7 @@ export default async function BildauswahlPage({
                 {g.title || g.friendly_slug || g.slug}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                {g.image_count} Bild(er)
-                {g.feedback_count > 0 ? ` · ${g.feedback_count} offene Kommentare` : ""}
+                {g.friendly_slug || g.slug}
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -81,11 +81,15 @@ export default async function BildauswahlPage({
           </Link>
         ))}
       </div>
-      <CreateBildauswahlForOrderButton
-        orderNo={orderCheck.order_no}
-        label="Weitere Bildauswahl erstellen"
-        variant="outline"
-      />
+      {galleries.length < 3 && (
+        <Link
+          href={`/admin/bildauswahl/new?orderNo=${orderCheck.order_no}`}
+          className="admin-btn admin-btn--outline inline-flex items-center gap-2 text-sm"
+        >
+          <Plus className="h-4 w-4" />
+          Weitere Bildauswahl erstellen
+        </Link>
+      )}
     </div>
   );
 }
@@ -96,7 +100,8 @@ function StatusBadge({ status, delivery }: { status: string; delivery: string | 
   }
   const map: Record<string, { bg: string; text: string; label: string }> = {
     active: { bg: "bg-green-50", text: "text-green-700", label: "Aktiv" },
-    inactive: { bg: "bg-gray-100", text: "text-gray-600", label: "Inaktiv" },
+    draft: { bg: "bg-gray-100", text: "text-gray-600", label: "Entwurf" },
+    archived: { bg: "bg-yellow-50", text: "text-yellow-700", label: "Archiviert" },
   };
   const s = map[status] ?? { bg: "bg-gray-100", text: "text-gray-600", label: status };
   return (

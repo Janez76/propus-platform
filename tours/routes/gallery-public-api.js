@@ -45,11 +45,43 @@ function parseVideosJson(raw) {
   }));
 }
 
+function pickKind(req) {
+  return req.galleryKind === 'bildauswahl' ? 'bildauswahl' : 'listing';
+}
+
 // GET /:slug — Public Gallery Payload
 router.get('/:slug', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const kind = pickKind(req);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
+
+    /**
+     * Bildauswahl: schlanker Payload (kein Matterport/Video/Floorplans).
+     * Bilder werden vom selben Endpoint `/images/:imgId` geliefert.
+     */
+    if (kind === 'bildauswahl') {
+      const imgs = (await gallery.listGalleryImages(g.id)).filter((i) => i.enabled);
+      res.set('Cache-Control', 'no-store, max-age=0');
+      return res.json({
+        ok: true,
+        kind: 'bildauswahl',
+        id: g.id,
+        slug: g.slug,
+        friendly_slug: g.friendly_slug || null,
+        title: g.title,
+        address: g.address || null,
+        client_name: g.client_name || null,
+        updated_at: g.updated_at,
+        watermark_enabled: g.watermark_enabled !== false,
+        picdrop_selection_json: g.picdrop_selection_json || null,
+        images: imgs.map((i) => ({
+          id: i.id,
+          category: i.category,
+          sort_order: i.sort_order,
+        })),
+      });
+    }
 
     const imgs = await gallery.listGalleryImages(g.id);
     const enabled = imgs.filter(i => i.enabled);
@@ -126,7 +158,7 @@ router.get('/:slug', async (req, res) => {
 // GET /:slug/images/:imgId — Bild-URL redirect
 router.get('/:slug/images/:imgId', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
 
     const imgs = await gallery.listGalleryImages(g.id);
@@ -148,7 +180,7 @@ router.get('/:slug/images/:imgId', async (req, res) => {
 // GET /:slug/video — Video aus NAS oder gespeicherter URL (Legacy: erstes Video)
 router.get('/:slug/video', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
     const filePath = gallery.resolveGalleryVideoFile(g);
     if (!filePath) return res.status(404).json({ ok: false, error: 'Video nicht gefunden.' });
@@ -161,7 +193,7 @@ router.get('/:slug/video', async (req, res) => {
 // GET /:slug/videos/:index — Video nach Index aus videos_json
 router.get('/:slug/videos/:index', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
     const index = Number.parseInt(String(req.params.index || ''), 10);
     if (!Number.isFinite(index) || index < 0) {
@@ -185,7 +217,7 @@ router.get('/:slug/videos/:index', async (req, res) => {
 // GET /:slug/floorplans/:index/thumb?w=… — JPG-Thumbnail Seite 1
 router.get('/:slug/floorplans/:index/thumb', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
     const index = Number.parseInt(String(req.params.index || ''), 10);
     if (!Number.isFinite(index) || index < 0) {
@@ -205,7 +237,7 @@ router.get('/:slug/floorplans/:index/thumb', async (req, res) => {
 // GET /:slug/floorplans/:index — Grundriss-Datei ausliefern
 router.get('/:slug/floorplans/:index', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
     const index = Number.parseInt(String(req.params.index || ''), 10);
     if (!Number.isFinite(index) || index < 0) {
@@ -230,7 +262,7 @@ router.get('/:slug/floorplans/:index', async (req, res) => {
 // Optional: ?variant=websize|fullsize|all (Default: all)
 router.get('/:slug/download-all', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
     const rawVariant = String(req.query.variant || 'all').trim().toLowerCase();
     const variant = ['websize', 'fullsize', 'all'].includes(rawVariant) ? rawVariant : 'all';
@@ -265,7 +297,7 @@ router.get('/:slug/download-all', async (req, res) => {
 // POST /:slug/viewed — Client-Log: Galerie geoeffnet
 router.post('/:slug/viewed', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlugAny(req.params.slug);
+    const g = await gallery.getGalleryBySlugAny(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false });
     await gallery.recordClientViewed(g.id);
     res.json({ ok: true });
@@ -277,7 +309,7 @@ router.post('/:slug/viewed', async (req, res) => {
 // POST /:slug/downloaded — Client-Log: Dateien heruntergeladen
 router.post('/:slug/downloaded', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlugAny(req.params.slug);
+    const g = await gallery.getGalleryBySlugAny(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false });
     await gallery.recordClientFilesDownloaded(g.id);
     res.json({ ok: true });
@@ -289,7 +321,7 @@ router.post('/:slug/downloaded', async (req, res) => {
 // POST /:slug/feedback — Kunden-Feedback absenden
 router.post('/:slug/feedback', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlug(req.params.slug);
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht verfügbar.' });
 
     const { asset_type, asset_key, asset_label, body } = req.body;
@@ -338,7 +370,7 @@ router.post('/:slug/feedback', async (req, res) => {
 // GET /:slug/feedback — Feedback zu einem Asset
 router.get('/:slug/feedback', async (req, res) => {
   try {
-    const g = await gallery.getGalleryBySlugAny(req.params.slug);
+    const g = await gallery.getGalleryBySlugAny(req.params.slug, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
 
     const { asset_type, asset_key } = req.query;
@@ -351,6 +383,37 @@ router.get('/:slug/feedback', async (req, res) => {
     res.json({ ok: true, rows });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /:slug/draft — Auto-Save Picdrop-Entwurf (nur Bildauswahl)
+router.post('/:slug/draft', async (req, res) => {
+  try {
+    if (pickKind(req) !== 'bildauswahl') return res.status(404).json({ ok: false, error: 'Nur fuer Bildauswahl.' });
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: 'bildauswahl' });
+    if (!g) return res.status(404).json({ ok: false, error: 'Bildauswahl nicht verfügbar.' });
+    const raw = req.body?.picdrop_selection_json;
+    if (raw !== null && typeof raw !== 'string') return res.status(400).json({ ok: false, error: 'Ungueltiger Entwurf.' });
+    if (raw && raw.length > 64 * 1024) return res.status(400).json({ ok: false, error: 'Entwurf zu gross.' });
+    await gallery.updateGallery(g.id, { picdrop_selection_json: raw });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /:slug/selection — Picdrop: finale Auswahl absenden
+router.post('/:slug/selection', async (req, res) => {
+  try {
+    if (pickKind(req) !== 'bildauswahl') return res.status(404).json({ ok: false, error: 'Nur fuer Bildauswahl.' });
+    const g = await gallery.getGalleryBySlug(req.params.slug, { kind: 'bildauswahl' });
+    if (!g) return res.status(404).json({ ok: false, error: 'Bildauswahl nicht verfügbar.' });
+    const items = Array.isArray(req.body?.items) ? req.body.items : null;
+    if (!items) return res.status(400).json({ ok: false, error: 'items[] erforderlich.' });
+    await gallery.submitPicdropSelection({ galleryId: g.id, gallerySlug: g.slug, items });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
   }
 });
 

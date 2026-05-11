@@ -38,8 +38,14 @@ const posteingangAdminApi = require("../tours/routes/posteingang-admin-api");
 const toursCronApi = require("../tours/routes/cron-api");
 const galleryAdminApi = require("../tours/routes/gallery-admin-api");
 const galleryPublicApi = require("../tours/routes/gallery-public-api");
-const bildauswahlAdminApi = require("../tours/routes/bildauswahl-admin-api");
-const bildauswahlPublicApi = require("../tours/routes/bildauswahl-public-api");
+
+/** Tag-Middleware: setzt `req.galleryKind` für die geteilte Router-Instanz. */
+function tagGalleryKind(kind) {
+  return (req, _res, next) => {
+    req.galleryKind = kind;
+    next();
+  };
+}
 const adminSearchApi = require("../tours/routes/admin-search");
 const posteingangWebhook = require("../tours/routes/posteingang-webhook");
 
@@ -140,12 +146,22 @@ main.use(
   posteingangAdminApi,
 );
 main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
-main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
-main.use("/api/tours/admin/bildauswahl", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, bildauswahlAdminApi);
+main.use(
+  "/api/tours/admin/galleries",
+  express.json(),
+  toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin,
+  tagGalleryKind("listing"), galleryAdminApi,
+);
+main.use(
+  "/api/tours/admin/bildauswahl",
+  express.json(),
+  toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin,
+  tagGalleryKind("bildauswahl"), galleryAdminApi,
+);
 main.use("/api/tours/cron", express.json(), toursCronApi);
 main.use("/api/tours/posteingang/webhook", posteingangWebhook);
-main.use("/api/listing", express.json(), galleryPublicApi);
-main.use("/api/bildauswahl", express.json(), bildauswahlPublicApi);
+main.use("/api/listing", express.json(), tagGalleryKind("listing"), galleryPublicApi);
+main.use("/api/bildauswahl", express.json(), tagGalleryKind("bildauswahl"), galleryPublicApi);
 
 // Bereinigungslauf-Aktionsseiten: öffentlich auf Root-Ebene erreichbar (Token-Links in E-Mails zeigen auf /cleanup/...)
 main.set("view engine", "ejs");
@@ -158,15 +174,9 @@ main.use(booking.app);
 
 const PORT = parseInt(process.env.PORT || "3100", 10);
 
-const bildauswahlLib = require("../tours/lib/bildauswahl");
-
 (async () => {
   try {
     await booking.startServer();
-    /** Bildauswahl: leere E-Mail-Vorlagen beim Boot mit Default-HTML füllen. */
-    void bildauswahlLib.ensureDefaultEmailTemplates().catch((err) =>
-      console.warn("[propus-platform] bildauswahl ensureDefaultEmailTemplates failed:", err?.message || err),
-    );
     main.listen(PORT, "0.0.0.0", () => {
       console.log(`[propus-platform] listening on http://0.0.0.0:${PORT}`);
       console.log(

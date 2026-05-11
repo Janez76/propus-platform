@@ -55,7 +55,7 @@ const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
 const BildauswahlListPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlListPage").then((m) => ({ default: m.BildauswahlListPage })));
 const BildauswahlEditorPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlEditorPage").then((m) => ({ default: m.BildauswahlEditorPage })));
-const BildauswahlTemplatesPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlTemplatesPage").then((m) => ({ default: m.BildauswahlTemplatesPage })));
+const BildauswahlEmailTemplatesPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlEmailTemplatesPage").then((m) => ({ default: m.BildauswahlEmailTemplatesPage })));
 const ClientBildauswahlPage = lazy(() => import("../pages-legacy/bildauswahl/ClientBildauswahlPage").then((m) => ({ default: m.ClientBildauswahlPage })));
 const PaymentSettingsPage = lazy(() => import("../pages-legacy/PaymentSettingsPage").then((m) => ({ default: m.PaymentSettingsPage })));
 const InvoiceTemplatePage = lazy(() => import("../pages-legacy/InvoiceTemplatePage").then((m) => ({ default: m.InvoiceTemplatePage })));
@@ -295,7 +295,7 @@ function PrivateRoutes() {
         <Route path="/admin/listing/templates" element={eg("/admin/listing", <ListingEmailTemplatesPage />)} />
         <Route path="/admin/listing/:id" element={eg("/admin/listing", <ListingEditorPage />)} />
         <Route path="/admin/listing" element={eg("/admin/listing", <ListingListPage />)} />
-        <Route path="/admin/bildauswahl/templates" element={eg("/admin/bildauswahl", <BildauswahlTemplatesPage />)} />
+        <Route path="/admin/bildauswahl/templates" element={eg("/admin/bildauswahl", <BildauswahlEmailTemplatesPage />)} />
         <Route path="/admin/bildauswahl/:id" element={eg("/admin/bildauswahl", <BildauswahlEditorPage />)} />
         <Route path="/admin/bildauswahl" element={eg("/admin/bildauswahl", <BildauswahlListPage />)} />
       </Routes>
