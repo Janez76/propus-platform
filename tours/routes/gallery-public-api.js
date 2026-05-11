@@ -3,10 +3,58 @@
  * Gemountet unter /api/listing in platform/server.js.
  */
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const router = express.Router();
 const archiver = require('archiver');
 const gallery = require('../lib/gallery');
 const { pool } = require('../lib/db');
+
+/**
+ * Server-seitige Resize-Pipeline fuer Kunden-Galerien. Originale liegen oft
+ * bei 3–10 MB pro Bild; bei 65 Bildern explodiert die Ladezeit. Wir liefern
+ * resized JPEGs aus, disk-gecached und mit langem Cache-Header — damit
+ * Cloudflare-Edge die Antworten gemeinsam fuer alle Kunden cachen kann.
+ */
+const PUBLIC_THUMB_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'gallery-public-thumbs');
+const ALLOWED_PUBLIC_THUMB_WIDTHS = new Set([200, 400, 600, 800, 1200, 1680]);
+const publicThumbInflight = new Map();
+
+function parsePublicThumbWidth(raw) {
+  if (raw == null || raw === '') return null;
+  const w = Number.parseInt(String(raw), 10);
+  return ALLOWED_PUBLIC_THUMB_WIDTHS.has(w) ? w : null;
+}
+
+async function ensurePublicThumb(srcPath, galleryId, imageId, width) {
+  let stat;
+  try { stat = await fs.promises.stat(srcPath); } catch { return null; }
+  const mtime = Math.floor(stat.mtimeMs);
+  const cacheDir = path.join(PUBLIC_THUMB_CACHE_DIR, String(galleryId));
+  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}.jpg`);
+  try {
+    const c = await fs.promises.stat(cachePath);
+    if (c.isFile() && c.size > 0) return cachePath;
+  } catch { /* miss */ }
+  if (publicThumbInflight.has(cachePath)) {
+    await publicThumbInflight.get(cachePath);
+    return cachePath;
+  }
+  const p = (async () => {
+    await fs.promises.mkdir(cacheDir, { recursive: true });
+    const tmp = `${cachePath}.${process.pid}.tmp`;
+    await sharp(srcPath, { failOn: 'none' })
+      .rotate()
+      .resize({ width, withoutEnlargement: true, fit: 'inside' })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toFile(tmp);
+    await fs.promises.rename(tmp, cachePath);
+  })();
+  publicThumbInflight.set(cachePath, p);
+  try { await p; } finally { publicThumbInflight.delete(cachePath); }
+  return cachePath;
+}
 
 function normalizeMatterportSrc(raw) {
   const trimmed = (raw || '').trim();
@@ -155,7 +203,7 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
-// GET /:slug/images/:imgId — Bild-URL redirect
+// GET /:slug/images/:imgId — Bild-URL (optional ?w=400|600|800|1200|1680 für resized JPEG)
 router.get('/:slug/images/:imgId', async (req, res) => {
   try {
     const g = await gallery.getGalleryBySlug(req.params.slug, { kind: pickKind(req) });
@@ -168,6 +216,15 @@ router.get('/:slug/images/:imgId', async (req, res) => {
       // Websize-Variante bevorzugen, falls neben Fullsize verfügbar
       const filePath = gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img);
       if (!filePath) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+      const resizeWidth = parsePublicThumbWidth(req.query.w);
+      if (resizeWidth) {
+        const cachePath = await ensurePublicThumb(filePath, g.id, img.id, resizeWidth);
+        if (cachePath) {
+          res.set('Cache-Control', 'public, max-age=14400, s-maxage=14400, immutable');
+          res.type('jpg');
+          return res.sendFile(cachePath);
+        }
+      }
       return res.sendFile(filePath);
     }
     if (!img.remote_src) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });

@@ -45,8 +45,17 @@ export async function getPublicBildauswahlBySlug(
   }
 }
 
-export function bildauswahlImageUrl(slug: string, imageId: string): string {
-  return `${BASE}/${encodeURIComponent(slug)}/images/${imageId}`;
+/**
+ * Resized thumbnail (server-side sharp + Disk-Cache + Cloudflare Edge-Cache).
+ * Default 1200px — gross genug für Lightbox und Canvas-Watermark, klein genug
+ * für 65 Bilder in wenigen Sekunden zu laden.
+ */
+export function bildauswahlImageUrl(
+  slug: string,
+  imageId: string,
+  width: 400 | 600 | 800 | 1200 | 1680 = 1200,
+): string {
+  return `${BASE}/${encodeURIComponent(slug)}/images/${imageId}?w=${width}`;
 }
 
 export function recordBildauswahlViewed(slug: string) {
