@@ -576,6 +576,7 @@ export function BildauswahlListPage() {
               fmtDateShort={fmtDateShort}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
+              thumbApiBase="/api/tours/admin/bildauswahl"
             />
           ) : (
             <p className="admin-table-empty" style={{ border: 0, padding: "2rem" }}>

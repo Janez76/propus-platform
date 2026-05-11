@@ -36,6 +36,13 @@ export type HandoffGalleryCardsProps = {
   /** Optional: Mehrfachauswahl aktivieren (nur Listing). */
   selectedIds?: ReadonlySet<string>;
   onToggleSelect?: (id: string) => void;
+  /**
+   * API-Basis für Cover-Thumbnails. Default `/api/tours/admin/galleries`
+   * (Listing). Bildauswahl setzt `/api/tours/admin/bildauswahl` — wichtig
+   * seit die Backend-Routen kind-getrennt sind und ein Aufruf auf den
+   * falschen Pfad mit 404 antwortet.
+   */
+  thumbApiBase?: string;
 };
 
 function folderTail(path: string | null | undefined): string | null {
@@ -61,6 +68,7 @@ export function HandoffGalleryCards({
   fmtDateShort,
   selectedIds,
   onToggleSelect,
+  thumbApiBase = "/api/tours/admin/galleries",
 }: HandoffGalleryCardsProps) {
   const selectionEnabled = Boolean(onToggleSelect);
   return (
@@ -68,7 +76,7 @@ export function HandoffGalleryCards({
       {rows.map((g) => {
         const isSelected = selectedIds?.has(g.id) ?? false;
         const coverSrc = g.cover_image_id
-          ? `/api/tours/admin/galleries/${g.id}/images/${g.cover_image_id}/thumb?w=600`
+          ? `${thumbApiBase}/${g.id}/images/${g.cover_image_id}/thumb?w=600`
           : null;
         const folderName = folderTail(g.storage_relative_path);
         const titleText = g.title?.trim() || "";
