@@ -1,3 +1,6 @@
 [submodule "third-party/agent-toolkit"]
 	path = third-party/agent-toolkit
 	url = https://github.com/softaworks/agent-toolkit.git
+[submodule ".vault"]
+	path = .vault
+	url = https://github.com/Janez76/obsidian-vault.git

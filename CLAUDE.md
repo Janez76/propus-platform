@@ -167,27 +167,42 @@ und Schreibzugriff auf:
 
 ### Cloud-Sessions (web.claude.ai / Container ohne Filesystem-Zugriff)
 
-Wenn `C:\Users\svajc\...` nicht erreichbar ist (typisch: gepartiteter Container,
-keine Windows-Pfade), **kloniere den Vault zu Beginn der Session** aus dem
-privaten GitHub-Spiegel:
+Wenn `C:\Users\svajc\...` nicht erreichbar ist (typisch: Container ohne
+Windows-Filesystem), nutze das **Submodule `.vault/`** in diesem Repo. Es
+zeigt auf `Janez76/obsidian-vault` (privates Repo, gleiche Credentials wie
+dieses Repo — kein zusätzliches Auth-Setup nötig).
+
+Initialisierung am Anfang der Session, falls `.vault/` noch leer ist:
 
 ```bash
-git clone https://github.com/Janez76/obsidian-vault.git /tmp/vault
+git submodule update --init --recursive .vault
 ```
 
-Danach arbeitest du im Container mit `/tmp/vault/` als Vault-Wurzel. Schreibe
-neue Notizen genauso wie lokal, und wenn die Aufgabe abgeschlossen ist:
+Danach arbeitest du im Container mit `.vault/` als Vault-Wurzel.
+Schreibe neue Notizen genauso wie lokal, und wenn die Aufgabe
+abgeschlossen ist:
 
 ```bash
-cd /tmp/vault
+cd .vault
+git checkout main
 git add . && git commit -m "notes: <was-getan>" && git push
+```
+
+Zurück im Haupt-Repo den Submodule-Pointer mit-committen:
+
+```bash
+cd ..
+git add .vault
+git commit -m "chore: bump vault submodule"
+git push
 ```
 
 Janez' Windows-Rechner zieht die Änderungen automatisch durch den stündlich
 laufenden Auto-Pull (Task Scheduler: `ObsidianVaultAutoPush`).
 
-**Mache diesen Klon-Schritt ungefragt zu Beginn jeder Cloud-Session** —
-es ist Teil von Janez' Standard-Workflow, nicht Optional.
+**Mache den `submodule update --init`-Schritt ungefragt zu Beginn jeder
+Cloud-Session**, wenn `.vault/` leer ist — es ist Teil von Janez'
+Standard-Workflow, nicht optional.
 
 Das Regelwerk dort (`CLAUDE.md` im Vault-Root) gilt für alle Vault-Schreibe.
 Die wichtigsten Ordner für Repo-bezogene Inhalte:
