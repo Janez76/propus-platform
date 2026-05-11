@@ -312,9 +312,18 @@ async function nextcloudThumbMiddleware(req, res, next) {
   try {
     const { status, contentType, body } = await doRequest(req.method === "HEAD" ? "HEAD" : "GET");
     if (!res.headersSent) {
+      /**
+       * Aggressives Cache-Control nur fuer erfolgreiche Bild-Responses — am
+       * CF-Edge wird daraus ein gemeinsamer Cache fuer alle Kunden derselben
+       * Selekto-Galerie. Bei Fehlern (4xx/5xx) `no-store`, damit transient
+       * fehlgeschlagene Auth-Requests nicht eingebrannt werden.
+       */
+      const cacheable = status >= 200 && status < 300 && contentType.startsWith("image/");
       const out = {
         "Content-Type": contentType,
-        "Cache-Control": "private, max-age=120",
+        "Cache-Control": cacheable
+          ? "public, max-age=14400, s-maxage=14400, immutable"
+          : "private, no-store",
       };
       if (req.method === "GET") {
         out["Content-Length"] = String(body.length);

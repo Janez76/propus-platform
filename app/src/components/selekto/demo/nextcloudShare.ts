@@ -286,11 +286,15 @@ function parsePublicShareDownloadUrl(remote: string): {
 }
 
 /**
- * Nur `npm run dev` / `vite preview`: Bild-URL über lokalen Proxy mit WebDAV-Basic-Auth (Token:),
- * weil `<img>` keine Authorization-Header setzen kann.
+ * Bild-URL über VPS-Proxy mit WebDAV-Basic-Auth (Token:): `<img>` kann keine
+ * Authorization-Header setzen und CORS schlägt direkt gegen Nextcloud fehl.
+ *
+ * Der Proxy `/__propus-nc-thumb` ist same-origin (admin-booking.propus.ch),
+ * setzt `Cache-Control: public, max-age=...` und ist am CF-Edge gecached →
+ * jeder Kunde profitiert von vorherigen Aufrufen, ohne dass Set-Cookie/CORS
+ * von Nextcloud das Caching blockieren.
  */
-export function devPublicDavProxyUrl(originalRemote: string): string | null {
-  if (process.env.NODE_ENV !== "development") return null;
+export function publicDavProxyUrl(originalRemote: string): string | null {
   try {
     const trimmed = originalRemote.trim();
     const parsed = new URL(trimmed);
@@ -306,6 +310,9 @@ export function devPublicDavProxyUrl(originalRemote: string): string | null {
     return null;
   }
 }
+
+/** @deprecated Nutze `publicDavProxyUrl` — funktioniert jetzt in Dev und Prod. */
+export const devPublicDavProxyUrl = publicDavProxyUrl;
 
 /**
  * Reihenfolge: zuerst Download-URLs (ohne führendes `/` im path), dann `path`+`files`, zuletzt die rohe DAV-URL.
