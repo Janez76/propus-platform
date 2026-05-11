@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LayoutGrid, Table2, Images, CheckCircle2, Clock, MessageSquareWarning, Package, ArrowRight } from "lucide-react";
+import { LayoutGrid, Table2, Images, CheckCircle2, Clock, MessageSquareWarning, Package, ArrowRight, FolderOpen, Send } from "lucide-react";
 import { bulkDeleteGalleries, deleteGallery, listGalleries, publicGalleryUrl } from "../../../api/bildauswahlAdmin";
 import { pathBildauswahlAdmin } from "../../../components/bildauswahl/paths";
 import type { GalleryListRow } from "../../../components/listing/types";
@@ -291,7 +291,7 @@ export function BildauswahlListPage() {
             </div>
           </div>
 
-          {rows.length > 0 ? (
+          {rows.length >= 2 ? (
             <div className="pad-kpis">
               <div className="pad-kpi">
                 <div className="pad-kpi-label">
@@ -333,61 +333,6 @@ export function BildauswahlListPage() {
           ) : null}
         </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
-
-        {rows.length > 0 && rows.length < 3 ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: "1px solid var(--pad-border-soft, #F0EBDF)",
-              background: "linear-gradient(180deg, var(--gold-50, #FBF7EE), transparent 80%)",
-              fontSize: 13,
-              color: "var(--ink-2, #3C3B38)",
-              margin: "16px 0 4px",
-            }}
-          >
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 8,
-                background: "rgba(184,142,32,0.12)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--gold-700, #7A5E10)",
-                flexShrink: 0,
-              }}
-            >
-              <Package className="h-4 w-4" aria-hidden />
-            </div>
-            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>
-              <strong style={{ color: "var(--ink, #141413)" }}>Tipp:</strong> Bildauswahl direkt aus einer Bestellung anlegen — Kunde, Adresse und Bestell-Nr. werden automatisch übernommen.
-            </div>
-            <Link
-              to="/orders"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-                padding: "6px 12px",
-                borderRadius: 6,
-                border: "1px solid var(--pad-border, #EAE6DD)",
-                background: "#fff",
-                color: "var(--ink, #141413)",
-                fontSize: 12,
-                fontWeight: 600,
-                textDecoration: "none",
-                flexShrink: 0,
-              }}
-            >
-              Zu Bestellungen <ArrowRight className="h-3 w-3" aria-hidden />
-            </Link>
-          </div>
-        ) : null}
 
         <div className="gal-admin-listings-shell">
         <div className="gal-admin-listings-toolbar">
@@ -796,6 +741,54 @@ export function BildauswahlListPage() {
             <p className="admin-table-empty">Keine Bildauswahl für die aktuellen Filter.</p>
           ) : null}
         </div>
+        ) : null}
+
+        {rows.length <= 2 && !loadErr ? (
+          <section className="bildauswahl-helper" aria-label="So funktioniert Bildauswahl">
+            <header className="bildauswahl-helper__head">
+              <h3>So funktioniert Bildauswahl</h3>
+              <span className="bildauswahl-helper__head-sub">3 Schritte vom NAS bis zur freigegebenen Auswahl</span>
+            </header>
+            <div className="bildauswahl-flow">
+              <div className="bildauswahl-flow__step">
+                <div className="bildauswahl-flow__step-head">
+                  <span className="bildauswahl-flow__num">1</span>
+                  <FolderOpen className="h-4 w-4 text-[var(--gold-700)]" aria-hidden />
+                  <strong>NAS importieren</strong>
+                </div>
+                <p>Ordner mit den Originalfotos auswählen — Thumbnails und Wasserzeichen entstehen serverseitig.</p>
+              </div>
+              <ArrowRight className="bildauswahl-flow__sep" aria-hidden />
+              <div className="bildauswahl-flow__step">
+                <div className="bildauswahl-flow__step-head">
+                  <span className="bildauswahl-flow__num">2</span>
+                  <Send className="h-4 w-4 text-[var(--gold-700)]" aria-hidden />
+                  <strong>Kunde einladen</strong>
+                </div>
+                <p>Magischen Link über <code>selekto.propus.ch</code> senden — der Kunde markiert die Wunschbilder.</p>
+              </div>
+              <ArrowRight className="bildauswahl-flow__sep" aria-hidden />
+              <div className="bildauswahl-flow__step">
+                <div className="bildauswahl-flow__step-head">
+                  <span className="bildauswahl-flow__num">3</span>
+                  <CheckCircle2 className="h-4 w-4 text-[var(--gold-700)]" aria-hidden />
+                  <strong>Auswahl prüfen</strong>
+                </div>
+                <p>Nach dem Absenden landet die Liste mit Kommentaren per Mail im Postfach — bereit zur Bearbeitung.</p>
+              </div>
+            </div>
+            <div className="bildauswahl-helper__foot">
+              <span className="bildauswahl-helper__foot-icon">
+                <Package className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="bildauswahl-helper__foot-text">
+                <strong>Tipp:</strong> Bildauswahl direkt aus einer Bestellung anlegen — Kunde, Adresse und Bestell-Nr. werden automatisch übernommen.
+              </div>
+              <Link to="/orders" className="admin-btn admin-btn--outline" style={{ flexShrink: 0 }}>
+                Zu Bestellungen <ArrowRight className="h-3 w-3" aria-hidden style={{ marginLeft: 4 }} />
+              </Link>
+            </div>
+          </section>
         ) : null}
         </div>
       </div>
