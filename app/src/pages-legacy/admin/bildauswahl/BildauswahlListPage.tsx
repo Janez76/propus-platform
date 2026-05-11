@@ -267,64 +267,68 @@ export function BildauswahlListPage() {
   return (
     <>
       <div className="padmin-shell admin-content gal-admin-listings-page">
-        <header
-          className="pad-page-header"
-          style={{ paddingBottom: 12 }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
-              gap: 16,
-              flexWrap: "wrap",
-            }}
-          >
+        <header className="pad-page-header">
+          <div className="pad-ph-top">
             <div style={{ minWidth: 0 }}>
-              <h1 className="pad-h1" style={{ margin: 0 }}>
-                Bildauswahl
+              <div className="pad-eyebrow">Modul</div>
+              <h1 className="pad-h1">
+                Bildauswahl{" "}
+                {kpiCounts.total > 0 ? (
+                  <span className="num">{kpiCounts.total}</span>
+                ) : null}
               </h1>
-              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--fg-2)", maxWidth: 540 }}>
+              <div className="pad-ph-sub" style={{ maxWidth: 560 }}>
                 Bilder vom NAS importieren, dem Kunden zur Auswahl schicken — markiert wird in den drei Stufen «Bearbeiten», «Staging», «Retusche».
-              </p>
+              </div>
+            </div>
+            <div className="pad-ph-actions">
+              <Link
+                to={pathBildauswahlAdmin("new")}
+                className="admin-btn admin-btn--primary"
+              >
+                + Neue Bildauswahl
+              </Link>
             </div>
           </div>
 
           {rows.length > 0 ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                gap: 12,
-                marginTop: 18,
-              }}
-            >
-              <KpiTile
-                icon={<Images className="h-4 w-4" aria-hidden />}
-                label="Galerien"
-                value={kpiCounts.total}
-                accent="ink"
-              />
-              <KpiTile
-                icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
-                label="Aktiv"
-                value={kpiCounts.active}
-                accent="success"
-                sub={kpiCounts.inactive > 0 ? `${kpiCounts.inactive} inaktiv` : undefined}
-              />
-              <KpiTile
-                icon={<Clock className="h-4 w-4" aria-hidden />}
-                label="Lieferung offen"
-                value={kpiCounts.deliveryOpen}
-                accent={kpiCounts.deliveryOpen > 0 ? "warn" : "muted"}
-                sub={kpiCounts.deliverySent > 0 ? `${kpiCounts.deliverySent} versandt` : undefined}
-              />
-              <KpiTile
-                icon={<MessageSquareWarning className="h-4 w-4" aria-hidden />}
-                label="Offene Rev."
-                value={kpiCounts.feedbackOpen}
-                accent={kpiCounts.feedbackOpen > 0 ? "revision" : "muted"}
-              />
+            <div className="pad-kpis">
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">
+                  <Images className="h-3 w-3 inline-block mr-1 -mt-0.5" aria-hidden />
+                  Galerien
+                </div>
+                <div className="pad-kpi-value">{kpiCounts.total}</div>
+              </div>
+              <div className="pad-kpi">
+                <div className="pad-kpi-label">
+                  <CheckCircle2 className="h-3 w-3 inline-block mr-1 -mt-0.5" aria-hidden />
+                  Aktiv
+                </div>
+                <div className="pad-kpi-value">{kpiCounts.active}</div>
+                {kpiCounts.inactive > 0 ? (
+                  <div className="pad-kpi-trend">{kpiCounts.inactive} inaktiv</div>
+                ) : null}
+              </div>
+              <div className={`pad-kpi${kpiCounts.deliveryOpen > 0 ? " is-warn" : ""}`}>
+                <div className="pad-kpi-label">
+                  <Clock className="h-3 w-3 inline-block mr-1 -mt-0.5" aria-hidden />
+                  Lieferung offen
+                </div>
+                <div className="pad-kpi-value">{kpiCounts.deliveryOpen}</div>
+                {kpiCounts.deliverySent > 0 ? (
+                  <div className="pad-kpi-trend">{kpiCounts.deliverySent} versandt</div>
+                ) : null}
+              </div>
+              <div className={`pad-kpi${kpiCounts.feedbackOpen > 0 ? " is-gold" : ""}`}>
+                <div className="pad-kpi-label">
+                  <MessageSquareWarning className="h-3 w-3 inline-block mr-1 -mt-0.5" aria-hidden />
+                  Offene Rev.
+                </div>
+                <div className={`pad-kpi-value${kpiCounts.feedbackOpen > 0 ? " is-gold" : ""}`}>
+                  {kpiCounts.feedbackOpen}
+                </div>
+              </div>
             </div>
           ) : null}
         </header>
@@ -338,19 +342,19 @@ export function BildauswahlListPage() {
               gap: 12,
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid var(--border, #e8e6e1)",
-              background: "var(--card, #fff)",
+              border: "1px solid var(--pad-border-soft, #F0EBDF)",
+              background: "linear-gradient(180deg, var(--gold-50, #FBF7EE), transparent 80%)",
               fontSize: 13,
-              color: "var(--fg-2)",
-              marginBottom: 14,
+              color: "var(--ink-2, #3C3B38)",
+              margin: "16px 0 4px",
             }}
           >
             <div
               style={{
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 borderRadius: 8,
-                background: "var(--gold-50, #faf6e8)",
+                background: "rgba(184,142,32,0.12)",
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -360,8 +364,8 @@ export function BildauswahlListPage() {
             >
               <Package className="h-4 w-4" aria-hidden />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              Tipp: Bildauswahl direkt aus einer Bestellung anlegen — der Kunde, die Adresse und die Bestell-Nr. werden dabei automatisch übernommen.
+            <div style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>
+              <strong style={{ color: "var(--ink, #141413)" }}>Tipp:</strong> Bildauswahl direkt aus einer Bestellung anlegen — Kunde, Adresse und Bestell-Nr. werden automatisch übernommen.
             </div>
             <Link
               to="/orders"
@@ -369,11 +373,11 @@ export function BildauswahlListPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 4,
-                padding: "5px 10px",
+                padding: "6px 12px",
                 borderRadius: 6,
-                border: "1px solid var(--border, #e8e6e1)",
-                background: "var(--paper-strip, #fafaf8)",
-                color: "var(--ink)",
+                border: "1px solid var(--pad-border, #EAE6DD)",
+                background: "#fff",
+                color: "var(--ink, #141413)",
                 fontSize: 12,
                 fontWeight: 600,
                 textDecoration: "none",
@@ -387,13 +391,6 @@ export function BildauswahlListPage() {
 
         <div className="gal-admin-listings-shell">
         <div className="gal-admin-listings-toolbar">
-          <Link
-            to={pathBildauswahlAdmin("new")}
-            className="admin-btn admin-btn--outline gal-admin-btn-new-listing"
-            style={{ flexShrink: 0 }}
-          >
-            + Neue Bildauswahl
-          </Link>
           <div className="gal-admin-listings-search-wrap">
             <label htmlFor="gal-listings-search" className="gal-admin-visually-hidden">
               Suche
@@ -818,63 +815,3 @@ export function BildauswahlListPage() {
   );
 }
 
-type KpiAccent = "ink" | "success" | "warn" | "revision" | "muted";
-
-function KpiTile({
-  icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  sub?: string;
-  accent: KpiAccent;
-}) {
-  const tone: Record<KpiAccent, { value: string; iconBg: string; iconFg: string }> = {
-    ink: { value: "var(--ink)", iconBg: "var(--paper-strip, #fafaf8)", iconFg: "var(--ink)" },
-    success: { value: "var(--success, #15803d)", iconBg: "rgba(21,128,61,0.08)", iconFg: "var(--success, #15803d)" },
-    warn: { value: "var(--warn, #a16207)", iconBg: "rgba(161,98,7,0.08)", iconFg: "var(--warn, #a16207)" },
-    revision: { value: "var(--gold-700, #7A5E10)", iconBg: "var(--gold-50, #faf6e8)", iconFg: "var(--gold-700, #7A5E10)" },
-    muted: { value: "var(--fg-3, #9a9a9a)", iconBg: "var(--paper-strip, #fafaf8)", iconFg: "var(--fg-3, #9a9a9a)" },
-  };
-  const t = tone[accent];
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 14px",
-        borderRadius: 10,
-        background: "var(--card, #fff)",
-        border: "1px solid var(--border, #e8e6e1)",
-      }}
-    >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          background: t.iconBg,
-          color: t.iconFg,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-      <div style={{ minWidth: 0, lineHeight: 1.2 }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--fg-2)" }}>
-          {label}
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: t.value, marginTop: 2 }}>{value}</div>
-        {sub ? <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>{sub}</div> : null}
-      </div>
-    </div>
-  );
-}
