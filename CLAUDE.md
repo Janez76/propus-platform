@@ -1,199 +1,260 @@
-# CLAUDE.md
+# CLAUDE.md — Anweisungen für Claude in diesem Repo
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Dies ist das **Propus Platform Monorepo** (Janez Smirmaul). Diese Datei ist
+das Regelwerk für Claude Code beim Arbeiten in diesem Verzeichnis.
+Detaillierte Architektur-Regeln stehen in **`AGENTS.md`** — lies sie zuerst,
+wenn die Aufgabe Module oder Datenmodell berührt.
 
-## Pflichtlektüre
+---
 
-`AGENTS.md` (Repo-Root) ist die kanonische Architektur- und Konventions-Doku — bei jeder
-nicht-trivialen Änderung zuerst dort nachsehen. `app/CLAUDE.md` referenziert dieses File ebenfalls.
+## 1. Nutzer & Sprache
 
-@AGENTS.md
+- **Janez** ist Entwickler/Inhaber.
+- **Sprache:** Antworte auf **Deutsch**. Code, Identifier, Commit-Messages,
+  PR-Titel bleiben auf **Englisch** (Konvention im Repo).
+- **Stil:** Kurz, direkt, technisch. Keine Floskeln, keine
+  „Hier ist eine Lösung …"-Eröffnungen.
 
-Modulare Detail-Dokumentation liegt in `docs/` (Index: `DATA_FIELDS.md`).
-Cursor-Regeln unter `.cursor/rules/*.mdc` (`alwaysApply: true` gelten für alle Files).
+## 2. Stack — was du anfasst
 
-## Architektur in einem Satz
-
-Eine Codebasis, eine Postgres-DB (`propus`, Schemas `core` / `booking` / `tour_manager`),
-ein primäres Backend (`platform/server.js`) das Booking + Tour Manager auf Port **3100** vereint,
-plus ein Next.js-Frontend (`app/`) als alleinige UI für Portal und Admin (seit April 2026 kein
-serverseitiges HTML mehr — siehe Verbote unten). Die Firmenhomepage (`website/`, Astro+Supabase)
-ist ein separater Stack.
-
-| Modul | Rolle | Stack |
-|---|---|---|
-| `app/` | Primäres Admin-/Portal-Frontend (SPA) | Next.js 16, React 19, Tailwind v4, TypeScript |
-| `platform/` | Zentraler Express-Server (Booking + Tour Manager in einem Prozess) | Node, Express |
-| `booking/` | Booking-Backend-Module (API, RBAC, E-Mail, Kalender, Migrationen) | Node, Express |
-| `tours/` | Tour-Manager-Routen, gemountet unter `/tour-manager` | Node, Express, EJS *nur* für 3 Customer-Seiten |
-| `core/` | Gemeinsame SQL-Migrationen + Migration Runner + Seeds | Node, `pg` |
-| `auth/` | Session-Store (Postgres-backed) | Node |
-| `website/` | Öffentliche Firmenhomepage | Astro + Supabase |
-
-## Häufige Befehle
-
-### Lokaler Stack (Docker)
-
-```bash
-cp .env.example .env                             # Erstmalig
-docker compose up -d postgres                    # PostgreSQL auf localhost:5435
-docker compose --profile migrate run --rm migrate # Alle SQL-Migrationen
-docker compose up -d platform                    # Booking + Tour Manager → http://localhost:3100
-docker compose --profile legacy-services up -d booking tours  # optional, separate Container
-```
-
-Health: `http://localhost:3100/api/core/health`
-
-### Next.js App (`app/`)
-
-```bash
-cd app
-npm install
-npm run dev          # http://localhost:3000 (Webpack), proxyt API zu platform :3100
-npm run build        # Webpack-Build
-npm run lint         # ESLint
-npm run theme:lint   # Light/Dark-Token-Guard (Baseline-Diff, CI-erzwungen)
-npm run test         # Vitest (CI)
-npm run test:watch
-npm run test:e2e     # Playwright (e2e/)
-```
-
-### Backend-Tests
-
-```bash
-cd booking && npm test              # node:test, "tests/*.test.js"
-cd tours && npm test                # node:test, "test/*.test.js"
-node --test booking/tests/foo.test.js   # einzelner Test
-```
-
-### Migrationen
-
-```bash
-docker compose --profile migrate run --rm migrate   # Empfohlen (im Container)
-cd core && node migrate.js                          # Direkt (DATABASE_URL muss gesetzt sein)
-```
-
-Booking-spezifische Migrationen liegen unter `booking/migrations/` und laufen beim Express-Boot
-über `runMigrations()` in `booking/db.js`. **Ein einziger SQL-Fehler bricht den Server-Start ab**
-und Next.js liefert dann `503 auth backend unavailable`.
-
-### Hotfix einer Migration in den laufenden VPS-Container kopieren
-
-```bash
-docker cp ./booking/migrations/082_fix.sql propus-platform-platform-1:/app/booking/migrations/082_fix.sql
-docker compose -p propus-platform -f docker-compose.vps.yml restart platform
-```
-
-### Wartungs-Skripte
-
-```bash
-node scripts/find-duplicate-customers.js --export   # Dubletten-Report
-cd booking && npm run audit:customer-stammdaten     # Stammdaten vs. Exxas
-```
-
-### CI-Guards (auch lokal als Pre-Commit nutzbar)
-
-```bash
-scripts/guard-no-ejs.sh         # Blockt neue .ejs / res.render('portal|admin')
-scripts/guard-docs.sh           # Erinnert an docs/-Pflege bei Code-Änderungen
-scripts/guard-theme-tokens.sh   # Blockt neue hartkodierte Light/Dark-Farben in app/src (siehe docs/ADMIN-FRONTEND-DESIGN.md)
-scripts/guard-vps-env.sh
-```
-
-## Absolute Regeln (CI-erzwungen oder Cursor-`alwaysApply`)
-
-1. **Kein EJS, kein `res.render()`** für Portal-/Admin-Seiten. UI immer als React in
-   `app/src/pages-legacy/` (Portal-Seiten unter `pages-legacy/portal/`), Routen in
-   `app/src/components/ClientShell.tsx` registrieren. Express-Routen geben **JSON** zurück
-   (`tours/routes/`, `booking/server.js`). Einzige EJS-Ausnahmen:
-   `tours/views/customer/{thank-you-yes,thank-you-no,error}.ejs`. Erzwungen durch
-   `scripts/guard-no-ejs.sh`.
-
-2. **Zentrale Kunden-/Firmenverwaltung.** Es gibt genau **eine** Kundenliste (`/customers`)
-   und **eine** Firmenverwaltung (`/settings/companies`). Modul-spezifische Pfade wie
-   `/admin/tours/customers` werden via `<Navigate to="/customers" replace />` umgeleitet. Nie
-   modul-eigene Kundenseiten anlegen. Eine Firma = **eine** Zeile in `customers`; weitere
-   Personen sind `customer_contacts` (siehe `booking/customer-dedup.js`, Merge nur über
-   `/api/admin/customers/merge`).
-
-3. **E-Mail-Lookup nie direkt.** Niemals `WHERE email = $1` oder `WHERE LOWER(email) = $1` auf
-   `customers` schreiben — Aliase werden sonst übergangen. Stattdessen:
-   - JS/TS: `db.getCustomerByEmail(email)` (booking) bzw. `customerLookup.getCustomerByEmail(email)` (tours)
-   - SQL: `core.customer_email_matches($1, email, email_aliases)` (innerhalb `booking`/`tour_manager`-Schema
-     ohne `core.`-Prefix dank `search_path`)
-
-4. **Defensive Migrationen.** Jede Migration muss auf einer frischen *und* einer jahrealten
-   Produktions-DB laufen. `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, Spalten via
-   `information_schema.columns` prüfen. Schema-übergreifende Umbenennungen (`core.*` →
-   `booking.*` / `tour_manager.*`) immer in **allen** Schemas in derselben oder direkt
-   folgenden Migration nachziehen.
-
-5. **Portal spiegelt Admin-Tour-Panel.** Design- oder Funktionsänderungen an
-   `app/src/pages-legacy/tours/admin/TourDetailPage.tsx` (und den darin verwendeten
-   Sub-Komponenten) müssen in `app/src/pages-legacy/portal/PortalTourDetailPage.tsx`
-   identisch nachgezogen werden. Ausnahmen, die im Portal **nicht** existieren: `Intern`,
-   `Aktionsprotokoll`, Admin-only Aktionen (Tour löschen, Space übertragen, Ticket erstellen,
-   Matterport-Options-Overrides).
-
-6. **Tour-Manager: kanonische Felder.** Immer die `canonical_*`-Spalten lesen, nicht die
-   Legacy-Duplikate.
-
-7. **Synthetische Einladungs-E-Mails** verwenden `@invite.buchungstool.invalid`, nicht
-   `@company.local`.
-
-## Frontend-Konventionen (`app/src/`)
-
-- Neue Seiten: `app/src/pages-legacy/[bereich]/` als funktionale Komponente.
-- Routing: ausschließlich `app/src/components/ClientShell.tsx`. Portal-Routen `/portal/...`,
-  Admin-Routen `/admin/...` oder Top-Level (`/dashboard`, `/login`).
-- API-Calls über `app/src/api/` — `portalFetch('/portal/api/...')` (Session-Cookie) für Portal,
-  `apiFetch('/api/...')` (Bearer-Token) für Admin. API-Typen leben neben den Funktionen
-  (`api/portalTours.ts`, `api/toursAdmin.ts`, `api/customers.ts`, ...).
-- Bei API-Erweiterungen ggf. Rewrite in `app/next.config.ts` (`beforeFiles`) ergänzen.
-
-## Doku synchron halten
-
-`docs/` ist nicht optional — `scripts/guard-docs.sh` (Pre-Commit) erinnert. Mapping
-Code-Änderung → Doku-Datei steht in `.cursor/rules/data-fields.mdc`. Wichtigste:
-
-| Änderung | Datei |
+| Bereich | Stack |
 |---|---|
-| SQL-Migration / Spalte | `docs/SCHEMA_FULL.md` (+ Flow) |
-| Buchungs-Flow / Formularfeld | `docs/FLOWS_BOOKING.md` |
-| Tour-Flow | `docs/FLOWS_TOURS.md` (+ ggf. `docs/WORKFLOW_TOURS.md`) |
-| Upload | `docs/FLOWS_UPLOAD.md` |
-| Exxas | `docs/FLOWS_EXXAS.md` |
-| Rolle / Permission | `docs/ROLES_PERMISSIONS.md` |
-| E-Mail-Template | `docs/EMAIL_TEMPLATES.md` |
-| Deploy / CI | `docs/DEPLOY-FLOW.md` |
+| Frontend SPA | Next.js 16 (App-Router + `pages-legacy/`), React 19, Tailwind 4, TypeScript 5 |
+| Frontend-Editor | TipTap, FullCalendar, dnd-kit, leaflet, sonner |
+| State / Forms | zustand, react-hook-form, zod, dexie (IndexedDB) |
+| Backend Booking | Node + Express 4 (`booking/`), Passport (OIDC), PG-Pool |
+| Backend Tours | Node + Express 4 (`tours/`), wenige EJS-Views (nur `customer/`) |
+| DB | PostgreSQL, Migrationen in `core/migrations/` und `booking/migrations/` |
+| Auth | Logto (OIDC) für Admin/Portal, Sessions in PG |
+| Tests | vitest (`app/`), `node --test` (booking/tours), Playwright (E2E in `app/e2e/`) |
+| Build/Deploy | Docker (`docker-compose.yml`, `docker-compose.vps.yml`), VPS via `scripts/deploy-vps.cmd` |
+| Linting | eslint (`app/`), `scripts/guard-no-ejs.sh` |
 
-Neue `FLOWS_*.md` aus `docs/FLOWS_TEMPLATE.md` ableiten und in `DATA_FIELDS.md` plus
-`.cursor/rules/data-fields.mdc` eintragen.
+## 3. Verzeichnis-Karte (nur das, was häufig angefasst wird)
 
-## CI / Deploy
-
-GitHub-Actions-Workflows in `.github/workflows/`:
-
-- `app-ci.yml` — Type-Check + Build der `app/`
-- `booking-ci.yml` — Backend-Tests
-- `deploy-vps-and-booking-smoke.yml` — Auto-Deploy bei Push auf `master` (Build → Upload →
-  Docker-Build → Migrate → Health-Check → Cloudflare-Purge); Smoke-Tests nur bei manuellem
-  Trigger (`run_smoke`)
-- `auto-fix-deploy-failure.yml`, `calendar-audit.yml`, `openapi-lint.yml`,
-  `assistant-mobile-build.yml`
-
-VPS: `87.106.24.107`, Projektpfad `/opt/propus-platform`, Port `3100`. Vor manuellem Deploy
-Build-Nummer in `scripts/bump-deploy-version.ps1` erhöhen. Cloudflare-Hostnames (alle →
-`http://127.0.0.1:3100`): `booking.propus.ch`, `admin-booking.propus.ch`, `portal.propus.ch`,
-`api-booking.propus.ch` (Details: `docs/VPS-BETRIEB.md`).
-
-## Submodule
-
-Nach frischem Clone:
-
-```bash
-git submodule update --init --recursive
+```
+app/                  Next.js SPA (das Hauptfrontend)
+  src/app/            App-Router (admin, auth, api, webhook)
+  src/pages-legacy/   Legacy-React-Seiten (Tours, Selekto, Listing, …)
+  src/components/     UI-Bausteine (orders, tours, customers, …)
+  src/lib/            repos, validators, mail, orderWorkflow, selekto
+  src/api/            API-Clients (gegen tours/, booking/)
+  e2e/                Playwright-Tests
+  scripts/            theme-check, eval-assistant, seed-memories
+booking/              Express Backend Buchungsportal
+  customer-dedup.js   Dubletten-Logik (siehe AGENTS.md)
+  customer-merge.js
+  db.js               getCustomerByEmail() — IMMER nutzen
+  migrations/
+tours/                Express Tour-Manager (Admin + Customer-Portal)
+  lib/                customer-lookup.js (getCustomerByEmail), admin-phase3.js
+  routes/             API-Endpunkte (NUR JSON)
+  views/customer/     Erlaubte EJS-Reste (3 Dateien)
+auth/                 Auth-Helpers (Session-Store)
+core/                 DB-Schema, Migrationen, Seeds
+  migrations/         022_customer_email_aliases.sql, 026_invoices_central_view.sql, …
+docs/openapi/         OpenAPI-Spec
+scripts/              find-duplicate-customers, deploy-vps, install-hooks, …
+infra/                Cloudflare-Worker
+platform/             Docker-Container-Definitionen
 ```
 
-`third-party/agent-toolkit` (Softaworks Agent-Skills) und weitere Marketplaces sind in
-`.claude/settings.json` registriert.
+## 4. Häufige Befehle
+
+Aus dem Repo-Root (`y:/propus-platform/propus-platform`):
+
+```bash
+# Frontend dev (app/)
+cd app && npm run dev
+
+# Tests
+cd app && npm test            # vitest
+cd app && npm run test:e2e    # playwright
+cd booking && npm test        # node --test
+cd tours && npm test          # node --test
+
+# Build
+cd app && npm run build
+
+# Linting
+cd app && npm run lint
+bash scripts/guard-no-ejs.sh  # CI-Guard
+
+# Theme-Tokens prüfen
+cd app && npm run theme:lint
+
+# Kundendubletten analysieren
+cd booking && npm run analyze-duplicate-customers
+cd booking && npm run audit:customer-stammdaten
+```
+
+Git-Worktree-Pattern wird benutzt — Branches landen oft in
+`y:/propus-platform/tmp-*` (siehe `.claude/settings.json`).
+
+## 5. Harte Regeln (aus AGENTS.md — kurz)
+
+Lies bei jeder neuen Aufgabe `AGENTS.md` für Details. Die wichtigsten
+Verbote/Gebote:
+
+### EJS / HTML-Rendering
+- **Keine neuen `.ejs`-Dateien** außer in `tours/views/customer/`.
+- **Kein `res.render()`** in Express-Routen für Portal/Admin-Seiten.
+- Neue Features → React (Next.js).
+
+### Kunden-E-Mail-Lookups (Aliases!)
+- **JS/TS:** IMMER `getCustomerByEmail()` aus `booking/db.js` bzw.
+  `tours/lib/customer-lookup.js` nutzen. NIE selbst `WHERE email = $1`.
+- **SQL:** IMMER `core.customer_email_matches($1, c.email, c.email_aliases)`
+  verwenden. NIE nur `LOWER(c.email) = $1`.
+
+### Portal spiegelt Admin-Tour-Panel
+Jede Design- oder Funktionsänderung am Admin-Tour-Panel auch im
+Kunden-Portal umsetzen. Liste der Komponenten-Paare siehe AGENTS.md.
+Sektionen `Intern`, `Aktionsprotokoll`, Admin-only Aktionen NICHT
+im Portal.
+
+### Zentrales Rechnungsmodul
+- Routing: `/admin/invoices` → `AdminInvoicesPage.tsx`
+- Legacy-URL `/admin/tours/invoices` → Redirect
+- API: `/api/tours/admin/invoices-central?type=renewal|exxas`
+- View: `tour_manager.invoices_central_v`
+
+### Ticket-System
+Tabelle `tour_manager.tickets`, UI unter `/admin/tickets`. Pflichtfelder:
+`module`, `reference_type`, `subject`. Status: `open/in_progress/done/rejected`.
+
+## 6. Verhaltens-Regeln für Claude
+
+### Do
+- **Erst `AGENTS.md` und `CLAUDE.md` lesen**, dann ans Werk.
+- **Existierende Helpers nutzen** statt parallele Implementierungen.
+- **Tests schreiben/anpassen**, wenn du Geschäftslogik berührst.
+- **Commit-Messages** auf Englisch, im Conventional-Commit-Stil
+  (`feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`).
+- **Migration nötig?** Neue Datei in `core/migrations/` mit
+  fortlaufender Nummer; vorher fragen, ob es eine bestehende Migration
+  zum Erweitern gibt.
+
+### Don't
+- **Kein `git push --force`** ohne Rückfrage.
+- **Keine Massen-Renames** über >5 Dateien ohne Rückfrage.
+- **Keine `.env*`-Dateien einchecken** (steht in `.gitignore`, aber
+  doppelt geprüft schadet nicht).
+- **Keine direkten Master-Commits.** Branches: `feat/`, `fix/`, `chore/`.
+- **Kein Anlegen neuer Top-Level-Ordner** ohne Rückfrage — das Monorepo
+  ist gewachsen, neue Strukturen brauchen Zustimmung.
+- **Nichts in `tours/views/customer/` löschen** — die drei EJS-Dateien
+  bleiben Legacy-Erlaubnis.
+
+## 7. Wenn du unsicher bist
+
+- Bei Datenmodell-Fragen: `core/migrations/` lesen und/oder die DB
+  via psql prüfen (Befehl in `.env`/`.env.vps`).
+- Bei Architekturfragen: `AGENTS.md` ist die Wahrheit.
+- Wenn `AGENTS.md` und Code sich widersprechen: nachfragen, nicht raten.
+
+## 8. Obsidian-Vault als Wissensspeicher
+
+Janez führt einen privaten Obsidian-Vault als zweite Wissensquelle.
+
+### Lokale Sessions (Windows-PC)
+
+Der MCP-Server **`obsidian`** ist in `~/.claude.json` global registriert und
+beim Start jeder Claude-Code-Session automatisch verbunden. Er gibt dir Lese-
+und Schreibzugriff auf:
+
+`C:\Users\svajc\Documents\Obsidian Vault`
+
+### Cloud-Sessions (web.claude.ai / Container ohne Filesystem-Zugriff)
+
+Wenn `C:\Users\svajc\...` nicht erreichbar ist (typisch: Container ohne
+Windows-Filesystem), nutze das **Submodule `.vault/`** in diesem Repo. Es
+zeigt auf `Janez76/obsidian-vault` (privates Repo, gleiche Credentials wie
+dieses Repo — kein zusätzliches Auth-Setup nötig).
+
+Initialisierung am Anfang der Session, falls `.vault/` noch leer ist:
+
+```bash
+git submodule update --init --recursive .vault
+```
+
+Danach arbeitest du im Container mit `.vault/` als Vault-Wurzel.
+Schreibe neue Notizen genauso wie lokal, und wenn die Aufgabe
+abgeschlossen ist:
+
+```bash
+cd .vault
+git checkout main
+git add . && git commit -m "notes: <was-getan>" && git push
+```
+
+Zurück im Haupt-Repo den Submodule-Pointer mit-committen:
+
+```bash
+cd ..
+git add .vault
+git commit -m "chore: bump vault submodule"
+git push
+```
+
+Janez' Windows-Rechner zieht die Änderungen automatisch durch den stündlich
+laufenden Auto-Pull (Task Scheduler: `ObsidianVaultAutoPush`).
+
+**Mache den `submodule update --init`-Schritt ungefragt zu Beginn jeder
+Cloud-Session**, wenn `.vault/` leer ist — es ist Teil von Janez'
+Standard-Workflow, nicht optional.
+
+Das Regelwerk dort (`CLAUDE.md` im Vault-Root) gilt für alle Vault-Schreibe.
+Die wichtigsten Ordner für Repo-bezogene Inhalte:
+
+| Inhalt | Zielordner im Vault |
+|---|---|
+| Recherche zu einer Bibliothek/API (extern) | `40_Resources/research/` |
+| Tool/Doku zum Nachschlagen (z.B. psql-Cheatsheet) | `40_Resources/tools/` |
+| Konzept-/Entscheidungs-Notiz, atomar | `10_Notes/` |
+| Schnelle Idee, später triagieren | `00_Inbox/` |
+| Projekt-spezifisches (Roadmap, Meilenstein) | `20_Projects/propus-platform/` |
+
+### Wann notieren
+
+- **Architektur-Entscheidungen** (warum X statt Y): kurzer Eintrag in
+  `10_Notes/` mit `tags: [propus, architecture, decision]` und Link
+  zum betroffenen PR/Commit.
+- **Recherche-Ergebnisse** (z.B. „wie funktioniert Logto Token Refresh"):
+  `40_Resources/research/<thema>-<YYYY-MM-DD>.md` mit Quellen-Fußnoten.
+- **Wiederkehrende Befehle/Setups** (psql-Verbindungsstring, Deploy-Quirks):
+  `40_Resources/tools/`.
+- **Bug-Hunt-Erkenntnisse** mit zukünftigem Wert: `10_Notes/` mit Link zum
+  Fix-Commit.
+
+### Wann NICHT notieren
+
+- Trivialer Commit-Inhalt → `git log` reicht.
+- Halbfertige Hypothesen mitten in einer Debug-Session → erst klären,
+  dann notieren.
+- Sensible Daten (Secrets, Customer-Daten) → niemals.
+
+### Frontmatter-Konvention für Repo-bezogene Notizen
+
+```yaml
+---
+title: "Aussagekräftiger Titel"
+created: 2026-05-11
+tags: [propus, <kategorie>]
+status: active
+repo: "propus-platform"
+commit: "<sha-falls-relevant>"
+---
+```
+
+`tags: propus` ist Pflicht, damit du in Obsidian per Dataview alle
+Code-bezogenen Notizen abfragen kannst.
+
+### Bei Unsicherheit
+
+Bevor du eine größere Notiz schreibst, kurz nachfragen, ob es das Thema
+schon im Vault gibt — der MCP-Server kann suchen. Duplikate vermeiden.
+
+---
+
+*Stand: 2026-05-11. Diese Datei ergänzt — nicht ersetzt — `AGENTS.md`.*
