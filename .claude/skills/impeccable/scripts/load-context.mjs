@@ -103,10 +103,11 @@ export function loadContext(cwd = process.cwd()) {
   const design = designPath ? safeRead(designPath) : null;
 
   return {
-    hasProduct: !!product,
+    // Datei-Existenz, nicht Inhalt — leere Files sind weiterhin "vorhanden".
+    hasProduct: !!productPath,
     product,
     productPath: productPath ? path.relative(cwd, productPath) : null,
-    hasDesign: !!design,
+    hasDesign: !!designPath,
     design,
     designPath: designPath ? path.relative(cwd, designPath) : null,
     migrated,

@@ -481,9 +481,17 @@ function createRequestHandler({ detectScript, sessionPath, livePath }) {
       const token = url.searchParams.get('token');
       if (token !== state.token) { res.writeHead(401); res.end('Unauthorized'); return; }
       const filePath = url.searchParams.get('path');
-      if (!filePath || filePath.includes('..')) { res.writeHead(400); res.end('Bad path'); return; }
+      // Absolute Pfade und '..' frühzeitig ablehnen — startsWith(cwd) ist umgehbar
+      // (cwd '/repo' vs absPath '/repo-copy/secrets.txt'). path.relative + '..'-Check
+      // ist die robuste Variante.
+      if (!filePath || path.isAbsolute(filePath) || filePath.includes('..')) {
+        res.writeHead(400); res.end('Bad path'); return;
+      }
       const absPath = path.resolve(process.cwd(), filePath);
-      if (!absPath.startsWith(process.cwd())) { res.writeHead(403); res.end('Forbidden'); return; }
+      const rel = path.relative(process.cwd(), absPath);
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+        res.writeHead(403); res.end('Forbidden'); return;
+      }
       let content;
       try { content = fs.readFileSync(absPath, 'utf-8'); }
       catch { res.writeHead(404); res.end('File not found'); return; }
@@ -530,8 +538,23 @@ function createRequestHandler({ detectScript, sessionPath, livePath }) {
     // --- Browser→server events (replaces WebSocket messages) ---
     if (p === '/events' && req.method === 'POST') {
       let body = '';
-      req.on('data', (c) => { body += c; });
+      let totalBytes = 0;
+      let aborted = false;
+      const MAX_EVENTS_BODY = 1 * 1024 * 1024; // 1 MB hard cap (analog zu /annotation)
+      req.on('data', (c) => {
+        if (aborted) return;
+        totalBytes += c.length;
+        if (totalBytes > MAX_EVENTS_BODY) {
+          aborted = true;
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Payload too large' }));
+          req.destroy();
+          return;
+        }
+        body += c;
+      });
       req.on('end', () => {
+        if (aborted) return;
         let msg;
         try { msg = JSON.parse(body); } catch {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -600,8 +623,12 @@ function handlePollGet(req, res, url) {
     res.end(JSON.stringify({ error: 'Unauthorized' }));
     return;
   }
-  const timeout = parseInt(url.searchParams.get('timeout') || DEFAULT_POLL_TIMEOUT, 10);
-  const leaseMs = parseInt(url.searchParams.get('leaseMs') || '30000', 10);
+  // NaN/0/negativ würden Sofort-Timeout auslösen oder das Lease unbrauchbar
+  // machen (Doppel-Verarbeitung von accept/discard). Auf sichere Defaults clampen.
+  const timeoutRaw = Number(url.searchParams.get('timeout') ?? DEFAULT_POLL_TIMEOUT);
+  const leaseRaw = Number(url.searchParams.get('leaseMs') ?? 30000);
+  const timeout = Number.isFinite(timeoutRaw) && timeoutRaw > 0 ? timeoutRaw : DEFAULT_POLL_TIMEOUT;
+  const leaseMs = Number.isFinite(leaseRaw) && leaseRaw > 0 ? leaseRaw : 30_000;
   const available = findAvailablePendingEvent();
   if (available) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -631,8 +658,23 @@ function handlePollGet(req, res, url) {
 
 function handlePollPost(req, res) {
   let body = '';
-  req.on('data', (c) => { body += c; });
+  let totalBytes = 0;
+  let aborted = false;
+  const MAX_POLL_BODY = 256 * 1024; // 256 KB — poll replies sind klein
+  req.on('data', (c) => {
+    if (aborted) return;
+    totalBytes += c.length;
+    if (totalBytes > MAX_POLL_BODY) {
+      aborted = true;
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Payload too large' }));
+      req.destroy();
+      return;
+    }
+    body += c;
+  });
   req.on('end', () => {
+    if (aborted) return;
     let msg;
     try { msg = JSON.parse(body); } catch {
       res.writeHead(400, { 'Content-Type': 'application/json' });

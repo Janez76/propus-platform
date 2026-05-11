@@ -19,7 +19,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync, statSync, lstatSync, unlinkSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, resolve, parse as parsePath } from 'node:path';
 
 // Skills that were renamed, merged, or folded in v2.0, v2.1, and v3.0.
 const DEPRECATED_NAMES = [
@@ -74,7 +74,7 @@ const SKILL_FINGERPRINTS = {
  */
 export function findProjectRoot(startDir = process.cwd()) {
   let dir = resolve(startDir);
-  const { root } = { root: '/' };
+  const { root } = parsePath(dir); // Plattform-FS-Root (z.B. 'C:\\' auf Windows)
   while (dir !== root) {
     if (
       existsSync(join(dir, 'package.json')) ||

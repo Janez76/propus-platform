@@ -21,12 +21,12 @@ describe("extractSuggestions", () => {
     expect(r.suggestions).toEqual(["A", "B", "C"]);
   });
 
-  it("caps to 8 options", () => {
+  it("caps to 6 options", () => {
     const opts = Array.from({ length: 12 }, (_, i) => `Option ${i}`).join(" | ");
     const r = extractSuggestions(`Frage?\n[[OPTIONS: ${opts}]]`);
-    expect(r.suggestions).toHaveLength(8);
+    expect(r.suggestions).toHaveLength(6);
     expect(r.suggestions[0]).toBe("Option 0");
-    expect(r.suggestions[7]).toBe("Option 7");
+    expect(r.suggestions[5]).toBe("Option 5");
   });
 
   it("truncates long options to 80 chars", () => {

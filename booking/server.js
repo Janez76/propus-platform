@@ -1618,9 +1618,11 @@ async function loadAbsenceCalendarEvents(colorMap, photographerKeyFilter) {
 
 // ─── Outlook/365 Kalender-Events (Read-only Overlay) ─────────────────────────
 // Liefert die persoenlichen Termine eines Mitarbeiters aus Microsoft 365 als
-// CalendarEvent[]-kompatible Objekte. Termine, die wir selbst angelegt haben
-// (subject enthaelt "[Auftrag #..."), werden ausgefiltert, um Duplikate zu
-// vermeiden. Cache: 60 s pro userEmail+range.
+// CalendarEvent[]-kompatible Objekte. Termine, die bereits als Buchungsauftrag
+// in der DB existieren (Betreff enthaelt dieselbe Auftragsnummer wie
+// buildCalendarSubject, z. B. "(#123)"), werden ausgefiltert, um Duplikate zu
+// vermeiden. Termine mit "(#123)" OHNE passenden DB-Auftrag bleiben sichtbar
+// (manuell in 365 erfasst). Cache: 60 s pro userEmail+range+dedupeKey.
 const __outlookCalendarCache = new Map();
 const OUTLOOK_CACHE_TTL_MS = 60_000;
 
@@ -1638,14 +1640,28 @@ function __extractOutlookCategory(graphEvent) {
   return "";
 }
 
-function __isOwnPropusEvent(graphEvent) {
-  const subject = String(graphEvent && graphEvent.subject || "");
-  if (/\[Auftrag\s*#/i.test(subject)) return true;
-  if (/Propus\s+Buchung/i.test(subject)) return true;
-  return false;
+/** Extrahiert Auftragsnummer aus Graph-Betreff (gleiche Muster wie Kalender-Titel aus dem Tool). */
+function __parseOrderNoFromOutlookSubject(subject) {
+  const s = String(subject || "");
+  const patterns = [/\(#(\d+)\)/, /\[Auftrag\s*#(\d+)\]/i, /\bAuftrag\s*#\s*(\d+)\b/i];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (m && m[1]) {
+      const n = Number(m[1]);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+  return null;
 }
 
-async function loadOutlookCalendarEvents(userEmail, opts) {
+function __shouldSkipOutlookAsBookingDuplicate(graphEvent, existingOrderNos) {
+  const set = existingOrderNos && typeof existingOrderNos.has === "function" ? existingOrderNos : null;
+  if (!set || set.size === 0) return false;
+  const n = __parseOrderNoFromOutlookSubject(graphEvent && graphEvent.subject);
+  return n != null && set.has(n);
+}
+
+async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
   const out = [];
   if (!graphClient) return out;
   const email = String(userEmail || "").trim();
@@ -1657,7 +1673,11 @@ async function loadOutlookCalendarEvents(userEmail, opts) {
   const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59` : to;
   if (!fromIso || !toIso) return out;
 
-  const cacheKey = `${email.toLowerCase()}|${fromIso}|${toIso}`;
+  const dedupeIds =
+    existingOrderNos && typeof existingOrderNos.has === "function" && existingOrderNos.size > 0
+      ? [...existingOrderNos].filter((n) => Number.isFinite(n)).sort((a, b) => a - b).join(",")
+      : "";
+  const cacheKey = `${email.toLowerCase()}|${fromIso}|${toIso}|${dedupeIds}`;
   const now = Date.now();
   const cached = __outlookCalendarCache.get(cacheKey);
   if (cached && (now - cached.t) < OUTLOOK_CACHE_TTL_MS) {
@@ -1681,7 +1701,7 @@ async function loadOutlookCalendarEvents(userEmail, opts) {
 
   const items = Array.isArray(response && response.value) ? response.value : [];
   for (const ev of items) {
-    if (__isOwnPropusEvent(ev)) continue;
+    if (__shouldSkipOutlookAsBookingDuplicate(ev, existingOrderNos)) continue;
     const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
     const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
     if (!startDt) continue;
@@ -3291,6 +3311,24 @@ function absoluteCustomerRedirectTarget(pathOrUrl) {
   }
 }
 
+// /account/* lebt auf PORTAL_BASE_URL (z. B. portal.propus.ch), nicht auf
+// FRONTEND_URL (booking.propus.ch). Ohne separate Helper landen Magic-Link-
+// Redirects sonst auf der Buchungs-Domain und der Kunde sieht das Admin-Login.
+function resolvePortalBaseUrl() {
+  return String(process.env.PORTAL_BASE_URL || "https://portal.propus.ch").trim() || "https://portal.propus.ch";
+}
+
+function absolutePortalRedirectTarget(pathOrUrl) {
+  const portalBase = resolvePortalBaseUrl().replace(/\/?$/, "/");
+  const p = String(pathOrUrl || "/").trim() || "/";
+  if (p.startsWith("http://") || p.startsWith("https://")) return p;
+  try {
+    return new URL(p.startsWith("/") ? p : `/${p}`, portalBase).toString();
+  } catch {
+    return portalBase;
+  }
+}
+
 function customerSessionCookieOptions(maxAgeMs) {
   const options = {
     httpOnly: true,
@@ -3473,7 +3511,7 @@ app.get("/api/customer/magic-link/callback", confirmTokenLimiter, async (req, re
     if (!result) {
       return res.redirect(
         302,
-        appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "invalid_token"),
+        appendCustomerAuthQueryParam(resolvePortalBaseUrl(), "auth_error", "invalid_token"),
       );
     }
 
@@ -3490,12 +3528,12 @@ app.get("/api/customer/magic-link/callback", confirmTokenLimiter, async (req, re
     res.cookie("customer_session", sessionToken, customerSessionCookieOptions(days * 24 * 60 * 60 * 1000));
 
     const targetPath = safeCustomerMagicReturnPath(req.query.returnTo);
-    return res.redirect(302, absoluteCustomerRedirectTarget(targetPath));
+    return res.redirect(302, absolutePortalRedirectTarget(targetPath));
   } catch (err) {
     console.error("[customer/magic-link/callback]", err?.message || err);
     return res.redirect(
       302,
-      appendCustomerAuthQueryParam(resolveCustomerFrontendRedirect("/"), "auth_error", "server_error"),
+      appendCustomerAuthQueryParam(resolvePortalBaseUrl(), "auth_error", "server_error"),
     );
   }
 });
@@ -11610,6 +11648,11 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
     }
 
     const orders = await loadOrders();
+    const existingOrderNos = new Set();
+    for (const o of Array.isArray(orders) ? orders : []) {
+      const no = Number(o && o.orderNo);
+      if (Number.isFinite(no) && no > 0) existingOrderNos.add(no);
+    }
     const events = [];
     for (const order of Array.isArray(orders) ? orders : []) {
       const schedule = order?.schedule && typeof order.schedule === "object" ? order.schedule : {};
@@ -11687,7 +11730,7 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
         const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookFromRaw) ? outlookFromRaw : fmt(defaultFrom);
         const toIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookToRaw) ? outlookToRaw : fmt(defaultTo);
         try {
-          const outlookEvents = await loadOutlookCalendarEvents(candidate, { from: fromIso, to: toIso });
+          const outlookEvents = await loadOutlookCalendarEvents(candidate, { from: fromIso, to: toIso }, existingOrderNos);
           events.push(...outlookEvents);
           outlookMeta = { enabled: true, user: candidate, count: outlookEvents.length, error: null };
         } catch (err) {
@@ -11716,6 +11759,84 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
   } catch (err) {
     console.error("[calendar-events] admin route error:", err?.message || err);
     res.status(500).json({ error: err.message || "Kalenderdaten konnten nicht geladen werden" });
+  }
+});
+
+/**
+ * Read-only 365-Overlay fuer den Propus-Assistant (Next.js → localhost:3100).
+ * Auth: optional gemeinsamer Key (ASSISTANT_BOOKING_GRAPH_PROXY_KEY) oder
+ * nur Loopback wenn der Key nicht gesetzt ist.
+ */
+function assertAssistantInternalOutlookAccess(req, res) {
+  const proxyKey = String(process.env.ASSISTANT_BOOKING_GRAPH_PROXY_KEY || "").trim();
+  const hdrKey = String(req.headers["x-assistant-booking-key"] || "").trim();
+  if (proxyKey) {
+    if (hdrKey !== proxyKey) {
+      res.status(403).json({ ok: false, error: "forbidden" });
+      return false;
+    }
+    return true;
+  }
+  const addr = String((req.socket && req.socket.remoteAddress) || "");
+  const loopback =
+    addr === "127.0.0.1" ||
+    addr === "::1" ||
+    addr === "::ffff:127.0.0.1" ||
+    addr.endsWith("127.0.0.1");
+  if (!loopback) {
+    res.status(403).json({ ok: false, error: "forbidden" });
+    return false;
+  }
+  return true;
+}
+
+app.get("/api/internal/assistant/outlook-overlay", async (req, res) => {
+  try {
+    if (!assertAssistantInternalOutlookAccess(req, res)) return;
+    const userEmail = String(req.headers["x-assistant-user-email"] || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+      return res.status(400).json({ ok: false, error: "invalid x-assistant-user-email" });
+    }
+    const fromRaw = String(req.query.from || "").trim();
+    const toRaw = String(req.query.to || "").trim();
+    const today = new Date();
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const defaultTo = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+    const fmt = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fmt(defaultFrom);
+    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : fmt(defaultTo);
+
+    const orders = await loadOrders();
+    const existingOrderNos = new Set();
+    for (const o of Array.isArray(orders) ? orders : []) {
+      const no = Number(o && o.orderNo);
+      if (Number.isFinite(no) && no > 0) existingOrderNos.add(no);
+    }
+
+    if (!graphClient) {
+      return res.json({
+        ok: true,
+        events: [],
+        outlook: { enabled: false, user: userEmail, count: 0, error: "graph_not_configured" },
+        range: { from: fromIso, to: toIso },
+      });
+    }
+
+    const outlookEvents = await loadOutlookCalendarEvents(
+      userEmail,
+      { from: fromIso, to: toIso },
+      existingOrderNos,
+    );
+    return res.json({
+      ok: true,
+      events: outlookEvents,
+      outlook: { enabled: true, user: userEmail, count: outlookEvents.length, error: null },
+      range: { from: fromIso, to: toIso },
+    });
+  } catch (err) {
+    console.error("[outlook-overlay] internal route error:", err && err.message);
+    res.status(500).json({ ok: false, error: err.message || "Outlook-Overlay fehlgeschlagen" });
   }
 });
 

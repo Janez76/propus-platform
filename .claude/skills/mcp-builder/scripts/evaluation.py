@@ -10,11 +10,11 @@ import re
 import sys
 import time
 import traceback
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
 from anthropic import Anthropic
+from defusedxml import ElementTree as ET
 
 from connections import create_connection
 
@@ -107,32 +107,40 @@ async def agent_loop(
     tool_metrics = {}
 
     while response.stop_reason == "tool_use":
-        tool_use = next(block for block in response.content if block.type == "tool_use")
-        tool_name = tool_use.name
-        tool_input = tool_use.input
+        # Anthropic API verlangt: Alle tool_use-Blöcke einer Assistant-Antwort
+        # werden in einer einzigen User-Nachricht mit allen tool_result-Blöcken
+        # quittiert (parallel-tool-use Spec).
+        tool_uses = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
+        tool_results_payload = []
 
-        tool_start_ts = time.time()
-        try:
-            tool_result = await connection.call_tool(tool_name, tool_input)
-            tool_response = json.dumps(tool_result) if isinstance(tool_result, (dict, list)) else str(tool_result)
-        except Exception as e:
-            tool_response = f"Error executing tool {tool_name}: {str(e)}\n"
-            tool_response += traceback.format_exc()
-        tool_duration = time.time() - tool_start_ts
+        for tool_use in tool_uses:
+            tool_name = tool_use.name
+            tool_input = tool_use.input
+            tool_start_ts = time.time()
+            try:
+                tool_result = await connection.call_tool(tool_name, tool_input)
+                # Inhaltsblöcke (TextContent etc.) sind nicht direkt JSON-serialisierbar
+                # — fall through zu str() statt TypeError zu werfen.
+                try:
+                    tool_response = json.dumps(tool_result)
+                except (TypeError, ValueError):
+                    tool_response = str(tool_result)
+            except Exception as e:  # noqa: BLE001
+                tool_response = f"Error executing tool {tool_name}: {e!s}\n{traceback.format_exc()}"
+            tool_duration = time.time() - tool_start_ts
 
-        if tool_name not in tool_metrics:
-            tool_metrics[tool_name] = {"count": 0, "durations": []}
-        tool_metrics[tool_name]["count"] += 1
-        tool_metrics[tool_name]["durations"].append(tool_duration)
+            if tool_name not in tool_metrics:
+                tool_metrics[tool_name] = {"count": 0, "durations": []}
+            tool_metrics[tool_name]["count"] += 1
+            tool_metrics[tool_name]["durations"].append(tool_duration)
 
-        messages.append({
-            "role": "user",
-            "content": [{
+            tool_results_payload.append({
                 "type": "tool_result",
                 "tool_use_id": tool_use.id,
                 "content": tool_response,
-            }]
-        })
+            })
+
+        messages.append({"role": "user", "content": tool_results_payload})
 
         response = await asyncio.to_thread(
             client.messages.create,
@@ -165,9 +173,10 @@ async def evaluate_single_task(
     print(f"Task {task_index + 1}: Running task with question: {qa_pair['question']}")
     response, tool_metrics = await agent_loop(client, model, qa_pair["question"], tools, connection)
 
-    response_value = extract_xml_content(response, "response")
-    summary = extract_xml_content(response, "summary")
-    feedback = extract_xml_content(response, "feedback")
+    raw_response = response or ""
+    response_value = extract_xml_content(raw_response, "response")
+    summary = extract_xml_content(raw_response, "summary")
+    feedback = extract_xml_content(raw_response, "feedback")
 
     duration_seconds = time.time() - start_time
 

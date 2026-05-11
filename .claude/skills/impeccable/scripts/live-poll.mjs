@@ -77,7 +77,7 @@ Options:
     // Message is any remaining positional arg that isn't a flag
     const message = args.find((a, i) => i > replyIdx + 2 && !a.startsWith('--') && i !== fileIdx + 1) || undefined;
 
-    if (!id) {
+    if (!id || id.startsWith('--') || !status || status.startsWith('--')) {
       console.error('Usage: npx impeccable poll --reply <id> <status> [--file path] [message]');
       process.exit(1);
     }
@@ -103,6 +103,10 @@ Options:
   // total timeout runs out.
   const timeoutArg = args.find(a => a.startsWith('--timeout='));
   const totalTimeout = timeoutArg ? parseInt(timeoutArg.split('=')[1], 10) : 600000;
+  if (!Number.isFinite(totalTimeout) || totalTimeout <= 0) {
+    console.error('Invalid --timeout value. Expected a positive integer in milliseconds.');
+    process.exit(1);
+  }
 
   const deadline = Date.now() + totalTimeout;
   let event;
@@ -147,8 +151,11 @@ Options:
         scriptArgs.push('--param-values', JSON.stringify(event.paramValues));
       }
       try {
+        // process.execPath statt 'node' — sicherstellen, dass derselbe
+        // Node-Runtime verwendet wird, auch wenn 'node' nicht im PATH ist
+        // (Volta, nvm-Subshells, isolierte Sandboxes).
         const out = execFileSync(
-          'node',
+          process.execPath,
           [acceptScript, ...scriptArgs],
           { encoding: 'utf-8', cwd: process.cwd(), timeout: 30_000 }
         );

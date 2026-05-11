@@ -386,5 +386,5 @@ Excel 表格格式:
 
 - **GitHub**: https://github.com/sun-guannan/VectCutAPI
 - **在线体验**: https://www.vectcut.com
-- **开源协议**: Apache License 2.0
+- **开源协议**: MIT License
 - **Star 数量**: 800+

@@ -2,10 +2,23 @@ import { query as defaultQuery } from "@/lib/db";
 import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
 
 type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
+type FetchFn = typeof globalThis.fetch;
 
 type OrdersDeps = {
   query: QueryFn;
+  fetch?: FetchFn;
+  platformUrl?: string;
 };
+
+function runtimeEnv(name: string): string | undefined {
+  return (globalThis as typeof globalThis & { process?: { env?: Record<string, string | undefined> } }).process?.env?.[
+    name
+  ];
+}
+
+function getAssistantBookingPlatformUrl(deps: OrdersDeps): string {
+  return deps.platformUrl || runtimeEnv("PLATFORM_INTERNAL_URL") || "http://127.0.0.1:3100";
+}
 
 type OrderRow = {
   order_no: number;
@@ -134,8 +147,22 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_today_schedule",
     description:
-      "Nutze dieses Tool wenn nach dem heutigen Tagesplan, heutigen Terminen oder heutigen Aufträgen gefragt wird.",
+      "Nutze dieses Tool wenn nach dem heutigen Tagesplan, heutigen Terminen oder heutigen Aufträgen gefragt wird. Deckt nur Aufträge aus der Buchungs-Datenbank ab — zusätzliche Termine nur in Microsoft 365 (ohne Tool-Buchung) siehe get_m365_calendar_overlay.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_m365_calendar_overlay",
+    description:
+      "Microsoft-365-Kalendertermine des angemeldeten Nutzers, die nicht bereits als Buchungsauftrag in der DB geführt werden (manuell erfasste Shootings/Meetings in Outlook). Für Fragen zum Gesamtterminplan zusammen mit get_open_orders oder get_today_schedule nutzen.",
+    input_schema: {
+      type: "object",
+      properties: {
+        days_ahead: {
+          type: "number",
+          description: "Zeitraum ab heute in Tagen (Default: 14, max. 62). Bestimmt das Enddatum; Start ist heute.",
+        },
+      },
+    },
   },
   {
     name: "list_photographers",
@@ -181,6 +208,7 @@ export const ordersTools: ToolDefinition[] = [
 
 export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandler> {
   const runQuery = deps.query;
+  const doFetch = deps.fetch || globalThis.fetch;
 
   return {
     get_open_orders: async (input: Record<string, unknown>, _ctx: ToolContext) => {
@@ -312,6 +340,68 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         [],
       );
       return { count: rows.length, orders: rows.map(normalizeOrder) };
+    },
+
+    get_m365_calendar_overlay: async (_input: Record<string, unknown>, ctx: ToolContext) => {
+      const userEmail = String(ctx.userEmail || "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+        return { error: "Keine gültige Nutzer-E-Mail für den 365-Kalenderzugriff." };
+      }
+      const days = boundedNumber(_input.days_ahead, 14, 62);
+      const today = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const fromIso = fmt(today);
+      const end = new Date(today);
+      end.setDate(end.getDate() + Math.max(1, days));
+      const toIso = fmt(end);
+
+      const baseUrl = getAssistantBookingPlatformUrl(deps).replace(/\/$/, "");
+      const url = `${baseUrl}/api/internal/assistant/outlook-overlay?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`;
+      const headers: Record<string, string> = { "x-assistant-user-email": userEmail };
+      const proxyKey = String(runtimeEnv("ASSISTANT_BOOKING_GRAPH_PROXY_KEY") || "").trim();
+      if (proxyKey) headers["x-assistant-booking-key"] = proxyKey;
+
+      try {
+        const res = await doFetch(url, { headers });
+        if (res.status === 403) {
+          return { error: "Kalender-Proxy nicht erreichbar (Zugriff verweigert). ASSISTANT_BOOKING_GRAPH_PROXY_KEY prüfen." };
+        }
+        if (!res.ok) {
+          const t = await res.text();
+          return { error: `Kalender-API Fehler: ${res.status} ${t.slice(0, 200)}` };
+        }
+        const data = (await res.json()) as {
+          ok?: boolean;
+          events?: Array<Record<string, unknown>>;
+          outlook?: { enabled?: boolean; error?: string | null; count?: number };
+          range?: { from?: string; to?: string };
+        };
+        const raw = Array.isArray(data.events) ? data.events : [];
+        const outlook = data.outlook || {};
+        const simplified = raw.map((ev) => ({
+          title: ev.title,
+          start: ev.start,
+          end: ev.end,
+          allDay: ev.allDay,
+          location: ev.address || null,
+          category: ev.category || null,
+          source: ev.source || "m365",
+          orderNoInBookingDb: ev.orderNo != null ? ev.orderNo : null,
+        }));
+        return {
+          mailbox: userEmail,
+          range: data.range || { from: fromIso, to: toIso },
+          outlookEnabled: outlook.enabled === true,
+          outlookError: outlook.error || null,
+          count: simplified.length,
+          events: simplified,
+          hint:
+            "Termine mit gleicher Auftragsnummer wie ein Buchungsauftrag sind im Overlay ausgeblendet (keine Dubletten). Nur-Einträge in 365 erscheinen hier.",
+        };
+      } catch (err) {
+        return { error: `Kalender nicht erreichbar: ${err instanceof Error ? err.message : String(err)}` };
+      }
     },
 
     list_photographers: async () => {
