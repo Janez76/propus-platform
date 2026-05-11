@@ -8,14 +8,15 @@ const path = require('path');
 const sharp = require('sharp');
 const router = express.Router();
 const gallery = require('../lib/gallery');
-const { prewarmPublicThumbs } = require('../lib/gallery-thumbs');
+const { prewarmPublicThumbs, PREWARM_DEFAULT_VARIANTS } = require('../lib/gallery-thumbs');
 const { sendMailDirect } = require('../lib/microsoft-graph');
 const { sendInviteMail } = require('../lib/bildauswahl-emails');
 
 /**
- * Background-Prewarm: nach Import alle Bilder einer Galerie auf die
- * Default-Breite (1200px, inkl. Watermark bei Bildauswahl) vorrendern.
- * So entsteht beim ersten Kundenaufruf kein sharp-Cold-Start.
+ * Background-Prewarm: nach Import alle Bilder einer Galerie in den
+ * Standardvarianten (WebP@600 Grid, WebP@1200 Lightbox, JPG@1200 Legacy)
+ * vorrendern. So entsteht beim ersten Kundenaufruf kein sharp-Cold-Start
+ * und der Kunde sieht die Bilder unmittelbar.
  */
 async function prewarmThumbsForGallery(galleryId) {
   try {
@@ -25,6 +26,7 @@ async function prewarmThumbsForGallery(galleryId) {
     const result = await prewarmPublicThumbs({
       gallery: g,
       images,
+      variants: PREWARM_DEFAULT_VARIANTS,
       resolveImageFile: (img) => gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img),
     });
     console.log(`[gallery-admin-api] prewarmed ${galleryId}: ${result.warmed}/${result.total} (skipped ${result.skipped}, failed ${result.failed})`);
@@ -434,6 +436,7 @@ router.post('/:id/prewarm-thumbs', async (req, res) => {
     const result = await prewarmPublicThumbs({
       gallery: g,
       images,
+      variants: PREWARM_DEFAULT_VARIANTS,
       resolveImageFile: (img) => gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img),
     });
     res.json({ ok: true, ...result });

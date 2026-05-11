@@ -16,8 +16,20 @@ const sharp = require('sharp');
 
 const PUBLIC_THUMB_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'gallery-public-thumbs');
 const ALLOWED_PUBLIC_THUMB_WIDTHS = new Set([200, 400, 600, 800, 1200, 1680]);
+const ALLOWED_PUBLIC_THUMB_FORMATS = new Set(['jpg', 'webp']);
 const PREWARM_DEFAULT_WIDTH = 1200;
 const PREWARM_CONCURRENCY = 4;
+/**
+ * Standardvarianten, die vom Admin-Import-Hook vorgenerendert werden:
+ * - WebP @ 600px: Grid-Thumbnail (Kunden-Magic-Link, niedrige Bytes)
+ * - WebP @ 1200px: Lightbox-Ansicht und Listing-Galerien
+ * - JPG @ 1200px: Fallback fuer den Fall, dass ein Client ohne `fmt=webp` anfragt
+ */
+const PREWARM_DEFAULT_VARIANTS = [
+  { width: 600, format: 'webp' },
+  { width: 1200, format: 'webp' },
+  { width: 1200, format: 'jpg' },
+];
 
 const publicThumbInflight = new Map();
 
@@ -25,6 +37,12 @@ function parsePublicThumbWidth(raw) {
   if (raw == null || raw === '') return null;
   const w = Number.parseInt(String(raw), 10);
   return ALLOWED_PUBLIC_THUMB_WIDTHS.has(w) ? w : null;
+}
+
+function parsePublicThumbFormat(raw) {
+  if (raw == null || raw === '') return 'jpg';
+  const f = String(raw).toLowerCase().trim();
+  return ALLOWED_PUBLIC_THUMB_FORMATS.has(f) ? f : 'jpg';
 }
 
 function watermarkSvgFor(w, h) {
@@ -40,13 +58,28 @@ function watermarkSvgFor(w, h) {
   );
 }
 
-async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWatermark) {
+/**
+ * Wendet den Format-Encoder (JPEG oder WebP) auf eine sharp-Pipeline an.
+ * WebP @ q78 ist visuell mit JPEG @ q82 vergleichbar, aber ~30-40% kleiner —
+ * was bei 65 Bildern den Unterschied zwischen sofort sichtbar und sichtbarem
+ * Ladebalken macht.
+ */
+function applyOutputFormat(pipeline, format) {
+  if (format === 'webp') {
+    return pipeline.webp({ quality: 78, effort: 4 });
+  }
+  return pipeline.jpeg({ quality: 82, mozjpeg: true });
+}
+
+async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWatermark, format = 'jpg') {
+  const fmt = ALLOWED_PUBLIC_THUMB_FORMATS.has(format) ? format : 'jpg';
+  const ext = fmt === 'webp' ? 'webp' : 'jpg';
   let stat;
   try { stat = await fs.promises.stat(srcPath); } catch { return null; }
   const mtime = Math.floor(stat.mtimeMs);
   const cacheDir = path.join(PUBLIC_THUMB_CACHE_DIR, String(galleryId));
   const suffix = withWatermark ? '_wm' : '';
-  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}${suffix}.jpg`);
+  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}${suffix}.${ext}`);
   try {
     const c = await fs.promises.stat(cachePath);
     if (c.isFile() && c.size > 0) return cachePath;
@@ -65,16 +98,18 @@ async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWaterma
         .raw()
         .toBuffer({ resolveWithObject: true });
       const svg = watermarkSvgFor(info.width, info.height);
-      await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
-        .composite([{ input: svg, blend: 'over' }])
-        .jpeg({ quality: 82, mozjpeg: true })
-        .toFile(tmp);
+      await applyOutputFormat(
+        sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
+          .composite([{ input: svg, blend: 'over' }]),
+        fmt,
+      ).toFile(tmp);
     } else {
-      await sharp(srcPath, { failOn: 'none' })
-        .rotate()
-        .resize({ width, withoutEnlargement: true, fit: 'inside' })
-        .jpeg({ quality: 82, mozjpeg: true })
-        .toFile(tmp);
+      await applyOutputFormat(
+        sharp(srcPath, { failOn: 'none' })
+          .rotate()
+          .resize({ width, withoutEnlargement: true, fit: 'inside' }),
+        fmt,
+      ).toFile(tmp);
     }
     await fs.promises.rename(tmp, cachePath);
   })();
@@ -98,7 +133,13 @@ async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWaterma
  * - Errors werden geloggt aber nicht geworfen — der Aufrufer (Import-Route)
  *   muss nicht warten und soll bei Teilausfall trotzdem grünes Licht geben.
  */
-async function prewarmPublicThumbs({ gallery, images, resolveImageFile, width = PREWARM_DEFAULT_WIDTH }) {
+async function prewarmPublicThumbs({
+  gallery,
+  images,
+  resolveImageFile,
+  width = PREWARM_DEFAULT_WIDTH,
+  variants = null,
+}) {
   if (!gallery || !Array.isArray(images) || images.length === 0) {
     return { warmed: 0, skipped: 0, failed: 0, total: 0 };
   }
@@ -109,21 +150,36 @@ async function prewarmPublicThumbs({ gallery, images, resolveImageFile, width = 
   const kind = gallery.kind === 'bildauswahl' ? 'bildauswahl' : 'listing';
   const withWatermark = kind === 'bildauswahl' && gallery.watermark_enabled !== false;
 
+  /**
+   * Wenn `variants` nicht gesetzt ist, bleibt das alte Verhalten erhalten:
+   * eine einzelne Variante bei `width` und JPG. Bildauswahl-Importe rufen
+   * explizit mit dem Default-Variantenset (WebP 600 + WebP 1200 + JPG 1200)
+   * auf, damit Grid und Lightbox sofort warm sind.
+   */
+  const targetVariants = Array.isArray(variants) && variants.length > 0
+    ? variants
+    : [{ width, format: 'jpg' }];
+
   const queue = images.filter((img) => img && img.source_type === 'nas_local' && img.enabled !== false);
+  const totalSteps = queue.length * targetVariants.length;
   let warmed = 0; let skipped = 0; let failed = 0;
   let cursor = 0;
 
   async function worker() {
     while (cursor < queue.length) {
       const img = queue[cursor++];
-      try {
-        const filePath = resolveImageFile(img);
-        if (!filePath) { skipped += 1; continue; }
-        const out = await ensurePublicThumb(filePath, gallery.id, img.id, width, withWatermark);
-        if (out) warmed += 1; else skipped += 1;
-      } catch (e) {
-        failed += 1;
-        console.warn(`[gallery-thumbs] prewarm failed for image ${img.id}:`, e?.message || e);
+      const filePath = (() => {
+        try { return resolveImageFile(img); } catch { return null; }
+      })();
+      if (!filePath) { skipped += targetVariants.length; continue; }
+      for (const v of targetVariants) {
+        try {
+          const out = await ensurePublicThumb(filePath, gallery.id, img.id, v.width, withWatermark, v.format || 'jpg');
+          if (out) warmed += 1; else skipped += 1;
+        } catch (e) {
+          failed += 1;
+          console.warn(`[gallery-thumbs] prewarm failed for image ${img.id} (${v.format}@${v.width}):`, e?.message || e);
+        }
       }
     }
   }
@@ -133,13 +189,16 @@ async function prewarmPublicThumbs({ gallery, images, resolveImageFile, width = 
     () => worker(),
   );
   await Promise.all(workers);
-  return { warmed, skipped, failed, total: queue.length };
+  return { warmed, skipped, failed, total: totalSteps };
 }
 
 module.exports = {
   ALLOWED_PUBLIC_THUMB_WIDTHS,
+  ALLOWED_PUBLIC_THUMB_FORMATS,
   PREWARM_DEFAULT_WIDTH,
+  PREWARM_DEFAULT_VARIANTS,
   parsePublicThumbWidth,
+  parsePublicThumbFormat,
   ensurePublicThumb,
   prewarmPublicThumbs,
   watermarkSvgFor,

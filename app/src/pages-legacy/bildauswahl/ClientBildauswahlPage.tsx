@@ -74,7 +74,10 @@ export function ClientBildauswahlPage() {
     return sorted.map((im, idx) => ({
       key: im.id,
       name: imageLabel(im, idx),
-      thumbUrl: bildauswahlImageUrl(data.slug, im.id),
+      // Grid: 600px WebP — ~50KB pro Bild, ~4x weniger als 1200px JPEG.
+      // Lightbox: 1200px WebP — voll aufgeloest fuer die Detailansicht.
+      thumbUrl: bildauswahlImageUrl(data.slug, im.id, 600),
+      lightboxUrl: bildauswahlImageUrl(data.slug, im.id, 1200),
       placeholderColor: hashColor(im.id),
     }));
   }, [data]);

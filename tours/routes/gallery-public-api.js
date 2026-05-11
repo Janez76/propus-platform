@@ -7,7 +7,7 @@ const router = express.Router();
 const archiver = require('archiver');
 const gallery = require('../lib/gallery');
 const { pool } = require('../lib/db');
-const { ensurePublicThumb, parsePublicThumbWidth } = require('../lib/gallery-thumbs');
+const { ensurePublicThumb, parsePublicThumbWidth, parsePublicThumbFormat } = require('../lib/gallery-thumbs');
 const { sendAdminNotifyMail } = require('../lib/bildauswahl-emails');
 
 function normalizeMatterportSrc(raw) {
@@ -179,10 +179,11 @@ router.get('/:slug/images/:imgId', async (req, res) => {
          * Bilder (der Listing-Kunde sieht eine andere UI, kein Picdrop).
          */
         const withWatermark = pickKind(req) === 'bildauswahl' && g.watermark_enabled !== false;
-        const cachePath = await ensurePublicThumb(filePath, g.id, img.id, resizeWidth, withWatermark);
+        const fmt = parsePublicThumbFormat(req.query.fmt);
+        const cachePath = await ensurePublicThumb(filePath, g.id, img.id, resizeWidth, withWatermark, fmt);
         if (cachePath) {
           res.set('Cache-Control', 'public, max-age=14400, s-maxage=14400, immutable');
-          res.type('jpg');
+          res.type(fmt === 'webp' ? 'webp' : 'jpg');
           return res.sendFile(cachePath);
         }
       }

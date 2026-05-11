@@ -14,6 +14,12 @@ export type PicdropImage = {
   key: string;
   name: string;
   thumbUrl: string | null;
+  /**
+   * Hochaufgeloeste Variante fuer die Lightbox. Wenn nicht gesetzt, wird
+   * `thumbUrl` als Fallback verwendet — die Lightbox zeigt dann nur die
+   * Grid-Aufloesung, was bei Kunden mit grossen Bildschirmen pixelig wirkt.
+   */
+  lightboxUrl?: string | null;
   /** Weitere Nextcloud-/Freigabe-URLs, falls die erste in `<img>` scheitert */
   thumbFallbacks?: string[];
   placeholderColor: string;
@@ -98,17 +104,39 @@ function orderedThumbSources(img: PicdropImage): string[] {
   return out;
 }
 
+function orderedLightboxSources(img: PicdropImage): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  // Bevorzugt die hochaufgeloeste Lightbox-Variante; faellt auf thumbUrl
+  // zurueck wenn der Aufrufer keine separate Lightbox-URL liefert.
+  for (const u of [img.lightboxUrl, img.thumbUrl, ...(img.thumbFallbacks ?? [])]) {
+    const t = u?.trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 function PicdropRasterImg({
   className,
   sources,
   alt = "",
   lazy,
+  priority = false,
   restrictDownloadGestures = false,
 }: {
   className?: string;
   sources: string[];
   alt?: string;
   lazy?: boolean;
+  /**
+   * Erste Reihe sichtbarer Bilder: `priority` schaltet `fetchpriority="high"` ein,
+   * damit der Browser sie vor anderen Netz-Resourcen anfordert. Spuerbar bei
+   * 65+ Bildern, weil sonst der HTTP/2-Stream-Pool fair-verteilt und die ersten
+   * Kacheln keine sichtbare Beschleunigung haben.
+   */
+  priority?: boolean;
   /** Kunden-Magic-Link: Kontextmenü / Ziehen abschwächen (kein technischer Kopierschutz). */
   restrictDownloadGestures?: boolean;
 }) {
@@ -122,7 +150,8 @@ function PicdropRasterImg({
       className={className}
       src={sources[Math.min(i, sources.length - 1)]}
       alt={alt}
-      loading={lazy ? "lazy" : undefined}
+      loading={lazy ? "lazy" : "eager"}
+      fetchPriority={priority ? "high" : "auto"}
       decoding="async"
       referrerPolicy="no-referrer"
       draggable={false}
@@ -133,18 +162,35 @@ function PicdropRasterImg({
   );
 }
 
-function ThumbVisual({ img, restrictDownloadGestures }: { img: PicdropImage; restrictDownloadGestures?: boolean }) {
+/**
+ * Anzahl Bilder, die ohne Lazy-Loading geladen werden und `fetchpriority=high`
+ * bekommen. 9 entspricht 3 Reihen auf Desktop (3 Spalten) / 4-5 Reihen mobil —
+ * also typischerweise alles im initialen Viewport plus Buffer.
+ */
+const PD_EAGER_PREFETCH = 9;
+
+function ThumbVisual({
+  img,
+  index = 0,
+  restrictDownloadGestures,
+}: {
+  img: PicdropImage;
+  index?: number;
+  restrictDownloadGestures?: boolean;
+}) {
   const sources = useMemo(
     () => orderedThumbSources(img),
     [img.key, img.thumbUrl, (img.thumbFallbacks ?? []).join("|")],
   );
+  const aboveFold = index < PD_EAGER_PREFETCH;
   if (sources.length > 0) {
     return (
       <PicdropRasterImg
         className="pd-thumb-img"
         sources={sources}
         alt=""
-        lazy
+        lazy={!aboveFold}
+        priority={aboveFold}
         restrictDownloadGestures={restrictDownloadGestures}
       />
     );
@@ -489,7 +535,7 @@ export function PicdropSelectionView({
                       onClick={() => openLb(idx)}
                     >
                       <div className={`pd-thumb${watermarkEnabled ? " pd-thumb--watermark" : ""}`}>
-                        <ThumbVisual img={img} restrictDownloadGestures={customerMode} />
+                        <ThumbVisual img={img} index={idx} restrictDownloadGestures={customerMode} />
                         <div className="pd-flag-chips">
                           {s.flags.map((f) => (
                             <span key={f} className={CHIP_CLASS[f]}>
@@ -554,7 +600,7 @@ export function PicdropSelectionView({
             <div className="pd-lb-img-wrap">
               <div className={`pd-lb-img-box${watermarkEnabled ? " pd-lb-img-box--watermark" : ""}`}>
                 {(() => {
-                  const lbSrc = orderedThumbSources(currentImg);
+                  const lbSrc = orderedLightboxSources(currentImg);
                   if (lbSrc.length > 0) {
                     return (
                       <PicdropRasterImg
