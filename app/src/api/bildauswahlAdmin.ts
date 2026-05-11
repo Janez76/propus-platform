@@ -205,3 +205,20 @@ export async function markBildauswahlEmailSent(galleryId: string) {
     method: "POST",
   });
 }
+
+/** Verschickt die Einladungsmail per Microsoft Graph an die Kundenadresse. */
+export async function sendBildauswahlInvite(galleryId: string) {
+  return adminFetch<{ ok: boolean; to: string; subject: string }>(
+    `/${encodeURIComponent(galleryId)}/send-invite`,
+    { method: "POST" },
+  );
+}
+
+/** Erstellt eine Bildauswahl mit Order-Vorbelegung (Kunde + Adresse + order_no). */
+export async function createBildauswahlForOrder(orderNo: number) {
+  const r = await adminFetch<{ ok: boolean; gallery: BildauswahlRow }>(
+    `/create-for-order/${encodeURIComponent(String(orderNo))}`,
+    { method: "POST" },
+  );
+  return r.gallery;
+}

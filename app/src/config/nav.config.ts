@@ -270,22 +270,15 @@ export const navConfig: NavSection[] = [
         ],
       },
       {
-        id: "selekto",
-        to: "/admin/selekto",
-        labelKey: "nav.item.selekto",
-        icon: ScanEye,
-        matchNested: true,
-        children: [
-          { id: "selekto-galleries", to: "/admin/selekto", labelKey: "nav.item.selektoGalleries", icon: List },
-          { id: "selekto-templates", to: "/admin/selekto/templates", labelKey: "nav.item.selektoTemplates", icon: Mail },
-        ],
-      },
-      {
         id: "bildauswahl",
         to: "/admin/bildauswahl",
         labelKey: "nav.item.bildauswahl",
         icon: ScanEye,
         matchNested: true,
+        children: [
+          { id: "bildauswahl-galleries", to: "/admin/bildauswahl", labelKey: "nav.item.bildauswahlGalleries", icon: List },
+          { id: "bildauswahl-templates", to: "/admin/bildauswahl/templates", labelKey: "nav.item.bildauswahlTemplates", icon: Mail },
+        ],
       },
     ],
   },

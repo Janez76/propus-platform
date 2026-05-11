@@ -12,6 +12,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { pool } = require('./db');
 const gallery = require('./gallery');
+const { sendMailDirect } = require('./microsoft-graph');
 const orderStorage = require(path.join(__dirname, '..', '..', 'booking', 'order-storage'));
 
 const SLUG_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyz';
@@ -416,7 +417,7 @@ async function recordEmailSent(galleryId) {
 
 const PICDROP_FLAGS = new Set(['bearbeiten', 'staging', 'retusche']);
 
-async function submitClientSelection({ galleryId, gallerySlug, items }) {
+async function submitClientSelection({ galleryId, gallerySlug, items, siteBaseUrl = null }) {
   const g = await getBildauswahl(galleryId);
   if (!g || g.slug !== gallerySlug) throw new Error('Galerie unbekannt oder Link ungueltig.');
   if (g.status !== 'active') throw new Error('Diese Galerie ist nicht mehr aktiv.');
@@ -427,6 +428,9 @@ async function submitClientSelection({ galleryId, gallerySlug, items }) {
       (Array.isArray(it.messageLines) && it.messageLines.some((l) => String(l || '').trim())),
   );
   if (filtered.length === 0) throw new Error('Nichts zu senden.');
+
+  /** Fuer die Admin-Notify-Mail brauchen wir die uebermittelten Items spaeter. */
+  const persistedItems = [];
 
   const client = await pool.connect();
   try {
@@ -451,6 +455,11 @@ async function submitClientSelection({ galleryId, gallerySlug, items }) {
           body, validFlags.length > 0 ? JSON.stringify(validFlags) : null, revision,
         ],
       );
+      persistedItems.push({
+        asset_label: String(it.asset_label || 'Bild').trim() || 'Bild',
+        flags: validFlags,
+        body,
+      });
     }
     await client.query(
       `UPDATE tour_manager.bildauswahl_galleries
@@ -467,6 +476,81 @@ async function submitClientSelection({ galleryId, gallerySlug, items }) {
   } finally {
     client.release();
   }
+
+  /** Nach erfolgreichem Commit: Admin-Notify-Mail im Hintergrund verschicken. */
+  void sendAdminNotifyMail({ gallery: g, items: persistedItems, siteBaseUrl }).catch((err) => {
+    console.warn('[bildauswahl] admin-notify mail failed:', err?.message || err);
+  });
+}
+
+function notifyEmailRecipient() {
+  const raw =
+    process.env.BILDAUSWAHL_NOTIFY_EMAIL ||
+    process.env.PICDROP_NOTIFY_EMAIL ||
+    process.env.OFFICE_EMAIL ||
+    '';
+  return String(raw || '').trim();
+}
+
+async function sendAdminNotifyMail({ gallery: g, items, siteBaseUrl }) {
+  const to = notifyEmailRecipient();
+  if (!to) return; // keine Konfiguration → still
+  const tpl = await getEmailTemplate(EMAIL_TPL.ADMIN_NOTIFY);
+  if (!tpl) return;
+
+  const base = (siteBaseUrl || process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '') || '';
+  const galleryLink = `${base}/admin/bildauswahl/${g.id}`;
+
+  const lines = items.map((it) => {
+    const flagsTxt = it.flags.length ? ` [${it.flags.join(', ')}]` : '';
+    const commentTxt = it.body ? ` — ${it.body.split('\n').join(' / ')}` : '';
+    return `• ${it.asset_label}${flagsTxt}${commentTxt}`;
+  });
+  const fileList = lines.join('\n');
+
+  const vars = {
+    gallery_link: galleryLink,
+    title: g.title || 'Bildauswahl',
+    customer_name: g.client_name || '—',
+    address: g.address || '',
+    order_no: g.booking_order_no,
+    file_list: fileList,
+  };
+  const subject = applyTemplateVars(tpl.subject, vars);
+  const htmlBody = applyTemplateVars(tpl.body, vars);
+
+  const r = await sendMailDirect({ to, subject, htmlBody });
+  if (!r.success) {
+    console.warn('[bildauswahl] admin-notify sendMailDirect failed:', r.error);
+  }
+}
+
+/** Versendet die Einladungsmail an den Kunden (Vorlage INVITE). */
+async function sendInviteMail({ galleryId, siteBaseUrl }) {
+  const g = await getBildauswahl(galleryId);
+  if (!g) throw new Error('Galerie nicht gefunden.');
+  const to = (g.client_email || '').trim();
+  if (!to) throw new Error('Kunden-E-Mail fehlt.');
+  const tpl = await getEmailTemplate(EMAIL_TPL.INVITE);
+  if (!tpl) throw new Error('Vorlage nicht gefunden.');
+
+  const base = (siteBaseUrl || process.env.PUBLIC_SITE_URL || '').replace(/\/$/, '') || '';
+  const galleryLink = `${base}/bildauswahl/${g.friendly_slug || g.slug}`;
+  const vars = {
+    gallery_link: galleryLink,
+    title: g.title || 'Bildauswahl',
+    customer_name: g.client_name || '',
+    address: g.address || '',
+    order_no: g.booking_order_no,
+  };
+  const subject = applyTemplateVars(tpl.subject, vars);
+  const htmlBody = applyTemplateVars(tpl.body, vars);
+
+  const r = await sendMailDirect({ to, subject, htmlBody });
+  if (!r.success) throw new Error(`Mail-Versand fehlgeschlagen: ${r.error || 'unbekannt'}`);
+
+  await recordEmailSent(galleryId);
+  return { to, subject };
 }
 
 async function listFeedback(galleryId) {
@@ -503,6 +587,16 @@ async function listEmailTemplates() {
   return rows;
 }
 
+async function getEmailTemplate(id) {
+  const { rows } = await pool.query(
+    `SELECT id, name, subject, body, is_default, created_at, updated_at
+     FROM tour_manager.bildauswahl_email_templates
+     WHERE id = $1`,
+    [id],
+  );
+  return rows[0] || null;
+}
+
 async function saveEmailTemplate({ id, subject, body }) {
   await pool.query(
     `UPDATE tour_manager.bildauswahl_email_templates
@@ -510,6 +604,153 @@ async function saveEmailTemplate({ id, subject, body }) {
      WHERE id = $3`,
     [String(subject || ''), String(body || ''), id],
   );
+}
+
+// ---------------------------------------------------------------------------
+// Default-HTML-Bodies — beim Boot einmalig in leere Vorlagen-Zeilen geschrieben.
+// Admin-Edits bleiben erhalten (body != '' wird nicht überschrieben).
+// ---------------------------------------------------------------------------
+
+const EMAIL_TPL = {
+  INVITE: 'propus-bildauswahl-invite-v1',
+  ADMIN_NOTIFY: 'propus-bildauswahl-admin-notify-v1',
+  FOLLOWUP: 'propus-bildauswahl-followup-v1',
+  REVISION_DONE: 'propus-bildauswahl-revision-done-v1',
+};
+
+const FF = "Inter,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+
+function defaultInviteBody() {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#e8eaed;margin:0;padding:0;">
+  <tr><td align="center" style="padding:32px 14px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e4e8;box-shadow:0 12px 40px rgba(15,15,15,0.07);">
+      <tr><td style="height:5px;background-color:#141414;line-height:0;font-size:0;">&nbsp;</td></tr>
+      <tr><td style="padding:36px 40px 28px;font-family:${FF};">
+        <p style="margin:0 0 18px;font-size:18px;font-weight:600;color:#0f0f0f;">Guten Tag{{customer_name_line}},</p>
+        <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#2a2a2a;">vielen Dank für Ihr Vertrauen. Ihre Aufnahmen zu <strong>{{title}}</strong> stehen für Sie bereit.</p>
+        <p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#2a2a2a;">Bitte wählen Sie die Bilder aus, die wir für Sie fertig bearbeiten sollen. Markieren Sie die gewünschten Motive mit den Flaggen «Bearbeiten», «Staging» oder «Retusche» und bestätigen Sie Ihre Auswahl unten auf der Seite.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 26px;">
+          <tr><td style="border-radius:10px;background-color:#141414;">
+            <a href="{{gallery_link}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:15px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;font-family:${FF};">Meine Auswahl ansehen</a>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 12px;font-size:13px;line-height:1.5;color:#6b6b6b;">Falls der Button nicht funktioniert:<br /><a href="{{gallery_link}}" style="color:#185fa5;word-break:break-all;">{{gallery_link}}</a></p>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#2a2a2a;">Freundliche Grüsse<br /><span style="color:#6b6b6b;">Ihr Propus-Team</span></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
+}
+
+function defaultAdminNotifyBody() {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#e8eaed;margin:0;padding:0;">
+  <tr><td align="center" style="padding:32px 14px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e4e8;">
+      <tr><td style="height:5px;background-color:#141414;line-height:0;">&nbsp;</td></tr>
+      <tr><td style="padding:32px 36px 24px;font-family:${FF};">
+        <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7A5E10;">Benachrichtigung</p>
+        <h1 style="margin:0 0 18px;font-size:20px;line-height:1.25;font-weight:700;color:#0f0f0f;">Neue Bildauswahl eingegangen</h1>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f9f9f7;border:1px solid #ececec;border-radius:10px;">
+          <tr><td style="padding:14px 16px;">
+            <p style="margin:0 0 6px;font-size:14px;line-height:1.5;"><strong>Kunde:</strong> {{customer_name}}</p>
+            <p style="margin:0 0 6px;font-size:14px;line-height:1.5;"><strong>Projekt:</strong> {{title}}</p>
+            <p style="margin:0;font-size:14px;line-height:1.5;"><strong>Bestell-Nr:</strong> {{order_no}}</p>
+          </td></tr>
+        </table>
+        <p style="margin:18px 0 6px;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.04em;">Markierte Bilder & Kommentare</p>
+        <div style="padding:12px 14px;background:#fafafa;border-radius:10px;border:1px solid #ececec;font-size:13px;line-height:1.6;color:#2a2a2a;white-space:pre-wrap;">{{file_list}}</div>
+        <p style="margin:18px 0 0;font-size:13px;line-height:1.55;color:#555;"><a href="{{gallery_link}}" style="color:#185fa5;">Im Backpanel öffnen</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
+}
+
+function defaultFollowupBody() {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#e8eaed;margin:0;padding:0;">
+  <tr><td align="center" style="padding:32px 14px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e4e8;">
+      <tr><td style="height:5px;background-color:#141414;">&nbsp;</td></tr>
+      <tr><td style="padding:32px 36px 24px;font-family:${FF};">
+        <p style="margin:0 0 14px;font-size:17px;font-weight:600;">Guten Tag{{customer_name_line}},</p>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.6;">wir möchten auf Ihren Kommentar zum Objekt <strong>{{title}}</strong> ({{asset_label}}, Revision {{revision}}) antworten.</p>
+        <p style="margin:0 0 8px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.04em;">Ihr Kommentar</p>
+        <div style="padding:12px 14px;background:#f7f7f7;border-radius:10px;font-size:14px;margin-bottom:14px;">{{customer_comment}}</div>
+        <p style="margin:0 0 8px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.04em;">Unsere Rückfrage</p>
+        <div style="padding:12px 14px;background:#fffbeb;border-radius:10px;font-size:14px;border:1px solid #fde68a;color:#422006;margin-bottom:16px;">{{feedback_body}}</div>
+        <p style="margin:18px 0 0;font-size:13px;"><a href="{{direct_link}}" style="background:#141414;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-family:${FF};">Zur Bildauswahl</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
+}
+
+function defaultRevisionDoneBody() {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#e8eaed;margin:0;padding:0;">
+  <tr><td align="center" style="padding:32px 14px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:100%;max-width:560px;background-color:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e4e8;">
+      <tr><td style="height:5px;background-color:#141414;">&nbsp;</td></tr>
+      <tr><td style="padding:32px 36px 24px;font-family:${FF};">
+        <p style="margin:0 0 14px;font-size:17px;font-weight:600;">Guten Tag{{customer_name_line}},</p>
+        <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">vielen Dank für Ihre Rückmeldung zu <strong>{{title}}</strong>. Die Anmerkung zu <strong>{{asset_label}}</strong> (Revision {{revision}}) haben wir umgesetzt.</p>
+        <div style="padding:12px 14px;background:#f0fdf4;border-radius:10px;font-size:14px;color:#166534;border:1px solid #bbf7d0;margin-bottom:14px;">Ihr ursprünglicher Kommentar:<br /><span style="color:#14532d;">{{customer_comment}}</span></div>
+        <p style="margin:18px 0 0;font-size:13px;"><a href="{{direct_link}}" style="background:#141414;color:white;padding:10px 18px;border-radius:8px;text-decoration:none;font-family:${FF};">Erneut ansehen</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`;
+}
+
+const TEMPLATE_DEFAULTS = {
+  [EMAIL_TPL.INVITE]: { subject: 'Ihre Bildauswahl – {{title}}', body: defaultInviteBody },
+  [EMAIL_TPL.ADMIN_NOTIFY]: { subject: 'Neue Bildauswahl eingegangen – {{title}}', body: defaultAdminNotifyBody },
+  [EMAIL_TPL.FOLLOWUP]: { subject: 'Rückfrage zu Ihrer Anmerkung – {{title}}', body: defaultFollowupBody },
+  [EMAIL_TPL.REVISION_DONE]: { subject: 'Anmerkung umgesetzt – {{title}}', body: defaultRevisionDoneBody },
+};
+
+async function ensureDefaultEmailTemplates() {
+  for (const [id, { subject, body }] of Object.entries(TEMPLATE_DEFAULTS)) {
+    await pool.query(
+      `UPDATE tour_manager.bildauswahl_email_templates
+       SET subject = CASE WHEN COALESCE(subject, '') = '' THEN $1 ELSE subject END,
+           body    = CASE WHEN COALESCE(body, '')    = '' THEN $2 ELSE body END,
+           updated_at = NOW()
+       WHERE id = $3`,
+      [subject, body(), id],
+    );
+  }
+}
+
+function escapeHtml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function nl2br(s) {
+  return String(s || '').replace(/\r\n|\n|\r/g, '<br />');
+}
+
+function applyTemplateVars(text, vars) {
+  const name = (vars.customer_name || '').trim();
+  const nameEsc = escapeHtml(name);
+  const customerNameLine = name ? ` ${nameEsc}` : '';
+  return String(text || '')
+    .replaceAll('{{gallery_link}}', (vars.gallery_link || '').trim())
+    .replaceAll('{{Link}}', (vars.gallery_link || '').trim())
+    .replaceAll('{{title}}', escapeHtml(vars.title || ''))
+    .replaceAll('{{Titel}}', escapeHtml(vars.title || ''))
+    .replaceAll('{{customer_name}}', nameEsc)
+    .replaceAll('{{Kundenname}}', nameEsc)
+    .replaceAll('{{customer_name_line}}', customerNameLine)
+    .replaceAll('{{address}}', escapeHtml(vars.address || ''))
+    .replaceAll('{{order_no}}', escapeHtml(vars.order_no != null ? String(vars.order_no) : '—'))
+    .replaceAll('{{file_list}}', nl2br(escapeHtml(vars.file_list || '')))
+    .replaceAll('{{Dateiliste}}', nl2br(escapeHtml(vars.file_list || '')))
+    .replaceAll('{{feedback_body}}', nl2br(escapeHtml(vars.feedback_body || '')))
+    .replaceAll('{{customer_comment}}', nl2br(escapeHtml(vars.customer_comment || '')))
+    .replaceAll('{{asset_label}}', escapeHtml(vars.asset_label || ''))
+    .replaceAll('{{direct_link}}', (vars.direct_link || vars.gallery_link || '').trim())
+    .replaceAll('{{revision}}', escapeHtml(vars.revision != null ? String(vars.revision) : ''));
 }
 
 // ---------------------------------------------------------------------------
@@ -548,6 +789,11 @@ module.exports = {
   listFeedback,
   setFeedbackResolved,
   listEmailTemplates,
+  getEmailTemplate,
   saveEmailTemplate,
+  ensureDefaultEmailTemplates,
+  applyTemplateVars,
+  sendInviteMail,
   guessOrderNoFromNasPath,
+  EMAIL_TPL,
 };

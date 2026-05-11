@@ -6,8 +6,12 @@ import {
   deleteBildauswahl,
   getBildauswahl,
   importBildauswahlFromNas,
+  listBildauswahlFeedback,
   markBildauswahlEmailSent,
+  sendBildauswahlInvite,
+  setBildauswahlFeedbackResolved,
   updateBildauswahl,
+  type BildauswahlFeedbackRow,
   type BildauswahlImage,
   type BildauswahlNasContext,
   type BildauswahlRow,
@@ -30,10 +34,12 @@ export function BildauswahlEditorPage() {
   const navigate = useNavigate();
   const [gallery, setGallery] = useState<BildauswahlRow | null>(null);
   const [images, setImages] = useState<BildauswahlImage[]>([]);
+  const [feedback, setFeedback] = useState<BildauswahlFeedbackRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
 
   const reload = useCallback(async () => {
     if (!id) return;
@@ -43,6 +49,12 @@ export function BildauswahlEditorPage() {
       const d = await getBildauswahl(id);
       setGallery(d.gallery);
       setImages(d.images);
+      try {
+        const fb = await listBildauswahlFeedback(id);
+        setFeedback(fb);
+      } catch {
+        setFeedback([]);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -95,6 +107,39 @@ export function BildauswahlEditorPage() {
       await markBildauswahlEmailSent(id);
       await reload();
       setInfo("Als versendet markiert.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const onSendInvite = async () => {
+    if (!id) return;
+    if (!gallery?.client_email) {
+      setErr("Bitte zuerst Kunden-E-Mail eintragen.");
+      return;
+    }
+    if (gallery.status !== "active") {
+      const ok = window.confirm("Galerie ist nicht aktiv — der Kunde sieht eine Fehlermeldung. Trotzdem senden?");
+      if (!ok) return;
+    }
+    setSendingInvite(true);
+    setErr(null);
+    setInfo(null);
+    try {
+      const r = await sendBildauswahlInvite(id);
+      setInfo(`E-Mail versendet an ${r.to}.`);
+      await reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSendingInvite(false);
+    }
+  };
+
+  const onResolveFeedback = async (fbId: string, resolved: boolean) => {
+    try {
+      await setBildauswahlFeedbackResolved(fbId, resolved);
+      await reload();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     }
@@ -192,6 +237,70 @@ export function BildauswahlEditorPage() {
             />
           </section>
 
+          <section style={{ marginBottom: 24, background: "white", border: "1px solid #eee", borderRadius: 8, padding: 16 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: "#666", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 12px" }}>
+              Kunden-Auswahl & Kommentare ({feedback.length})
+            </h2>
+            {feedback.length === 0 ? (
+              <p style={{ color: "#999", fontSize: 13 }}>Noch keine Rückmeldung vom Kunden.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {feedback.map((f) => {
+                  const flags = (() => {
+                    try { return f.selection_flags_json ? JSON.parse(f.selection_flags_json) as string[] : []; }
+                    catch { return [] as string[]; }
+                  })();
+                  const isResolved = !!f.resolved_at;
+                  return (
+                    <div
+                      key={f.id}
+                      style={{
+                        padding: "10px 12px",
+                        border: "1px solid " + (isResolved ? "#e5e7eb" : "#fde68a"),
+                        borderRadius: 8,
+                        background: isResolved ? "#f9fafb" : "#fffbeb",
+                        opacity: isResolved ? 0.7 : 1,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>
+                          {f.asset_label}
+                          <span style={{ color: "#999", marginLeft: 6, fontWeight: 400 }}>· Rev. {f.revision}</span>
+                          <span style={{ color: "#999", marginLeft: 6, fontWeight: 400, fontSize: 12 }}>
+                            {f.author === "client" ? "Kunde" : "Büro"}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => onResolveFeedback(f.id, !isResolved)}
+                          style={{ background: "none", border: "none", color: isResolved ? "#666" : "#185fa5", cursor: "pointer", fontSize: 12 }}
+                        >
+                          {isResolved ? "Wieder öffnen" : "Erledigt"}
+                        </button>
+                      </div>
+                      {flags.length > 0 ? (
+                        <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+                          {flags.map((fl) => (
+                            <span key={fl} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "#fef3c7", color: "#7c2d12", textTransform: "capitalize" }}>
+                              {fl}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {f.body ? (
+                        <div style={{ fontSize: 13, color: "#333", whiteSpace: "pre-wrap" }}>{f.body}</div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "#999", fontStyle: "italic" }}>(nur Flaggen, kein Kommentar)</div>
+                      )}
+                      <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
+                        {fmt(f.created_at)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           <section style={{ background: "white", border: "1px solid #eee", borderRadius: 8, padding: 16 }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: "#666", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 12px" }}>
               Bilder ({images.length})
@@ -231,18 +340,32 @@ export function BildauswahlEditorPage() {
               <LogRow label="Auswahl gesendet" value={fmt(gallery.client_log_selection_sent_at)} />
             </div>
             <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+              <button
+                onClick={onSendInvite}
+                disabled={sendingInvite || !gallery.client_email}
+                title={!gallery.client_email ? "Kunden-E-Mail fehlt" : undefined}
+                style={{
+                  padding: "8px 12px", borderRadius: 6, border: "none",
+                  background: "#141414", color: "white",
+                  cursor: sendingInvite ? "wait" : (gallery.client_email ? "pointer" : "not-allowed"),
+                  fontSize: 13, textAlign: "center",
+                  opacity: gallery.client_email ? 1 : 0.5,
+                }}
+              >
+                {sendingInvite ? "Sende …" : "E-Mail-Einladung versenden"}
+              </button>
               <a
                 href={`mailto:${encodeURIComponent(gallery.client_email || "")}?subject=${encodeURIComponent(`Ihre Bildauswahl – ${gallery.title}`)}&body=${encodeURIComponent(`Hallo,\n\nIhre Bildauswahl liegt bereit:\n${publicUrl}\n\nFreundliche Grüsse\nPropus`)}`}
-                style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #141414", background: "#141414", color: "white", textDecoration: "none", fontSize: 13, textAlign: "center" }}
+                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white", color: "#333", textDecoration: "none", fontSize: 12, textAlign: "center" }}
               >
-                E-Mail an Kunden öffnen
+                Stattdessen E-Mail-Programm öffnen
               </a>
               {gallery.client_delivery_status !== "sent" ? (
                 <button
                   onClick={onMarkSent}
-                  style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 13 }}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white", cursor: "pointer", fontSize: 12 }}
                 >
-                  Als versendet markieren
+                  Als versendet markieren (ohne Senden)
                 </button>
               ) : null}
             </div>

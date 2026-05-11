@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { queryOne, query } from "@/lib/db";
 import Link from "next/link";
-import { ExternalLink, Plus, Image } from "lucide-react";
+import { ExternalLink, Image } from "lucide-react";
+import { CreateBildauswahlForOrderButton } from "./create-button";
 
 type BildauswahlRow = {
   id: string;
@@ -46,13 +47,7 @@ export default async function BildauswahlPage({
           <p className="text-sm text-gray-500">
             Für diese Bestellung existiert noch keine Bildauswahl.
           </p>
-          <Link
-            href={`/admin/bildauswahl`}
-            className="admin-btn admin-btn--primary inline-flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Bildauswahl erstellen
-          </Link>
+          <CreateBildauswahlForOrderButton orderNo={orderCheck.order_no} />
         </div>
       </div>
     );
@@ -86,13 +81,11 @@ export default async function BildauswahlPage({
           </Link>
         ))}
       </div>
-      <Link
-        href={`/admin/bildauswahl`}
-        className="admin-btn admin-btn--outline inline-flex items-center gap-2 text-sm"
-      >
-        <Plus className="h-4 w-4" />
-        Weitere Bildauswahl erstellen
-      </Link>
+      <CreateBildauswahlForOrderButton
+        orderNo={orderCheck.order_no}
+        label="Weitere Bildauswahl erstellen"
+        variant="outline"
+      />
     </div>
   );
 }

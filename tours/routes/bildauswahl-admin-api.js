@@ -222,4 +222,51 @@ router.post('/:id/mark-email-sent', async (req, res) => {
   }
 });
 
+/** Verschickt die Kunden-Einladungsmail (Vorlage INVITE) per Microsoft Graph. */
+router.post('/:id/send-invite', async (req, res) => {
+  try {
+    const proto = String(req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).split(',')[0];
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+    const siteBaseUrl = host ? `${proto}://${host}` : null;
+    const r = await bildauswahl.sendInviteMail({ galleryId: req.params.id, siteBaseUrl });
+    res.json({ ok: true, ...r });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/** Bildauswahl mit Order-Vorbelegung (Kunde/Adresse aus Bestellung). */
+const { pool } = require('../lib/db');
+router.post('/create-for-order/:orderNo', async (req, res) => {
+  try {
+    const orderNo = Number.parseInt(req.params.orderNo, 10);
+    if (!Number.isFinite(orderNo)) return res.status(400).json({ ok: false, error: 'orderNo ungültig.' });
+    const { rows } = await pool.query(
+      `SELECT o.order_no, o.customer_id,
+              c.name AS customer_name, c.email AS customer_email,
+              c.street, c.postal_code, c.city
+       FROM booking.orders o
+       LEFT JOIN core.customers c ON c.id = o.customer_id
+       WHERE o.order_no = $1
+       LIMIT 1`,
+      [orderNo],
+    );
+    if (!rows[0]) return res.status(404).json({ ok: false, error: 'Bestellung nicht gefunden.' });
+    const r = rows[0];
+    const address = [r.street, [r.postal_code, r.city].filter(Boolean).join(' ').trim()].filter(Boolean).join(', ') || null;
+    const title = r.customer_name ? `Bildauswahl — ${r.customer_name}` : `Bildauswahl — Bestellung ${orderNo}`;
+    const g = await bildauswahl.createBildauswahl({
+      title,
+      address,
+      client_name: r.customer_name || null,
+      client_email: r.customer_email || null,
+      customer_id: r.customer_id || null,
+      booking_order_no: orderNo,
+    });
+    res.json({ ok: true, gallery: g });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
 module.exports = router;

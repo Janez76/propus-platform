@@ -135,10 +135,14 @@ router.post('/:slug/selection', async (req, res) => {
     if (!g) return res.status(404).json({ ok: false, error: 'Bildauswahl nicht verfügbar.' });
     const items = Array.isArray(req.body?.items) ? req.body.items : null;
     if (!items) return res.status(400).json({ ok: false, error: 'items[] erforderlich.' });
+    const proto = String(req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).split(',')[0];
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+    const siteBaseUrl = host ? `${proto}://${host}` : null;
     await bildauswahl.submitClientSelection({
       galleryId: g.id,
       gallerySlug: g.slug,
       items,
+      siteBaseUrl,
     });
     res.json({ ok: true });
   } catch (e) {
