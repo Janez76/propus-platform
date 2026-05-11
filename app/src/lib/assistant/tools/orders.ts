@@ -167,13 +167,13 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_bkbn_orders",
     description:
-      "BKBN- bzw. Backbone-Photo-Aufträge (backbonephoto.co): Shooting-Aufträge, die nur als Outlook-Termin in den 365-Kalendern von Ivan & Janez liegen — KEIN Buchungsauftrag in der DB, keine Auftragsnummer, keine Rechnung. Nutze dieses Tool bei Fragen nach BKBN-/Backbone-Aufträgen und für den Gesamtterminplan zusätzlich zu get_open_orders/get_today_schedule. Standard-Fenster: die letzten ~10 Tage (serverseitig konfigurierbar) bis ~30 Tage in der Zukunft.",
+      "BKBN- bzw. Backbone-Photo-Aufträge (backbonephoto.co): Shooting-Aufträge, die nur als Outlook-Termin in den 365-Kalendern von Ivan & Janez liegen — KEIN Buchungsauftrag in der DB, keine Auftragsnummer, keine Rechnung. Nutze dieses Tool bei Fragen nach BKBN-/Backbone-Aufträgen und für den Gesamtterminplan zusätzlich zu get_open_orders/get_today_schedule. Standard-Fenster: die letzten ~10 Tage (serverseitig konfigurierbar) bis mehrere Monate in der Zukunft.",
     input_schema: {
       type: "object",
       properties: {
         days_ahead: {
           type: "number",
-          description: "Wie weit das Enddatum in der Zukunft liegt, in Tagen (Default: 30, max. 120). Der Start (letzte ~10 Tage) wird serverseitig bestimmt.",
+          description: "Optional: kürzt das Enddatum auf so viele Tage ab heute (max. 120). Weglassen = volles serverseitiges Fenster (letzte ~10 Tage + mehrere Monate Zukunft).",
         },
       },
     },
@@ -419,19 +419,26 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
     },
 
     get_bkbn_orders: async (_input: Record<string, unknown>) => {
-      const days = boundedNumber(_input.days_ahead, 30, 120);
       const today = new Date();
       const pad = (n: number) => String(n).padStart(2, "0");
       const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      // Nur das Enddatum überschreiben; der Start (letzte N Tage) kommt aus den
-      // Server-Defaults (bkbnDefaultRange / BKBN_PAST_DAYS), damit Assistent und
-      // Admin-Listen dasselbe Fenster nutzen.
-      const end = new Date(today);
-      end.setDate(end.getDate() + Math.max(1, days));
-      const toIso = fmt(end);
+      // Ohne days_ahead die serverseitigen Defaults nutzen (bkbnDefaultRange:
+      // letzte BKBN_PAST_DAYS Tage + BKBN_FUTURE_MONTHS Monate). Nur bei explizitem
+      // days_ahead das Enddatum kürzen — Start bleibt serverseitig.
+      const rawDays = Number(_input.days_ahead);
+      const hasDays = Number.isFinite(rawDays) && rawDays > 0;
+      let toIso: string | null = null;
+      if (hasDays) {
+        const days = boundedNumber(_input.days_ahead, 30, 120);
+        const end = new Date(today);
+        end.setDate(end.getDate() + Math.max(1, days));
+        toIso = fmt(end);
+      }
 
       const baseUrl = getAssistantBookingPlatformUrl(deps).replace(/\/$/, "");
-      const url = `${baseUrl}/api/internal/assistant/bkbn-orders?to=${encodeURIComponent(toIso)}`;
+      const url = toIso
+        ? `${baseUrl}/api/internal/assistant/bkbn-orders?to=${encodeURIComponent(toIso)}`
+        : `${baseUrl}/api/internal/assistant/bkbn-orders`;
       const headers: Record<string, string> = {};
       const proxyKey = String(runtimeEnv("ASSISTANT_BOOKING_GRAPH_PROXY_KEY") || "").trim();
       if (proxyKey) headers["x-assistant-booking-key"] = proxyKey;
