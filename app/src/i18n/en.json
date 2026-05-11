@@ -2653,6 +2653,7 @@
   "dashboardV2.map.status.completed": "Completed",
   "dashboardV2.map.status.done": "Done",
   "dashboardV2.map.status.paused": "Paused",
+  "dashboardV2.map.status.bkbn": "BKBN order",
   "dashboardV2.map.status.cancelled": "Cancelled",
   "dashboardV2.map.status.archived": "Archived",
   "dashboardV2.map.range.today": "Today",

@@ -165,6 +165,20 @@ export const ordersTools: ToolDefinition[] = [
     },
   },
   {
+    name: "get_bkbn_orders",
+    description:
+      "BKBN- bzw. Backbone-Photo-Aufträge (backbonephoto.co): Shooting-Aufträge, die nur als Outlook-Termin in den 365-Kalendern von Ivan & Janez liegen — KEIN Buchungsauftrag in der DB, keine Auftragsnummer, keine Rechnung. Nutze dieses Tool bei Fragen nach BKBN-/Backbone-Aufträgen und für den Gesamtterminplan zusätzlich zu get_open_orders/get_today_schedule.",
+    input_schema: {
+      type: "object",
+      properties: {
+        days_ahead: {
+          type: "number",
+          description: "Zeitraum ab heute in Tagen (Default: 30, max. 120). Bestimmt das Enddatum; Start ist heute.",
+        },
+      },
+    },
+  },
+  {
     name: "list_photographers",
     description:
       "Listet alle aktiven Fotografen mit Schlüssel, Name, Heimatadresse und Skills. Nutze dieses Tool wenn ein Fotograf für einen Auftrag ausgewählt werden soll.",
@@ -401,6 +415,67 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         };
       } catch (err) {
         return { error: `Kalender nicht erreichbar: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+
+    get_bkbn_orders: async (_input: Record<string, unknown>) => {
+      const days = boundedNumber(_input.days_ahead, 30, 120);
+      const today = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const fromIso = fmt(today);
+      const end = new Date(today);
+      end.setDate(end.getDate() + Math.max(1, days));
+      const toIso = fmt(end);
+
+      const baseUrl = getAssistantBookingPlatformUrl(deps).replace(/\/$/, "");
+      const url = `${baseUrl}/api/internal/assistant/bkbn-orders?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`;
+      const headers: Record<string, string> = {};
+      const proxyKey = String(runtimeEnv("ASSISTANT_BOOKING_GRAPH_PROXY_KEY") || "").trim();
+      if (proxyKey) headers["x-assistant-booking-key"] = proxyKey;
+
+      try {
+        const res = await doFetch(url, { headers });
+        if (res.status === 403) {
+          return { error: "BKBN-Proxy nicht erreichbar (Zugriff verweigert). ASSISTANT_BOOKING_GRAPH_PROXY_KEY prüfen." };
+        }
+        if (!res.ok) {
+          const t = await res.text();
+          return { error: `BKBN-API Fehler: ${res.status} ${t.slice(0, 200)}` };
+        }
+        const data = (await res.json()) as {
+          ok?: boolean;
+          events?: Array<Record<string, unknown>>;
+          mailboxes?: string[];
+          matchDomains?: string[];
+          range?: { from?: string; to?: string };
+          meta?: { enabled?: boolean; error?: string | null; count?: number };
+        };
+        const raw = Array.isArray(data.events) ? data.events : [];
+        const meta = data.meta || {};
+        const simplified = raw.map((ev) => ({
+          title: ev.title,
+          start: ev.start,
+          end: ev.end,
+          allDay: ev.allDay,
+          address: ev.address || null,
+          organizer: ev.organizerName || ev.organizerEmail || null,
+          mailbox: Array.isArray(ev.mailboxes) && ev.mailboxes.length ? ev.mailboxes : ev.mailbox || null,
+        }));
+        return {
+          source: "backbonephoto.co (365-Kalender, read-only)",
+          mailboxes: data.mailboxes || [],
+          matchDomains: data.matchDomains || [],
+          range: data.range || { from: fromIso, to: toIso },
+          graphEnabled: meta.enabled === true,
+          error: meta.error || null,
+          count: simplified.length,
+          orders: simplified,
+          hint:
+            "BKBN-Aufträge sind keine Buchungsaufträge in der DB — keine Auftragsnummer, keine Rechnung im System. Verwaltung/Details unter /admin/bkbn-orders.",
+        };
+      } catch (err) {
+        return { error: `BKBN nicht erreichbar: ${err instanceof Error ? err.message : String(err)}` };
       }
     },
 

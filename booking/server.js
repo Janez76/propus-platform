@@ -12091,6 +12091,44 @@ app.get("/api/internal/assistant/outlook-overlay", async (req, res) => {
   }
 });
 
+// Read-only BKBN-Auftragsliste fuer den Propus-Assistant (Next.js → localhost:3100).
+// Gleicher Zugriffsschutz wie /api/internal/assistant/outlook-overlay.
+app.get("/api/internal/assistant/bkbn-orders", async (req, res) => {
+  try {
+    if (!assertAssistantInternalOutlookAccess(req, res)) return;
+    const fromRaw = String(req.query.from || "").trim();
+    const toRaw = String(req.query.to || "").trim();
+    const today = new Date();
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const defaultTo = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fmt(defaultFrom);
+    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : fmt(defaultTo);
+    if (!graphClient) {
+      return res.json({
+        ok: true,
+        events: [],
+        mailboxes: bkbnMailboxes(),
+        matchDomains: bkbnMatchTokens(),
+        range: { from: fromIso, to: toIso },
+        meta: { enabled: false, count: 0, error: "graph_not_configured" },
+      });
+    }
+    const { events, mailboxes, error } = await loadBkbnCalendarEvents({ from: fromIso, to: toIso });
+    return res.json({
+      ok: true,
+      events,
+      mailboxes,
+      matchDomains: bkbnMatchTokens(),
+      range: { from: fromIso, to: toIso },
+      meta: { enabled: true, count: events.length, error: error || null },
+    });
+  } catch (err) {
+    console.error("[bkbn-orders] internal route error:", err && err.message);
+    res.status(500).json({ ok: false, error: err.message || "BKBN-Liste fehlgeschlagen" });
+  }
+});
+
 // ─── Wetter-Forecast (Open-Meteo, MeteoSwiss-priorisiert) ─────────────────
 // Daily- und Hourly-Forecasts für CH-Koordinaten. Aufrufer können entweder
 // einen vordefinierten Region-Key (?region=zurich) oder freie Koordinaten

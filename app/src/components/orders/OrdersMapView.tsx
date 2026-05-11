@@ -104,7 +104,10 @@ function buildInfoWindowHtml(order: Order, lang: Lang, weather?: OrderWeather): 
   const customer = order.customerName ? escapeHtml(order.customerName) : "";
   const pkg = order.services?.package?.label ? escapeHtml(order.services.package.label) : "";
   const addr = order.address ? escapeHtml(order.address) : "";
-  const detailLabel = escapeHtml(t(lang, "orders.map.openDetail"));
+  const isBkbn = String(order.orderNo || "").startsWith("bkbn");
+  const detailLabel = isBkbn ? "BKBN-Aufträge" : escapeHtml(t(lang, "orders.map.openDetail"));
+  const detailHref = isBkbn ? "/admin/bkbn-orders" : `/orders/${encodeURIComponent(order.orderNo)}`;
+  const headLabel = isBkbn ? "BKBN" : `#${escapeHtml(order.orderNo)}`;
   let weatherRow = "";
   if (weather) {
     const color = WX_COLOR[weather.kind];
@@ -121,7 +124,7 @@ function buildInfoWindowHtml(order: Order, lang: Lang, weather?: OrderWeather): 
   return [
     '<div class="dv2-map-pop">',
     '<div class="dv2-map-pop-row1">',
-    `<span class="dv2-map-pop-no">#${escapeHtml(order.orderNo)}</span>`,
+    `<span class="dv2-map-pop-no">${headLabel}</span>`,
     customer ? `<span>${customer}</span>` : "",
     "</div>",
     pkg ? `<div class="dv2-map-pop-row2">${pkg}</div>` : "",
@@ -132,7 +135,7 @@ function buildInfoWindowHtml(order: Order, lang: Lang, weather?: OrderWeather): 
     `<span class="dv2-map-pop-dot" style="background:${palette.ring}"></span>`,
     `<span>${escapeHtml(t(lang, palette.labelKey))}</span>`,
     `</div>`,
-    `<a class="dv2-map-pop-link" href="/orders/${encodeURIComponent(order.orderNo)}">${detailLabel} →</a>`,
+    `<a class="dv2-map-pop-link" href="${detailHref}">${detailLabel} →</a>`,
     "</div>",
   ].join("");
 }

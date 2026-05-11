@@ -16,10 +16,19 @@ export const STATUS_PALETTE: StatusPalette[] = [
 ];
 
 const FALLBACK: StatusPalette = STATUS_PALETTE[0];
+// BKBN-Aufträge (Backbone Photo, kein DB-Auftrag) — bewusst NICHT in STATUS_PALETTE,
+// damit die normale Karten-Legende unverändert bleibt; nur Pin-Renderer nutzt es.
+export const BKBN_PALETTE: StatusPalette = {
+  id: "bkbn",
+  bg: "#FDE6D3",
+  ring: "#EA580C",
+  labelKey: "dashboardV2.map.status.bkbn",
+};
 
 export function paletteForStatus(status: string | undefined | null): StatusPalette {
   const s = String(status ?? "").trim();
   if (!s) return FALLBACK;
+  if (s === "bkbn") return BKBN_PALETTE;
   if (statusMatches(s, "paused")) return STATUS_PALETTE[5];
   if (statusMatches(s, "done") || statusMatches(s, "completed")) return STATUS_PALETTE[4];
   if (statusMatches(s, "disposition_offen")) return STATUS_PALETTE[3];
