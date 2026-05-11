@@ -1749,8 +1749,18 @@ const __bkbnCalendarCache = new Map();
 const BKBN_CACHE_TTL_MS = 60_000;
 const BKBN_CALENDAR_MAILBOXES_DEFAULT = "ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch";
 const BKBN_MATCH_DOMAINS_DEFAULT = "backbonephoto.co";
+// Pro Postfach eine eigene Farbe (Reihenfolge = Reihenfolge in BKBN_CALENDAR_MAILBOXES):
+// 1. Ivan → orange, 2. Janez → teal, weitere fallen auf die Palette zurueck.
+const BKBN_COLOR_PALETTE = ["#ea580c", "#0d9488", "#c026d3", "#65a30d", "#0284c7"];
+const BKBN_DEFAULT_COLOR = "#ea580c";
 
-function __bkbnEventColor() { return "#ea580c"; }
+function __bkbnEventColor(mailbox, mailboxesOrder) {
+  const mb = String(mailbox || "").trim().toLowerCase();
+  const list = Array.isArray(mailboxesOrder) ? mailboxesOrder : [];
+  const idx = list.indexOf(mb);
+  if (idx >= 0) return BKBN_COLOR_PALETTE[idx % BKBN_COLOR_PALETTE.length];
+  return BKBN_DEFAULT_COLOR;
+}
 
 function bkbnMailboxes() {
   return String(process.env.BKBN_CALENDAR_MAILBOXES || BKBN_CALENDAR_MAILBOXES_DEFAULT)
@@ -1885,8 +1895,8 @@ async function loadBkbnCalendarEvents(opts) {
         bodyPreview: isPrivate ? "" : String(ev.bodyPreview || "").slice(0, 800),
         webLink: ev.webLink ? String(ev.webLink) : undefined,
         showAs: ev.showAs ? String(ev.showAs) : undefined,
-        color: __bkbnEventColor(),
-        photographerColor: __bkbnEventColor(),
+        color: __bkbnEventColor(mb, mailboxes),
+        photographerColor: __bkbnEventColor(mb, mailboxes),
       });
     }
   }

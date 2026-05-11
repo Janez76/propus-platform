@@ -25,6 +25,7 @@ import {
   type WeatherForecastDay,
 } from "../api/weather";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
+import { bkbnLegend } from "../lib/bkbn";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatDateTime } from "../lib/utils";
@@ -245,6 +246,8 @@ export function CalendarPage() {
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
   }, [events]);
+
+  const bkbnLegendItems = useMemo(() => bkbnLegend(events), [events]);
 
   const filtered = useMemo(
     () =>
@@ -538,6 +541,16 @@ export function CalendarPage() {
               {showBkbn && bkbnMeta && bkbnMeta.enabled === false ? <> MS Graph nicht verfügbar{bkbnMeta.error ? ` (${bkbnMeta.error})` : ""}.</> : null}
               {showBkbn && bkbnMeta && bkbnMeta.enabled && bkbnMeta.error ? <> Fehler: <span className="text-red-500">{bkbnMeta.error}</span></> : null}
             </p>
+            {showBkbn && bkbnLegendItems.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--fg-3)]">
+                {bkbnLegendItems.map((it) => (
+                  <span key={it.mailbox} className="inline-flex items-center gap-1.5" title={it.mailbox}>
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: it.color }} aria-hidden />
+                    {it.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <button
               type="button"
               className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline"
@@ -675,7 +688,7 @@ export function CalendarPage() {
               ) : null}
               {selected.type === "bkbn" ? (
                 <div className="flex flex-wrap items-center gap-2 rounded-md bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700">
-                  <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-white">BKBN</span>
+                  <span className="rounded px-1.5 py-0.5 text-white" style={{ background: selected.color || "#ea580c" }}>BKBN</span>
                   <span>Backbone-Photo-Auftrag aus 365-Kalender (read-only)</span>
                 </div>
               ) : null}

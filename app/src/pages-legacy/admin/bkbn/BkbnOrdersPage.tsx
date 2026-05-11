@@ -4,6 +4,7 @@ import { getBkbnOrders, type BkbnOrderEvent, type BkbnOrdersResponse } from "../
 import { useAuthStore } from "../../../store/authStore";
 import { PageHeader } from "../../../components/handoff";
 import { normalizeMojibakeText } from "../../../components/calendar/CalendarView";
+import { bkbnLegend } from "../../../lib/bkbn";
 
 function fmtDateTime(iso?: string): string {
   if (!iso) return "—";
@@ -107,6 +108,8 @@ export function BkbnOrdersPage() {
     [events, todayStart],
   );
 
+  const legend = useMemo(() => bkbnLegend(events), [events]);
+
   const meta = data?.meta;
   const mailboxes = data?.mailboxes ?? [];
   const matchDomains = data?.matchDomains ?? [];
@@ -153,16 +156,27 @@ export function BkbnOrdersPage() {
               <span>Vergangene anzeigen</span>
             </label>
           </div>
-          <p className="text-[11px] text-[var(--fg-3)]">
-            Quelle: {mailboxes.length ? mailboxes.join(", ") : "keine Postfächer konfiguriert"}
-            {matchDomains.length ? <> · Erkennung über: {matchDomains.join(", ")}</> : null}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--fg-3)]">
+            <span>Quelle: {mailboxes.length ? mailboxes.join(", ") : "keine Postfächer konfiguriert"}</span>
+            {matchDomains.length ? <span>· Erkennung über: {matchDomains.join(", ")}</span> : null}
+            {legend.length > 0 ? (
+              <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                ·
+                {legend.map((it) => (
+                  <span key={it.mailbox} className="inline-flex items-center gap-1.5" title={it.mailbox}>
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: it.color }} aria-hidden />
+                    {it.name}
+                  </span>
+                ))}
+              </span>
+            ) : null}
             {meta && meta.enabled === false ? (
-              <> · <span className="text-amber-500">Microsoft Graph nicht verfügbar{meta.error ? ` (${meta.error})` : ""}</span></>
+              <span className="text-amber-500">· Microsoft Graph nicht verfügbar{meta.error ? ` (${meta.error})` : ""}</span>
             ) : null}
             {meta && meta.enabled && meta.error ? (
-              <> · <span className="text-red-500">Fehler: {meta.error}</span></>
+              <span className="text-red-500">· Fehler: {meta.error}</span>
             ) : null}
-          </p>
+          </div>
         </div>
 
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
@@ -202,7 +216,7 @@ export function BkbnOrdersPage() {
                     </td>
                     <td className="px-3 py-2 align-top">
                       <div className="flex items-center gap-1.5">
-                        <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white">BKBN</span>
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ background: ev.color || "#ea580c" }}>BKBN</span>
                         <span className="font-medium text-[var(--text-main)]">{normalizeMojibakeText(ev.title) || "BKBN-Auftrag"}</span>
                       </div>
                       {ev.address ? <div className="mt-0.5 text-[12px] text-[var(--fg-2)]">{normalizeMojibakeText(ev.address)}</div> : null}

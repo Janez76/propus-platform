@@ -78,8 +78,8 @@ function externalKind(ev: { type?: string; source?: string }): ExternalKind {
 function externalDefaultColor(kind: ExternalKind): string {
   return kind === "bkbn" ? "#ea580c" : "#7c3aed";
 }
-function externalBadge(kind: ExternalKind): { label: string; bg: string } | null {
-  if (kind === "bkbn") return { label: "BKBN", bg: "#ea580c" };
+function externalBadge(kind: ExternalKind, color?: string): { label: string; bg: string } | null {
+  if (kind === "bkbn") return { label: "BKBN", bg: color || "#ea580c" };
   if (kind === "m365") return { label: "365", bg: "#7c3aed" };
   return null;
 }
@@ -171,6 +171,7 @@ function clickedFrom(ev: CalendarEvent): CalendarClickedEvent {
     mailboxes: ev.mailboxes,
     organizerEmail: ev.organizerEmail,
     organizerName: ev.organizerName,
+    color: ev.color,
   };
 }
 
@@ -406,7 +407,7 @@ function DayView({
           {layout.map((l, i) => {
             const kind = externalKind(l.ev);
             const isOutlook = kind != null;
-            const badge = externalBadge(kind);
+            const badge = externalBadge(kind, l.ev.color);
             return (
               <button
                 key={`${l.ev.id}-${i}`}
@@ -592,7 +593,7 @@ function WeekView({
               {dayLayout.map((l, i) => {
                 const kind = externalKind(l.ev);
                 const isOutlook = kind != null;
-                const badge = externalBadge(kind);
+                const badge = externalBadge(kind, l.ev.color);
                 const displayCategory = isOutlook && l.ev.category && !/^https?:\/\//.test(l.ev.category)
                   ? l.ev.category
                   : null;
@@ -780,7 +781,7 @@ function MonthView({
                   const status = String(ev.status || "");
                   const kind = externalKind(ev);
                   const isOutlook = kind != null;
-                  const badge = externalBadge(kind);
+                  const badge = externalBadge(kind, ev.color);
                   const color = kind ? (ev.color || externalDefaultColor(kind)) : getStatusEventColor(status);
                   const label = badge ? badge.label : getStatusEntry(status).label;
                   return (
