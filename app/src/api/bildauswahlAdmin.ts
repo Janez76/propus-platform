@@ -304,11 +304,12 @@ export function preferredGallerySlug(
   return (source.slug ?? "").trim();
 }
 
+import { buildBildauswahlPublicUrl } from "../lib/bildauswahlHost";
+
 export function publicGalleryUrl(
   source: string | { slug: string; friendly_slug?: string | null },
 ): string {
-  const base = typeof window !== "undefined" ? window.location.origin : "";
-  return `${base}/bildauswahl/${encodeURIComponent(preferredGallerySlug(source))}`;
+  return buildBildauswahlPublicUrl(preferredGallerySlug(source));
 }
 
 export function publicGalleryDeepLink(

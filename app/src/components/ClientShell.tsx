@@ -23,6 +23,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { isPublicBookingHost } from "../lib/publicBookingHost";
 import { isPortalHost } from "../lib/portalHost";
 import { isKiAssistantHostname } from "../lib/kiHost";
+import { isOnSelektoHost } from "../lib/bildauswahlHost";
 import { RouteGuard } from "./routing/RouteGuard";
 import { RegisterServiceWorker } from "./pwa/RegisterServiceWorker";
 import { deleteOrder } from "../api/orders";
@@ -322,7 +323,43 @@ function PortalCatchAllOrAdmin() {
   return <PrivateRoutes />;
 }
 
+function SelektoIndexPage() {
+  return (
+    <div style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", padding: "3rem 1.5rem", maxWidth: "32rem", margin: "0 auto", textAlign: "center", color: "#1a1a1a" }}>
+      <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", color: "#7A5E10", textTransform: "uppercase", marginBottom: 12 }}>Bildauswahl · Propus</p>
+      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 12px" }}>Willkommen</h1>
+      <p style={{ color: "#666", lineHeight: 1.5 }}>
+        Bitte öffnen Sie den Link aus Ihrer E-Mail, um Ihre Bildauswahl zu sehen.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Eigene SPA-Variante für den Vanity-Host `selekto.propus.ch`: nur die
+ * Kunden-Bildauswahl, kein Admin, kein Login, kein Booking-Flow. URL-Schema
+ * `selekto.propus.ch/<slug>` (kein `/bildauswahl/`-Präfix).
+ */
+function SelektoShell() {
+  return (
+    <BrowserRouter>
+      <ChunkErrorBoundary>
+        <Suspense fallback={<PageSkeleton />}>
+          <Routes>
+            <Route path="/" element={<SelektoIndexPage />} />
+            <Route path="/:slug" element={<ClientBildauswahlPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ChunkErrorBoundary>
+    </BrowserRouter>
+  );
+}
+
 export default function ClientShell() {
+  if (typeof window !== "undefined" && isOnSelektoHost()) {
+    return <SelektoShell />;
+  }
   return (
     <BrowserRouter>
       <CustomerSessionBootstrap />
