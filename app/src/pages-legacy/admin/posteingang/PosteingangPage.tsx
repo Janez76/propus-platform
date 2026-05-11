@@ -609,7 +609,7 @@ export function PosteingangPage() {
                     onClick={() => {
                       const conv = detail.conversation;
                       const lastInbound = [...detail.messages].reverse().find((m) => m.direction === "inbound");
-                      const sender = lastInbound?.from_email || "";
+                      const sender = lastInbound?.from_email || conv.customer_email || "";
                       const subject = conv.subject || "";
                       const customer = conv.customer_name || "";
                       const bodyExcerpt = lastInbound?.body_text
