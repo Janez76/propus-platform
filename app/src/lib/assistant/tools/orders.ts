@@ -423,7 +423,10 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
       const today = new Date();
       const pad = (n: number) => String(n).padStart(2, "0");
       const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      const fromIso = fmt(today);
+      // Anzeigefenster: letzte 10 Tage + Zukunft (wie in den Admin-Listen).
+      const start = new Date(today);
+      start.setDate(start.getDate() - 10);
+      const fromIso = fmt(start);
       const end = new Date(today);
       end.setDate(end.getDate() + Math.max(1, days));
       const toIso = fmt(end);
