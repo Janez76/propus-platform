@@ -167,13 +167,13 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_bkbn_orders",
     description:
-      "BKBN- bzw. Backbone-Photo-Aufträge (backbonephoto.co): Shooting-Aufträge, die nur als Outlook-Termin in den 365-Kalendern von Ivan & Janez liegen — KEIN Buchungsauftrag in der DB, keine Auftragsnummer, keine Rechnung. Nutze dieses Tool bei Fragen nach BKBN-/Backbone-Aufträgen und für den Gesamtterminplan zusätzlich zu get_open_orders/get_today_schedule.",
+      "BKBN- bzw. Backbone-Photo-Aufträge (backbonephoto.co): Shooting-Aufträge, die nur als Outlook-Termin in den 365-Kalendern von Ivan & Janez liegen — KEIN Buchungsauftrag in der DB, keine Auftragsnummer, keine Rechnung. Nutze dieses Tool bei Fragen nach BKBN-/Backbone-Aufträgen und für den Gesamtterminplan zusätzlich zu get_open_orders/get_today_schedule. Standard-Fenster: die letzten ~10 Tage (serverseitig konfigurierbar) bis ~30 Tage in der Zukunft.",
     input_schema: {
       type: "object",
       properties: {
         days_ahead: {
           type: "number",
-          description: "Zeitraum ab heute in Tagen (Default: 30, max. 120). Bestimmt das Enddatum; Start ist heute.",
+          description: "Wie weit das Enddatum in der Zukunft liegt, in Tagen (Default: 30, max. 120). Der Start (letzte ~10 Tage) wird serverseitig bestimmt.",
         },
       },
     },
@@ -423,16 +423,15 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
       const today = new Date();
       const pad = (n: number) => String(n).padStart(2, "0");
       const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      // Anzeigefenster: letzte 10 Tage + Zukunft (wie in den Admin-Listen).
-      const start = new Date(today);
-      start.setDate(start.getDate() - 10);
-      const fromIso = fmt(start);
+      // Nur das Enddatum überschreiben; der Start (letzte N Tage) kommt aus den
+      // Server-Defaults (bkbnDefaultRange / BKBN_PAST_DAYS), damit Assistent und
+      // Admin-Listen dasselbe Fenster nutzen.
       const end = new Date(today);
       end.setDate(end.getDate() + Math.max(1, days));
       const toIso = fmt(end);
 
       const baseUrl = getAssistantBookingPlatformUrl(deps).replace(/\/$/, "");
-      const url = `${baseUrl}/api/internal/assistant/bkbn-orders?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`;
+      const url = `${baseUrl}/api/internal/assistant/bkbn-orders?to=${encodeURIComponent(toIso)}`;
       const headers: Record<string, string> = {};
       const proxyKey = String(runtimeEnv("ASSISTANT_BOOKING_GRAPH_PROXY_KEY") || "").trim();
       if (proxyKey) headers["x-assistant-booking-key"] = proxyKey;
@@ -469,7 +468,7 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
           source: "backbonephoto.co (365-Kalender, read-only)",
           mailboxes: data.mailboxes || [],
           matchDomains: data.matchDomains || [],
-          range: data.range || { from: fromIso, to: toIso },
+          range: data.range || { from: null, to: toIso },
           graphEnabled: meta.enabled === true,
           error: meta.error || null,
           count: simplified.length,

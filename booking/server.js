@@ -1746,22 +1746,23 @@ async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
 // Betreff, Body, Ort) ein Treffer auf eine der BKBN_MATCH_DOMAINS vorliegt.
 // Konfigurierbar via ENV: BKBN_CALENDAR_MAILBOXES, BKBN_MATCH_DOMAINS, BKBN_CACHE_TTL_MS.
 const __bkbnCalendarCache = new Map();
-// Längerer Cache (Default 5 min) — Graph wird so nicht bei jedem Seitenaufruf neu abgefragt.
-const BKBN_CACHE_TTL_MS = Math.max(
-  10_000,
-  parseInt(process.env.BKBN_CACHE_TTL_MS || "300000", 10) || 300_000,
-);
+// ENV-Ints: parsen + NaN-Fallback, damit auch der Wert 0 gesetzt werden kann.
+const __bkbnCacheTtlRaw = parseInt(String(process.env.BKBN_CACHE_TTL_MS ?? ""), 10);
+const BKBN_CACHE_TTL_MS = Math.max(10_000, Number.isFinite(__bkbnCacheTtlRaw) ? __bkbnCacheTtlRaw : 300_000);
 // Anzeige-Fenster für Listen/Banner: letzte N Tage + Zukunft (in Monaten).
-const BKBN_PAST_DAYS = Math.max(0, parseInt(process.env.BKBN_PAST_DAYS || "10", 10) || 10);
-const BKBN_FUTURE_MONTHS = Math.max(1, parseInt(process.env.BKBN_FUTURE_MONTHS || "6", 10) || 6);
+const __bkbnPastRaw = parseInt(String(process.env.BKBN_PAST_DAYS ?? ""), 10);
+const BKBN_PAST_DAYS = Number.isFinite(__bkbnPastRaw) && __bkbnPastRaw >= 0 ? __bkbnPastRaw : 10;
+const __bkbnFutureRaw = parseInt(String(process.env.BKBN_FUTURE_MONTHS ?? ""), 10);
+const BKBN_FUTURE_MONTHS = Number.isFinite(__bkbnFutureRaw) && __bkbnFutureRaw >= 1 ? __bkbnFutureRaw : 6;
 const BKBN_CALENDAR_MAILBOXES_DEFAULT = "ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch";
 const BKBN_MATCH_DOMAINS_DEFAULT = "backbonephoto.co";
 
-/** Default-Anzeigefenster: [heute − BKBN_PAST_DAYS, heute + BKBN_FUTURE_MONTHS] als {from,to} (YYYY-MM-DD). */
+/** Default-Anzeigefenster: [heute − BKBN_PAST_DAYS, Ende des Monats heute + BKBN_FUTURE_MONTHS] als {from,to} (YYYY-MM-DD). */
 function bkbnDefaultRange() {
   const today = new Date();
   const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - BKBN_PAST_DAYS);
-  const to = new Date(today.getFullYear(), today.getMonth() + BKBN_FUTURE_MONTHS, 0);
+  // new Date(Y, M, 0) = letzter Tag von M-1 → +1, damit das Fenster den BKBN_FUTURE_MONTHS-ten Monat voll abdeckt.
+  const to = new Date(today.getFullYear(), today.getMonth() + BKBN_FUTURE_MONTHS + 1, 0);
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   return { from: fmt(from), to: fmt(to) };
 }
