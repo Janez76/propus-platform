@@ -117,6 +117,14 @@ export function OrdersPage() {
   const [bkbnEvents, setBkbnEvents] = useState<BkbnOrderEvent[]>([]);
   const [bkbnLoading, setBkbnLoading] = useState(false);
   const [bkbnMatchDomains, setBkbnMatchDomains] = useState<string[]>([]);
+  const [hideBkbn, setHideBkbn] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("orders.hideBkbn") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
   const [kindFilter, setKindFilter] = useState<"all" | "fixed" | "flexible">("all");
   const [showArchivedChip, setShowArchivedChip] = useState(false);
@@ -136,9 +144,11 @@ export function OrdersPage() {
     }
   }, [searchParams, setSearchParams]);
 
-  // BKBN-Aufträge (Backbone Photo) erst laden, wenn der BKBN-Filter aktiv ist.
+  // BKBN-Aufträge (Backbone Photo) laden, wenn der BKBN-Filter aktiv ist ODER
+  // im "Alle"-Modus, solange BKBN nicht explizit ausgeblendet wurde.
   useEffect(() => {
-    if (quickFilter !== "bkbn" || !token) return;
+    const wantBkbn = quickFilter === "bkbn" || (quickFilter === "none" && !hideBkbn);
+    if (!wantBkbn || !token) return;
     let alive = true;
     setBkbnLoading(true);
     (async () => {
@@ -154,7 +164,16 @@ export function OrdersPage() {
       }
     })();
     return () => { alive = false; };
-  }, [quickFilter, token]);
+  }, [quickFilter, hideBkbn, token]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("orders.hideBkbn", hideBkbn ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }, [hideBkbn]);
 
   const [selectedNos, setSelectedNos] = useState<Set<string>>(() => new Set());
   const [bulkTargetStatus, setBulkTargetStatus] = useState<StatusKey>("pending");
@@ -622,6 +641,12 @@ export function OrdersPage() {
         ),
     [bkbnEvents],
   );
+  // BKBN-Termine in der "Alle"-Ansicht zusätzlich einblenden (außer explizit ausgeblendet).
+  const showBkbnInAlle = quickFilter === "none" && !hideBkbn;
+  const mapOrders = useMemo<Order[]>(
+    () => (showBkbnInAlle ? [...orders, ...bkbnAsOrders] : orders),
+    [showBkbnInAlle, orders, bkbnAsOrders],
+  );
 
   const quickPills = [
     { id: "none", label: t(lang, "orders.quick.all") },
@@ -756,6 +781,16 @@ export function OrdersPage() {
               {t(lang, "orders.chip.showArchived") || "Archivierte zeigen"}
             </button>
           ) : null}
+          {quickFilter === "none" ? (
+            <button
+              type="button"
+              onClick={() => setHideBkbn((v) => !v)}
+              className="inline-flex items-center gap-1 text-[11px] text-[var(--text-subtle)] hover:text-[var(--text-main)] underline-offset-2 hover:underline"
+            >
+              <span className="inline-block h-2 w-2 rounded-sm" style={{ background: hideBkbn ? "var(--border)" : "#ea580c" }} aria-hidden />
+              {hideBkbn ? "BKBN-Aufträge einblenden" : "BKBN-Aufträge ausblenden"}
+            </button>
+          ) : null}
           {statusSelection.size === 0 ? (
             <span className="text-[11px] text-[var(--text-subtle)]">{t(lang, "orders.filter.chipsHint")}</span>
           ) : null}
@@ -867,29 +902,54 @@ export function OrdersPage() {
           )}
         </div>
       ) : view === "list" ? (
-        orders.length === 0 ? (
-          <EmptyState lang={lang} />
-        ) : (
-          <OrderTable
-            orders={orders}
-            onOpenDetail={openOrderPreview}
-            onOpenMessages={setMsgNo}
-            onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
-            selectedNos={selectedNos}
-            onToggleRow={toggleRowSelection}
-            onToggleAllVisible={toggleAllVisible}
-            onToggleSection={toggleSectionSelection}
-            onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
-            onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
-            onCreateBexioOrder={canCreateExxasOrder ? handleCreateBexioOrder : undefined}
-          />
-        )
+        <div className="space-y-4">
+          {orders.length === 0 ? (
+            showBkbnInAlle && (bkbnLoading || bkbnEvents.length > 0) ? null : <EmptyState lang={lang} />
+          ) : (
+            <OrderTable
+              orders={orders}
+              onOpenDetail={openOrderPreview}
+              onOpenMessages={setMsgNo}
+              onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
+              selectedNos={selectedNos}
+              onToggleRow={toggleRowSelection}
+              onToggleAllVisible={toggleAllVisible}
+              onToggleSection={toggleSectionSelection}
+              onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
+              onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
+              onCreateBexioOrder={canCreateExxasOrder ? handleCreateBexioOrder : undefined}
+            />
+          )}
+          {showBkbnInAlle && (bkbnLoading || bkbnEvents.length > 0) ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-dashed border-[var(--border-soft)] pt-3 text-[12px] text-[var(--fg-3)]">
+                <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white">BKBN</span>
+                <span className="font-semibold text-[var(--text-main)]">Backbone-Photo-Aufträge</span>
+                <span>(aus den 365-Kalendern, read-only — keine DB-Aufträge)</span>
+                {bkbnLegendItems.map((it) => (
+                  <span key={it.mailbox} className="inline-flex items-center gap-1.5" title={it.mailbox}>
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: it.color }} aria-hidden />
+                    {it.name}
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  className="ml-auto text-[11px] font-medium text-[#ea580c] hover:underline"
+                  onClick={() => navigate("/admin/bkbn-orders")}
+                >
+                  Detailansicht →
+                </button>
+              </div>
+              <BkbnOrdersTable events={bkbnEvents} loading={bkbnLoading} matchDomains={bkbnMatchDomains} />
+            </div>
+          ) : null}
+        </div>
       ) : view === "kanban" ? (
         <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} />
       ) : view === "calendar" ? (
         <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
       ) : (
-        orders.length === 0 ? (
+        mapOrders.length === 0 ? (
           <EmptyState lang={lang} />
         ) : bookingConfigLoading ? (
           <div className="flex h-64 items-center justify-center rounded-xl border border-[var(--border-soft)]">
@@ -905,8 +965,8 @@ export function OrdersPage() {
           <OrdersMapView
             apiKey={googleMapsKey}
             googleMapId={bookingConfig?.googleMapId ?? null}
-            orders={orders}
-            onOpenDetail={openOrderPreview}
+            orders={mapOrders}
+            onOpenDetail={(no) => (String(no).startsWith("bkbn") ? navigate("/admin/bkbn-orders") : openOrderPreview(no))}
             lang={lang}
           />
         )
