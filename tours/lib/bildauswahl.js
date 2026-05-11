@@ -168,7 +168,7 @@ async function createBildauswahl(input = {}) {
         customer_id, customer_contact_id, booking_order_no, cloud_share_url, watermark_enabled,
         status, client_delivery_status)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'inactive', 'open')
-     RETURNING ${SELECT_COLS}`,
+     RETURNING *`,
     [slug, friendly, fields.title, fields.address, fields.client_name, fields.client_email,
      fields.client_contact, fields.customer_id, fields.customer_contact_id,
      fields.booking_order_no, fields.cloud_share_url, fields.watermark_enabled],
@@ -208,7 +208,7 @@ async function updateBildauswahl(id, patch = {}) {
   if (sets.length === 0) return getBildauswahl(id);
   sets.push(`updated_at = NOW()`);
   params.push(id);
-  const sql = `UPDATE tour_manager.bildauswahl_galleries SET ${sets.join(', ')} WHERE id = $${idx} RETURNING ${SELECT_COLS}`;
+  const sql = `UPDATE tour_manager.bildauswahl_galleries SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`;
   const { rows } = await pool.query(sql, params);
   return rows[0] || null;
 }
