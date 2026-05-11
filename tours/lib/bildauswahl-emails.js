@@ -196,8 +196,12 @@ function adminEditorUrl(gallery, siteBaseUrl) {
   return `${base}/admin/bildauswahl/${gallery.id}`;
 }
 
-/** Bei eingehender Kunden-Auswahl: Admin per Mail benachrichtigen. */
-async function sendAdminNotifyMail({ gallery, items, siteBaseUrl }) {
+/**
+ * Bei eingehender Kunden-Auswahl: Admin per Mail benachrichtigen.
+ * `isUpdate=true` praefixiert den Subject mit "Aktualisiert:" — der Admin
+ * sieht damit direkt im Postfach, dass eine vorherige Auswahl ersetzt wurde.
+ */
+async function sendAdminNotifyMail({ gallery, items, siteBaseUrl, isUpdate = false }) {
   const to = notifyEmailRecipient();
   if (!to) return { skipped: 'no-recipient' };
   const tpl = await loadTemplate(EMAIL_TPL.ADMIN_NOTIFY);
@@ -216,10 +220,11 @@ async function sendAdminNotifyMail({ gallery, items, siteBaseUrl }) {
     order_no: gallery.booking_order_no,
     file_list: lines.join('\n'),
   };
-  const subject = applyTemplateVars(tpl.subject, vars);
+  let subject = applyTemplateVars(tpl.subject, vars);
+  if (isUpdate) subject = `Aktualisiert: ${subject}`;
   const htmlBody = applyTemplateVars(tpl.body, vars);
   const r = await sendMailDirect({ to, subject, htmlBody });
-  return { success: !!r.success, error: r.error || null, to };
+  return { success: !!r.success, error: r.error || null, to, subject };
 }
 
 /** Kunden-Einladungsmail (manuell aus Admin-Editor ausgelöst). */

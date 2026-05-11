@@ -104,9 +104,12 @@ export function ClientBildauswahlPage() {
         const json = Object.keys(slim).length === 0 ? null : JSON.stringify(slim);
         await saveBildauswahlDraft(slug, json);
       },
-      clearDraft: async () => {
-        await saveBildauswahlDraft(slug, null);
-      },
+      /**
+       * clearDraft bewusst NICHT implementiert: der Kunde soll seine letzte
+       * Auswahl auch nach Reload weiter editieren können. Der Server-State
+       * (gallery_feedback) wird beim Re-Submit ohnehin durch den neuen
+       * Stand ersetzt — der Draft bleibt die Quelle der Wahrheit für die UI.
+       */
     };
   }, [data, slug]);
 

@@ -1624,10 +1624,29 @@ async function submitPicdropSelection({ galleryId, gallerySlug, items }) {
   );
   if (filtered.length === 0) throw new Error('Nichts zu senden.');
 
+  /**
+   * Re-Submit-Semantik: die Picdrop-Auswahl repraesentiert *einen* Zustand
+   * der Kundenauswahl — keine Historie. Beim erneuten Senden wird die
+   * vorherige Kunden-Auswahl (author='client', asset_type='image') komplett
+   * verworfen und durch den neuen Zustand ersetzt. Office-Rueckfragen und
+   * Listing-Feedback bleiben unangetastet.
+   *
+   * Rueckgabe `isUpdate` zeigt dem Caller, ob die Admin-Notify-Mail als
+   * "Neu" oder "Aktualisiert" gekennzeichnet werden soll.
+   */
   const out = [];
+  let isUpdate = false;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const priorRes = await client.query(
+      `DELETE FROM tour_manager.gallery_feedback
+       WHERE gallery_id = $1 AND author = 'client' AND asset_type = 'image'
+       RETURNING id`,
+      [galleryId],
+    );
+    isUpdate = (priorRes.rowCount || 0) > 0;
+
     for (const it of filtered) {
       const validFlags = (it.flags || []).filter((f) => PICDROP_FLAGS.has(f));
       const body = (it.messageLines || []).map((l) => String(l || '').trim()).filter(Boolean).join('\n');
@@ -1654,7 +1673,7 @@ async function submitPicdropSelection({ galleryId, gallerySlug, items }) {
     }
     await client.query(
       `UPDATE tour_manager.galleries
-       SET client_log_selection_sent_at = COALESCE(client_log_selection_sent_at, NOW()),
+       SET client_log_selection_sent_at = NOW(),
            client_log_gallery_opened_at = COALESCE(client_log_gallery_opened_at, NOW()),
            updated_at = NOW()
        WHERE id = $1`,
@@ -1667,7 +1686,7 @@ async function submitPicdropSelection({ galleryId, gallerySlug, items }) {
   } finally {
     client.release();
   }
-  return out;
+  return { rows: out, isUpdate };
 }
 
 async function setFeedbackResolved(feedbackId, resolved) {

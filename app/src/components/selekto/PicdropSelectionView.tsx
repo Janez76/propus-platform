@@ -258,7 +258,13 @@ export function PicdropSelectionView({
 
   useEffect(() => {
     const gid = galleryId?.trim();
-    if (!gid || submitted || loading || images.length === 0) return;
+    if (!gid || loading || images.length === 0) return;
+    /**
+     * Auto-Save des Picdrop-Entwurfs — auch NACH einer Submission, damit
+     * der Kunde weiter editieren kann und seine Aenderungen bei Reload
+     * sichtbar bleiben. Beim erneuten "Auswahl aktualisieren" werden die
+     * server-seitigen Feedback-Rows ohnehin neu erzeugt.
+     */
     const t = window.setTimeout(() => {
       if (submissionAdapter?.saveDraft) {
         void submissionAdapter.saveDraft(byId);
@@ -267,7 +273,7 @@ export function PicdropSelectionView({
       }
     }, 500);
     return () => window.clearTimeout(t);
-  }, [byId, galleryId, submitted, loading, images.length, submissionAdapter]);
+  }, [byId, galleryId, loading, images.length, submissionAdapter]);
 
   const openLb = useCallback((idx: number) => {
     setLightboxIndex(idx);
@@ -524,13 +530,25 @@ export function PicdropSelectionView({
           {submitError ? <p className="pd-banner pd-banner--warn pd-banner--above-submit">{submitError}</p> : null}
 
           <div className="pd-submit-bar">
+            {submitted ? (
+              <span className="pd-submit-hint">
+                <span className="pd-adot pd-adot--show" aria-hidden="true" />
+                Auswahl gesendet. Sie können sie weiter bearbeiten und erneut absenden.
+              </span>
+            ) : null}
             <button
               type="button"
-              className={`pd-submit-btn${submitted ? " pd-submit-btn--sent" : ""}`}
-              disabled={stats.withSendableContent === 0 || submitted || nImg === 0 || submitting}
+              className="pd-submit-btn"
+              disabled={stats.withSendableContent === 0 || nImg === 0 || submitting}
               onClick={() => void submitAll()}
             >
-              {submitted ? "✓ Gesendet" : submitting ? "…" : customerMode ? "Auswahl an Propus senden" : "Auswahl absenden"}
+              {submitting
+                ? "Senden …"
+                : submitted
+                  ? "Auswahl aktualisieren"
+                  : customerMode
+                    ? "Auswahl an Propus senden"
+                    : "Auswahl absenden"}
             </button>
           </div>
         </div>
