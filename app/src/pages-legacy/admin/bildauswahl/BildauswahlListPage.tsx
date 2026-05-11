@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LayoutGrid, Table2 } from "lucide-react";
+import { LayoutGrid, Table2, Images, CheckCircle2, Clock, MessageSquareWarning, Package, ArrowRight } from "lucide-react";
 import { bulkDeleteGalleries, deleteGallery, listGalleries, publicGalleryUrl } from "../../../api/bildauswahlAdmin";
 import { pathBildauswahlAdmin } from "../../../components/bildauswahl/paths";
 import type { GalleryListRow } from "../../../components/listing/types";
@@ -261,6 +261,7 @@ export function BildauswahlListPage() {
     inactive: rows.filter((g) => g.status === "inactive").length,
     deliveryOpen: rows.filter((g) => g.client_delivery_status === "open").length,
     deliverySent: rows.filter((g) => g.client_delivery_status === "sent").length,
+    feedbackOpen: rows.reduce((acc, g) => acc + (g.feedback_count || 0), 0),
   };
 
   return (
@@ -283,53 +284,106 @@ export function BildauswahlListPage() {
               <h1 className="pad-h1" style={{ margin: 0 }}>
                 Bildauswahl
               </h1>
-              {rows.length > 0 ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 14,
-                    marginTop: 6,
-                    fontSize: 13,
-                    color: "var(--fg-2)",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span>
-                    <strong style={{ color: "var(--ink)" }}>{kpiCounts.total}</strong> gesamt
-                  </span>
-                  <span aria-hidden style={{ color: "var(--fg-3)" }}>
-                    ·
-                  </span>
-                  <span>
-                    <strong style={{ color: "var(--ink)" }}>{kpiCounts.active}</strong> aktiv
-                  </span>
-                  {kpiCounts.deliveryOpen > 0 ? (
-                    <>
-                      <span aria-hidden style={{ color: "var(--fg-3)" }}>
-                        ·
-                      </span>
-                      <span style={{ color: "var(--warn, #a16207)" }}>
-                        <strong>{kpiCounts.deliveryOpen}</strong> Lieferung offen
-                      </span>
-                    </>
-                  ) : null}
-                  {kpiCounts.deliverySent > 0 ? (
-                    <>
-                      <span aria-hidden style={{ color: "var(--fg-3)" }}>
-                        ·
-                      </span>
-                      <span>
-                        <strong style={{ color: "var(--ink)" }}>{kpiCounts.deliverySent}</strong> versandt
-                      </span>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--fg-2)", maxWidth: 540 }}>
+                Bilder vom NAS importieren, dem Kunden zur Auswahl schicken — markiert wird in den drei Stufen «Bearbeiten», «Staging», «Retusche».
+              </p>
             </div>
           </div>
+
+          {rows.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                gap: 12,
+                marginTop: 18,
+              }}
+            >
+              <KpiTile
+                icon={<Images className="h-4 w-4" aria-hidden />}
+                label="Galerien"
+                value={kpiCounts.total}
+                accent="ink"
+              />
+              <KpiTile
+                icon={<CheckCircle2 className="h-4 w-4" aria-hidden />}
+                label="Aktiv"
+                value={kpiCounts.active}
+                accent="success"
+                sub={kpiCounts.inactive > 0 ? `${kpiCounts.inactive} inaktiv` : undefined}
+              />
+              <KpiTile
+                icon={<Clock className="h-4 w-4" aria-hidden />}
+                label="Lieferung offen"
+                value={kpiCounts.deliveryOpen}
+                accent={kpiCounts.deliveryOpen > 0 ? "warn" : "muted"}
+                sub={kpiCounts.deliverySent > 0 ? `${kpiCounts.deliverySent} versandt` : undefined}
+              />
+              <KpiTile
+                icon={<MessageSquareWarning className="h-4 w-4" aria-hidden />}
+                label="Offene Rev."
+                value={kpiCounts.feedbackOpen}
+                accent={kpiCounts.feedbackOpen > 0 ? "revision" : "muted"}
+              />
+            </div>
+          ) : null}
         </header>
         {loadErr ? <p className="admin-msg admin-msg--err">{loadErr}</p> : null}
+
+        {rows.length > 0 && rows.length < 3 ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid var(--border, #e8e6e1)",
+              background: "var(--card, #fff)",
+              fontSize: 13,
+              color: "var(--fg-2)",
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "var(--gold-50, #faf6e8)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--gold-700, #7A5E10)",
+                flexShrink: 0,
+              }}
+            >
+              <Package className="h-4 w-4" aria-hidden />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              Tipp: Bildauswahl direkt aus einer Bestellung anlegen — der Kunde, die Adresse und die Bestell-Nr. werden dabei automatisch übernommen.
+            </div>
+            <Link
+              to="/orders"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "5px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--border, #e8e6e1)",
+                background: "var(--paper-strip, #fafaf8)",
+                color: "var(--ink)",
+                fontSize: 12,
+                fontWeight: 600,
+                textDecoration: "none",
+                flexShrink: 0,
+              }}
+            >
+              Zu Bestellungen <ArrowRight className="h-3 w-3" aria-hidden />
+            </Link>
+          </div>
+        ) : null}
 
         <div className="gal-admin-listings-shell">
         <div className="gal-admin-listings-toolbar">
@@ -761,5 +815,66 @@ export function BildauswahlListPage() {
         onConfirm={() => void confirmBulkDelete()}
       />
     </>
+  );
+}
+
+type KpiAccent = "ink" | "success" | "warn" | "revision" | "muted";
+
+function KpiTile({
+  icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  sub?: string;
+  accent: KpiAccent;
+}) {
+  const tone: Record<KpiAccent, { value: string; iconBg: string; iconFg: string }> = {
+    ink: { value: "var(--ink)", iconBg: "var(--paper-strip, #fafaf8)", iconFg: "var(--ink)" },
+    success: { value: "var(--success, #15803d)", iconBg: "rgba(21,128,61,0.08)", iconFg: "var(--success, #15803d)" },
+    warn: { value: "var(--warn, #a16207)", iconBg: "rgba(161,98,7,0.08)", iconFg: "var(--warn, #a16207)" },
+    revision: { value: "var(--gold-700, #7A5E10)", iconBg: "var(--gold-50, #faf6e8)", iconFg: "var(--gold-700, #7A5E10)" },
+    muted: { value: "var(--fg-3, #9a9a9a)", iconBg: "var(--paper-strip, #fafaf8)", iconFg: "var(--fg-3, #9a9a9a)" },
+  };
+  const t = tone[accent];
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 14px",
+        borderRadius: 10,
+        background: "var(--card, #fff)",
+        border: "1px solid var(--border, #e8e6e1)",
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          background: t.iconBg,
+          color: t.iconFg,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ minWidth: 0, lineHeight: 1.2 }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--fg-2)" }}>
+          {label}
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: t.value, marginTop: 2 }}>{value}</div>
+        {sub ? <div style={{ fontSize: 11, color: "var(--fg-3)", marginTop: 2 }}>{sub}</div> : null}
+      </div>
+    </div>
   );
 }
