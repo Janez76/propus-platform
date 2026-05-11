@@ -1744,11 +1744,28 @@ async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
 // der ausfuehrenden Mitarbeiter (Default: ivan.mijajlovic + janez.smirmaul).
 // Ein Termin gilt als BKBN-Auftrag, wenn irgendwo (Organizer/Attendee-Adresse,
 // Betreff, Body, Ort) ein Treffer auf eine der BKBN_MATCH_DOMAINS vorliegt.
-// Konfigurierbar via ENV: BKBN_CALENDAR_MAILBOXES, BKBN_MATCH_DOMAINS.
+// Konfigurierbar via ENV: BKBN_CALENDAR_MAILBOXES, BKBN_MATCH_DOMAINS, BKBN_CACHE_TTL_MS.
 const __bkbnCalendarCache = new Map();
-const BKBN_CACHE_TTL_MS = 60_000;
+// ENV-Ints: parsen + NaN-Fallback, damit auch der Wert 0 gesetzt werden kann.
+const __bkbnCacheTtlRaw = parseInt(String(process.env.BKBN_CACHE_TTL_MS ?? ""), 10);
+const BKBN_CACHE_TTL_MS = Math.max(10_000, Number.isFinite(__bkbnCacheTtlRaw) ? __bkbnCacheTtlRaw : 300_000);
+// Anzeige-Fenster für Listen/Banner: letzte N Tage + Zukunft (in Monaten).
+const __bkbnPastRaw = parseInt(String(process.env.BKBN_PAST_DAYS ?? ""), 10);
+const BKBN_PAST_DAYS = Number.isFinite(__bkbnPastRaw) && __bkbnPastRaw >= 0 ? __bkbnPastRaw : 10;
+const __bkbnFutureRaw = parseInt(String(process.env.BKBN_FUTURE_MONTHS ?? ""), 10);
+const BKBN_FUTURE_MONTHS = Number.isFinite(__bkbnFutureRaw) && __bkbnFutureRaw >= 1 ? __bkbnFutureRaw : 6;
 const BKBN_CALENDAR_MAILBOXES_DEFAULT = "ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch";
 const BKBN_MATCH_DOMAINS_DEFAULT = "backbonephoto.co";
+
+/** Default-Anzeigefenster: [heute − BKBN_PAST_DAYS, Ende des Monats heute + BKBN_FUTURE_MONTHS] als {from,to} (YYYY-MM-DD). */
+function bkbnDefaultRange() {
+  const today = new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - BKBN_PAST_DAYS);
+  // new Date(Y, M, 0) = letzter Tag von M-1 → +1, damit das Fenster den BKBN_FUTURE_MONTHS-ten Monat voll abdeckt.
+  const to = new Date(today.getFullYear(), today.getMonth() + BKBN_FUTURE_MONTHS + 1, 0);
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { from: fmt(from), to: fmt(to) };
+}
 // Pro Postfach eine eigene Farbe (Reihenfolge = Reihenfolge in BKBN_CALENDAR_MAILBOXES):
 // 1. Ivan → orange, 2. Janez → teal, weitere fallen auf die Palette zurueck.
 const BKBN_COLOR_PALETTE = ["#ea580c", "#0d9488", "#c026d3", "#65a30d", "#0284c7"];
@@ -11987,17 +12004,14 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
 
 // ─── BKBN-Auftraege (Backbone Photo) ────────────────────────────────────────
 // Listet die als BKBN erkannten Termine aus den konfigurierten 365-Postfaechern.
-// Default-Zeitraum: vom 1. des Vormonats bis Ende des 3. Folgemonats.
+// Default-Zeitraum: letzte BKBN_PAST_DAYS Tage (10) + die naechsten BKBN_FUTURE_MONTHS Monate (6).
 app.get("/api/admin/bkbn-orders", requirePhotographerOrAdmin, async (req, res) => {
   try {
     const fromRaw = String(req.query.from || "").trim();
     const toRaw = String(req.query.to || "").trim();
-    const today = new Date();
-    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const defaultTo = new Date(today.getFullYear(), today.getMonth() + 4, 0);
-    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fmt(defaultFrom);
-    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : fmt(defaultTo);
+    const def = bkbnDefaultRange();
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : def.from;
+    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : def.to;
     const { events, mailboxes, error } = await loadBkbnCalendarEvents({ from: fromIso, to: toIso });
     res.json({
       ok: true,
@@ -12098,12 +12112,9 @@ app.get("/api/internal/assistant/bkbn-orders", async (req, res) => {
     if (!assertAssistantInternalOutlookAccess(req, res)) return;
     const fromRaw = String(req.query.from || "").trim();
     const toRaw = String(req.query.to || "").trim();
-    const today = new Date();
-    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const defaultTo = new Date(today.getFullYear(), today.getMonth() + 4, 0);
-    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fmt(defaultFrom);
-    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : fmt(defaultTo);
+    const def = bkbnDefaultRange();
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : def.from;
+    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : def.to;
     if (!graphClient) {
       return res.json({
         ok: true,

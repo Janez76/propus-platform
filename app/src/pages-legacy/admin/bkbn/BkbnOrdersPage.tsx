@@ -120,7 +120,7 @@ export function BkbnOrdersPage() {
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-3)]">
               <input type="checkbox" checked={includePast} onChange={(e) => setIncludePast(e.target.checked)} />
-              <span>Vergangene anzeigen</span>
+              <span>Letzte 10 Tage anzeigen</span>
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--fg-3)]">

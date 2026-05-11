@@ -386,8 +386,8 @@ als DB-Auftrag landen, sondern nur als Outlook-Termin in den Postfächern der
 ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul@propus.ch`).
 
 **Endpunkte:**
-- `GET /api/admin/bkbn-orders?from=YYYY-MM-DD&to=YYYY-MM-DD` → `{ ok, events:[...], mailboxes, matchDomains, range, meta:{enabled,count,error} }`
-- `GET /api/admin/calendar-events?includeBkbn=true` → BKBN-Termine werden als `type:"bkbn"`-Events angehängt; Response erhält zusätzlich `bkbn: { enabled, mailboxes, count, error }`
+- `GET /api/admin/bkbn-orders?from=YYYY-MM-DD&to=YYYY-MM-DD` → `{ ok, events:[...], mailboxes, matchDomains, range, meta:{enabled,count,error} }`. **Default-Range ohne Parameter:** letzte `BKBN_PAST_DAYS` Tage (10) + nächste `BKBN_FUTURE_MONTHS` Monate (6) — `bkbnDefaultRange()`. Dieselbe Default-Range nutzen Banner, `/orders`-„BKBN"-Bereich und das Assistant-Tool.
+- `GET /api/admin/calendar-events?includeBkbn=true` → BKBN-Termine werden als `type:"bkbn"`-Events angehängt; Response erhält zusätzlich `bkbn: { enabled, mailboxes, count, error }`. Range = sichtbarer Kalenderbereich (Frontend übergibt `outlookFrom/outlookTo`) — hier **nicht** auf „letzte 10 Tage" beschnitten, damit Monatsnavigation funktioniert.
 - `GET /api/internal/assistant/bkbn-orders?from=&to=` → Loopback-/Proxy-Key-geschützt (wie `outlook-overlay`), für das Assistant-Tool `get_bkbn_orders`
 
 **Backend:** `loadBkbnCalendarEvents({ from, to })` in `booking/server.js`
@@ -395,7 +395,7 @@ ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul
 - Ein Termin gilt als BKBN-Auftrag, wenn Organizer-/Attendee-Adresse, Betreff, Body oder Ort eine der `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`) enthält
 - Dedupliziert über `iCalUId` (gleicher Termin in beiden Postfächern → ein Eintrag, `mailboxes[]` + `graphIds[]` führen alle); `error` meldet auch Teil-Fehler (fehlgeschlagene Postfächer)
 - Farbe pro Postfach: `__bkbnEventColor(mailbox, order)` → Palette in Reihenfolge der `BKBN_CALENDAR_MAILBOXES` (1. Ivan orange `#ea580c`, 2. Janez teal `#0d9488`, …)
-- Caching: 60 s pro `mailboxes|tokens|from|to`
+- Caching: `BKBN_CACHE_TTL_MS` (Default **5 min**) pro `mailboxes|tokens|from|to` — Graph wird nicht bei jedem Seitenaufruf neu abgefragt
 - Im Kalender-Overlay werden persönliche 365-Overlay-Termine mit denselben Graph-Event-IDs entfernt, damit ein Termin nicht doppelt erscheint
 - Sensitivity `private`/`confidential` → Titel/`bodyPreview` maskiert
 
@@ -408,7 +408,7 @@ ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul
 
 **Voraussetzungen:** wie 4a (`Calendars.Read` app-only); ohne Graph → `meta.enabled=false`, Seite/Banner/Filter bleiben leer.
 
-ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`).
+ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`), `BKBN_CACHE_TTL_MS` (Default `300000`), `BKBN_PAST_DAYS` (Default `10`), `BKBN_FUTURE_MONTHS` (Default `6`).
 
 ---
 
