@@ -16,8 +16,9 @@ export function BkbnOrdersBanner({ className = "" }: { className?: string }) {
   useEffect(() => {
     if (!token) return;
     let alive = true;
-    getBkbnOrders(token)
-      .then((resp) => {
+    (async () => {
+      try {
+        const resp = await getBkbnOrders(token);
         if (!alive) return;
         const now = new Date();
         now.setHours(0, 0, 0, 0);
@@ -27,10 +28,10 @@ export function BkbnOrdersBanner({ className = "" }: { className?: string }) {
           return !Number.isFinite(t) || t >= cutoff;
         }).length;
         setUpcoming(count);
-      })
-      .catch(() => {
+      } catch {
         if (alive) setUpcoming(null);
-      });
+      }
+    })();
     return () => {
       alive = false;
     };

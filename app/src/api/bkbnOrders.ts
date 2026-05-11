@@ -4,6 +4,7 @@ import { apiRequest } from "./client";
 export type BkbnOrderEvent = {
   id: string;
   graphId?: string;
+  graphIds?: string[];
   graphMailbox?: string;
   /** Postfach, in dem der Termin gefunden wurde (erster Treffer). */
   mailbox: string;

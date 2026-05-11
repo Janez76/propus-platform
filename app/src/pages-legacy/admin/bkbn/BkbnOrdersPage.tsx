@@ -52,17 +52,16 @@ export function BkbnOrdersPage() {
     let alive = true;
     setLoading(true);
     setError("");
-    getBkbnOrders(token)
-      .then((resp) => {
-        if (!alive) return;
-        setData(resp);
-      })
-      .catch((e) => {
+    (async () => {
+      try {
+        const resp = await getBkbnOrders(token);
+        if (alive) setData(resp);
+      } catch (e) {
         if (alive) setError(e instanceof Error ? e.message : "BKBN-Aufträge konnten nicht geladen werden.");
-      })
-      .finally(() => {
+      } finally {
         if (alive) setLoading(false);
-      });
+      }
+    })();
     return () => {
       alive = false;
     };

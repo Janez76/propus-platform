@@ -1805,22 +1805,31 @@ async function loadBkbnCalendarEvents(opts) {
 
   const byKey = new Map();
   let lastError = null;
+  const failedMailboxes = [];
   for (const mb of mailboxes) {
-    let response;
+    let items;
     try {
-      response = await graphClient
+      let response = await graphClient
         .api(`/users/${encodeURIComponent(mb)}/calendarView`)
         .query({ startDateTime: fromIso, endDateTime: toIso, $top: "200" })
         .header("Prefer", `outlook.timezone="${process.env.TIMEZONE || "Europe/Zurich"}", outlook.body-content-type="text"`)
         .select("id,iCalUId,subject,start,end,isAllDay,location,categories,bodyPreview,body,webLink,showAs,sensitivity,organizer,attendees,onlineMeeting")
         .orderby("start/dateTime")
         .get();
+      items = Array.isArray(response && response.value) ? response.value.slice() : [];
+      // Folge @odata.nextLink (begrenzt auf 10 Seiten ≈ 2000 Termine pro Postfach).
+      let guard = 0;
+      while (response && response["@odata.nextLink"] && guard < 10) {
+        guard += 1;
+        response = await graphClient.api(response["@odata.nextLink"]).get();
+        if (Array.isArray(response && response.value)) items.push(...response.value);
+      }
     } catch (err) {
       lastError = String((err && err.message) || err || "fetch_failed");
+      failedMailboxes.push(mb);
       console.warn("[bkbn-calendar] fetch failed", { mailbox: mb, code: (err && (err.statusCode || err.code)) || "", msg: err && err.message });
       continue;
     }
-    const items = Array.isArray(response && response.value) ? response.value : [];
     for (const ev of items) {
       if (!__bkbnEventMatches(ev, tokens)) continue;
       const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
@@ -1831,15 +1840,22 @@ async function loadBkbnCalendarEvents(opts) {
       const subject = (String(ev.subject || "").trim()) || "BKBN-Auftrag";
       const address = (ev.location && (ev.location.displayName || "")) || "";
       const orgEa = ev.organizer && ev.organizer.emailAddress ? ev.organizer.emailAddress : null;
+      const evId = String(ev.id || "");
       const dedupeKey = String(ev.iCalUId || "") || `${subject.toLowerCase()}|${startDt}`;
       if (byKey.has(dedupeKey)) {
         const existing = byKey.get(dedupeKey);
-        if (existing && Array.isArray(existing.mailboxes) && !existing.mailboxes.includes(mb)) existing.mailboxes.push(mb);
+        if (existing) {
+          if (Array.isArray(existing.mailboxes) && !existing.mailboxes.includes(mb)) existing.mailboxes.push(mb);
+          // Alle mailbox-spezifischen Graph-IDs sammeln, damit das Kalender-Overlay
+          // jede personliche Outlook-Kopie dieses Termins erkennen und entfernen kann.
+          if (Array.isArray(existing.graphIds) && evId && !existing.graphIds.includes(evId)) existing.graphIds.push(evId);
+        }
         continue;
       }
       byKey.set(dedupeKey, {
-        id: `bkbn-${mb}-${ev.id}`,
-        graphId: String(ev.id || ""),
+        id: `bkbn-${mb}-${evId}`,
+        graphId: evId,
+        graphIds: evId ? [evId] : [],
         graphMailbox: mb,
         mailbox: mb,
         mailboxes: [mb],
@@ -1871,7 +1887,11 @@ async function loadBkbnCalendarEvents(opts) {
     if (!Number.isFinite(bt)) return -1;
     return at - bt;
   });
-  const errOut = out.length === 0 ? lastError : null;
+  // Fehler immer melden, wenn mind. ein Postfach nicht gelesen werden konnte —
+  // sonst sieht der Admin eine unvollstandige Liste ohne Hinweis.
+  const errOut = failedMailboxes.length
+    ? `${failedMailboxes.join(", ")}: ${lastError || "fetch_failed"}`
+    : null;
   __bkbnCalendarCache.set(cacheKey, { t: now, events: out.slice(), error: errOut });
   if (__bkbnCalendarCache.size > 30) {
     const oldestKey = __bkbnCalendarCache.keys().next().value;
@@ -11892,6 +11912,9 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
     let bkbnMeta = { enabled: false, mailboxes: [], count: 0, error: null };
     if (includeBkbn) {
       try {
+        // Kalenderansicht: Standard-Range = Vormonat bis Ende des ubernachsten Monats
+        // (deckt Mini-Monat-Navigation ab). Der Standalone-Endpunkt /api/admin/bkbn-orders
+        // nutzt absichtlich eine groessere ~5-Monats-Range fuer die Listenansicht.
         const today = new Date();
         const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         const defaultTo = new Date(today.getFullYear(), today.getMonth() + 2, 0);
@@ -11900,8 +11923,16 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
         const toIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookToRaw) ? outlookToRaw : fmt(defaultTo);
         const bk = await loadBkbnCalendarEvents({ from: fromIso, to: toIso });
         // Dedup: persoenliche 365-Overlay-Termine entfernen, die in Wahrheit
-        // BKBN-Termine aus denselben Postfaechern sind (gleiche Graph-Event-ID).
-        const bkGraphIds = new Set(bk.events.map((e) => String(e.graphId || "")).filter(Boolean));
+        // BKBN-Termine sind. Pro Termin koennen mehrere Postfaecher (= mehrere
+        // Graph-Event-IDs) betroffen sein → alle IDs einsammeln.
+        const bkGraphIds = new Set();
+        for (const e of bk.events) {
+          const ids = Array.isArray(e && e.graphIds) && e.graphIds.length ? e.graphIds : [e && e.graphId];
+          for (const id of ids) {
+            const s = String(id || "");
+            if (s) bkGraphIds.add(s);
+          }
+        }
         if (bkGraphIds.size > 0) {
           for (let i = events.length - 1; i >= 0; i -= 1) {
             const e = events[i];
