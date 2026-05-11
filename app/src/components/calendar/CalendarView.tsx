@@ -93,6 +93,10 @@ export type CalendarClickedEvent = {
   bodyPreview?: string;
   webLink?: string;
   showAs?: string;
+  mailbox?: string;
+  mailboxes?: string[];
+  organizerEmail?: string;
+  organizerName?: string;
 };
 
 type Props = {

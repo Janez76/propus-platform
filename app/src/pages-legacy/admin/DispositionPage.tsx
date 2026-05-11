@@ -14,6 +14,7 @@ import { useQuery } from "../../hooks/useQuery";
 import { ordersQueryKey } from "../../lib/queryKeys";
 import { useAuthStore } from "../../store/authStore";
 import { DeadlineBadge } from "../../components/ui/DeadlineBadge";
+import { BkbnOrdersBanner } from "../../components/bkbn/BkbnOrdersBanner";
 
 type DispositionResult =
   | { orderNo: string; ok: true }
@@ -164,6 +165,8 @@ export function DispositionPage() {
           Zum Kanban →
         </Link>
       </header>
+
+      <BkbnOrdersBanner />
 
       {queue.length === 0 ? (
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-8 text-center text-sm text-[var(--text-subtle)]">

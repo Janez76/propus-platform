@@ -69,6 +69,21 @@ function startOfMonthGrid(d: Date): Date {
   return startOfWeek(startOfMonth(d));
 }
 
+type ExternalKind = "m365" | "bkbn" | null;
+function externalKind(ev: { type?: string; source?: string }): ExternalKind {
+  if (ev.type === "bkbn" || ev.source === "bkbn") return "bkbn";
+  if (ev.type === "outlook" || ev.source === "m365") return "m365";
+  return null;
+}
+function externalDefaultColor(kind: ExternalKind): string {
+  return kind === "bkbn" ? "#ea580c" : "#7c3aed";
+}
+function externalBadge(kind: ExternalKind): { label: string; bg: string } | null {
+  if (kind === "bkbn") return { label: "BKBN", bg: "#ea580c" };
+  if (kind === "m365") return { label: "365", bg: "#7c3aed" };
+  return null;
+}
+
 function clampMinutes(date: Date | null | undefined, dayStart: Date, dayEnd: Date): number | null {
   if (!date) return null;
   if (date.getTime() <= dayStart.getTime()) return 0;
@@ -107,8 +122,8 @@ function buildDayLayout(
     const topPx = (startMin / 60) * HOUR_HEIGHT_PX;
     const heightPx = (durMin / 60) * HOUR_HEIGHT_PX;
     const status = String(ev.status || "");
-    const isOutlook = ev.type === "outlook" || ev.source === "m365";
-    const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(status);
+    const kind = externalKind(ev);
+    const color = kind ? (ev.color || externalDefaultColor(kind)) : getStatusEventColor(status);
     out.push({ ev, topPx, heightPx, color, status });
   }
   return out;
@@ -152,6 +167,10 @@ function clickedFrom(ev: CalendarEvent): CalendarClickedEvent {
     bodyPreview: ev.bodyPreview,
     webLink: ev.webLink,
     showAs: ev.showAs,
+    mailbox: ev.mailbox,
+    mailboxes: ev.mailboxes,
+    organizerEmail: ev.organizerEmail,
+    organizerName: ev.organizerName,
   };
 }
 
@@ -385,13 +404,15 @@ function DayView({
             />
           ))}
           {layout.map((l, i) => {
-            const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+            const kind = externalKind(l.ev);
+            const isOutlook = kind != null;
+            const badge = externalBadge(kind);
             return (
               <button
                 key={`${l.ev.id}-${i}`}
                 type="button"
                 className={`dv-event status-${(l.status || "").toLowerCase() || "pending"}${isOutlook ? " is-outlook" : ""}`}
-                data-source={isOutlook ? "m365" : undefined}
+                data-source={kind ?? undefined}
                 style={
                   {
                     top: l.topPx,
@@ -402,13 +423,13 @@ function DayView({
                 }
                 onClick={() => onEventClick?.(clickedFrom(l.ev))}
               >
-                {isOutlook ? (
+                {badge ? (
                   <span
                     style={{
                       position: "absolute",
                       top: 4,
                       right: 4,
-                      background: "#7c3aed",
+                      background: badge.bg,
                       color: "white",
                       borderRadius: 4,
                       padding: "1px 4px",
@@ -416,9 +437,9 @@ function DayView({
                       fontWeight: 700,
                       letterSpacing: 0.4,
                     }}
-                    aria-label="Outlook 365 Termin"
+                    aria-label={kind === "bkbn" ? "Backbone-Photo-Auftrag" : "Outlook 365 Termin"}
                   >
-                    365
+                    {badge.label}
                   </span>
                 ) : null}
                 <div className="dv-event-time">
@@ -426,7 +447,8 @@ function DayView({
                 </div>
                 <div className="dv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
                 <div className="dv-event-meta">
-                  {isOutlook && l.ev.category ? <span>· {l.ev.category}</span> : null}
+                  {kind === "bkbn" && l.ev.address ? <span>{normalizeMojibakeText(l.ev.address)}</span> : null}
+                  {kind === "m365" && l.ev.category ? <span>· {l.ev.category}</span> : null}
                   {!isOutlook && l.ev.zipcity ? <span>{l.ev.zipcity}</span> : null}
                   {!isOutlook && l.ev.customerName ? <span>· {l.ev.customerName}</span> : null}
                   {!isOutlook && l.ev.photographerName ? <span>· {l.ev.photographerName}</span> : null}
@@ -510,8 +532,8 @@ function WeekView({
           return (
             <div key={`ad-${isoDate(d)}`} className={`wv-allday-col${isToday ? " today" : ""}`}>
               {alldayEvs.map((ev) => {
-                const isOutlook = ev.type === "outlook" || ev.source === "m365";
-                const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(ev.status || "");
+                const kind = externalKind(ev);
+                const color = kind ? (ev.color || externalDefaultColor(kind)) : getStatusEventColor(ev.status || "");
                 return (
                   <button
                     key={ev.id}
@@ -568,7 +590,9 @@ function WeekView({
                 />
               ))}
               {dayLayout.map((l, i) => {
-                const isOutlook = l.ev.type === "outlook" || l.ev.source === "m365";
+                const kind = externalKind(l.ev);
+                const isOutlook = kind != null;
+                const badge = externalBadge(kind);
                 const displayCategory = isOutlook && l.ev.category && !/^https?:\/\//.test(l.ev.category)
                   ? l.ev.category
                   : null;
@@ -577,7 +601,7 @@ function WeekView({
                   key={`${l.ev.id}-${i}`}
                   type="button"
                   className={`wv-event status-${(l.status || "").toLowerCase() || "pending"}${isOutlook ? " is-outlook" : ""}`}
-                  data-source={isOutlook ? "m365" : undefined}
+                  data-source={kind ?? undefined}
                   style={
                     {
                       top: l.topPx,
@@ -587,15 +611,15 @@ function WeekView({
                     } as React.CSSProperties
                   }
                   onClick={() => onEventClick?.(clickedFrom(l.ev))}
-                  title={`${isOutlook ? "[365] " : ""}${normalizeMojibakeText(l.ev.title)}${displayCategory ? ` · ${displayCategory}` : ""}`}
+                  title={`${badge ? `[${badge.label}] ` : ""}${normalizeMojibakeText(l.ev.title)}${displayCategory ? ` · ${displayCategory}` : ""}`}
                 >
-                  {isOutlook ? (
+                  {badge ? (
                     <span
                       style={{
                         position: "absolute",
                         top: 2,
                         right: 2,
-                        background: "#7c3aed",
+                        background: badge.bg,
                         color: "white",
                         borderRadius: 3,
                         padding: "0 3px",
@@ -605,7 +629,7 @@ function WeekView({
                       }}
                       aria-hidden
                     >
-                      365
+                      {badge.label}
                     </span>
                   ) : null}
                   <div className="wv-event-time">
@@ -613,7 +637,9 @@ function WeekView({
                     <span>{durationMinutesLabel(l.ev)}</span>
                   </div>
                   <div className="wv-event-title">{normalizeMojibakeText(l.ev.title)}</div>
-                  {displayCategory ? (
+                  {kind === "bkbn" && l.ev.address ? (
+                    <div className="wv-event-meta">{normalizeMojibakeText(l.ev.address)}</div>
+                  ) : displayCategory ? (
                     <div className="wv-event-meta">{displayCategory}</div>
                   ) : l.ev.zipcity ? (
                     <div className="wv-event-meta">{l.ev.zipcity}</div>
@@ -752,15 +778,17 @@ function MonthView({
               <div className="mv-events">
                 {visible.map((ev, i) => {
                   const status = String(ev.status || "");
-                  const isOutlook = ev.type === "outlook" || ev.source === "m365";
-                  const color = isOutlook ? (ev.color || "#7c3aed") : getStatusEventColor(status);
-                  const label = isOutlook ? "365" : getStatusEntry(status).label;
+                  const kind = externalKind(ev);
+                  const isOutlook = kind != null;
+                  const badge = externalBadge(kind);
+                  const color = kind ? (ev.color || externalDefaultColor(kind)) : getStatusEventColor(status);
+                  const label = badge ? badge.label : getStatusEntry(status).label;
                   return (
                     <button
                       key={`${ev.id}-${i}`}
                       type="button"
                       className={`mv-event${isOutlook ? " is-outlook" : ""}`}
-                      data-source={isOutlook ? "m365" : undefined}
+                      data-source={kind ?? undefined}
                       title={`${label} · ${normalizeMojibakeText(ev.title)}${ev.category ? ` · ${ev.category}` : ""}`}
                       style={
                         {
@@ -773,10 +801,10 @@ function MonthView({
                         onEventClick?.(clickedFrom(ev));
                       }}
                     >
-                      {isOutlook ? (
+                      {badge ? (
                         <span
                           style={{
-                            background: "#7c3aed",
+                            background: badge.bg,
                             color: "white",
                             borderRadius: 3,
                             padding: "0 3px",
@@ -786,7 +814,7 @@ function MonthView({
                           }}
                           aria-hidden
                         >
-                          365
+                          {badge.label}
                         </span>
                       ) : null}
                       <span className="mv-event-time">{fmtTimeRange(ev).slice(0, 5)}</span>

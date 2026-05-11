@@ -29,6 +29,7 @@ import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
 import { FilterBar, PageHeader } from "../components/handoff";
+import { BkbnOrdersBanner } from "../components/bkbn/BkbnOrdersBanner";
 
 type ViewMode = "list" | "kanban" | "calendar" | "map";
 type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine";
@@ -611,6 +612,8 @@ export function OrdersPage() {
           </>
         )}
       />
+
+      <BkbnOrdersBanner />
 
       {/* Filter bar */}
       <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">

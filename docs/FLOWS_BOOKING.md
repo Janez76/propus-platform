@@ -379,6 +379,33 @@ provisional → pending nur automatisch via expiry_job
 - `req.user.email` muss eine Mailbox im Mandanten sein, sonst `outlook.error = "no_user_email"`
 - Bei fehlender Konfiguration: `outlook.error = "graph_not_configured"`, Toggle bleibt sichtbar mit Hinweis
 
+### 4b. BKBN-Aufträge (Backbone Photo) im Admin-Panel (read-only)
+
+Backbone Photo (`backbonephoto.co`) vergibt Shooting-Aufträge an Propus, die **nicht**
+als DB-Auftrag landen, sondern nur als Outlook-Termin in den Postfächern der
+ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul@propus.ch`).
+
+**Endpunkte:**
+- `GET /api/admin/bkbn-orders?from=YYYY-MM-DD&to=YYYY-MM-DD` → `{ ok, events:[...], mailboxes, matchDomains, range, meta:{enabled,count,error} }`
+- `GET /api/admin/calendar-events?includeBkbn=true` → BKBN-Termine werden als `type:"bkbn"`-Events angehängt; Response erhält zusätzlich `bkbn: { enabled, mailboxes, count, error }`
+
+**Backend:** `loadBkbnCalendarEvents({ from, to })` in `booking/server.js`
+- Liest `calendarView` für jede konfigurierte Mailbox (ENV `BKBN_CALENDAR_MAILBOXES`)
+- Ein Termin gilt als BKBN-Auftrag, wenn Organizer-/Attendee-Adresse, Betreff, Body oder Ort eine der `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`) enthält
+- Dedupliziert über `iCalUId` (gleicher Termin in beiden Postfächern → ein Eintrag, `mailboxes[]` führt alle)
+- Caching: 60 s pro `mailboxes|tokens|from|to`
+- Im Kalender-Overlay werden persönliche 365-Overlay-Termine mit derselben Graph-Event-ID entfernt, damit ein Termin nicht doppelt (lila + orange) erscheint
+- Sensitivity `private`/`confidential` → Titel/`bodyPreview` maskiert
+
+**Frontend:**
+- Eigene Seite `app/src/pages-legacy/admin/bkbn/BkbnOrdersPage.tsx` unter `/admin/bkbn-orders` (Nav „BKBN-Aufträge" in „Heute"); Tabelle mit Termin, Adresse, Organizer, Postfach, „In Outlook öffnen"
+- `app/src/components/bkbn/BkbnOrdersBanner.tsx`: Hinweis-Streifen mit Anzahl kommender BKBN-Aufträge auf `OrdersPage` und `DispositionPage` (verlinkt auf die Seite)
+- `CalendarPage.tsx`: Toggle „Backbone-Aufträge An/Aus" (`localStorage: calendar.showBkbn`); orange Akzentfarbe (`#ea580c`), Badge „BKBN" in `HandoffCalendarView`; Detail-Panel read-only mit Organizer/Postfach
+
+**Voraussetzungen:** wie 4a (`Calendars.Read` app-only); ohne Graph → `meta.enabled=false`, Seite/Banner bleiben leer.
+
+ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`).
+
 ---
 
 ## 5. Reschedule-Flow

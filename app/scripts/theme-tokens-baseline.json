@@ -1,32 +1,32 @@
 {
   "note": "Auto-generated. New violations relative to this snapshot fail CI. Run `npm run theme:lint:update` after intentional cleanups.",
-  "generatedAt": "2026-05-10T00:53:14.416Z",
-  "count": 969,
+  "generatedAt": "2026-05-11T09:20:20.550Z",
+  "count": 974,
   "violations": [
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
       "token": "text-white",
-      "line": 1339
+      "line": 1379
     },
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
       "token": "text-white",
-      "line": 1395
+      "line": 1435
     },
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
       "token": "bg-black",
-      "line": 1468
+      "line": 1508
     },
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
       "token": "bg-white",
-      "line": 1513
+      "line": 1553
     },
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
       "token": "bg-black",
-      "line": 1583
+      "line": 1623
     },
     {
       "file": "src/app/(admin)/assistant/_components/TrainingPanel.tsx",
@@ -334,29 +334,39 @@
       "line": 64
     },
     {
+      "file": "src/components/bkbn/BkbnOrdersBanner.tsx",
+      "token": "text-white",
+      "line": 46
+    },
+    {
+      "file": "src/components/bkbn/BkbnOrdersBanner.tsx",
+      "token": "text-white",
+      "line": 49
+    },
+    {
       "file": "src/components/calendar/CalendarView.tsx",
       "token": "text-zinc-50",
-      "line": 139
+      "line": 143
     },
     {
       "file": "src/components/calendar/CalendarView.tsx",
       "token": "border-zinc-200",
-      "line": 148
+      "line": 152
     },
     {
       "file": "src/components/calendar/CalendarView.tsx",
       "token": "bg-white",
-      "line": 148
+      "line": 152
     },
     {
       "file": "src/components/calendar/CalendarView.tsx",
       "token": "text-white",
-      "line": 211
+      "line": 215
     },
     {
       "file": "src/components/calendar/CalendarView.tsx",
       "token": "text-white",
-      "line": 221
+      "line": 225
     },
     {
       "file": "src/components/customers/ContactModal.tsx",
@@ -636,17 +646,17 @@
     {
       "file": "src/components/customers/CustomerViewModal.tsx",
       "token": "bg-black",
-      "line": 131
+      "line": 132
     },
     {
       "file": "src/components/customers/CustomerViewModal.tsx",
       "token": "text-white",
-      "line": 205
+      "line": 206
     },
     {
       "file": "src/components/customers/CustomerViewModal.tsx",
       "token": "text-zinc-500",
-      "line": 294
+      "line": 295
     },
     {
       "file": "src/components/customers/DuplicateWarningDialog.tsx",
@@ -2674,6 +2684,11 @@
       "line": 83
     },
     {
+      "file": "src/pages-legacy/admin/bkbn/BkbnOrdersPage.tsx",
+      "token": "text-white",
+      "line": 206
+    },
+    {
       "file": "src/pages-legacy/admin/bookkeeper/AdminBookkeeperPage.tsx",
       "token": "text-neutral-500",
       "line": 472
@@ -2911,7 +2926,7 @@
     {
       "file": "src/pages-legacy/admin/DispositionPage.tsx",
       "token": "text-white",
-      "line": 242
+      "line": 245
     },
     {
       "file": "src/pages-legacy/admin/invoices/AdminExxasSyncPage.tsx",
@@ -3200,28 +3215,38 @@
     },
     {
       "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "text-white",
+      "line": 521
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
       "token": "bg-white",
-      "line": 540
+      "line": 590
     },
     {
       "file": "src/pages-legacy/CalendarPage.tsx",
       "token": "text-white",
-      "line": 616
+      "line": 666
     },
     {
       "file": "src/pages-legacy/CalendarPage.tsx",
       "token": "bg-white",
-      "line": 619
+      "line": 669
     },
     {
       "file": "src/pages-legacy/CalendarPage.tsx",
-      "token": "text-zinc-500",
+      "token": "text-white",
       "line": 677
     },
     {
       "file": "src/pages-legacy/CalendarPage.tsx",
       "token": "text-zinc-500",
-      "line": 682
+      "line": 745
+    },
+    {
+      "file": "src/pages-legacy/CalendarPage.tsx",
+      "token": "text-zinc-500",
+      "line": 750
     },
     {
       "file": "src/pages-legacy/CalendarTemplatesPage.tsx",
@@ -4006,47 +4031,47 @@
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 715
+      "line": 718
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "border-black",
-      "line": 725
+      "line": 728
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-white",
-      "line": 725
+      "line": 728
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 736
+      "line": 739
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 736
+      "line": 739
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 746
+      "line": 749
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 746
+      "line": 749
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 754
+      "line": 757
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "text-white",
-      "line": 836
+      "line": 839
     },
     {
       "file": "src/pages-legacy/PaymentSettingsPage.tsx",
