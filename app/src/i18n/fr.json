@@ -22,6 +22,7 @@
   "nav.section.system": "System",
   "nav.item.dashboard": "Dashboard",
   "nav.item.orders": "Aufträge",
+  "nav.item.bkbnOrders": "Commandes BKBN",
   "nav.item.calendar": "Kalender",
   "nav.item.upload": "Uploads",
   "nav.item.assistant": "Assistant",

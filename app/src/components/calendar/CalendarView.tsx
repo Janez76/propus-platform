@@ -93,6 +93,10 @@ export type CalendarClickedEvent = {
   bodyPreview?: string;
   webLink?: string;
   showAs?: string;
+  mailbox?: string;
+  mailboxes?: string[];
+  organizerEmail?: string;
+  organizerName?: string;
 };
 
 type Props = {
@@ -258,12 +262,21 @@ export function CalendarView({
               end: e.end?.toISOString(),
               allDay: e.allDay,
               type: String(ext.type || ""),
+              source: ext.source ? String(ext.source) : undefined,
               orderNo: ext.orderNo != null ? String(ext.orderNo) : undefined,
               address: ext.address ? String(ext.address) : undefined,
               photographerKey: ext.photographerKey ? String(ext.photographerKey) : undefined,
               photographerName: ext.photographerName ? String(ext.photographerName) : undefined,
               grund: ext.grund ? String(ext.grund) : undefined,
               status: ext.status ? String(ext.status) : undefined,
+              category: ext.category ? String(ext.category) : undefined,
+              bodyPreview: ext.bodyPreview ? String(ext.bodyPreview) : undefined,
+              webLink: ext.webLink ? String(ext.webLink) : undefined,
+              showAs: ext.showAs ? String(ext.showAs) : undefined,
+              mailbox: ext.mailbox ? String(ext.mailbox) : undefined,
+              mailboxes: Array.isArray(ext.mailboxes) ? (ext.mailboxes as unknown[]).map((m) => String(m)) : undefined,
+              organizerEmail: ext.organizerEmail ? String(ext.organizerEmail) : undefined,
+              organizerName: ext.organizerName ? String(ext.organizerName) : undefined,
             });
           }}
         />

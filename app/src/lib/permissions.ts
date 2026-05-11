@@ -10,6 +10,8 @@ export const ROUTE_PERMISSIONS: Record<string, string> = {
   "/orders": "orders.read",
   "/upload": "orders.update",
   "/calendar": "calendar.view",
+  "/admin/bkbn-orders": "calendar.view",
+  "/admin/bkbn": "calendar.view",
   "/customers": "customers.read",
   "/employees": "photographers.read",
   "/products": "products.manage",
@@ -60,6 +62,7 @@ const PREFIX_PATH_PERMISSIONS: { prefix: string; permission: string }[] = [
   { prefix: "/admin/finance/reminders", permission: "finance.manage" },
   { prefix: "/admin/finance/exxas-sync", permission: "finance.manage" },
   { prefix: "/admin/finance", permission: "finance.read" },
+  { prefix: "/admin/bkbn", permission: "calendar.view" },
   { prefix: "/admin/tours", permission: "tours.read" },
   { prefix: "/admin/tickets", permission: "tickets.read" },
   { prefix: "/admin/posteingang", permission: "tickets.read" },
@@ -69,7 +72,7 @@ const PREFIX_PATH_PERMISSIONS: { prefix: string; permission: string }[] = [
   { prefix: "/settings", permission: "settings.manage" },
 ].sort((a, b) => b.prefix.length - a.prefix.length);
 
-const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar", "/mobile"]);
+const PHOTOGRAPHER_PATHS = new Set(["/orders", "/upload", "/calendar", "/admin/bkbn-orders", "/admin/bkbn", "/mobile"]);
 const INTERNAL_STAFF_ROLES: Role[] = ["admin", "super_admin", "employee"];
 
 const ALL_ROUTE_PERMS = [...new Set(Object.values(ROUTE_PERMISSIONS))];

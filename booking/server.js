@@ -1738,6 +1738,179 @@ async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
   return out;
 }
 
+// ─── BKBN-Auftraege (Backbone Photo) aus geteilten 365-Kalendern ─────────────
+// Backbone Photo (backbonephoto.co) vergibt Shooting-Auftraege an Propus. Diese
+// landen NICHT als DB-Auftrag, sondern nur als Outlook-Termin in den Postfaechern
+// der ausfuehrenden Mitarbeiter (Default: ivan.mijajlovic + janez.smirmaul).
+// Ein Termin gilt als BKBN-Auftrag, wenn irgendwo (Organizer/Attendee-Adresse,
+// Betreff, Body, Ort) ein Treffer auf eine der BKBN_MATCH_DOMAINS vorliegt.
+// Konfigurierbar via ENV: BKBN_CALENDAR_MAILBOXES, BKBN_MATCH_DOMAINS.
+const __bkbnCalendarCache = new Map();
+const BKBN_CACHE_TTL_MS = 60_000;
+const BKBN_CALENDAR_MAILBOXES_DEFAULT = "ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch";
+const BKBN_MATCH_DOMAINS_DEFAULT = "backbonephoto.co";
+
+function __bkbnEventColor() { return "#ea580c"; }
+
+function bkbnMailboxes() {
+  return String(process.env.BKBN_CALENDAR_MAILBOXES || BKBN_CALENDAR_MAILBOXES_DEFAULT)
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+}
+
+function bkbnMatchTokens() {
+  return String(process.env.BKBN_MATCH_DOMAINS || BKBN_MATCH_DOMAINS_DEFAULT)
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function __bkbnEventMatches(ev, tokens) {
+  if (!Array.isArray(tokens) || tokens.length === 0) return false;
+  const parts = [];
+  const org = ev && ev.organizer && ev.organizer.emailAddress;
+  if (org) { parts.push(String(org.address || "")); parts.push(String(org.name || "")); }
+  for (const a of Array.isArray(ev && ev.attendees) ? ev.attendees : []) {
+    const ea = a && a.emailAddress;
+    if (ea) { parts.push(String(ea.address || "")); parts.push(String(ea.name || "")); }
+  }
+  parts.push(String(ev && ev.subject || ""));
+  parts.push(String(ev && ev.bodyPreview || ""));
+  if (ev && ev.body && ev.body.content) parts.push(String(ev.body.content).slice(0, 20000));
+  if (ev && ev.location && ev.location.displayName) parts.push(String(ev.location.displayName));
+  if (ev && ev.webLink) parts.push(String(ev.webLink));
+  if (ev && ev.onlineMeeting && ev.onlineMeeting.joinUrl) parts.push(String(ev.onlineMeeting.joinUrl));
+  const blob = parts.join(" \n ").toLowerCase();
+  return tokens.some((tok) => tok && blob.includes(tok));
+}
+
+function __ymdShift(dateStr, days) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return dateStr;
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadBkbnCalendarEvents(opts) {
+  const mailboxes = bkbnMailboxes();
+  const tokens = bkbnMatchTokens();
+  if (!graphClient) return { events: [], mailboxes, error: "graph_not_configured" };
+  if (mailboxes.length === 0) return { events: [], mailboxes, error: "no_mailbox" };
+  const from = opts && opts.from ? String(opts.from) : "";
+  const to = opts && opts.to ? String(opts.to) : "";
+  // Graph interpretiert naive Zeitstempel (ohne Offset) als UTC. Damit Termine
+  // am Rand des lokalen Tages (CET/CEST) nicht aus dem Fenster fallen, fragen wir
+  // mit ±1 Tag Puffer ab; Termine ausserhalb der sichtbaren Range stoeren nicht.
+  const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${__ymdShift(from, -1)}T00:00:00` : from;
+  const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${__ymdShift(to, 1)}T23:59:59` : to;
+  if (!fromIso || !toIso) return { events: [], mailboxes, error: "bad_range" };
+
+  const cacheKey = `${mailboxes.join(",")}|${tokens.join(",")}|${fromIso}|${toIso}`;
+  const now = Date.now();
+  const cached = __bkbnCalendarCache.get(cacheKey);
+  if (cached && (now - cached.t) < BKBN_CACHE_TTL_MS) {
+    return { events: cached.events.slice(), mailboxes, error: cached.error || null };
+  }
+
+  const byKey = new Map();
+  let lastError = null;
+  const failedMailboxes = [];
+  for (const mb of mailboxes) {
+    let items;
+    try {
+      let response = await graphClient
+        .api(`/users/${encodeURIComponent(mb)}/calendarView`)
+        .query({ startDateTime: fromIso, endDateTime: toIso, $top: "200" })
+        .header("Prefer", `outlook.timezone="${process.env.TIMEZONE || "Europe/Zurich"}", outlook.body-content-type="text"`)
+        .select("id,iCalUId,subject,start,end,isAllDay,location,categories,bodyPreview,body,webLink,showAs,sensitivity,organizer,attendees,onlineMeeting")
+        .orderby("start/dateTime")
+        .get();
+      items = Array.isArray(response && response.value) ? response.value.slice() : [];
+      // Folge @odata.nextLink (begrenzt auf 10 Seiten ≈ 2000 Termine pro Postfach).
+      let guard = 0;
+      while (response && response["@odata.nextLink"] && guard < 10) {
+        guard += 1;
+        response = await graphClient.api(response["@odata.nextLink"]).get();
+        if (Array.isArray(response && response.value)) items.push(...response.value);
+      }
+    } catch (err) {
+      lastError = String((err && err.message) || err || "fetch_failed");
+      failedMailboxes.push(mb);
+      console.warn("[bkbn-calendar] fetch failed", { mailbox: mb, code: (err && (err.statusCode || err.code)) || "", msg: err && err.message });
+      continue;
+    }
+    for (const ev of items) {
+      if (!__bkbnEventMatches(ev, tokens)) continue;
+      const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
+      if (!startDt) continue;
+      const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
+      const sensitivity = String(ev.sensitivity || "").toLowerCase();
+      const isPrivate = sensitivity === "private" || sensitivity === "confidential";
+      const subject = (String(ev.subject || "").trim()) || "BKBN-Auftrag";
+      const address = (ev.location && (ev.location.displayName || "")) || "";
+      const orgEa = ev.organizer && ev.organizer.emailAddress ? ev.organizer.emailAddress : null;
+      const evId = String(ev.id || "");
+      const dedupeKey = String(ev.iCalUId || "") || `${subject.toLowerCase()}|${startDt}`;
+      if (byKey.has(dedupeKey)) {
+        const existing = byKey.get(dedupeKey);
+        if (existing) {
+          if (Array.isArray(existing.mailboxes) && !existing.mailboxes.includes(mb)) existing.mailboxes.push(mb);
+          // Alle mailbox-spezifischen Graph-IDs sammeln, damit das Kalender-Overlay
+          // jede personliche Outlook-Kopie dieses Termins erkennen und entfernen kann.
+          if (Array.isArray(existing.graphIds) && evId && !existing.graphIds.includes(evId)) existing.graphIds.push(evId);
+        }
+        continue;
+      }
+      byKey.set(dedupeKey, {
+        id: `bkbn-${mb}-${evId}`,
+        graphId: evId,
+        graphIds: evId ? [evId] : [],
+        graphMailbox: mb,
+        mailbox: mb,
+        mailboxes: [mb],
+        title: isPrivate ? "BKBN-Auftrag (privat)" : subject,
+        start: startDt.length > 19 ? startDt.slice(0, 19) : startDt,
+        end: endDt ? (endDt.length > 19 ? endDt.slice(0, 19) : endDt) : undefined,
+        allDay: !!ev.isAllDay,
+        status: "bkbn",
+        type: "bkbn",
+        source: "bkbn",
+        orderNo: null,
+        address: String(address || ""),
+        organizerEmail: orgEa ? String(orgEa.address || "") : "",
+        organizerName: orgEa ? String(orgEa.name || "") : "",
+        category: "BKBN",
+        bodyPreview: isPrivate ? "" : String(ev.bodyPreview || "").slice(0, 800),
+        webLink: ev.webLink ? String(ev.webLink) : undefined,
+        showAs: ev.showAs ? String(ev.showAs) : undefined,
+        color: __bkbnEventColor(),
+        photographerColor: __bkbnEventColor(),
+      });
+    }
+  }
+  const out = [...byKey.values()].sort((a, b) => {
+    const at = Date.parse(a.start);
+    const bt = Date.parse(b.start);
+    if (!Number.isFinite(at) && !Number.isFinite(bt)) return 0;
+    if (!Number.isFinite(at)) return 1;
+    if (!Number.isFinite(bt)) return -1;
+    return at - bt;
+  });
+  // Fehler immer melden, wenn mind. ein Postfach nicht gelesen werden konnte —
+  // sonst sieht der Admin eine unvollstandige Liste ohne Hinweis.
+  const errOut = failedMailboxes.length
+    ? `${failedMailboxes.join(", ")}: ${lastError || "fetch_failed"}`
+    : null;
+  __bkbnCalendarCache.set(cacheKey, { t: now, events: out.slice(), error: errOut });
+  if (__bkbnCalendarCache.size > 30) {
+    const oldestKey = __bkbnCalendarCache.keys().next().value;
+    if (oldestKey) __bkbnCalendarCache.delete(oldestKey);
+  }
+  return { events: out, mailboxes, error: errOut };
+}
+
 function normalizeWorkdays(input) {
   const weekdayOrder = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const normalized = Array.isArray(input) ? input : [];
@@ -11625,6 +11798,7 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
     const photographerKeyFilter = String(req.photographerKey || queryPhotographer || "").trim().toLowerCase();
     const includeAbsences = String(req.query.includeAbsences || "true").toLowerCase() !== "false";
     const includeOutlook = String(req.query.includeOutlook || "true").toLowerCase() !== "false";
+    const includeBkbn = String(req.query.includeBkbn || "true").toLowerCase() !== "false";
     const outlookFromRaw = String(req.query.outlookFrom || "").trim();
     const outlookToRaw = String(req.query.outlookTo || "").trim();
     const outlookUserOverride = String(req.query.outlookUser || "").trim().toLowerCase();
@@ -11746,6 +11920,45 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
       }
     }
 
+    let bkbnMeta = { enabled: false, mailboxes: [], count: 0, error: null };
+    if (includeBkbn) {
+      try {
+        // Kalenderansicht: Standard-Range = Vormonat bis Ende des ubernachsten Monats
+        // (deckt Mini-Monat-Navigation ab). Der Standalone-Endpunkt /api/admin/bkbn-orders
+        // nutzt absichtlich eine groessere ~5-Monats-Range fuer die Listenansicht.
+        const today = new Date();
+        const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const defaultTo = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+        const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookFromRaw) ? outlookFromRaw : fmt(defaultFrom);
+        const toIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookToRaw) ? outlookToRaw : fmt(defaultTo);
+        const bk = await loadBkbnCalendarEvents({ from: fromIso, to: toIso });
+        // Dedup: persoenliche 365-Overlay-Termine entfernen, die in Wahrheit
+        // BKBN-Termine sind. Pro Termin koennen mehrere Postfaecher (= mehrere
+        // Graph-Event-IDs) betroffen sein → alle IDs einsammeln.
+        const bkGraphIds = new Set();
+        for (const e of bk.events) {
+          const ids = Array.isArray(e && e.graphIds) && e.graphIds.length ? e.graphIds : [e && e.graphId];
+          for (const id of ids) {
+            const s = String(id || "");
+            if (s) bkGraphIds.add(s);
+          }
+        }
+        if (bkGraphIds.size > 0) {
+          for (let i = events.length - 1; i >= 0; i -= 1) {
+            const e = events[i];
+            if (e && (e.type === "outlook" || e.source === "m365") && typeof e.id === "string" && e.id.startsWith("outlook-")) {
+              if (bkGraphIds.has(e.id.slice("outlook-".length))) events.splice(i, 1);
+            }
+          }
+        }
+        events.push(...bk.events);
+        bkbnMeta = { enabled: !!graphClient, mailboxes: bk.mailboxes || [], count: bk.events.length, error: bk.error || null };
+      } catch (err) {
+        bkbnMeta = { enabled: false, mailboxes: bkbnMailboxes(), count: 0, error: String((err && err.message) || err) };
+      }
+    }
+
     events.sort((a, b) => {
       const at = new Date(a.start).getTime();
       const bt = new Date(b.start).getTime();
@@ -11755,10 +11968,38 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
       return at - bt;
     });
 
-    res.json({ ok: true, events, outlook: outlookMeta });
+    res.json({ ok: true, events, outlook: outlookMeta, bkbn: bkbnMeta });
   } catch (err) {
     console.error("[calendar-events] admin route error:", err?.message || err);
     res.status(500).json({ error: err.message || "Kalenderdaten konnten nicht geladen werden" });
+  }
+});
+
+// ─── BKBN-Auftraege (Backbone Photo) ────────────────────────────────────────
+// Listet die als BKBN erkannten Termine aus den konfigurierten 365-Postfaechern.
+// Default-Zeitraum: vom 1. des Vormonats bis Ende des 3. Folgemonats.
+app.get("/api/admin/bkbn-orders", requirePhotographerOrAdmin, async (req, res) => {
+  try {
+    const fromRaw = String(req.query.from || "").trim();
+    const toRaw = String(req.query.to || "").trim();
+    const today = new Date();
+    const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const defaultTo = new Date(today.getFullYear(), today.getMonth() + 4, 0);
+    const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? fromRaw : fmt(defaultFrom);
+    const toIso = /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? toRaw : fmt(defaultTo);
+    const { events, mailboxes, error } = await loadBkbnCalendarEvents({ from: fromIso, to: toIso });
+    res.json({
+      ok: true,
+      events,
+      mailboxes,
+      matchDomains: bkbnMatchTokens(),
+      range: { from: fromIso, to: toIso },
+      meta: { enabled: !!graphClient, count: events.length, error: error || null },
+    });
+  } catch (err) {
+    console.error("[bkbn-orders] admin route error:", err?.message || err);
+    res.status(500).json({ ok: false, error: err.message || "BKBN-Auftraege konnten nicht geladen werden" });
   }
 });
 

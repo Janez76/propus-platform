@@ -90,6 +90,7 @@ const PosteingangPage = lazy(() => import("../pages-legacy/admin/posteingang/Pos
 const PosteingangAufgabenPage = lazy(() =>
   import("../pages-legacy/admin/posteingang/PosteingangAufgabenPage").then((m) => ({ default: m.PosteingangAufgabenPage })),
 );
+const BkbnOrdersPage = lazy(() => import("../pages-legacy/admin/bkbn/BkbnOrdersPage").then((m) => ({ default: m.BkbnOrdersPage })));
 const ToursAdminCleanupPage = lazy(() => import("../pages-legacy/tours/admin/ToursAdminCleanupPage").then((m) => ({ default: m.ToursAdminCleanupPage })));
 
 // Listing (Galerie) pages
@@ -284,6 +285,8 @@ function PrivateRoutes() {
         <Route path="/admin/tours/bereinigung" element={eg("/admin/tours", <ToursAdminCleanupPage />)} />
         <Route path="/admin/tours/team" element={eg("/admin/tours", <ToursAdminTeamPage />)} />
         <Route path="/admin/tickets" element={eg("/admin/tickets", <AdminTicketsPage />)} />
+        <Route path="/admin/bkbn-orders" element={eg("/admin/bkbn-orders", <BkbnOrdersPage />)} />
+        <Route path="/admin/bkbn" element={<Navigate to="/admin/bkbn-orders" replace />} />
         <Route path="/admin/posteingang/aufgaben" element={eg("/admin/posteingang", <PosteingangAufgabenPage />)} />
         <Route path="/admin/posteingang/:id" element={eg("/admin/posteingang", <PosteingangPage />)} />
         <Route path="/admin/posteingang" element={eg("/admin/posteingang", <PosteingangPage />)} />

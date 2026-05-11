@@ -8,6 +8,7 @@ import {
   getCalendarEventsWithMeta,
   type CalendarEvent,
   type CalendarOutlookMeta,
+  type CalendarBkbnMeta,
 } from "../api/calendar";
 import { OrdersMap } from "../components/dashboard-v2/OrdersMap";
 import "../components/dashboard-v2/dashboard-v2.css";
@@ -47,6 +48,7 @@ function toDateTimeLocal(value?: string) {
 
 const OUTLOOK_TOGGLE_KEY = "calendar.showOutlook";
 const OUTLOOK_CATEGORY_KEY = "calendar.outlookCategory";
+const BKBN_TOGGLE_KEY = "calendar.showBkbn";
 
 function readBoolStorage(key: string, fallback: boolean): boolean {
   if (typeof window === "undefined") return fallback;
@@ -108,6 +110,8 @@ export function CalendarPage() {
     readStringStorage(OUTLOOK_CATEGORY_KEY, "all"),
   );
   const [outlookMeta, setOutlookMeta] = useState<CalendarOutlookMeta | null>(null);
+  const [showBkbn, setShowBkbn] = useState<boolean>(() => readBoolStorage(BKBN_TOGGLE_KEY, true));
+  const [bkbnMeta, setBkbnMeta] = useState<CalendarBkbnMeta | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
 
   const outlookRange = useMemo(() => {
@@ -121,6 +125,7 @@ export function CalendarPage() {
     const [resp, staff, ordersRows] = await Promise.all([
       getCalendarEventsWithMeta(token, {
         includeOutlook: showOutlook,
+        includeBkbn: showBkbn,
         outlookFrom: outlookRange.from,
         outlookTo: outlookRange.to,
       }),
@@ -129,6 +134,7 @@ export function CalendarPage() {
     ]);
     setEvents(resp.events);
     setOutlookMeta(resp.outlook ?? null);
+    setBkbnMeta(resp.bkbn ?? null);
     setPhotographers(staff);
     setOrders(ordersRows);
   }
@@ -150,6 +156,7 @@ export function CalendarPage() {
     Promise.all([
       getCalendarEventsWithMeta(token, {
         includeOutlook: showOutlook,
+        includeBkbn: showBkbn,
         outlookFrom: outlookRange.from,
         outlookTo: outlookRange.to,
       }),
@@ -159,13 +166,14 @@ export function CalendarPage() {
         if (!alive) return;
         setEvents(resp.events);
         setOutlookMeta(resp.outlook ?? null);
+        setBkbnMeta(resp.bkbn ?? null);
         setPhotographers(staff);
       })
       .catch((e) => {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
       });
     return () => { alive = false; };
-  }, [token, showOutlook, outlookRange.from, outlookRange.to]);
+  }, [token, showOutlook, showBkbn, outlookRange.from, outlookRange.to]);
 
   useEffect(() => {
     if (!token) return;
@@ -190,6 +198,15 @@ export function CalendarPage() {
       /* ignore */
     }
   }, [showOutlook]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(BKBN_TOGGLE_KEY, showBkbn ? "true" : "false");
+    } catch {
+      /* ignore */
+    }
+  }, [showBkbn]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -232,6 +249,9 @@ export function CalendarPage() {
   const filtered = useMemo(
     () =>
       events.filter((e) => {
+        if (e.type === "bkbn" || e.source === "bkbn") {
+          return showBkbn;
+        }
         if (e.type === "outlook") {
           if (!showOutlook) return false;
           if (outlookCategory !== "all" && (e.category || "") !== outlookCategory) return false;
@@ -241,7 +261,7 @@ export function CalendarPage() {
         const employeeOk = photographerFilter === "all" || e.photographerKey === photographerFilter;
         return statusOk && employeeOk;
       }),
-    [events, filter, photographerFilter, showOutlook, outlookCategory],
+    [events, filter, photographerFilter, showOutlook, showBkbn, outlookCategory],
   );
 
   const eventCounts = useMemo(() => {
@@ -496,6 +516,37 @@ export function CalendarPage() {
             ) : null}
           </div>
           <div className="cal-side-card">
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="m-0">
+                <span className="mr-1.5 rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">BKBN</span>
+                Backbone-Aufträge
+              </h4>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-3)]">
+                <input
+                  type="checkbox"
+                  checked={showBkbn}
+                  onChange={(e) => setShowBkbn(e.target.checked)}
+                  aria-label="BKBN-Aufträge im Kalender anzeigen"
+                />
+                <span>{showBkbn ? "An" : "Aus"}</span>
+              </label>
+            </div>
+            <p className="mt-1 text-[11px] text-[var(--fg-3)]">
+              Shooting-Aufträge von backbonephoto.co aus den 365-Kalendern von Ivan &amp; Janez (orange markiert).
+              {!showBkbn ? <> (deaktiviert)</> : null}
+              {showBkbn && bkbnMeta?.enabled ? <> {bkbnMeta.count} im sichtbaren Zeitraum.</> : null}
+              {showBkbn && bkbnMeta && bkbnMeta.enabled === false ? <> MS Graph nicht verfügbar{bkbnMeta.error ? ` (${bkbnMeta.error})` : ""}.</> : null}
+              {showBkbn && bkbnMeta && bkbnMeta.enabled && bkbnMeta.error ? <> Fehler: <span className="text-red-500">{bkbnMeta.error}</span></> : null}
+            </p>
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline"
+              onClick={() => navigate("/admin/bkbn-orders")}
+            >
+              Alle BKBN-Aufträge ansehen →
+            </button>
+          </div>
+          <div className="cal-side-card">
             <h4>{t(lang, "calendar.label.employee")}</h4>
             <select
               className="ui-input w-full"
@@ -622,17 +673,35 @@ export function CalendarPage() {
                   ) : null}
                 </div>
               ) : null}
+              {selected.type === "bkbn" ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-md bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700">
+                  <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-white">BKBN</span>
+                  <span>Backbone-Photo-Auftrag aus 365-Kalender (read-only)</span>
+                </div>
+              ) : null}
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.title")}</span><span>{normalizeMojibakeText(selected.title) || "-"}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.start")}</span><span>{formatDateTime(selected.start)}</span></div>
               <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.end")}</span><span>{formatDateTime(selected.end)}</span></div>
-              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.type")}</span><span>{selected.type || "-"}</span></div>
-              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.address")}</span><span>{selected.address || "-"}</span></div>
-              {selected.type === "outlook" ? (
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.type")}</span><span>{selected.type === "bkbn" ? "BKBN-Auftrag" : selected.type || "-"}</span></div>
+              <div className="flex gap-2"><span className="min-w-[100px] font-semibold text-[var(--accent)]">{t(lang, "calendar.label.address")}</span><span>{normalizeMojibakeText(selected.address) || "-"}</span></div>
+              {selected.type === "outlook" || selected.type === "bkbn" ? (
                 <>
+                  {selected.type === "bkbn" && (selected.organizerName || selected.organizerEmail) ? (
+                    <div className="flex gap-2">
+                      <span className="min-w-[100px] font-semibold text-[var(--accent)]">Organizer</span>
+                      <span>{[selected.organizerName, selected.organizerEmail].filter(Boolean).join(" · ")}</span>
+                    </div>
+                  ) : null}
+                  {selected.type === "bkbn" && (selected.mailboxes?.length || selected.mailbox) ? (
+                    <div className="flex gap-2">
+                      <span className="min-w-[100px] font-semibold text-[var(--accent)]">Postfach</span>
+                      <span className="font-mono text-[12px]">{(selected.mailboxes?.length ? selected.mailboxes : [selected.mailbox]).filter(Boolean).join(", ")}</span>
+                    </div>
+                  ) : null}
                   {selected.bodyPreview ? (
                     <div className="flex gap-2">
                       <span className="min-w-[100px] font-semibold text-[var(--accent)]">Notiz</span>
-                      <span className="whitespace-pre-line text-[var(--fg-2)]">{selected.bodyPreview}</span>
+                      <span className="whitespace-pre-line text-[var(--fg-2)]">{normalizeMojibakeText(selected.bodyPreview)}</span>
                     </div>
                   ) : null}
                   {selected.showAs ? (
@@ -752,7 +821,7 @@ export function CalendarPage() {
                     {t(lang, "calendar.button.goToOrder").replace("{{orderNo}}", String(selected.orderNo))}
                   </button>
                 ) : null}
-                {selected.type === "outlook" && selected.webLink ? (
+                {(selected.type === "outlook" || selected.type === "bkbn") && selected.webLink ? (
                   <a
                     href={selected.webLink}
                     target="_blank"
@@ -762,6 +831,18 @@ export function CalendarPage() {
                     <ExternalLink className="h-3.5 w-3.5" />
                     In Outlook öffnen
                   </a>
+                ) : null}
+                {selected.type === "bkbn" ? (
+                  <button
+                    type="button"
+                    className="btn-secondary flex-1"
+                    onClick={() => {
+                      navigate("/admin/bkbn-orders");
+                      setSelected(null);
+                    }}
+                  >
+                    Alle BKBN-Aufträge
+                  </button>
                 ) : null}
                 <button type="button" className="btn-secondary flex-1" onClick={() => setSelected(null)}>OK</button>
               </div>

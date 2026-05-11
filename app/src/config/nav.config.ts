@@ -58,6 +58,7 @@ import {
   Inbox,
   Bot,
   BookOpenCheck,
+  Camera,
 } from "lucide-react";
 
 import type { Role } from "../types";
@@ -146,6 +147,13 @@ export const navConfig: NavSection[] = [
         labelKey: "nav.item.orders",
         icon: Package,
         badgeKey: "orders.openToday",
+        matchNested: true,
+      },
+      {
+        id: "bkbn-orders",
+        to: "/admin/bkbn-orders",
+        labelKey: "nav.item.bkbnOrders",
+        icon: Camera,
         matchNested: true,
       },
       {
