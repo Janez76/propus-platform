@@ -566,6 +566,40 @@ export function OrdersPage() {
     [allOrders],
   );
 
+  const bkbnUpcomingCount = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const cutoff = start.getTime();
+    return bkbnEvents.filter((ev) => {
+      const tEnd = ev.end ? new Date(ev.end).getTime() : new Date(ev.start).getTime();
+      return !Number.isFinite(tEnd) || tEnd >= cutoff;
+    }).length;
+  }, [bkbnEvents]);
+  const bkbnLegendItems = useMemo(() => bkbnLegend(bkbnEvents), [bkbnEvents]);
+  const bkbnAsOrders = useMemo<Order[]>(
+    () =>
+      bkbnEvents
+        .filter((ev) => (ev.address || "").trim().length > 0)
+        .map(
+          (ev) =>
+            ({
+              orderNo: ev.id,
+              status: "bkbn",
+              address: ev.address ?? "",
+              appointmentDate: ev.start ? ev.start.slice(0, 10) : null,
+              customerName: ev.organizerName || ev.title || "Backbone Photo",
+              schedule: { date: ev.start ? ev.start.slice(0, 10) : "", time: ev.start ? ev.start.slice(11, 16) : "" },
+            }) as unknown as Order,
+        ),
+    [bkbnEvents],
+  );
+  // BKBN-Termine in der "Alle"-Ansicht zusätzlich einblenden (außer explizit ausgeblendet).
+  const showBkbnInAlle = quickFilter === "none" && !hideBkbn;
+  const mapOrders = useMemo<Order[]>(
+    () => (showBkbnInAlle ? [...orders, ...bkbnAsOrders] : orders),
+    [showBkbnInAlle, orders, bkbnAsOrders],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -614,39 +648,6 @@ export function OrdersPage() {
       trendTone: kpiUnassignedCount > 0 ? "warn" as const : "default" as const,
     },
   ];
-  const bkbnUpcomingCount = useMemo(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const cutoff = start.getTime();
-    return bkbnEvents.filter((ev) => {
-      const tEnd = ev.end ? new Date(ev.end).getTime() : new Date(ev.start).getTime();
-      return !Number.isFinite(tEnd) || tEnd >= cutoff;
-    }).length;
-  }, [bkbnEvents]);
-  const bkbnLegendItems = useMemo(() => bkbnLegend(bkbnEvents), [bkbnEvents]);
-  const bkbnAsOrders = useMemo<Order[]>(
-    () =>
-      bkbnEvents
-        .filter((ev) => (ev.address || "").trim().length > 0)
-        .map(
-          (ev) =>
-            ({
-              orderNo: ev.id,
-              status: "bkbn",
-              address: ev.address ?? "",
-              appointmentDate: ev.start ? ev.start.slice(0, 10) : null,
-              customerName: ev.organizerName || ev.title || "Backbone Photo",
-              schedule: { date: ev.start ? ev.start.slice(0, 10) : "", time: ev.start ? ev.start.slice(11, 16) : "" },
-            }) as unknown as Order,
-        ),
-    [bkbnEvents],
-  );
-  // BKBN-Termine in der "Alle"-Ansicht zusätzlich einblenden (außer explizit ausgeblendet).
-  const showBkbnInAlle = quickFilter === "none" && !hideBkbn;
-  const mapOrders = useMemo<Order[]>(
-    () => (showBkbnInAlle ? [...orders, ...bkbnAsOrders] : orders),
-    [showBkbnInAlle, orders, bkbnAsOrders],
-  );
 
   const quickPills = [
     { id: "none", label: t(lang, "orders.quick.all") },
