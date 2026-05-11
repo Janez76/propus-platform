@@ -5,6 +5,7 @@ const BASE = "/api/bildauswahl";
 export type BildauswahlPublicImage = {
   id: string;
   category: string | null;
+  file_name: string | null;
   sort_order: number;
 };
 

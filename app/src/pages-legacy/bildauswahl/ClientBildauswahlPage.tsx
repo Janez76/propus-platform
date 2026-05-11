@@ -21,8 +21,18 @@ function hashColor(s: string): string {
   return `hsl(${hue} 26% 34%)`;
 }
 
-function imageLabel(im: { id: string; category: string | null }, index: number): string {
-  return im.category?.trim() || `Bild ${index + 1}`;
+function imageLabel(
+  im: { id: string; category: string | null; file_name: string | null },
+  index: number,
+): string {
+  // Wichtig fuer die Admin-Benachrichtigungsmail: dort taucht dieses Label
+  // 1:1 in der Bullet-Liste auf. Wir bevorzugen den Originaldateinamen,
+  // damit das Office das Bild im NAS direkt wiederfindet.
+  return (
+    im.file_name?.trim() ||
+    im.category?.trim() ||
+    `Bild ${index + 1}`
+  );
 }
 
 /** Slim server-Variante, Pendant zu selekto/ClientSelektoPage aber via /api/bildauswahl. */

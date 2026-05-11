@@ -80,6 +80,7 @@ router.get('/:slug', async (req, res) => {
         images: imgs.map((i) => ({
           id: i.id,
           category: i.category,
+          file_name: i.file_name || null,
           sort_order: i.sort_order,
         })),
       });
