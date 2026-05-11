@@ -3,95 +3,11 @@
  * Gemountet unter /api/listing in platform/server.js.
  */
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const sharp = require('sharp');
 const router = express.Router();
 const archiver = require('archiver');
 const gallery = require('../lib/gallery');
 const { pool } = require('../lib/db');
-
-/**
- * Server-seitige Resize-Pipeline fuer Kunden-Galerien. Originale liegen oft
- * bei 3–10 MB pro Bild; bei 65 Bildern explodiert die Ladezeit. Wir liefern
- * resized JPEGs aus, disk-gecached und mit langem Cache-Header — damit
- * Cloudflare-Edge die Antworten gemeinsam fuer alle Kunden cachen kann.
- */
-const PUBLIC_THUMB_CACHE_DIR = path.join(__dirname, '..', 'uploads', 'gallery-public-thumbs');
-const ALLOWED_PUBLIC_THUMB_WIDTHS = new Set([200, 400, 600, 800, 1200, 1680]);
-const publicThumbInflight = new Map();
-
-function parsePublicThumbWidth(raw) {
-  if (raw == null || raw === '') return null;
-  const w = Number.parseInt(String(raw), 10);
-  return ALLOWED_PUBLIC_THUMB_WIDTHS.has(w) ? w : null;
-}
-
-/**
- * Watermark-SVG passgenau zur resized JPEG-Groesse. Wird per sharp-Composite
- * eingebrannt; der Kunde lädt dadurch fertig watermarkte Bilder und der
- * Browser muss keinen Canvas-Burn mehr machen (das war der eigentliche
- * Bottleneck bei 65+ Bildern).
- */
-function watermarkSvgFor(w, h) {
-  const fs2 = Math.max(20, Math.round(w / 12));
-  const sw = Math.max(1, Math.round(w / 400));
-  return Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
-    `<g transform="translate(${w / 2} ${h / 2}) rotate(-25.7)">` +
-    `<text x="0" y="0" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" ` +
-    `font-weight="700" font-size="${fs2}" text-anchor="middle" dominant-baseline="middle" ` +
-    `fill="rgba(255,255,255,0.26)" stroke="rgba(0,0,0,0.35)" stroke-width="${sw}">PROPUS</text>` +
-    `</g></svg>`
-  );
-}
-
-async function ensurePublicThumb(srcPath, galleryId, imageId, width, withWatermark) {
-  let stat;
-  try { stat = await fs.promises.stat(srcPath); } catch { return null; }
-  const mtime = Math.floor(stat.mtimeMs);
-  const cacheDir = path.join(PUBLIC_THUMB_CACHE_DIR, String(galleryId));
-  const suffix = withWatermark ? '_wm' : '';
-  const cachePath = path.join(cacheDir, `${imageId}_${width}_${mtime}${suffix}.jpg`);
-  try {
-    const c = await fs.promises.stat(cachePath);
-    if (c.isFile() && c.size > 0) return cachePath;
-  } catch { /* miss */ }
-  if (publicThumbInflight.has(cachePath)) {
-    await publicThumbInflight.get(cachePath);
-    return cachePath;
-  }
-  const p = (async () => {
-    await fs.promises.mkdir(cacheDir, { recursive: true });
-    const tmp = `${cachePath}.${process.pid}.tmp`;
-    if (withWatermark) {
-      /**
-       * Zwei-Pass: erst resize in einen Roh-Buffer (damit wir die exakte
-       * Zielgroesse fuer das SVG kennen), dann composite + JPEG-Encode.
-       */
-      const { data, info } = await sharp(srcPath, { failOn: 'none' })
-        .rotate()
-        .resize({ width, withoutEnlargement: true, fit: 'inside' })
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      const svg = watermarkSvgFor(info.width, info.height);
-      await sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } })
-        .composite([{ input: svg, blend: 'over' }])
-        .jpeg({ quality: 82, mozjpeg: true })
-        .toFile(tmp);
-    } else {
-      await sharp(srcPath, { failOn: 'none' })
-        .rotate()
-        .resize({ width, withoutEnlargement: true, fit: 'inside' })
-        .jpeg({ quality: 82, mozjpeg: true })
-        .toFile(tmp);
-    }
-    await fs.promises.rename(tmp, cachePath);
-  })();
-  publicThumbInflight.set(cachePath, p);
-  try { await p; } finally { publicThumbInflight.delete(cachePath); }
-  return cachePath;
-}
+const { ensurePublicThumb, parsePublicThumbWidth } = require('../lib/gallery-thumbs');
 
 function normalizeMatterportSrc(raw) {
   const trimmed = (raw || '').trim();

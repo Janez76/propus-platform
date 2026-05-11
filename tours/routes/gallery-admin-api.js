@@ -8,7 +8,29 @@ const path = require('path');
 const sharp = require('sharp');
 const router = express.Router();
 const gallery = require('../lib/gallery');
+const { prewarmPublicThumbs } = require('../lib/gallery-thumbs');
 const { sendMailDirect } = require('../lib/microsoft-graph');
+
+/**
+ * Background-Prewarm: nach Import alle Bilder einer Galerie auf die
+ * Default-Breite (1200px, inkl. Watermark bei Bildauswahl) vorrendern.
+ * So entsteht beim ersten Kundenaufruf kein sharp-Cold-Start.
+ */
+async function prewarmThumbsForGallery(galleryId) {
+  try {
+    const g = await gallery.getGallery(galleryId);
+    if (!g) return;
+    const images = await gallery.listGalleryImages(galleryId);
+    const result = await prewarmPublicThumbs({
+      gallery: g,
+      images,
+      resolveImageFile: (img) => gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img),
+    });
+    console.log(`[gallery-admin-api] prewarmed ${galleryId}: ${result.warmed}/${result.total} (skipped ${result.skipped}, failed ${result.failed})`);
+  } catch (err) {
+    console.warn(`[gallery-admin-api] prewarm failed for ${galleryId}:`, err?.message || err);
+  }
+}
 
 // Editor-Thumbnails: server-seitig per sharp generiert und auf Disk gecached.
 // Cache-Datei: tours/uploads/gallery-thumbs/<gallery_id>/<image_id>_<w>_<mtime>.jpg
@@ -347,6 +369,8 @@ router.post('/:id/import-share', async (req, res) => {
     const { urls } = req.body;
     if (!Array.isArray(urls)) return res.status(400).json({ ok: false, error: 'urls Array erwartet.' });
     const result = await gallery.importImagesFromShare(req.params.id, urls);
+    /** Fire-and-forget: Thumbnails im Hintergrund pre-rendern. */
+    void prewarmThumbsForGallery(req.params.id);
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
@@ -357,9 +381,29 @@ router.post('/:id/import-share', async (req, res) => {
 router.post('/:id/import-nas', async (req, res) => {
   try {
     const result = await gallery.importGalleryFromNas(req.params.id, req.body || {});
+    /** Fire-and-forget: Thumbnails im Hintergrund pre-rendern. */
+    void prewarmThumbsForGallery(req.params.id);
     res.json({ ok: true, ...result });
   } catch (e) {
     res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+// POST /:id/prewarm-thumbs — manueller Trigger (z. B. nach Watermark-Toggle)
+router.post('/:id/prewarm-thumbs', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const images = await gallery.listGalleryImages(req.params.id);
+    /** Synchron warten — Aufrufer sieht die Stats fuer Debug. */
+    const result = await prewarmPublicThumbs({
+      gallery: g,
+      images,
+      resolveImageFile: (img) => gallery.resolvePreferredImageFile(img) || gallery.resolveGalleryImageFile(img),
+    });
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
