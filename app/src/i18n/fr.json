@@ -2641,6 +2641,7 @@
   "dashboardV2.map.status.completed": "Terminé",
   "dashboardV2.map.status.done": "Achevé",
   "dashboardV2.map.status.paused": "En pause",
+  "dashboardV2.map.status.bkbn": "Commande BKBN",
   "dashboardV2.map.status.cancelled": "Annulé",
   "dashboardV2.map.status.archived": "Archivé",
   "dashboardV2.map.range.today": "Aujourd'hui",

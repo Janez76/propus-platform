@@ -30,9 +30,12 @@ import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from ".
 import { useOrderStore } from "../store/orderStore";
 import { FilterBar, PageHeader } from "../components/handoff";
 import { BkbnOrdersBanner } from "../components/bkbn/BkbnOrdersBanner";
+import { BkbnOrdersTable } from "../components/bkbn/BkbnOrdersTable";
+import { getBkbnOrders, type BkbnOrderEvent } from "../api/bkbnOrders";
+import { bkbnLegend } from "../lib/bkbn";
 
 type ViewMode = "list" | "kanban" | "calendar" | "map";
-type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine";
+type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine" | "bkbn";
 
 // Grouped chips per redesign:
 //  Offen        → pending + provisional
@@ -111,6 +114,9 @@ export function OrdersPage() {
   const [view, setView] = useState<ViewMode>("list");
   const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("none");
+  const [bkbnEvents, setBkbnEvents] = useState<BkbnOrderEvent[]>([]);
+  const [bkbnLoading, setBkbnLoading] = useState(false);
+  const [bkbnMatchDomains, setBkbnMatchDomains] = useState<string[]>([]);
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
   const [kindFilter, setKindFilter] = useState<"all" | "fixed" | "flexible">("all");
   const [showArchivedChip, setShowArchivedChip] = useState(false);
@@ -129,6 +135,26 @@ export function OrdersPage() {
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // BKBN-Aufträge (Backbone Photo) erst laden, wenn der BKBN-Filter aktiv ist.
+  useEffect(() => {
+    if (quickFilter !== "bkbn" || !token) return;
+    let alive = true;
+    setBkbnLoading(true);
+    (async () => {
+      try {
+        const resp = await getBkbnOrders(token);
+        if (!alive) return;
+        setBkbnEvents(resp.events);
+        setBkbnMatchDomains(resp.matchDomains);
+      } catch {
+        if (alive) setBkbnEvents([]);
+      } finally {
+        if (alive) setBkbnLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [quickFilter, token]);
 
   const [selectedNos, setSelectedNos] = useState<Set<string>>(() => new Set());
   const [bulkTargetStatus, setBulkTargetStatus] = useState<StatusKey>("pending");
@@ -180,6 +206,7 @@ export function OrdersPage() {
 
   function matchesQuickFilter(o: Order): boolean {
     if (quickFilter === "none") return true;
+    if (quickFilter === "bkbn") return false; // BKBN-Aufträge sind keine DB-Aufträge — eigener Bereich
     if (quickFilter === "mine") {
       const myEmail = adminProfile?.profile?.email?.toLowerCase() || "";
       const pEmail = o.photographer?.email?.toLowerCase() || "";
@@ -568,6 +595,34 @@ export function OrdersPage() {
       trendTone: kpiUnassignedCount > 0 ? "warn" as const : "default" as const,
     },
   ];
+  const bkbnUpcomingCount = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const cutoff = start.getTime();
+    return bkbnEvents.filter((ev) => {
+      const tEnd = ev.end ? new Date(ev.end).getTime() : new Date(ev.start).getTime();
+      return !Number.isFinite(tEnd) || tEnd >= cutoff;
+    }).length;
+  }, [bkbnEvents]);
+  const bkbnLegendItems = useMemo(() => bkbnLegend(bkbnEvents), [bkbnEvents]);
+  const bkbnAsOrders = useMemo<Order[]>(
+    () =>
+      bkbnEvents
+        .filter((ev) => (ev.address || "").trim().length > 0)
+        .map(
+          (ev) =>
+            ({
+              orderNo: ev.id,
+              status: "bkbn",
+              address: ev.address ?? "",
+              appointmentDate: ev.start ? ev.start.slice(0, 10) : null,
+              customerName: ev.organizerName || ev.title || "Backbone Photo",
+              schedule: { date: ev.start ? ev.start.slice(0, 10) : "", time: ev.start ? ev.start.slice(11, 16) : "" },
+            }) as unknown as Order,
+        ),
+    [bkbnEvents],
+  );
+
   const quickPills = [
     { id: "none", label: t(lang, "orders.quick.all") },
     { id: "today", label: t(lang, "orders.quick.today") },
@@ -581,6 +636,7 @@ export function OrdersPage() {
       ? [{ id: "overdueFlex", label: `${t(lang, "orders.quick.overdueFlex")} (${overdueFlexCount})` }]
       : []),
     { id: "mine", label: t(lang, "orders.quick.mine") },
+    { id: "bkbn", label: `BKBN${bkbnUpcomingCount > 0 ? ` (${bkbnUpcomingCount})` : ""}` },
   ];
 
   return (
@@ -765,7 +821,52 @@ export function OrdersPage() {
       ) : null}
 
       {/* View */}
-      {view === "list" ? (
+      {quickFilter === "bkbn" ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#ea580c]/30 bg-[#ea580c]/10 px-4 py-2.5 text-[12px] text-[var(--text-main)]">
+            <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white">BKBN</span>
+            <span>Backbone-Photo-Aufträge aus den 365-Kalendern (read-only, keine DB-Aufträge).</span>
+            {bkbnLegendItems.map((it) => (
+              <span key={it.mailbox} className="inline-flex items-center gap-1.5 text-[var(--fg-3)]" title={it.mailbox}>
+                <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: it.color }} aria-hidden />
+                {it.name}
+              </span>
+            ))}
+            <button
+              type="button"
+              className="ml-auto text-[11px] font-medium text-[#ea580c] hover:underline"
+              onClick={() => navigate("/admin/bkbn-orders")}
+            >
+              Detailansicht →
+            </button>
+          </div>
+          {view === "map" ? (
+            bkbnAsOrders.length === 0 ? (
+              <BkbnOrdersTable events={bkbnEvents} loading={bkbnLoading} matchDomains={bkbnMatchDomains} />
+            ) : bookingConfigLoading ? (
+              <div className="flex h-64 items-center justify-center rounded-xl border border-[var(--border-soft)]">
+                <div
+                  className="h-12 w-12 animate-spin rounded-full border-2"
+                  style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }}
+                />
+                <span className="ml-3 text-sm text-[var(--text-subtle)]">{t(lang, "orders.map.configLoading")}</span>
+              </div>
+            ) : !googleMapsKey ? (
+              <OrdersMapViewNoKey lang={lang} />
+            ) : (
+              <OrdersMapView
+                apiKey={googleMapsKey}
+                googleMapId={bookingConfig?.googleMapId ?? null}
+                orders={bkbnAsOrders}
+                onOpenDetail={() => navigate("/admin/bkbn-orders")}
+                lang={lang}
+              />
+            )
+          ) : (
+            <BkbnOrdersTable events={bkbnEvents} loading={bkbnLoading} matchDomains={bkbnMatchDomains} />
+          )}
+        </div>
+      ) : view === "list" ? (
         orders.length === 0 ? (
           <EmptyState lang={lang} />
         ) : (

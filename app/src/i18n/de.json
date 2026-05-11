@@ -2654,6 +2654,7 @@
   "dashboardV2.map.status.completed": "Erledigt",
   "dashboardV2.map.status.done": "Abgeschlossen",
   "dashboardV2.map.status.paused": "Pausiert",
+  "dashboardV2.map.status.bkbn": "BKBN-Auftrag",
   "dashboardV2.map.status.cancelled": "Storniert",
   "dashboardV2.map.status.archived": "Archiviert",
   "dashboardV2.map.range.today": "Heute",

@@ -388,21 +388,25 @@ ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul
 **Endpunkte:**
 - `GET /api/admin/bkbn-orders?from=YYYY-MM-DD&to=YYYY-MM-DD` → `{ ok, events:[...], mailboxes, matchDomains, range, meta:{enabled,count,error} }`
 - `GET /api/admin/calendar-events?includeBkbn=true` → BKBN-Termine werden als `type:"bkbn"`-Events angehängt; Response erhält zusätzlich `bkbn: { enabled, mailboxes, count, error }`
+- `GET /api/internal/assistant/bkbn-orders?from=&to=` → Loopback-/Proxy-Key-geschützt (wie `outlook-overlay`), für das Assistant-Tool `get_bkbn_orders`
 
 **Backend:** `loadBkbnCalendarEvents({ from, to })` in `booking/server.js`
-- Liest `calendarView` für jede konfigurierte Mailbox (ENV `BKBN_CALENDAR_MAILBOXES`)
+- Liest `calendarView` für jede konfigurierte Mailbox (ENV `BKBN_CALENDAR_MAILBOXES`), folgt `@odata.nextLink` (max. 10 Seiten); Range mit ±1 Tag Puffer (Graph behandelt naive Zeitstempel als UTC)
 - Ein Termin gilt als BKBN-Auftrag, wenn Organizer-/Attendee-Adresse, Betreff, Body oder Ort eine der `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`) enthält
-- Dedupliziert über `iCalUId` (gleicher Termin in beiden Postfächern → ein Eintrag, `mailboxes[]` führt alle)
+- Dedupliziert über `iCalUId` (gleicher Termin in beiden Postfächern → ein Eintrag, `mailboxes[]` + `graphIds[]` führen alle); `error` meldet auch Teil-Fehler (fehlgeschlagene Postfächer)
+- Farbe pro Postfach: `__bkbnEventColor(mailbox, order)` → Palette in Reihenfolge der `BKBN_CALENDAR_MAILBOXES` (1. Ivan orange `#ea580c`, 2. Janez teal `#0d9488`, …)
 - Caching: 60 s pro `mailboxes|tokens|from|to`
-- Im Kalender-Overlay werden persönliche 365-Overlay-Termine mit derselben Graph-Event-ID entfernt, damit ein Termin nicht doppelt (lila + orange) erscheint
+- Im Kalender-Overlay werden persönliche 365-Overlay-Termine mit denselben Graph-Event-IDs entfernt, damit ein Termin nicht doppelt erscheint
 - Sensitivity `private`/`confidential` → Titel/`bodyPreview` maskiert
 
 **Frontend:**
-- Eigene Seite `app/src/pages-legacy/admin/bkbn/BkbnOrdersPage.tsx` unter `/admin/bkbn-orders` (Nav „BKBN-Aufträge" in „Heute"); Tabelle mit Termin, Adresse, Organizer, Postfach, „In Outlook öffnen"
+- Eigene Seite `app/src/pages-legacy/admin/bkbn/BkbnOrdersPage.tsx` unter `/admin/bkbn-orders` (Nav „BKBN-Aufträge" in „Heute"); Tabelle (`app/src/components/bkbn/BkbnOrdersTable.tsx`) mit Termin, Adresse, Organizer, Postfach, „In Outlook öffnen"; Farb-Legende pro Mitarbeiter (`app/src/lib/bkbn.ts` → `bkbnLegend`/`bkbnShortName`)
 - `app/src/components/bkbn/BkbnOrdersBanner.tsx`: Hinweis-Streifen mit Anzahl kommender BKBN-Aufträge auf `OrdersPage` und `DispositionPage` (verlinkt auf die Seite)
-- `CalendarPage.tsx`: Toggle „Backbone-Aufträge An/Aus" (`localStorage: calendar.showBkbn`); orange Akzentfarbe (`#ea580c`), Badge „BKBN" in `HandoffCalendarView`; Detail-Panel read-only mit Organizer/Postfach
+- `OrdersPage.tsx`: Quick-Filter-Pill „BKBN" → zeigt statt der DB-Aufträge die BKBN-Tabelle; in der Karten-Ansicht (`OrdersMapView`) werden BKBN-Termine als orange Pins (Status `bkbn`, Palette `BKBN_PALETTE` in `mapStatusColors.ts`) gerendert, Popup-Link → `/admin/bkbn-orders`
+- `CalendarPage.tsx`: Toggle „Backbone-Aufträge An/Aus" (`localStorage: calendar.showBkbn`); Akzentfarbe pro Postfach, Badge „BKBN" in `HandoffCalendarView`; Detail-Panel read-only mit Organizer/Postfach; Sidebar-Legende
+- KI-Assistent: Tool `get_bkbn_orders` (`app/src/lib/assistant/tools/orders.ts`) + Prompt-Hinweis in `system-prompt.ts`
 
-**Voraussetzungen:** wie 4a (`Calendars.Read` app-only); ohne Graph → `meta.enabled=false`, Seite/Banner bleiben leer.
+**Voraussetzungen:** wie 4a (`Calendars.Read` app-only); ohne Graph → `meta.enabled=false`, Seite/Banner/Filter bleiben leer.
 
 ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`).
 

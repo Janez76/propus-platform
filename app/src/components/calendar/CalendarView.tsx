@@ -97,6 +97,7 @@ export type CalendarClickedEvent = {
   mailboxes?: string[];
   organizerEmail?: string;
   organizerName?: string;
+  color?: string;
 };
 
 type Props = {
@@ -277,6 +278,7 @@ export function CalendarView({
               mailboxes: Array.isArray(ext.mailboxes) ? (ext.mailboxes as unknown[]).map((m) => String(m)) : undefined,
               organizerEmail: ext.organizerEmail ? String(ext.organizerEmail) : undefined,
               organizerName: ext.organizerName ? String(ext.organizerName) : undefined,
+              color: ext.color ? String(ext.color) : undefined,
             });
           }}
         />
