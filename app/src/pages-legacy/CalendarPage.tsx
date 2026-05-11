@@ -533,9 +533,10 @@ export function CalendarPage() {
             </div>
             <p className="mt-1 text-[11px] text-[var(--fg-3)]">
               Shooting-Aufträge von backbonephoto.co aus den 365-Kalendern von Ivan &amp; Janez (orange markiert).
-              {bkbnMeta?.enabled ? <> {bkbnMeta.count} im sichtbaren Zeitraum.</> : null}
-              {bkbnMeta && bkbnMeta.enabled === false ? <> MS Graph nicht verfügbar{bkbnMeta.error ? ` (${bkbnMeta.error})` : ""}.</> : null}
-              {bkbnMeta && bkbnMeta.enabled && bkbnMeta.error ? <> Fehler: <span className="text-red-500">{bkbnMeta.error}</span></> : null}
+              {!showBkbn ? <> (deaktiviert)</> : null}
+              {showBkbn && bkbnMeta?.enabled ? <> {bkbnMeta.count} im sichtbaren Zeitraum.</> : null}
+              {showBkbn && bkbnMeta && bkbnMeta.enabled === false ? <> MS Graph nicht verfügbar{bkbnMeta.error ? ` (${bkbnMeta.error})` : ""}.</> : null}
+              {showBkbn && bkbnMeta && bkbnMeta.enabled && bkbnMeta.error ? <> Fehler: <span className="text-red-500">{bkbnMeta.error}</span></> : null}
             </p>
             <button
               type="button"

@@ -1785,6 +1785,14 @@ function __bkbnEventMatches(ev, tokens) {
   return tokens.some((tok) => tok && blob.includes(tok));
 }
 
+function __ymdShift(dateStr, days) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return dateStr;
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 async function loadBkbnCalendarEvents(opts) {
   const mailboxes = bkbnMailboxes();
   const tokens = bkbnMatchTokens();
@@ -1792,8 +1800,11 @@ async function loadBkbnCalendarEvents(opts) {
   if (mailboxes.length === 0) return { events: [], mailboxes, error: "no_mailbox" };
   const from = opts && opts.from ? String(opts.from) : "";
   const to = opts && opts.to ? String(opts.to) : "";
-  const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00` : from;
-  const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59` : to;
+  // Graph interpretiert naive Zeitstempel (ohne Offset) als UTC. Damit Termine
+  // am Rand des lokalen Tages (CET/CEST) nicht aus dem Fenster fallen, fragen wir
+  // mit ±1 Tag Puffer ab; Termine ausserhalb der sichtbaren Range stoeren nicht.
+  const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${__ymdShift(from, -1)}T00:00:00` : from;
+  const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${__ymdShift(to, 1)}T23:59:59` : to;
   if (!fromIso || !toIso) return { events: [], mailboxes, error: "bad_range" };
 
   const cacheKey = `${mailboxes.join(",")}|${tokens.join(",")}|${fromIso}|${toIso}`;
