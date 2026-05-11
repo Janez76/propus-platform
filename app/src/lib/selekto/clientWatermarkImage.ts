@@ -1,11 +1,14 @@
+export type WatermarkOpts = { maxWidth?: number; jpegQuality?: number };
+
 /**
- * Erzeugt eine Blob-URL mit eingezeichnetem «PROPUS»-Wasserzeichen (für Kunden-Galerie).
- * Schlägt fehl (null), wenn das Bild wegen CORS nicht in ein Canvas gezeichnet werden darf.
+ * Lädt das Bild, zeichnet das «PROPUS»-Wasserzeichen auf ein Canvas und gibt
+ * den Blob zurück. `null`, wenn das Bild wegen CORS nicht ins Canvas darf oder
+ * das Decoding fehlschlägt.
  */
-export async function tryCreateWatermarkedBlobUrl(
+export async function tryCreateWatermarkedBlob(
   imageUrl: string,
-  opts?: { maxWidth?: number; jpegQuality?: number },
-): Promise<string | null> {
+  opts?: WatermarkOpts,
+): Promise<Blob | null> {
   if (typeof document === "undefined") return null;
   const maxW = opts?.maxWidth ?? 1680;
   const jpegQuality = opts?.jpegQuality ?? 0.85;
@@ -13,7 +16,7 @@ export async function tryCreateWatermarkedBlobUrl(
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    const done = (v: string | null) => resolve(v);
+    const done = (v: Blob | null) => resolve(v);
     img.onload = () => {
       try {
         const w = img.naturalWidth || img.width;
@@ -53,13 +56,7 @@ export async function tryCreateWatermarkedBlobUrl(
         ctx.restore();
 
         canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              done(null);
-              return;
-            }
-            done(URL.createObjectURL(blob));
-          },
+          (blob) => done(blob ?? null),
           "image/jpeg",
           jpegQuality,
         );
@@ -70,4 +67,16 @@ export async function tryCreateWatermarkedBlobUrl(
     img.onerror = () => done(null);
     img.src = imageUrl;
   });
+}
+
+/**
+ * Erzeugt eine Blob-URL mit eingezeichnetem «PROPUS»-Wasserzeichen (für Kunden-Galerie).
+ * Schlägt fehl (null), wenn das Bild wegen CORS nicht in ein Canvas gezeichnet werden darf.
+ */
+export async function tryCreateWatermarkedBlobUrl(
+  imageUrl: string,
+  opts?: WatermarkOpts,
+): Promise<string | null> {
+  const blob = await tryCreateWatermarkedBlob(imageUrl, opts);
+  return blob ? URL.createObjectURL(blob) : null;
 }

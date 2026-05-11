@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { PicdropSelectionView, type PicdropImage } from "../../components/selekto/PicdropSelectionView";
-import { tryCreateWatermarkedBlobUrl } from "../../lib/selekto/clientWatermarkImage";
-import { getPublicGalleryBySlug, getThumbSourcesForImage, recordGalleryClientViewed, revokeBlobUrlForImage } from "../../lib/selekto/galleryApi";
+import {
+  getOrCreateWatermarkedThumb,
+  getPublicGalleryBySlug,
+  getThumbSourcesForImage,
+  recordGalleryClientViewed,
+  revokeBlobUrlForImage,
+} from "../../lib/selekto/galleryApi";
 import type { PublicGalleryPayload } from "../../lib/selekto/types";
 
 function hashColor(s: string): string {
@@ -92,49 +97,70 @@ export function ClientSelektoPage() {
     setMediaLoading(true);
     revokeClientWmBlobs();
     setWmBurnUseCssOverlay(false);
+    setUrls({});
+
+    const shareRef = data.cloud_share_url ?? null;
+    const wmOn = data.watermark_enabled !== false;
+
     (async () => {
-      const raw: Record<string, string[]> = {};
-      const shareRef = data.cloud_share_url ?? null;
-      for (const im of data.images) {
-        const list = await getThumbSourcesForImage(im.id, shareRef);
-        if (list.length) raw[im.id] = list;
-      }
+      const rawByImage = new Map<string, string[]>();
+      await Promise.all(
+        data.images.map(async (im) => {
+          const list = await getThumbSourcesForImage(im.id, shareRef);
+          if (list.length) rawByImage.set(im.id, list);
+        }),
+      );
       if (cancelled) return;
 
-      const wmOn = data.watermark_enabled !== false;
+      /** Bilder ohne Watermark sofort anzeigen — keine sequentielle Schleife mehr. */
       if (!wmOn) {
-        if (!cancelled) {
-          setUrls(raw);
-          setWmBurnUseCssOverlay(false);
-          setMediaLoading(false);
-        }
+        const next: Record<string, string[]> = {};
+        for (const [id, list] of rawByImage) next[id] = list;
+        setUrls(next);
+        setWmBurnUseCssOverlay(false);
+        setMediaLoading(false);
         return;
       }
 
-      const next: Record<string, string[]> = {};
+      /**
+       * Mit Watermark: Cache-Hits sind quasi instant, Misses laufen parallel.
+       * Jedes Bild aktualisiert seine Karte einzeln (progressive Anzeige), damit
+       * die Galerie nicht erst nach dem letzten Bild «aufhört zu spinnen».
+       */
+      let pending = data.images.length;
       let anyFail = false;
-      for (const im of data.images) {
-        const list = raw[im.id];
-        if (!list?.length) continue;
-        const first = list[0];
-        const burned = await tryCreateWatermarkedBlobUrl(first);
-        if (cancelled) {
-          if (burned) URL.revokeObjectURL(burned);
-          continue;
+      const settleOne = () => {
+        pending -= 1;
+        if (pending <= 0 && !cancelled) {
+          setWmBurnUseCssOverlay(anyFail);
+          setMediaLoading(false);
         }
-        if (burned) {
-          wmBlobUrlsRef.current.push(burned);
-          next[im.id] = [burned];
-        } else {
-          anyFail = true;
-          next[im.id] = list;
-        }
-      }
-      if (!cancelled) {
-        setUrls(next);
-        setWmBurnUseCssOverlay(anyFail);
-        setMediaLoading(false);
-      }
+      };
+
+      await Promise.all(
+        data.images.map(async (im) => {
+          const list = rawByImage.get(im.id);
+          if (!list?.length) {
+            settleOne();
+            return;
+          }
+          const first = list[0];
+          const burned = await getOrCreateWatermarkedThumb(im.id, first);
+          if (cancelled) {
+            if (burned?.startsWith("blob:")) URL.revokeObjectURL(burned);
+            return;
+          }
+          if (burned) {
+            wmBlobUrlsRef.current.push(burned);
+            setUrls((prev) => ({ ...prev, [im.id]: [burned] }));
+          } else {
+            anyFail = true;
+            /** Fallback: ungewaschene Quelle anzeigen, CSS-Overlay-Watermark übernimmt. */
+            setUrls((prev) => ({ ...prev, [im.id]: list }));
+          }
+          settleOne();
+        }),
+      );
     })();
     return () => {
       cancelled = true;

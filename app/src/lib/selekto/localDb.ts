@@ -94,11 +94,26 @@ export interface LocalGalleryFeedback {
   selection_flags_json?: string | null;
 }
 
+/**
+ * Persistenter Cache für gewasserzeichenete Thumb-Blobs (Kunden-Galerie).
+ * Verhindert, dass jeder Seitenaufruf alle Bilder erneut vom NAS lädt und neu
+ * watermarkt. Schlüssel = `image_id|source_url` (Source-URL ist Teil, damit
+ * geänderte Bilder einen neuen Cache-Eintrag bekommen).
+ */
+export interface LocalWmThumbCache {
+  key: string;
+  image_id: string;
+  source_url: string;
+  blob: Blob;
+  created_at: string;
+}
+
 class GalleryLocalDexie extends Dexie {
   galleries!: Table<LocalGallery, string>;
   gallery_images!: Table<LocalGalleryImage, string>;
   email_templates!: Table<LocalEmailTemplate, string>;
   gallery_feedback!: Table<LocalGalleryFeedback, string>;
+  wm_thumb_cache!: Table<LocalWmThumbCache, string>;
 
   constructor() {
     /** Eigener Store für Picdrop: leere Galerien beim ersten Start (nicht `propus_gallery_local_v1` von älteren Demos). */
@@ -329,6 +344,13 @@ class GalleryLocalDexie extends Dexie {
             if (row.watermark_enabled === undefined) row.watermark_enabled = true;
           });
       });
+    this.version(17).stores({
+      galleries: "id, slug, updated_at, status",
+      gallery_images: "id, gallery_id, sort_order",
+      email_templates: "id, name, is_default",
+      gallery_feedback: "id, gallery_id, gallery_slug, created_at, revision",
+      wm_thumb_cache: "key, image_id, created_at",
+    });
   }
 }
 

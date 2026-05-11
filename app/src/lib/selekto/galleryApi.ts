@@ -6,6 +6,7 @@ import {
   nextcloudThumbUrlCandidates,
   parseNextcloudPublicShareUrl,
 } from "../../components/selekto/demo/nextcloudShare";
+import { tryCreateWatermarkedBlob } from "./clientWatermarkImage";
 import { randomUUID } from "./randomId";
 import { pathClientSelekto as pathClientGallery } from "./paths";
 import {
@@ -185,6 +186,64 @@ export function revokeBlobUrlForImage(imageId: string): void {
     URL.revokeObjectURL(u);
   }
   blobUrlCache.delete(imageId);
+}
+
+function wmCacheKey(imageId: string, sourceUrl: string): string {
+  return `${imageId}|${sourceUrl}`;
+}
+
+/**
+ * Liefert eine Blob-URL des gewasserzeichneten Thumbs — bevorzugt aus dem
+ * persistenten IndexedDB-Cache. Bei Cache-Miss wird das Bild einmalig vom
+ * NAS/Nextcloud geladen, watermarkt und der Blob abgespeichert.
+ *
+ * Rückgabe `null`, wenn das Watermarken scheitert (z. B. CORS). Der Aufrufer
+ * fällt dann auf das CSS-Overlay-Watermark zurück.
+ */
+export async function getOrCreateWatermarkedThumb(
+  imageId: string,
+  sourceUrl: string,
+): Promise<string | null> {
+  if (!sourceUrl) return null;
+  await ensureGalleryLocalDb();
+  const key = wmCacheKey(imageId, sourceUrl);
+  try {
+    const hit = await galleryLocalDb.wm_thumb_cache.get(key);
+    if (hit?.blob && hit.blob.size > 0) {
+      return URL.createObjectURL(hit.blob);
+    }
+  } catch {
+    /* Cache-Lesefehler ignorieren — wir generieren neu. */
+  }
+
+  const blob = await tryCreateWatermarkedBlob(sourceUrl);
+  if (!blob) return null;
+
+  try {
+    await galleryLocalDb.wm_thumb_cache.put({
+      key,
+      image_id: imageId,
+      source_url: sourceUrl,
+      blob,
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    /* Storage voll o. ä. — Blob-URL ist trotzdem brauchbar. */
+  }
+  return URL.createObjectURL(blob);
+}
+
+/**
+ * Entfernt Cache-Einträge zu einem Bild (alle Source-URL-Varianten). Wird beim
+ * Löschen eines Bildes oder beim Wechsel der Freigabe-URL aufgerufen.
+ */
+export async function clearWatermarkedThumbCacheForImage(imageId: string): Promise<void> {
+  try {
+    await ensureGalleryLocalDb();
+    await galleryLocalDb.wm_thumb_cache.where("image_id").equals(imageId).delete();
+  } catch {
+    /* ignorieren */
+  }
 }
 
 export async function getPublicGalleryBySlug(slug: string): Promise<PublicGalleryPayload | null> {
@@ -843,6 +902,7 @@ export async function reorderImages(galleryId: string, orderedIds: string[]): Pr
 export async function deleteImageRow(img: GalleryImageRow): Promise<void> {
   await ensureGalleryLocalDb();
   revokeBlobUrlForImage(img.id);
+  await clearWatermarkedThumbCacheForImage(img.id);
   await galleryLocalDb.gallery_images.delete(img.id);
   await galleryLocalDb.galleries.update(img.gallery_id, { updated_at: new Date().toISOString() });
 }
@@ -852,6 +912,7 @@ export async function deleteGallery(galleryId: string): Promise<void> {
   const imgs = await galleryLocalDb.gallery_images.where("gallery_id").equals(galleryId).toArray();
   for (const i of imgs) {
     revokeBlobUrlForImage(i.id);
+    await clearWatermarkedThumbCacheForImage(i.id);
   }
   await galleryLocalDb.gallery_images.where("gallery_id").equals(galleryId).delete();
   await galleryLocalDb.gallery_feedback.where("gallery_id").equals(galleryId).delete();
