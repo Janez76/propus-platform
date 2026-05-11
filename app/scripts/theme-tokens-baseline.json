@@ -1,7 +1,7 @@
 {
   "note": "Auto-generated. New violations relative to this snapshot fail CI. Run `npm run theme:lint:update` after intentional cleanups.",
-  "generatedAt": "2026-05-11T10:04:26.275Z",
-  "count": 975,
+  "generatedAt": "2026-05-11T13:29:37.463Z",
+  "count": 986,
   "violations": [
     {
       "file": "src/app/(admin)/assistant/_components/ConversationView.tsx",
@@ -37,6 +37,61 @@
       "file": "src/app/(admin)/assistant/_components/TrainingPanel.tsx",
       "token": "text-white",
       "line": 781
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-300",
+      "line": 46
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-500",
+      "line": 47
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "divide-gray-100",
+      "line": 61
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "border-gray-200",
+      "line": 61
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "bg-gray-50",
+      "line": 66
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-500",
+      "line": 72
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-400",
+      "line": 79
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "bg-gray-100",
+      "line": 99
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-600",
+      "line": 99
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "bg-gray-100",
+      "line": 101
+    },
+    {
+      "file": "src/app/(admin)/orders/[id]/bildauswahl/page.tsx",
+      "token": "text-gray-600",
+      "line": 101
     },
     {
       "file": "src/app/(admin)/orders/[id]/kommunikation/kommunikation-composer.tsx",
@@ -4031,52 +4086,57 @@
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 774
+      "line": 810
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "border-black",
-      "line": 784
+      "line": 820
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-white",
-      "line": 784
+      "line": 820
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 795
+      "line": 831
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 795
+      "line": 831
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 805
+      "line": 841
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 805
+      "line": 841
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "bg-black",
-      "line": 813
+      "line": 849
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "text-white",
-      "line": 827
+      "line": 863
     },
     {
       "file": "src/pages-legacy/OrdersPage.tsx",
       "token": "text-white",
-      "line": 940
+      "line": 927
+    },
+    {
+      "file": "src/pages-legacy/OrdersPage.tsx",
+      "token": "text-white",
+      "line": 1001
     },
     {
       "file": "src/pages-legacy/PaymentSettingsPage.tsx",
@@ -4459,16 +4519,6 @@
       "line": 909
     },
     {
-      "file": "src/pages-legacy/selekto/SelektoListPage.tsx",
-      "token": "bg-white",
-      "line": 412
-    },
-    {
-      "file": "src/pages-legacy/selekto/SelektoListPage.tsx",
-      "token": "bg-white",
-      "line": 420
-    },
-    {
       "file": "src/pages-legacy/settings/ApiKeysSection.tsx",
       "token": "text-white",
       "line": 108
@@ -4531,7 +4581,12 @@
     {
       "file": "src/pages-legacy/tours/admin/AdminTicketsPage.tsx",
       "token": "text-white",
-      "line": 634
+      "line": 662
+    },
+    {
+      "file": "src/pages-legacy/tours/admin/AdminTicketsPage.tsx",
+      "token": "text-white",
+      "line": 825
     },
     {
       "file": "src/pages-legacy/tours/admin/components/FloorplanOrderDialog.tsx",
