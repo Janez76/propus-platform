@@ -187,7 +187,7 @@ router.put('/email-templates/:tplId', async (req, res) => {
 // Fullsize-Originale bleiben für den Kunden-Download (NAS-Zip) verfügbar.
 router.get('/:id', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const all = await gallery.listGalleryImages(g.id);
     const images = gallery.dedupeGalleryRowsPreferWebsize(all);
@@ -201,6 +201,9 @@ router.get('/:id', async (req, res) => {
 // PATCH /:id — Galerie-Metadaten aktualisieren
 router.patch('/:id', async (req, res) => {
   try {
+    /** Wrong-kind URL (z. B. /admin/bildauswahl/<listing-id>) → 404. */
+    const pre = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!pre) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const row = await gallery.updateGallery(req.params.id, req.body);
     if (!row) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     res.json({ ok: true, gallery: row });
@@ -212,6 +215,8 @@ router.patch('/:id', async (req, res) => {
 // DELETE /:id — Galerie loeschen
 router.delete('/:id', async (req, res) => {
   try {
+    const pre = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!pre) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     await gallery.deleteGallery(req.params.id);
     res.json({ ok: true });
   } catch (e) {
@@ -222,6 +227,8 @@ router.delete('/:id', async (req, res) => {
 // POST /:id/duplicate — Galerie duplizieren
 router.post('/:id/duplicate', async (req, res) => {
   try {
+    const pre = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!pre) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const row = await gallery.duplicateGallery(req.params.id);
     res.json({ ok: true, gallery: row });
   } catch (e) {
@@ -255,7 +262,7 @@ router.patch('/:id/images/:imgId', async (req, res) => {
 // Editor mit vielen Bildern flüssig bleibt. Fullsize bleibt Fallback.
 router.get('/:id/images/:imgId/file', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const images = await gallery.listGalleryImages(g.id);
     const img = images.find((row) => row.id === req.params.imgId);
@@ -277,7 +284,7 @@ router.get('/:id/images/:imgId/file', async (req, res) => {
 // remote_url bleibt redirect (Cloud liefert ihre eigenen Bilder aus).
 router.get('/:id/images/:imgId/thumb', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const images = await gallery.listGalleryImages(g.id);
     const img = images.find((row) => row.id === req.params.imgId);
@@ -302,7 +309,7 @@ router.get('/:id/images/:imgId/thumb', async (req, res) => {
 // GET /:id/floorplans/:index/thumb?w=200|400|600|1200 — JPG-Thumbnail Seite 1.
 router.get('/:id/floorplans/:index/thumb', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const index = Number.parseInt(String(req.params.index || ''), 10);
     if (!Number.isFinite(index) || index < 0) {
@@ -322,7 +329,7 @@ router.get('/:id/floorplans/:index/thumb', async (req, res) => {
 // GET /:id/floorplans/:index/file — Admin-Vorschau fuer Grundriss-PDF
 router.get('/:id/floorplans/:index/file', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const index = Number.parseInt(String(req.params.index || ''), 10);
     if (!Number.isFinite(index) || index < 0) {
@@ -397,7 +404,7 @@ router.post('/:id/import-nas', async (req, res) => {
  */
 router.post('/:id/send-invite', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     if (g.kind !== 'bildauswahl') {
       return res.status(400).json({ ok: false, error: 'Send-invite ist nur fuer Bildauswahl-Galerien.' });
@@ -420,7 +427,7 @@ router.post('/:id/send-invite', async (req, res) => {
 // POST /:id/prewarm-thumbs — manueller Trigger (z. B. nach Watermark-Toggle)
 router.post('/:id/prewarm-thumbs', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const images = await gallery.listGalleryImages(req.params.id);
     /** Synchron warten — Aufrufer sieht die Stats fuer Debug. */
@@ -438,7 +445,7 @@ router.post('/:id/prewarm-thumbs', async (req, res) => {
 // POST /:id/feedback — Office-Rueckfrage erstellen
 router.post('/:id/feedback', async (req, res) => {
   try {
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
     const fb = await gallery.submitFeedback({
       gallery_id: g.id,
@@ -498,7 +505,7 @@ router.post('/:id/send-email', async (req, res) => {
 router.post('/:id/record-sent', async (req, res) => {
   try {
     await gallery.recordEmailSent(req.params.id);
-    const g = await gallery.getGallery(req.params.id);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
     res.json({ ok: true, gallery: g });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

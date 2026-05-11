@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  clearPicdropSelectionDraft,
-  savePicdropSelectionDraft,
-  submitPicdropGallerySelections,
-  tryOpenPicdropAdminNotifyMailto,
-} from "../../lib/selekto/galleryApi";
-import { PATH_SELEKTO_ADMIN as PATH_LISTING_ADMIN } from "../../lib/selekto/paths";
 import "../../styles/selekto/picdrop.css";
+
+const PATH_BILDAUSWAHL_ADMIN = "/admin/bildauswahl";
 
 export type Flag = "bearbeiten" | "staging" | "retusche";
 
@@ -265,12 +260,9 @@ export function PicdropSelectionView({
      * sichtbar bleiben. Beim erneuten "Auswahl aktualisieren" werden die
      * server-seitigen Feedback-Rows ohnehin neu erzeugt.
      */
+    if (!submissionAdapter?.saveDraft) return;
     const t = window.setTimeout(() => {
-      if (submissionAdapter?.saveDraft) {
-        void submissionAdapter.saveDraft(byId);
-      } else {
-        void savePicdropSelectionDraft(gid, byId);
-      }
+      void submissionAdapter.saveDraft?.(byId);
     }, 500);
     return () => window.clearTimeout(t);
   }, [byId, galleryId, loading, images.length, submissionAdapter]);
@@ -357,24 +349,15 @@ export function PicdropSelectionView({
             };
           })
           .filter((x): x is NonNullable<typeof x> => x != null);
-        if (submissionAdapter) {
-          await submissionAdapter.submit(items);
-          if (submissionAdapter.clearDraft) await submissionAdapter.clearDraft();
-          if (customerMode && submissionAdapter.onAdminNotify) {
-            submissionAdapter.onAdminNotify(
-              items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
-            );
-          }
-        } else {
-          await submitPicdropGallerySelections({ galleryId: gid, gallerySlug: gslug, items });
-          await clearPicdropSelectionDraft(gid);
-          if (customerMode) {
-            void tryOpenPicdropAdminNotifyMailto({
-              galleryId: gid,
-              gallerySlug: gslug,
-              items: items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
-            });
-          }
+        if (!submissionAdapter) {
+          throw new Error('submissionAdapter fehlt — der View benoetigt server-seitige Persistenz.');
+        }
+        await submissionAdapter.submit(items);
+        if (submissionAdapter.clearDraft) await submissionAdapter.clearDraft();
+        if (customerMode && submissionAdapter.onAdminNotify) {
+          submissionAdapter.onAdminNotify(
+            items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
+          );
         }
         setSubmitted(true);
       } catch (e) {
@@ -453,7 +436,7 @@ export function PicdropSelectionView({
                     <span className="pd-pill pd-pill-r">{stats.retusche} Retusche</span>
                   ) : null}
                 </div>
-                <Link to={PATH_LISTING_ADMIN} className="pd-backpanel-link">
+                <Link to={PATH_BILDAUSWAHL_ADMIN} className="pd-backpanel-link">
                   <i className="fa-solid fa-table-columns" aria-hidden={true} />
                   Backpanel
                 </Link>

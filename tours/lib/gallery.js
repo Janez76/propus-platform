@@ -707,10 +707,17 @@ async function listGalleries({ search, filter, sort, kind } = {}) {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function getGallery(idOrSlug) {
+async function getGallery(idOrSlug, { kind } = {}) {
   if (idOrSlug == null) return null;
   const value = String(idOrSlug).trim();
   if (!value) return null;
+  if (kind) {
+    const sql = UUID_REGEX.test(value)
+      ? 'SELECT * FROM tour_manager.galleries WHERE id = $1 AND kind = $2'
+      : 'SELECT * FROM tour_manager.galleries WHERE slug = $1 AND kind = $2';
+    const { rows } = await pool.query(sql, [value, kind]);
+    return rows[0] || null;
+  }
   const sql = UUID_REGEX.test(value)
     ? 'SELECT * FROM tour_manager.galleries WHERE id = $1'
     : 'SELECT * FROM tour_manager.galleries WHERE slug = $1';
@@ -919,8 +926,9 @@ async function duplicateGallery(id) {
     `INSERT INTO tour_manager.galleries
        (slug, title, address, customer_id, customer_contact_id, booking_order_no, client_name, client_contact, client_email, status,
         matterport_input, cloud_share_url, storage_source_type, storage_root_kind, storage_relative_path,
-        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json, videos_json)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inactive', $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+        video_source_type, video_source_root_kind, video_source_path, video_url, floor_plans_json, videos_json,
+        kind, watermark_enabled)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inactive', $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
      RETURNING *`,
     [
       newSlug,
@@ -943,6 +951,8 @@ async function duplicateGallery(id) {
       src.video_url,
       src.floor_plans_json,
       src.videos_json,
+      src.kind === 'bildauswahl' ? 'bildauswahl' : 'listing',
+      src.watermark_enabled !== false,
     ]
   );
   const newGallery = rows[0];
