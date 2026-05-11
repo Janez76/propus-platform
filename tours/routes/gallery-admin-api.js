@@ -10,6 +10,7 @@ const router = express.Router();
 const gallery = require('../lib/gallery');
 const { prewarmPublicThumbs } = require('../lib/gallery-thumbs');
 const { sendMailDirect } = require('../lib/microsoft-graph');
+const { sendInviteMail } = require('../lib/bildauswahl-emails');
 
 /**
  * Background-Prewarm: nach Import alle Bilder einer Galerie auf die
@@ -384,6 +385,33 @@ router.post('/:id/import-nas', async (req, res) => {
     /** Fire-and-forget: Thumbnails im Hintergrund pre-rendern. */
     void prewarmThumbsForGallery(req.params.id);
     res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * POST /:id/send-invite — Kunden-Einladungsmail (Vorlage `propus-bildauswahl-invite-v1`)
+ * an `client_email` versenden + Galerie als versendet markieren.
+ * Nur sinnvoll fuer kind=bildauswahl.
+ */
+router.post('/:id/send-invite', async (req, res) => {
+  try {
+    const g = await gallery.getGallery(req.params.id);
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    if (g.kind !== 'bildauswahl') {
+      return res.status(400).json({ ok: false, error: 'Send-invite ist nur fuer Bildauswahl-Galerien.' });
+    }
+    const proto = String(req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).split(',')[0];
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+    const siteBaseUrl = host ? `${proto}://${host}` : null;
+    const r = await sendInviteMail({ gallery: g, siteBaseUrl });
+    await gallery.updateGallery(g.id, {
+      client_delivery_status: 'sent',
+      client_delivery_sent_at: new Date().toISOString(),
+      client_log_email_received_at: g.client_log_email_received_at || new Date().toISOString(),
+    });
+    res.json({ ok: true, ...r });
   } catch (e) {
     res.status(400).json({ ok: false, error: e.message });
   }

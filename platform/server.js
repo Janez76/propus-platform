@@ -174,9 +174,15 @@ main.use(booking.app);
 
 const PORT = parseInt(process.env.PORT || "3100", 10);
 
+const { ensureDefaultBildauswahlEmailTemplates } = require("../tours/lib/bildauswahl-emails");
+
 (async () => {
   try {
     await booking.startServer();
+    /** Bildauswahl: leere E-Mail-Vorlagen beim Boot mit Default-HTML füllen. */
+    void ensureDefaultBildauswahlEmailTemplates().catch((err) =>
+      console.warn("[propus-platform] bildauswahl ensureDefaultEmailTemplates failed:", err?.message || err),
+    );
     main.listen(PORT, "0.0.0.0", () => {
       console.log(`[propus-platform] listening on http://0.0.0.0:${PORT}`);
       console.log(

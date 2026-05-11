@@ -8,6 +8,7 @@ const archiver = require('archiver');
 const gallery = require('../lib/gallery');
 const { pool } = require('../lib/db');
 const { ensurePublicThumb, parsePublicThumbWidth } = require('../lib/gallery-thumbs');
+const { sendAdminNotifyMail } = require('../lib/bildauswahl-emails');
 
 function normalizeMatterportSrc(raw) {
   const trimmed = (raw || '').trim();
@@ -426,8 +427,39 @@ router.post('/:slug/selection', async (req, res) => {
     if (!g) return res.status(404).json({ ok: false, error: 'Bildauswahl nicht verfügbar.' });
     const items = Array.isArray(req.body?.items) ? req.body.items : null;
     if (!items) return res.status(400).json({ ok: false, error: 'items[] erforderlich.' });
-    await gallery.submitPicdropSelection({ galleryId: g.id, gallerySlug: g.slug, items });
-    res.json({ ok: true });
+
+    /**
+     * 1) Auswahl persistieren als Feedback-Rows (eine pro Bild, mit Flags
+     *    in selection_flags_json und Body = zusammengefuegte Kommentare).
+     */
+    const persisted = await gallery.submitPicdropSelection({ galleryId: g.id, gallerySlug: g.slug, items });
+
+    /**
+     * 2) Admin per Mail benachrichtigen — Fire-and-forget, Versand-Fehler
+     *    sollen die Kundenseite nicht blockieren.
+     */
+    const mailItems = (persisted || []).map((row) => {
+      let flags = [];
+      try { flags = row.selection_flags_json ? JSON.parse(row.selection_flags_json) : []; }
+      catch { flags = []; }
+      return {
+        asset_label: row.asset_label,
+        flags,
+        body: row.body || '',
+      };
+    });
+    const proto = String(req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http')).split(',')[0];
+    const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+    const siteBaseUrl = host ? `${proto}://${host}` : null;
+    void sendAdminNotifyMail({ gallery: g, items: mailItems, siteBaseUrl })
+      .then((r) => {
+        if (r?.skipped) console.log('[bildauswahl] admin-notify skipped:', r.skipped);
+        else if (!r?.success) console.warn('[bildauswahl] admin-notify failed:', r?.error);
+        else console.log('[bildauswahl] admin-notify sent to', r.to);
+      })
+      .catch((err) => console.warn('[bildauswahl] admin-notify threw:', err?.message || err));
+
+    res.json({ ok: true, count: persisted.length });
   } catch (e) {
     res.status(400).json({ ok: false, error: e.message });
   }
