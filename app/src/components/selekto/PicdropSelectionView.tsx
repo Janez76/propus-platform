@@ -161,6 +161,23 @@ function ThumbVisual({ img, restrictDownloadGestures }: { img: PicdropImage; res
   );
 }
 
+/**
+ * Optionaler Adapter, der die IndexedDB-basierten Submit/Draft-Funktionen
+ * ueberschreibt. Wird vom server-backed Bildauswahl-Modul genutzt, damit
+ * der View weiterverwendet werden kann ohne IndexedDB-Abhaengigkeit.
+ */
+export type PicdropSubmissionAdapter = {
+  submit: (items: Array<{
+    asset_key: string;
+    asset_label: string;
+    flags: readonly Flag[];
+    messageLines: readonly string[];
+  }>) => Promise<void>;
+  saveDraft?: (state: Record<string, ImageState>) => Promise<void>;
+  clearDraft?: () => Promise<void>;
+  onAdminNotify?: (items: Array<{ asset_label: string; messageLines: readonly string[] }>) => void;
+};
+
 export type PicdropSelectionViewProps = {
   projectTitle: string;
   images: PicdropImage[];
@@ -179,6 +196,8 @@ export type PicdropSelectionViewProps = {
   initialPicdropDraftJson?: string | null;
   /** PROPUS-Wasserzeichen auf Raster und Lightbox (Standard: an) */
   watermarkEnabled?: boolean;
+  /** Wenn gesetzt: ersetzt IndexedDB-Submit/Draft durch eigene Callbacks (server-backed). */
+  submissionAdapter?: PicdropSubmissionAdapter;
 };
 
 export function PicdropSelectionView({
@@ -193,6 +212,7 @@ export function PicdropSelectionView({
   gallerySlug = null,
   initialPicdropDraftJson = null,
   watermarkEnabled = true,
+  submissionAdapter = undefined,
 }: PicdropSelectionViewProps) {
   const imageKeySig = useMemo(() => images.map((i) => i.key).join("|"), [images]);
 
@@ -240,10 +260,14 @@ export function PicdropSelectionView({
     const gid = galleryId?.trim();
     if (!gid || submitted || loading || images.length === 0) return;
     const t = window.setTimeout(() => {
-      void savePicdropSelectionDraft(gid, byId);
+      if (submissionAdapter?.saveDraft) {
+        void submissionAdapter.saveDraft(byId);
+      } else {
+        void savePicdropSelectionDraft(gid, byId);
+      }
     }, 500);
     return () => window.clearTimeout(t);
-  }, [byId, galleryId, submitted, loading, images.length]);
+  }, [byId, galleryId, submitted, loading, images.length, submissionAdapter]);
 
   const openLb = useCallback((idx: number) => {
     setLightboxIndex(idx);
@@ -327,14 +351,24 @@ export function PicdropSelectionView({
             };
           })
           .filter((x): x is NonNullable<typeof x> => x != null);
-        await submitPicdropGallerySelections({ galleryId: gid, gallerySlug: gslug, items });
-        await clearPicdropSelectionDraft(gid);
-        if (customerMode) {
-          void tryOpenPicdropAdminNotifyMailto({
-            galleryId: gid,
-            gallerySlug: gslug,
-            items: items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
-          });
+        if (submissionAdapter) {
+          await submissionAdapter.submit(items);
+          if (submissionAdapter.clearDraft) await submissionAdapter.clearDraft();
+          if (customerMode && submissionAdapter.onAdminNotify) {
+            submissionAdapter.onAdminNotify(
+              items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
+            );
+          }
+        } else {
+          await submitPicdropGallerySelections({ galleryId: gid, gallerySlug: gslug, items });
+          await clearPicdropSelectionDraft(gid);
+          if (customerMode) {
+            void tryOpenPicdropAdminNotifyMailto({
+              galleryId: gid,
+              gallerySlug: gslug,
+              items: items.map((it) => ({ asset_label: it.asset_label, messageLines: it.messageLines })),
+            });
+          }
         }
         setSubmitted(true);
       } catch (e) {
@@ -345,7 +379,7 @@ export function PicdropSelectionView({
       return;
     }
     setSubmitted(true);
-  }, [byId, customerMode, galleryId, gallerySlug, images]);
+  }, [byId, customerMode, galleryId, gallerySlug, images, submissionAdapter]);
 
   useEffect(() => {
     if (lightboxIndex !== null) setChatDraft("");

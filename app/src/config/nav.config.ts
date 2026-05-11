@@ -280,6 +280,13 @@ export const navConfig: NavSection[] = [
           { id: "selekto-templates", to: "/admin/selekto/templates", labelKey: "nav.item.selektoTemplates", icon: Mail },
         ],
       },
+      {
+        id: "bildauswahl",
+        to: "/admin/bildauswahl",
+        labelKey: "nav.item.bildauswahl",
+        icon: ScanEye,
+        matchNested: true,
+      },
     ],
   },
 

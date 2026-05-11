@@ -55,6 +55,9 @@ const ChangelogPage = lazy(() => import("../pages-legacy/ChangelogPage").then((m
 const ExxasReconcilePage = lazy(() => import("../pages-legacy/ExxasReconcilePage").then((m) => ({ default: m.ExxasReconcilePage })));
 const SelektoListPage = lazy(() => import("../pages-legacy/selekto/SelektoListPage").then((m) => ({ default: m.SelektoListPage })));
 const SelektoEditorPage = lazy(() => import("../pages-legacy/selekto/SelektoEditorPage").then((m) => ({ default: m.SelektoEditorPage })));
+const BildauswahlListPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlListPage").then((m) => ({ default: m.BildauswahlListPage })));
+const BildauswahlEditorPage = lazy(() => import("../pages-legacy/admin/bildauswahl/BildauswahlEditorPage").then((m) => ({ default: m.BildauswahlEditorPage })));
+const ClientBildauswahlPage = lazy(() => import("../pages-legacy/bildauswahl/ClientBildauswahlPage").then((m) => ({ default: m.ClientBildauswahlPage })));
 const SelektoEmailTemplatesPage = lazy(() => import("../pages-legacy/selekto/SelektoEmailTemplatesPage").then((m) => ({ default: m.SelektoEmailTemplatesPage })));
 const SelektoCreateRedirect = lazy(() => import("../pages-legacy/selekto/SelektoCreateRedirect").then((m) => ({ default: m.SelektoCreateRedirect })));
 const ClientSelektoPage = lazy(() => import("../pages-legacy/selekto/ClientSelektoPage").then((m) => ({ default: m.ClientSelektoPage })));
@@ -301,6 +304,8 @@ function PrivateRoutes() {
         <Route path="/admin/listing/templates" element={eg("/admin/listing", <ListingEmailTemplatesPage />)} />
         <Route path="/admin/listing/:id" element={eg("/admin/listing", <ListingEditorPage />)} />
         <Route path="/admin/listing" element={eg("/admin/listing", <ListingListPage />)} />
+        <Route path="/admin/bildauswahl/:id" element={eg("/admin/bildauswahl", <BildauswahlEditorPage />)} />
+        <Route path="/admin/bildauswahl" element={eg("/admin/bildauswahl", <BildauswahlListPage />)} />
       </Routes>
     </AppShell>
   );
@@ -343,6 +348,7 @@ export default function ClientShell() {
             <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
             <Route path="/print/order/:orderNo" element={<PrintOrderPage />} />
             <Route path="/listing/:slug" element={<ClientListingPage />} />
+            <Route path="/bildauswahl/:slug" element={<ClientBildauswahlPage />} />
             <Route path="/selekto/bilder-auswahl" element={<Navigate to="/admin/selekto" replace />} />
             <Route path="/selekto/bilder-auswahl/templates" element={<Navigate to="/admin/selekto/templates" replace />} />
             <Route path="/selekto/bilder-auswahl/galleries/:id" element={<LegacyBildauswahlGalleryRedirect />} />

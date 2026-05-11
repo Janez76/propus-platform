@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutGrid, MapPin, ListChecks, CalendarClock,
-  MessagesSquare, Folder, Link2, History, Image,
+  MessagesSquare, Folder, Link2, History, Image, CheckSquare,
 } from "lucide-react";
 import { useOrderEditShellOptional } from "./order-edit-shell-context";
 
@@ -23,6 +23,7 @@ function getTabs(orderId: string): Tab[] {
     { href: `/orders/${orderId}/kommunikation`, label: "Kommunikation",   icon: MessagesSquare },
     { href: `/orders/${orderId}/dateien`,       label: "Dateien",         icon: Folder },
     { href: `/orders/${orderId}/listing`,         label: "Listing",         icon: Image },
+    { href: `/orders/${orderId}/bildauswahl`,     label: "Bildauswahl",     icon: CheckSquare },
     { href: `/orders/${orderId}/verknuepfungen`, label: "Verknüpfungen",  icon: Link2 },
     { href: `/orders/${orderId}/verlauf`,       label: "Verlauf",         icon: History },
   ];

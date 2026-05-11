@@ -89,6 +89,10 @@ const nextConfig: NextConfig = {
           destination: `${PLATFORM_INTERNAL_URL}/api/listing/:path*`,
         },
         {
+          source: "/api/bildauswahl/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/bildauswahl/:path*`,
+        },
+        {
           source: "/auth/:path*",
           destination: `${PLATFORM_INTERNAL_URL}/auth/:path*`,
         },

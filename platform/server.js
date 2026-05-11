@@ -38,6 +38,8 @@ const posteingangAdminApi = require("../tours/routes/posteingang-admin-api");
 const toursCronApi = require("../tours/routes/cron-api");
 const galleryAdminApi = require("../tours/routes/gallery-admin-api");
 const galleryPublicApi = require("../tours/routes/gallery-public-api");
+const bildauswahlAdminApi = require("../tours/routes/bildauswahl-admin-api");
+const bildauswahlPublicApi = require("../tours/routes/bildauswahl-public-api");
 const adminSearchApi = require("../tours/routes/admin-search");
 const posteingangWebhook = require("../tours/routes/posteingang-webhook");
 
@@ -139,9 +141,11 @@ main.use(
 );
 main.use("/api/tours/admin", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, toursAdminApi);
 main.use("/api/tours/admin/galleries", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, galleryAdminApi);
+main.use("/api/tours/admin/bildauswahl", express.json(), toursSessionMiddleware, bridgeBookingAdminSession, requireAdmin, bildauswahlAdminApi);
 main.use("/api/tours/cron", express.json(), toursCronApi);
 main.use("/api/tours/posteingang/webhook", posteingangWebhook);
 main.use("/api/listing", express.json(), galleryPublicApi);
+main.use("/api/bildauswahl", express.json(), bildauswahlPublicApi);
 
 // Bereinigungslauf-Aktionsseiten: öffentlich auf Root-Ebene erreichbar (Token-Links in E-Mails zeigen auf /cleanup/...)
 main.set("view engine", "ejs");
