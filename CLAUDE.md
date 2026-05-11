@@ -155,11 +155,39 @@ Tabelle `tour_manager.tickets`, UI unter `/admin/tickets`. Pflichtfelder:
 
 ## 8. Obsidian-Vault als Wissensspeicher
 
+Janez führt einen privaten Obsidian-Vault als zweite Wissensquelle.
+
+### Lokale Sessions (Windows-PC)
+
 Der MCP-Server **`obsidian`** ist in `~/.claude.json` global registriert und
 beim Start jeder Claude-Code-Session automatisch verbunden. Er gibt dir Lese-
 und Schreibzugriff auf:
 
 `C:\Users\svajc\Documents\Obsidian Vault`
+
+### Cloud-Sessions (web.claude.ai / Container ohne Filesystem-Zugriff)
+
+Wenn `C:\Users\svajc\...` nicht erreichbar ist (typisch: gepartiteter Container,
+keine Windows-Pfade), **kloniere den Vault zu Beginn der Session** aus dem
+privaten GitHub-Spiegel:
+
+```bash
+git clone https://github.com/Janez76/obsidian-vault.git /tmp/vault
+```
+
+Danach arbeitest du im Container mit `/tmp/vault/` als Vault-Wurzel. Schreibe
+neue Notizen genauso wie lokal, und wenn die Aufgabe abgeschlossen ist:
+
+```bash
+cd /tmp/vault
+git add . && git commit -m "notes: <was-getan>" && git push
+```
+
+Janez' Windows-Rechner zieht die Änderungen automatisch durch den stündlich
+laufenden Auto-Pull (Task Scheduler: `ObsidianVaultAutoPush`).
+
+**Mache diesen Klon-Schritt ungefragt zu Beginn jeder Cloud-Session** —
+es ist Teil von Janez' Standard-Workflow, nicht Optional.
 
 Das Regelwerk dort (`CLAUDE.md` im Vault-Root) gilt für alle Vault-Schreibe.
 Die wichtigsten Ordner für Repo-bezogene Inhalte:
