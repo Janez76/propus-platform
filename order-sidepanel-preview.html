@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OrderSidePanel – Vorschau v2 (UI + UX)</title>
+<style>
+  :root{
+    --bg:#08080a; --surface:#161618; --surface-2:#1d1d21; --surface-3:#232328; --border:#2c2c31;
+    --text:#ececee; --subtle:#9a9aa2; --faint:#6a6a72; --accent:#c9a44c; --accent-soft:rgba(201,164,76,.14);
+    --ok:#5fb87a; --warn:#e0a03c; --danger:#e06a5a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;display:flex;min-height:100vh}
+  .backdrop{flex:1;padding:32px;opacity:.3;user-select:none}
+  .backdrop h1{font-size:24px;font-weight:600;margin-bottom:4px}
+  .backdrop .sub{color:var(--subtle);font-size:13px}
+  .backdrop .rows{margin-top:32px;display:flex;flex-direction:column;gap:8px}
+  .backdrop .rows>div{height:48px;border-radius:6px;background:rgba(255,255,255,.05)}
+  .backdrop .rows>div:nth-child(3){background:rgba(255,255,255,.1)}
+
+  aside.panel{width:460px;min-width:460px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:100vh}
+
+  /* header */
+  .hd{padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+  .hd-top{display:flex;align-items:center;gap:10px}
+  .hd-top h2{font-size:17px;font-weight:600;white-space:nowrap}
+  .badge{border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600}
+  .badge.warn{background:rgba(224,160,60,.16);color:var(--warn)}
+  .close-x{margin-left:auto;background:none;border:none;color:var(--subtle);font-size:13px;cursor:pointer;white-space:nowrap}
+  .syncrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--border);border-radius:999px;font-size:11px;padding:2px 8px;color:var(--subtle);display:inline-flex;align-items:center;gap:5px}
+  .chip .dot{width:6px;height:6px;border-radius:50%}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.muted{background:var(--faint)}
+  .qa{margin-top:13px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .qa button{background:none;border:1px solid var(--border);border-radius:8px;padding:7px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--subtle);cursor:pointer;transition:.15s}
+  .qa button:hover{color:var(--text);border-color:var(--accent);background:var(--accent-soft)}
+  .qa .ic{font-size:15px;line-height:1}
+
+  /* next-action banner */
+  .nextact{margin-top:12px;display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid rgba(201,164,76,.3);border-radius:8px;padding:8px 10px;font-size:12.5px}
+  .nextact .t{color:var(--text);font-weight:600}
+  .nextact .go{margin-left:auto;background:var(--accent);color:#1a1a1d;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+
+  /* tabs */
+  .tabs{padding:11px 20px 9px;display:flex;gap:6px;border-bottom:1px solid var(--border)}
+  .tab{border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--subtle);cursor:pointer;border:none;background:none}
+  .tab.active{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(201,164,76,.35)}
+
+  /* body */
+  .body{padding:14px 20px;display:flex;flex-direction:column;gap:11px;overflow:auto}
+  section.card{border:1px solid var(--border);background:var(--surface-2);border-radius:8px;padding:11px 12px}
+  section.card.dim{opacity:.5}
+  .lbl-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--subtle);font-weight:600}
+  .lbl-row .edit{margin-left:auto;background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer}
+  .caret{margin-left:auto;color:var(--faint);font-size:11px;cursor:pointer}
+  .line{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+  .line:last-child{margin-bottom:0}
+  .line .ic{flex:none;color:var(--subtle);font-size:14px;line-height:1.4;width:16px;text-align:center}
+  .name{font-weight:600}
+  a.link{color:var(--accent);text-decoration:none}
+  a.link:hover{text-decoration:underline}
+  .muted{color:var(--faint);font-style:italic}
+  .mini{font-size:11px;color:var(--subtle);background:none;border:1px solid var(--border);border-radius:5px;padding:1px 6px;cursor:pointer;margin-left:6px}
+  /* inline editors (UX) */
+  .inline-sel{background:var(--surface-3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:13px;color:var(--text);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .inline-sel .cv{color:var(--faint);font-size:10px}
+  .pillrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+  .pill{border:1px solid var(--border);border-radius:999px;padding:2px 9px;font-size:11px;color:var(--subtle);cursor:pointer}
+  .pill.sel{background:var(--accent-soft);color:var(--accent);border-color:rgba(201,164,76,.4)}
+  .kv{display:flex;justify-content:space-between;gap:12px;margin-bottom:4px}
+  .kv .k{color:var(--subtle)}
+  .kv .v{font-weight:500}
+  .total{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;margin-top:6px;font-size:16px;font-weight:600;color:var(--accent)}
+  ul.events{list-style:none;font-size:12px;color:var(--subtle);display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+  ul.events .when{opacity:.7}
+
+  .ft{margin-top:auto;padding:11px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+  .btn-ghost{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;color:var(--subtle);cursor:pointer}
+  .btn-primary{background:var(--accent);color:#1a1a1d;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+
+  .legend{position:fixed;left:16px;bottom:16px;max-width:400px;font-size:11.5px;color:var(--faint);background:rgba(0,0,0,.45);padding:10px 12px;border-radius:8px;border:1px solid var(--border);line-height:1.5}
+  .legend b{color:var(--subtle)}
+</style>
+</head>
+<body>
+  <div class="backdrop">
+    <h1>Bestellungen</h1>
+    <div class="sub">Verwaltung aller Foto-Aufträge und Terminplanung</div>
+    <div class="rows"><div></div><div></div><div></div><div></div></div>
+  </div>
+
+  <aside class="panel">
+    <div class="hd">
+      <div class="hd-top">
+        <h2>Bestellung #100114</h2>
+        <span class="badge warn">Ausstehend</span>
+        <button class="close-x">Schliessen ✕</button>
+      </div>
+      <div class="syncrow">
+        <span class="chip"><span class="dot ok"></span>Kalender · synced</span>
+        <span class="chip"><span class="dot muted"></span>Exxas · nicht übermittelt</span>
+        <span class="chip"><span class="dot muted"></span>bexio · offen</span>
+      </div>
+      <div class="qa">
+        <button><span class="ic">🗓️</span>Termin</button>
+        <button><span class="ic">📷</span>Fotograf</button>
+        <button><span class="ic">⚙️</span>Status</button>
+        <button><span class="ic">↗</span>Voll</button>
+      </div>
+      <!-- UX: kontextueller "nächster Schritt" -->
+      <div class="nextact">
+        <span>⚠️</span>
+        <span><span class="t">Kein Fotograf zugewiesen</span> — Termin in 1 Tag</span>
+        <button class="go">Jetzt zuweisen</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active">Übersicht</button>
+      <button class="tab">Kunde</button>
+      <button class="tab">Verlauf</button>
+    </div>
+
+    <div class="body">
+      <!-- Kunde -->
+      <section class="card">
+        <div class="lbl-row"><span class="lbl">Kunde</span><span class="caret">▾</span></div>
+        <div class="line"><span class="ic">👤</span><div>
+          <div class="name">Yves Schmid</div>
+          <div><a class="link" href="#">yves.schmid@engelvoelkers.com</a> <button class="mini">kopieren</button></div>
+          <div><a class="link" href="#">041 410 66 91</a></div>
+        </div></div>
+      </section>
+
+      <!-- Termin & Adresse, mit Inline-Edit -->
+      <section class="card">
+        <div class="lbl-row"><span class="lbl">Termin &amp; Adresse</span><button class="edit">bearbeiten</button></div>
+        <div class="line"><span class="ic">🗓️</span><div>
+          <span class="inline-sel">13.05.2026, 14:00 <span class="cv">▾</span></span>
+          <span style="color:var(--subtle);font-size:12px"> · 90 Min.</span>
+        </div></div>
+        <div class="line"><span class="ic">📍</span><div>Sackweidstrasse 1, 6010 Kriens
+          <a class="link" href="#" style="font-size:12px;margin-left:6px">Karte ↗</a>
+          <button class="mini">kopieren</button></div></div>
+        <div class="line"><span class="ic">📷</span><div>
+          <span style="color:var(--subtle)">Fotograf: </span>
+          <span class="inline-sel" style="color:var(--faint)">nicht zugewiesen <span class="cv">▾</span></span>
+          <div class="pillrow">
+            <span class="pill">Ivan</span><span class="pill">Janez</span><span class="pill">Marko</span><span class="pill">+ andere…</span>
+          </div>
+        </div></div>
+      </section>
+
+      <!-- Objekt: leer -> ausgeblendet (hier nur als Hinweis dargestellt) -->
+      <section class="card dim">
+        <div class="lbl-row"><span class="lbl">Objekt</span></div>
+        <div class="muted">Keine Objektdaten — Sektion wird ausgeblendet</div>
+      </section>
+
+      <!-- Zusammenfassung -->
+      <section class="card">
+        <div class="lbl-row"><span class="lbl">Zusammenfassung</span><span class="caret">▾</span></div>
+        <div class="line"><span class="ic">📦</span><div class="muted">Kein Paket gewählt</div></div>
+        <div class="kv"><span class="k">Zwischensumme</span><span class="v">CHF 318.00</span></div>
+        <div class="kv"><span class="k">MwSt. 8.1 %</span><span class="v">CHF 25.75</span></div>
+        <div class="total"><span>Total</span><span>CHF 343.75</span></div>
+      </section>
+
+      <!-- Mini-Verlauf -->
+      <section class="card">
+        <div class="lbl-row"><span class="lbl">Letzte Ereignisse</span></div>
+        <ul class="events">
+          <li><span>🗓️</span><span>Termin</span><span class="when">· 13.05.2026, 14:00</span></li>
+          <li><span>⏳</span><span>Bestätigung ausstehend</span><span class="when">· seit 09.05.2026</span></li>
+        </ul>
+        <a class="link" href="#" style="font-size:12px">Vollständige Historie öffnen →</a>
+      </section>
+    </div>
+
+    <div class="ft">
+      <button class="btn-ghost">Schliessen</button>
+      <a class="btn-primary" href="#">↗ Volle Ansicht</a>
+    </div>
+  </aside>
+
+  <div class="legend">
+    <b>v2 — UI + UX.</b> Neu ggü. v1:
+    kontextueller „nächster Schritt"-Banner oben ·
+    Inline-Editoren (Termin per Dropdown, Fotograf per Pills — kein Seitenwechsel) ·
+    „bearbeiten" je Sektion · kollabierbare Sektionen (▾) · Status-Sync mit Ampel-Punkten ·
+    „kopieren" bei E-Mail/Adresse · ausgegraute/ausgeblendete Leerzustände · Total mit Subtotal+MwSt.
+    <br><i>Mockup — der echte <code>OrderSidePanel.tsx</code> in PR #479 setzt die UI-Punkte um; Inline-Mutationen sind noch offen.</i>
+  </div>
+</body>
+</html>
