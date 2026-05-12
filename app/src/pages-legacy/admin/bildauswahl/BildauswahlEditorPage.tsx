@@ -1797,7 +1797,13 @@ export function BildauswahlEditorPage() {
                     <div className="font-semibold">NAS-Verbindung fehlgeschlagen</div>
                     <div className="mt-1 text-xs text-rose-700">
                       {failingRoots
-                        .map((r) => `${r.key === "rawRoot" ? "Raw-Root" : "Kunden-Root"} fehlt${r.error ? ` (${r.error})` : ""}`)
+                        .map((r) => {
+                          const label =
+                            r.key === "rawRoot" ? "Raw-Root"
+                            : r.key === "selectionRoot" ? "Zur Auswahl"
+                            : "Kunden-Root";
+                          return `${label} fehlt${r.error ? ` (${r.error})` : ""}`;
+                        })
                         .join(" · ")}
                     </div>
                     <div className="mt-1 text-xs text-rose-600">
@@ -1902,7 +1908,9 @@ export function BildauswahlEditorPage() {
 
           {(() => {
             const anyRootOk = nasHealth.some((h) => h.key !== "stagingRoot" && h.ok);
-            const selectedRootOk = nasHealth.find((h) => h.key === (nasRootKind === "raw" ? "rawRoot" : "customerRoot"))?.ok === true;
+            const healthKeyFor = (k: "customer" | "raw" | "selection") =>
+              k === "raw" ? "rawRoot" : k === "selection" ? "selectionRoot" : "customerRoot";
+            const selectedRootOk = nasHealth.find((h) => h.key === healthKeyFor(nasRootKind))?.ok === true;
             // Wenn kein NAS-Root verfuegbar ist, blenden wir den Browser komplett
             // aus — die Fehler-Hinweis-Box steht oben (Verbindungsstatus).
             if (nasHealth.length > 0 && !anyRootOk) return null;
@@ -1911,6 +1919,17 @@ export function BildauswahlEditorPage() {
             const pathSegments = nasRelativePath
               ? nasRelativePath.split("/").filter(Boolean)
               : [];
+
+            const rootButtonLabel: Record<"customer" | "raw" | "selection", string> = {
+              customer: "Kunden",
+              raw: "Raw",
+              selection: "Zur Auswahl",
+            };
+            const rootButtonIcon: Record<"customer" | "raw" | "selection", string> = {
+              customer: "fa-solid fa-folder",
+              raw: "fa-solid fa-folder-tree",
+              selection: "fa-solid fa-images",
+            };
 
             return (
               <>
@@ -1924,8 +1943,8 @@ export function BildauswahlEditorPage() {
                       Manuell durchsuchen
                     </span>
                     <div className="flex gap-1">
-                      {(["customer", "raw"] as const).map((kind) => {
-                        const hKey = kind === "raw" ? "rawRoot" : "customerRoot";
+                      {(["selection", "customer", "raw"] as const).map((kind) => {
+                        const hKey = healthKeyFor(kind);
                         const ok = nasHealth.find((h) => h.key === hKey)?.ok === true;
                         return (
                           <button
@@ -1944,13 +1963,8 @@ export function BildauswahlEditorPage() {
                                   : "cursor-not-allowed bg-[var(--surface-raised)] text-[var(--text-subtle)] opacity-40"
                             }`}
                           >
-                            <i
-                              className={
-                                kind === "customer" ? "fa-solid fa-folder" : "fa-solid fa-folder-tree"
-                              }
-                              aria-hidden
-                            />
-                            {kind === "customer" ? "Kunden" : "Raw"}
+                            <i className={rootButtonIcon[kind]} aria-hidden />
+                            {rootButtonLabel[kind]}
                           </button>
                         );
                       })}
@@ -1984,7 +1998,7 @@ export function BildauswahlEditorPage() {
                       onClick={() => void loadNasBrowser(nasRootKind, "")}
                     >
                       <i className="fa-solid fa-house text-[10px]" />
-                      {nasRootKind === "customer" ? "Kunden-Root" : "Raw-Root"}
+                      {nasRootKind === "customer" ? "Kunden-Root" : nasRootKind === "selection" ? "Zur Auswahl" : "Raw-Root"}
                     </button>
                     {pathSegments.map((seg, idx) => {
                       const segPath = pathSegments.slice(0, idx + 1).join("/");
