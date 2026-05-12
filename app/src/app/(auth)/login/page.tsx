@@ -23,24 +23,45 @@ export const metadata: Metadata = {
 };
 
 /**
- * Hintergrundbilder.
+ * Hintergrundbilder der Slideshow.
  *
- * Solange keine echten Propus-Aufnahmen unter `app/public/login/` liegen,
- * bleibt diese Liste leer → die Slideshow rendert nur den dunklen
- * Hintergrund (kein 404 auf nicht vorhandene Bilder). Sobald Bilder da
- * sind, hier eintragen:
- *
- *   { src: "/login/bg-1.jpg", alt: "…", credit: "…", photographer: "Propus Portfolio" }
- *
- * Empfehlung: Querformat, neutral bearbeitet, min. 2000 × 1200 px,
- * WebP/AVIF bevorzugt.
+ * Aktuell vier generierte, dunkle Architektur-Texturen (siehe
+ * `app/scripts/gen-login-bg.mjs`). Sobald echte Propus-Aufnahmen vorliegen,
+ * einfach die WebP-Dateien unter `app/public/login/` ersetzen (Dateinamen
+ * behalten) — oder hier weitere Einträge ergänzen. Empfehlung für echte
+ * Fotos: Querformat, neutral bearbeitet, min. 2000 × 1200 px.
  */
 const BG_IMAGES: readonly {
   src: string;
   alt: string;
   credit: string;
   photographer: string;
-}[] = [];
+}[] = [
+  {
+    src: "/login/bg-1.webp",
+    alt: "Dunkler Architektur-Hintergrund mit warmem Abendlicht",
+    credit: "Modern Living · Abendlicht",
+    photographer: "Propus",
+  },
+  {
+    src: "/login/bg-2.webp",
+    alt: "Kühle Glasfassade, vertikale Linien",
+    credit: "Architektur · Bauhaus-Linie",
+    photographer: "Propus",
+  },
+  {
+    src: "/login/bg-3.webp",
+    alt: "Sichtbeton mit dramatischem Streiflicht",
+    credit: "Material · Beton & Licht",
+    photographer: "Propus",
+  },
+  {
+    src: "/login/bg-4.webp",
+    alt: "Überlagerte Glasflächen, Reflexionen",
+    credit: "Fassade · Reflexionen",
+    photographer: "Propus",
+  },
+];
 
 type LoginSearchParams = Promise<{
   next?: string;
