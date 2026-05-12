@@ -19,7 +19,7 @@ import {
   type StorageBrowseEntry,
 } from "../api/orders";
 import { UploadModalForm } from "../components/orders/UploadModalForm";
-import { normalizeStatusKey, getStatusLabel } from "../lib/status";
+import { normalizeStatusKey } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 
@@ -355,14 +355,29 @@ export function UploadsPage() {
 
   const visibleOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const sortedOrders = [...orders].sort((a, b) => Number(b.orderNo || 0) - Number(a.orderNo || 0));
+    /**
+     * Sortierung nach Shooting-Datum absteigend (neueste oben). Auftraege
+     * ohne appointmentDate (z. B. noch nicht disponiert) wandern ans Ende
+     * — Tiebreaker ist die Auftragsnummer absteigend.
+     */
+    const sortedOrders = [...orders].sort((a, b) => {
+      const da = a.appointmentDate ? new Date(a.appointmentDate).getTime() : 0;
+      const db = b.appointmentDate ? new Date(b.appointmentDate).getTime() : 0;
+      if (Number.isFinite(da) && Number.isFinite(db) && da !== db) {
+        // Beide haben gueltige Daten → das groessere (neuere) zuerst.
+        if (da === 0) return 1;
+        if (db === 0) return -1;
+        return db - da;
+      }
+      return Number(b.orderNo || 0) - Number(a.orderNo || 0);
+    });
     if (!normalized) {
       return sortedOrders
         .filter((order) => {
           const status = normalizeStatusKey(order.status);
           return status === "pending" || status === "provisional" || status === "confirmed" || status === "paused";
         })
-        .slice(0, 5);
+        .slice(0, 6);
     }
     return sortedOrders
       .filter((order) =>
@@ -440,12 +455,20 @@ export function UploadsPage() {
             ) : visibleOrders.length > 0 ? (
               visibleOrders.map((order) => {
                 const isActive = String(order.orderNo) === selectedOrderNo;
-                const statusRaw = String(order.status || "").toLowerCase();
-                const statusCls = /(pending|prov|warten)/.test(statusRaw)
-                  ? "is-pending"
-                  : /(confirmed|aktiv|booked|done|complete)/.test(statusRaw)
-                  ? "is-ok"
-                  : "is-warn";
+                // Shooting-Datum als kompaktes Pill statt Status — der Status
+                // (Ausstehend/Bestaetigt) ist im Auftrags-Detail sichtbar; hier
+                // hilft das Datum bei der visuellen Sortierung.
+                const shootDate = order.appointmentDate
+                  ? (() => {
+                      try {
+                        return new Intl.DateTimeFormat("de-CH", { dateStyle: "short" }).format(
+                          new Date(order.appointmentDate),
+                        );
+                      } catch {
+                        return order.appointmentDate.slice(0, 10);
+                      }
+                    })()
+                  : null;
                 return (
                   <button
                     key={order.orderNo}
@@ -455,8 +478,8 @@ export function UploadsPage() {
                   >
                     <div className="uppv-order-item-head">
                       <span className="uppv-order-num">#{order.orderNo}</span>
-                      <span className={`uppv-order-status ${statusCls}`}>
-                        {getStatusLabel(order.status)}
+                      <span className="uppv-order-date" title={order.appointmentDate || "Kein Shooting-Datum"}>
+                        {shootDate ?? "—"}
                       </span>
                     </div>
                     <div className="uppv-order-addr">{order.address || "-"}</div>
