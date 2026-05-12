@@ -33,7 +33,9 @@ type OrderRow = {
   created_at: string | Date | null;
 };
 
-const openOrderStatusSql = "('done','completed','cancelled','archived')";
+// Status, die einen Auftrag als ERLEDIGT/abgeschlossen markieren. "Offen" =
+// status NOT IN dieser Liste. (Name vorher irreführend: hieß openOrderStatusSql.)
+const closedOrderStatusSql = "('done','completed','cancelled','archived')";
 
 function boundedNumber(value: unknown, fallback: number, max: number): number {
   const n = Number(value);
@@ -70,11 +72,18 @@ function servicesList(services: OrderRow["services"]): string[] {
     .map(([key]) => key);
 }
 
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function normalizeOrder(row: OrderRow) {
   const object = row.object && typeof row.object === "object" ? row.object : null;
   const billing = row.billing && typeof row.billing === "object" ? row.billing : null;
   const photographer = row.photographer && typeof row.photographer === "object" ? row.photographer : null;
   const schedule = row.schedule && typeof row.schedule === "object" ? row.schedule : null;
+
+  const scheduledDate = firstString(schedule, ["date", "scheduledDate"]);
+  const today = todayIsoDate();
 
   return {
     orderNo: row.order_no,
@@ -86,8 +95,12 @@ function normalizeOrder(row: OrderRow) {
     objectLabel: firstString(object, ["label", "type", "title", "name"]),
     services: servicesList(row.services),
     photographerName: firstString(photographer, ["name", "displayName", "key"]),
-    scheduledDate: firstString(schedule, ["date", "scheduledDate"]),
+    scheduledDate,
     scheduledTime: firstString(schedule, ["time", "startTime", "from"]),
+    // true = Termin liegt in der Vergangenheit → NICHT als "nächster Auftrag" bezeichnen.
+    isOverdue: scheduledDate != null && scheduledDate < today,
+    isToday: scheduledDate != null && scheduledDate === today,
+    hasNoDate: scheduledDate == null,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
   };
 }
@@ -101,7 +114,7 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_open_orders",
     description:
-      "Nutze dieses Tool wenn der User nach heutigen, offenen oder bevorstehenden Aufträgen fragt. Listet offene Aufträge aus booking.orders ab heute (vergangene Termine werden NICHT angezeigt — dafür `include_overdue_days` setzen). Aufträge ohne Termin werden weiterhin gezeigt (Backlog). Standard: nächste 14 Tage, max. 50 Einträge.",
+      "Offene Aufträge aus der Buchungs-DB (booking.orders) ab heute. Nutze es bei Fragen nach heutigen/offenen/bevorstehenden Aufträgen. Vergangene Termine erscheinen NICHT, ausser `include_overdue_days` wird gesetzt. Aufträge ohne Termin werden gezeigt (Backlog). Jeder Eintrag hat `isOverdue`/`isToday`/`hasNoDate` — ein Auftrag mit `isOverdue:true` ist NICHT der „nächste Auftrag“. WICHTIG: deckt nur die DB ab — Outlook-only-Termine via get_m365_calendar_overlay, Backbone/BKBN via get_bkbn_orders. Standard: nächste 14 Tage, max. 50.",
     input_schema: {
       type: "object",
       properties: {
@@ -147,13 +160,13 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_today_schedule",
     description:
-      "Nutze dieses Tool wenn nach dem heutigen Tagesplan, heutigen Terminen oder heutigen Aufträgen gefragt wird. Deckt nur Aufträge aus der Buchungs-Datenbank ab — zusätzliche Termine nur in Microsoft 365 (ohne Tool-Buchung) siehe get_m365_calendar_overlay.",
+      "Heutige, noch offene Aufträge aus der Buchungs-DB (Termin = heute, Status nicht erledigt/storniert). Deckt NUR die DB ab. Für „bin ich heute frei?“ / „was steht heute an?“ reicht dieses Tool NICHT — zusätzlich get_m365_calendar_overlay (Outlook) UND get_bkbn_orders (Backbone) abfragen. „Frei“ nur antworten, wenn alle drei leer sind UND keines einen Fehler geliefert hat.",
     input_schema: { type: "object", properties: {} },
   },
   {
     name: "get_m365_calendar_overlay",
     description:
-      "Microsoft-365-Kalendertermine des angemeldeten Nutzers, die nicht bereits als Buchungsauftrag in der DB geführt werden (manuell erfasste Shootings/Meetings in Outlook). Für Fragen zum Gesamtterminplan zusammen mit get_open_orders oder get_today_schedule nutzen.",
+      "Microsoft-365-Kalendertermine des angemeldeten Nutzers, die nicht bereits als Buchungsauftrag in der DB stehen (manuell erfasste Shootings/Meetings in Outlook). Bei Fragen zum Gesamtterminplan zusammen mit get_open_orders/get_today_schedule nutzen. Ergebnis enthält `outlookEnabled` und ggf. `error`/`warning` — bei `error` oder `outlookEnabled:false` darfst du NICHT „keine Termine“ sagen, sondern musst die Unsicherheit nennen.",
     input_schema: {
       type: "object",
       properties: {
@@ -238,7 +251,7 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
       })();
       const rows = await runQuery<OrderRow>(
         `${orderSelect}
-         WHERE status NOT IN ${openOrderStatusSql}
+         WHERE status NOT IN ${closedOrderStatusSql}
            AND (
              NULLIF(schedule->>'date', '') IS NULL
              OR (
@@ -348,7 +361,7 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
       const rows = await runQuery<OrderRow>(
         `${orderSelect}
          WHERE NULLIF(schedule->>'date', '')::date = CURRENT_DATE
-           AND status NOT IN ${openOrderStatusSql}
+           AND status NOT IN ${closedOrderStatusSql}
          ORDER BY NULLIF(schedule->>'time', '') NULLS LAST, created_at DESC
          LIMIT 50`,
         [],
@@ -358,8 +371,15 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
 
     get_m365_calendar_overlay: async (_input: Record<string, unknown>, ctx: ToolContext) => {
       const userEmail = String(ctx.userEmail || "").trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
-        return { error: "Keine gültige Nutzer-E-Mail für den 365-Kalenderzugriff." };
+      const isRealEmail =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail) &&
+        !/\.(local|localhost|internal|lan|test|invalid|example)$/.test(userEmail);
+      if (!isRealEmail) {
+        return {
+          error: "no_user_mailbox",
+          message:
+            "Für deinen aktuellen Login ist keine echte E-Mail-Adresse hinterlegt — daher kann ich deinen Microsoft-365-Kalender nicht lesen. Bitte mit einem echten Postfach anmelden (z. B. office@propus.ch, janez.smirmaul@propus.ch oder ivan.mijajlovic@propus.ch). Buchungsaufträge (get_open_orders / get_today_schedule) und Backbone/BKBN-Termine (get_bkbn_orders) funktionieren trotzdem — sag dem Nutzer, dass die Outlook-Sicht gerade fehlt.",
+        };
       }
       const days = boundedNumber(_input.days_ahead, 14, 62);
       const today = new Date();
@@ -403,15 +423,23 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
           source: ev.source || "m365",
           orderNoInBookingDb: ev.orderNo != null ? ev.orderNo : null,
         }));
+        const enabled = outlook.enabled === true;
         return {
           mailbox: userEmail,
           range: data.range || { from: fromIso, to: toIso },
-          outlookEnabled: outlook.enabled === true,
+          outlookEnabled: enabled,
           outlookError: outlook.error || null,
           count: simplified.length,
           events: simplified,
           hint:
             "Termine mit gleicher Auftragsnummer wie ein Buchungsauftrag sind im Overlay ausgeblendet (keine Dubletten). Nur-Einträge in 365 erscheinen hier.",
+          ...(enabled
+            ? {}
+            : {
+                warning:
+                  "Outlook-/Graph-Anbindung ist NICHT aktiv — diese Liste ist möglicherweise unvollständig. Antworte nicht „keine Termine“, sondern weise auf die fehlende Outlook-Sicht hin." +
+                  (outlook.error ? ` (Grund: ${outlook.error})` : ""),
+              }),
         };
       } catch (err) {
         return { error: `Kalender nicht erreichbar: ${err instanceof Error ? err.message : String(err)}` };
@@ -471,17 +499,25 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
           organizer: ev.organizerName || ev.organizerEmail || null,
           mailbox: Array.isArray(ev.mailboxes) && ev.mailboxes.length ? ev.mailboxes : ev.mailbox || null,
         }));
+        const graphEnabled = meta.enabled === true;
         return {
           source: "backbonephoto.co (365-Kalender, read-only)",
           mailboxes: data.mailboxes || [],
           matchDomains: data.matchDomains || [],
           range: data.range || { from: null, to: toIso },
-          graphEnabled: meta.enabled === true,
+          graphEnabled,
           error: meta.error || null,
           count: simplified.length,
           orders: simplified,
           hint:
             "BKBN-Aufträge sind keine Buchungsaufträge in der DB — keine Auftragsnummer, keine Rechnung im System. Verwaltung/Details unter /admin/bkbn-orders.",
+          ...(graphEnabled
+            ? {}
+            : {
+                warning:
+                  "Graph-Anbindung für die BKBN-Kalender ist NICHT aktiv — Liste evtl. unvollständig. Antworte nicht „keine BKBN-Aufträge“, sondern weise auf die fehlende Kalenderanbindung hin." +
+                  (meta.error ? ` (Grund: ${meta.error})` : ""),
+              }),
         };
       } catch (err) {
         return { error: `BKBN nicht erreichbar: ${err instanceof Error ? err.message : String(err)}` };

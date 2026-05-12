@@ -36,12 +36,32 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+/** Echte, routbare E-Mail (kein interner Platzhalter wie *.local / *.localhost). */
+function looksLikeRealEmail(value: string): boolean {
+  const v = value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return false;
+  return !/\.(local|localhost|internal|lan|test|invalid|example)$/.test(v);
+}
+
 function sessionToUser(session: AdminSession): AssistantUser {
   const userId = String(session.userKey || session.userName || session.role || "admin").trim();
-  const email = String(session.userKey || "").includes("@") ? String(session.userKey) : "";
+  // Echte E-Mail bestimmen: bei internen Admin-Logins steht in `userKey` die
+  // numerische User-ID (z. B. "42") und die E-Mail in `userName`; bei
+  // Portal-Logins steht die E-Mail in `userKey`. Beide Felder prüfen.
+  // Nichts Echtes da → LEER lassen, KEIN Platzhalter wie "admin@propus.local":
+  // der würde sonst als (nicht existente) Mailbox an Microsoft Graph geschickt
+  // und get_m365_calendar_overlay scheiterte mit einem verwirrenden 404 statt
+  // einer klaren "kein Postfach hinterlegt"-Meldung.
+  const rawKey = String(session.userKey || "").trim();
+  const rawName = String(session.userName || "").trim();
+  const email = looksLikeRealEmail(rawKey)
+    ? rawKey.toLowerCase()
+    : looksLikeRealEmail(rawName)
+      ? rawName.toLowerCase()
+      : "";
   return {
     id: userId || "admin",
-    email: email || "admin@propus.local",
+    email,
     name: session.userName || userId || "Admin",
     role: String(session.role || "admin").toLowerCase(),
     source: "cookie",

@@ -658,11 +658,19 @@ export function loadReplayCaseFile(filePath: string): EvalTestCase[] {
   return [];
 }
 
-export async function runEvalCase(client: Anthropic, tc: EvalTestCase): Promise<EvalCaseResult> {
+export type FixtureOverrides = Record<string, (input: Record<string, unknown>) => unknown>;
+
+export async function runEvalCase(
+  client: Anthropic,
+  tc: EvalTestCase,
+  fixtureOverrides?: FixtureOverrides,
+): Promise<EvalCaseResult> {
   const fewShots = selectFewShots(tc.userMessage);
   const system = buildSystemPrompt({
     userName: "Eval-User",
-    userEmail: "eval@propus.local",
+    // Bewusst eine echt aussehende Adresse (kein *.local) — sonst lehnt die neue
+    // Mailbox-Validierung in get_m365_calendar_overlay grundsätzlich ab.
+    userEmail: "eval@propus.ch",
     currentTime: new Date().toISOString(),
     timezone: "Europe/Zurich",
     memories: [],
@@ -707,7 +715,7 @@ export async function runEvalCase(client: Anthropic, tc: EvalTestCase): Promise<
 
       const toolResultBlocks: ToolResultBlockParam[] = [];
       for (const tu of toolUses) {
-        const handler = mockHandlers[tu.name] ?? defaultFixture;
+        const handler = fixtureOverrides?.[tu.name] ?? mockHandlers[tu.name] ?? defaultFixture;
         const inputObj = (tu.input && typeof tu.input === "object" ? tu.input : {}) as Record<string, unknown>;
         const out = handler(inputObj);
         toolResultBlocks.push({
