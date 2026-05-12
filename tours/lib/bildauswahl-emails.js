@@ -158,11 +158,11 @@ function defaultAdminNotifyBody() {
               <!--[if mso]>
               <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{gallery_link}}" style="height:48px;v-text-anchor:middle;width:240px;" arcsize="0%" stroke="f" fillcolor="#141413">
                 <w:anchorlock/>
-                <center style="color:#F4F1EA;font-family:Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;">IM BACKPANEL OEFFNEN</center>
+                <center style="color:#F4F1EA;font-family:Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;">IM BACKPANEL ÖFFNEN</center>
               </v:roundrect>
               <![endif]-->
               <!--[if !mso]><!-- -->
-              <a href="{{gallery_link}}" style="display:inline-block;background:#141413;color:#F4F1EA;font-family:${FF};font-size:13px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;text-decoration:none;padding:16px 32px;border:1px solid #141413;mso-hide:all;">Im Backpanel oeffnen</a>
+              <a href="{{gallery_link}}" style="display:inline-block;background:#141413;color:#F4F1EA;font-family:${FF};font-size:13px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;text-decoration:none;padding:16px 32px;border:1px solid #141413;mso-hide:all;">Im Backpanel öffnen</a>
               <!--<![endif]-->
             </td>
           </tr>

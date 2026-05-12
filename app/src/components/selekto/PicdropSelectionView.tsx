@@ -544,7 +544,7 @@ export function PicdropSelectionView({
             <h1 className="pd-hero-title">{projectTitle}</h1>
             <p className="pd-hero-sub">
               {customerMode
-                ? "Markieren Sie die Bilder, die wir bearbeiten, stagen oder retuschieren sollen. Klicken Sie ein Bild fuer Details und Kommentare an unser Team."
+                ? "Markieren Sie die Bilder, die wir bearbeiten, stagen oder retuschieren sollen. Klicken Sie ein Bild für Details und Kommentare an unser Team."
                 : "Markieren Sie die Bilder, die bearbeitet, gestagt oder retuschiert werden sollen."}
             </p>
             <div className="pd-hero-tick" aria-hidden />
@@ -599,7 +599,7 @@ export function PicdropSelectionView({
               <div className="pd-metric">
                 <span className="pd-metric-num">{String(nImg - stats.marked).padStart(2, "0")}</span>
                 <span className="pd-metric-label">
-                  <i className="fa-regular fa-circle" aria-hidden /> Ohne Markierung
+                  <i className="fa-solid fa-circle-half-stroke" aria-hidden /> Ohne Markierung
                 </span>
               </div>
             </section>
@@ -614,7 +614,7 @@ export function PicdropSelectionView({
                   ["bearbeiten", "Bearbeiten", "fa-pen", stats.bearbeiten],
                   ["staging", "Staging", "fa-couch", stats.staging],
                   ["retusche", "Retusche", "fa-wand-magic-sparkles", stats.retusche],
-                  ["none", "Ohne Markierung", "fa-regular fa-circle", nImg - stats.marked],
+                  ["none", "Ohne Markierung", "fa-circle-half-stroke", nImg - stats.marked],
                 ] as const
               ).map(([key, label, icon, count]) => (
                 <button
@@ -626,7 +626,7 @@ export function PicdropSelectionView({
                   data-filter={key}
                   onClick={() => setFilter(key as typeof filter)}
                 >
-                  {icon ? <i className={icon.startsWith("fa-regular") ? icon : `fa-solid ${icon}`} aria-hidden /> : null}
+                  {icon ? <i className={`fa-solid ${icon}`} aria-hidden /> : null}
                   {label}
                   <span className="pd-filter-count">{count}</span>
                 </button>
@@ -738,14 +738,14 @@ export function PicdropSelectionView({
                   {submitted ? (
                     <span className="pd-submit-hint">
                       <span className="pd-adot" aria-hidden />
-                      Auswahl gesendet. Sie koennen sie weiter bearbeiten und erneut absenden.
+                      Auswahl gesendet. Sie können sie weiter bearbeiten und erneut absenden.
                     </span>
                   ) : nImg - stats.marked > 0 ? (
                     <span className="pd-submit-warning">
                       <i className="fa-solid fa-circle-info" aria-hidden />
                       <span>
                         {nImg - stats.marked}{" "}
-                        {nImg - stats.marked === 1 ? "Bild noch ohne Markierung" : "Bilder noch ohne Markierung"}
+                        {nImg - stats.marked === 1 ? "Bild ist ohne Markierung" : "Bilder sind ohne Markierung"}
                       </span>
                     </span>
                   ) : (
@@ -811,8 +811,8 @@ export function PicdropSelectionView({
                   type="button"
                   className="pd-lb-close"
                   onClick={closeLb}
-                  aria-label="Schliessen"
-                  title="Schliessen"
+                  aria-label="Schließen"
+                  title="Schließen"
                 >
                   <i className="fa-solid fa-xmark" aria-hidden />
                 </button>
@@ -862,7 +862,7 @@ export function PicdropSelectionView({
                 type="button"
                 className="pd-lb-nav-arrow"
                 onClick={() => navigateLb(1)}
-                aria-label="Naechstes Bild"
+                aria-label="Nächstes Bild"
               >
                 <i className="fa-solid fa-chevron-right" aria-hidden />
               </button>
@@ -972,8 +972,8 @@ export function PicdropSelectionView({
                 type="button"
                 className="pd-lb-comment-panel-close"
                 onClick={() => setCommentPanelOpen(false)}
-                aria-label="Schliessen"
-                title="Schliessen"
+                aria-label="Schließen"
+                title="Schließen"
               >
                 <i className="fa-solid fa-xmark" aria-hidden />
               </button>
@@ -1001,8 +1001,8 @@ export function PicdropSelectionView({
                           type="button"
                           className="pd-lb-comment-item-del"
                           onClick={() => deleteMsg(i)}
-                          aria-label="Kommentar loeschen"
-                          title="Kommentar loeschen"
+                          aria-label="Kommentar löschen"
+                          title="Kommentar löschen"
                         >
                           <i className="fa-solid fa-trash-can" aria-hidden />
                         </button>
@@ -1023,7 +1023,7 @@ export function PicdropSelectionView({
                 />
                 <div className="pd-lb-comment-compose-actions">
                   <span className="pd-lb-comment-compose-hint">
-                    {customerMode ? "Sichtbar fuer Propus-Team" : "Interne Notiz"}
+                    {customerMode ? "Sichtbar für Propus-Team" : "Interne Notiz"}
                   </span>
                   <button
                     type="button"

@@ -57,6 +57,12 @@
 /* Body-Hintergrund nur fuer Bildauswahl-Seiten (customer-mode wrap) */
 .pd-customer-mode { background: var(--pd-paper); }
 
+/* Verhindert horizontalen Layout-Shift, wenn der Filter weniger Bilder zeigt
+   und der vertikale Scrollbar verschwindet — `scrollbar-gutter: stable`
+   reserviert die Breite dauerhaft. Wirkt nur auf Bildauswahl-Routen, weil
+   picdrop.css ausschliesslich dort geladen wird. */
+html { scrollbar-gutter: stable; }
+
 /* ── Brand-Strip ─────────────────────────────────────── */
 .pd-brand-strip {
   display: flex;
