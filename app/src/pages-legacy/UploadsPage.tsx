@@ -18,7 +18,7 @@ import {
   type OrderUploadTreeNode,
   type StorageBrowseEntry,
 } from "../api/orders";
-import { UploadTool } from "../components/orders/UploadTool";
+import { UploadModalForm } from "../components/orders/UploadModalForm";
 import { normalizeStatusKey } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
@@ -985,13 +985,15 @@ export function UploadsPage() {
             </div>
 
             <div className="uppv-upload-modal-body">
-              <UploadTool
+              <UploadModalForm
                 key={`${selectedOrderNo}-${selectedFolderType}`}
                 token={token}
                 orderNo={selectedOrderNo}
                 folderType={selectedFolderType}
-                embedded
+                address={selectedOrder.address}
+                batches={summary?.batches ?? []}
                 onChanged={async () => { await loadSummary(selectedOrderNo); }}
+                onClose={() => setSelectedFolderType(null)}
               />
             </div>
           </div>
