@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Archive, ChevronRight, Check, Copy, ExternalLink, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Link2, Loader2, RefreshCw, Search, X } from "lucide-react";
+import { Archive, ChevronDown, ChevronRight, Check, Copy, ExternalLink, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Link2, Loader2, RefreshCw, Search, X } from "lucide-react";
 import "../styles/uploads-page.css";
 import {
   archiveOrderStorageFolder,
@@ -116,6 +116,20 @@ export function UploadsPage() {
   const [query, setQuery] = useState("");
   const [selectedOrderNo, setSelectedOrderNo] = useState<string>("");
   const [selectedFolderType, setSelectedFolderType] = useState<OrderFolderType | null>(null);
+
+  /**
+   * Welche Folder-Karten sind aufgeklappt. Default: alles eingeklappt —
+   * nur Titel + Badge sichtbar, Klick auf den Head zeigt den vollen Inhalt.
+   */
+  const [expandedFolders, setExpandedFolders] = useState<Set<AllFolderType>>(() => new Set());
+  const toggleFolderExpanded = useCallback((ft: AllFolderType) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(ft)) next.delete(ft);
+      else next.add(ft);
+      return next;
+    });
+  }, []);
 
   // Upload-Popup: ESC schliesst, Body-Scroll lock waehrend geoeffnet.
   useEffect(() => {
@@ -581,23 +595,34 @@ export function UploadsPage() {
                     : "Keine Verknüpfung";
                   const cardCls = `uppv-folder-card ${chip.cls}`;
 
+                  const isOpen = expandedFolders.has(ft);
                   return (
-                    <article key={ft} className={cardCls}>
-                      <div className="uppv-folder-head">
+                    <article key={ft} className={`${cardCls}${isOpen ? " is-open" : ""}`}>
+                      <button
+                        type="button"
+                        className="uppv-folder-head"
+                        onClick={() => toggleFolderExpanded(ft)}
+                        aria-expanded={isOpen}
+                      >
                         <span className="uppv-folder-name">
                           <i className={folderTypeIcon[ft]} aria-hidden />
                           {formatFolderLabel(ft)}
                         </span>
-                        <span className={`uppv-folder-badge ${badgeCls}`}>
-                          <i className={
-                            badgeCls === "is-ok" ? "fa-solid fa-circle-check"
-                            : badgeCls === "is-err" ? "fa-solid fa-circle-xmark"
-                            : "fa-solid fa-clock"
-                          } aria-hidden />
-                          {badgeLabel}
+                        <span className="uppv-folder-head-right">
+                          <span className={`uppv-folder-badge ${badgeCls}`}>
+                            <i className={
+                              badgeCls === "is-ok" ? "fa-solid fa-circle-check"
+                              : badgeCls === "is-err" ? "fa-solid fa-circle-xmark"
+                              : "fa-solid fa-clock"
+                            } aria-hidden />
+                            {badgeLabel}
+                          </span>
+                          <ChevronDown className="uppv-folder-chev h-4 w-4" aria-hidden />
                         </span>
-                      </div>
+                      </button>
 
+                      {!isOpen ? null : (
+                      <div className="uppv-folder-content">
                       <div className="uppv-folder-actions">
                         {folder.exists && (
                           <button
@@ -877,6 +902,8 @@ export function UploadsPage() {
                           </span>
                         </p>
                       </div>
+                      </div>
+                      )}
                     </article>
                   );
                 })}

@@ -418,28 +418,62 @@ html.dark .uploads-page-v2 {
   color: var(--up-rust);
 }
 
-/* Folder grid */
+/* Folder-Liste — drei untereinander, gleiche Breite wie Summary-Card */
 .uppv-folder-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .uppv-folder-card {
   background: var(--up-card);
   border: 1px solid var(--up-line);
-  padding: 26px 28px;
+  padding: 0;
+  overflow: hidden;
+  transition: border-color 150ms;
 }
+.uppv-folder-card:hover { border-color: var(--up-line-strong); }
 .uppv-folder-card.is-customer {
   background: linear-gradient(180deg, var(--up-gold-soft) 0%, var(--up-card) 50%);
 }
+
+/* Accordion-Head: ganze Zeile klickbar */
 .uppv-folder-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px 24px;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  transition: background-color 150ms;
+}
+.uppv-folder-head:hover { background: var(--up-paper-soft); }
+.uppv-folder-card.is-open .uppv-folder-head {
+  border-bottom: 1px solid var(--up-line);
+  background: var(--up-paper-soft);
+}
+.uppv-folder-head-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.uppv-folder-chev {
+  color: var(--up-ink-3);
+  transition: transform 220ms ease;
+  flex-shrink: 0;
+}
+.uppv-folder-card.is-open .uppv-folder-chev { transform: rotate(180deg); }
+
+/* Inhalt darunter — nur wenn aufgeklappt sichtbar */
+.uppv-folder-content {
+  padding: 22px 24px 26px;
 }
 .uppv-folder-name {
   display: flex;
