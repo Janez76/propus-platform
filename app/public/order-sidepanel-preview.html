@@ -4,132 +4,142 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>OrderSidePanel – Vorschlag-Vorschau</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
   :root{
-    --bg:#0e0e10; --surface:#1a1a1d; --surface-soft:#202024; --border-soft:#2c2c31;
-    --text-main:#ececee; --text-subtle:#9a9aa2; --accent:#c9a44c; --gold-700:#c9a44c;
-    --danger:#e06a5a; --ok:#5fb87a;
+    --bg:#08080a; --surface:#161618; --surface-soft:#1d1d21; --border:#2c2c31;
+    --text:#ececee; --subtle:#9a9aa2; --faint:#6a6a72; --accent:#c9a44c;
   }
-  body{background:#08080a;color:var(--text-main);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-  .panel{background:var(--surface);border-left:1px solid var(--border-soft)}
-  .sec{border:1px solid var(--border-soft);background:var(--surface-soft);border-radius:.5rem}
-  .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-subtle)}
-  .chip{border:1px solid var(--border-soft);border-radius:999px;font-size:11px;padding:2px 8px;color:var(--text-subtle)}
-  .qbtn{border:1px solid var(--border-soft);border-radius:.5rem;padding:.5rem;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--text-subtle);transition:.15s}
-  .qbtn:hover{color:var(--text-main);border-color:var(--accent);background:rgba(201,164,76,.08)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.45;display:flex;min-height:100vh}
+  .backdrop{flex:1;padding:32px;opacity:.35;user-select:none}
+  .backdrop h1{font-size:24px;font-weight:600;margin-bottom:4px}
+  .backdrop .sub{color:var(--subtle);font-size:13px}
+  .backdrop .rows{margin-top:32px;display:flex;flex-direction:column;gap:8px}
+  .backdrop .rows>div{height:48px;border-radius:6px;background:rgba(255,255,255,.05)}
+  .backdrop .rows>div:nth-child(3){background:rgba(255,255,255,.1)}
+
+  aside.panel{width:440px;min-width:440px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;min-height:100vh}
+  .hd{padding:20px 20px 14px;border-bottom:1px solid var(--border)}
+  .hd-top{display:flex;align-items:center;gap:12px}
+  .hd-top h2{font-size:18px;font-weight:600}
+  .badge-status{border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;background:rgba(224,160,60,.16);color:#e0a03c}
+  .close-x{margin-left:auto;background:none;border:none;color:var(--subtle);font-size:14px;cursor:pointer}
+  .syncrow{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--border);border-radius:999px;font-size:11px;padding:2px 8px;color:var(--subtle)}
+  .qa{margin-top:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .qa button{background:none;border:1px solid var(--border);border-radius:8px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--subtle);cursor:pointer;transition:.15s}
+  .qa button:hover{color:var(--text);border-color:var(--accent);background:rgba(201,164,76,.08)}
+  .qa .ic{font-size:16px;line-height:1}
+
+  .tabs{padding:12px 20px 10px;display:flex;gap:6px;border-bottom:1px solid var(--border)}
+  .tab{border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--subtle);cursor:pointer;border:none;background:none}
+  .tab.active{background:rgba(201,164,76,.16);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(201,164,76,.35)}
+
+  .body{padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+  section.card{border:1px solid var(--border);background:var(--surface-soft);border-radius:8px;padding:12px}
+  section.card.dim{opacity:.5}
+  .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--subtle);font-weight:600;margin-bottom:8px}
+  .line{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
+  .line:last-child{margin-bottom:0}
+  .line .ic{flex:none;color:var(--subtle);font-size:14px;line-height:1.4}
+  .name{font-weight:600}
   a.link{color:var(--accent);text-decoration:none}
   a.link:hover{text-decoration:underline}
-  .muted{color:#6a6a72;font-style:italic}
-  .tab{border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600;color:var(--text-subtle);cursor:pointer}
-  .tab.active{background:rgba(201,164,76,.16);color:var(--accent);box-shadow:inset 0 0 0 1px rgba(201,164,76,.35)}
+  .muted{color:var(--faint);font-style:italic}
+  .mini-act{font-size:11px;color:var(--subtle);background:none;border:1px solid var(--border);border-radius:5px;padding:1px 6px;cursor:pointer;margin-left:6px}
+  .kv{display:flex;justify-content:space-between;gap:12px;margin-bottom:4px}
+  .kv .k{color:var(--subtle)}
+  .kv .v{font-weight:500}
+  .total{display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:8px;margin-top:6px;font-size:16px;font-weight:600;color:var(--accent)}
+  ul.events{list-style:none;font-size:12px;color:var(--subtle);display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+
+  .ft{margin-top:auto;padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+  .btn-ghost{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:13px;color:var(--subtle);cursor:pointer}
+  .btn-primary{background:var(--accent);color:#1a1a1d;border:none;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+
+  .note{position:fixed;left:16px;bottom:16px;max-width:380px;font-size:12px;color:var(--faint);background:rgba(0,0,0,.4);padding:10px 12px;border-radius:8px;border:1px solid var(--border)}
 </style>
 </head>
-<body class="min-h-screen flex">
-  <!-- faux app backdrop -->
-  <div class="flex-1 hidden md:block opacity-40 p-8 select-none">
-    <div class="text-2xl font-semibold mb-1">Bestellungen</div>
-    <div class="text-sm" style="color:var(--text-subtle)">Verwaltung aller Foto-Aufträge und Terminplanung</div>
-    <div class="mt-8 space-y-2">
-      <div class="h-12 rounded bg-white/5"></div><div class="h-12 rounded bg-white/5"></div>
-      <div class="h-12 rounded bg-white/10"></div><div class="h-12 rounded bg-white/5"></div>
-    </div>
+<body>
+  <div class="backdrop">
+    <h1>Bestellungen</h1>
+    <div class="sub">Verwaltung aller Foto-Aufträge und Terminplanung</div>
+    <div class="rows"><div></div><div></div><div></div><div></div></div>
   </div>
 
-  <!-- PANEL -->
-  <aside class="panel w-full md:w-[440px] min-h-screen flex flex-col">
-    <!-- header -->
-    <div class="px-5 pt-5 pb-3 border-b" style="border-color:var(--border-soft)">
-      <div class="flex items-center gap-3">
-        <h2 class="text-lg font-semibold">Bestellung #100114</h2>
-        <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" style="background:rgba(224,160,60,.16);color:#e0a03c">Ausstehend</span>
-        <button class="ml-auto text-sm" style="color:var(--text-subtle)">Schliessen</button>
+  <aside class="panel">
+    <div class="hd">
+      <div class="hd-top">
+        <h2>Bestellung #100114</h2>
+        <span class="badge-status">Ausstehend</span>
+        <button class="close-x">Schliessen ✕</button>
       </div>
-      <div class="mt-2 flex flex-wrap gap-1.5">
-        <span class="chip">Kalender: synced</span>
-        <span class="chip">Exxas #—</span>
+      <div class="syncrow">
+        <span class="chip">Kalender · synced</span>
+        <span class="chip muted-chip">Exxas · noch nicht übermittelt</span>
       </div>
-      <!-- quick actions -->
-      <div class="mt-3 grid grid-cols-4 gap-2">
-        <button class="qbtn"><span>📷</span>Fotograf</button>
-        <button class="qbtn"><span>🗓️</span>Termin</button>
-        <button class="qbtn"><span>⚙️</span>Status</button>
-        <button class="qbtn"><span>↗</span>Volle Ansicht</button>
+      <div class="qa">
+        <button><span class="ic">📷</span>Fotograf</button>
+        <button><span class="ic">🗓️</span>Termin</button>
+        <button><span class="ic">⚙️</span>Status</button>
+        <button><span class="ic">↗</span>Voll</button>
       </div>
     </div>
 
-    <!-- tabs -->
-    <div class="px-5 pt-3 pb-2 flex gap-1 border-b" style="border-color:var(--border-soft)">
-      <span class="tab active">Übersicht</span>
-      <span class="tab">Kunde</span>
-      <span class="tab">Verlauf</span>
+    <div class="tabs">
+      <button class="tab active">Übersicht</button>
+      <button class="tab">Kunde</button>
+      <button class="tab">Verlauf</button>
     </div>
 
-    <!-- body -->
-    <div class="px-5 py-4 space-y-3 overflow-auto">
-
-      <!-- Kunde -->
-      <section class="sec p-3">
-        <div class="lbl mb-2 font-semibold">Kunde</div>
-        <div class="flex items-start gap-2">
-          <span class="mt-0.5">👤</span>
-          <div>
-            <div class="font-semibold text-sm">Yves Schmid</div>
-            <a class="link text-xs block" href="mailto:yves.schmid@engelvoelkers.com">yves.schmid@engelvoelkers.com</a>
-            <a class="link text-xs block" href="tel:0414106691">041 410 66 91</a>
-          </div>
-        </div>
+    <div class="body">
+      <section class="card">
+        <div class="lbl">Kunde</div>
+        <div class="line"><span class="ic">👤</span><div>
+          <div class="name">Yves Schmid</div>
+          <div><a class="link" href="#">yves.schmid@engelvoelkers.com</a></div>
+          <div><a class="link" href="#">041 410 66 91</a></div>
+        </div></div>
       </section>
 
-      <!-- Termin & Adresse -->
-      <section class="sec p-3">
-        <div class="lbl mb-2 font-semibold">Termin &amp; Adresse</div>
-        <div class="space-y-2 text-sm">
-          <div class="flex gap-2"><span>🗓️</span><span>13.05.2026, 14:00 <span class="text-xs" style="color:var(--text-subtle)">· 90 Min.</span></span></div>
-          <div class="flex gap-2">
-            <span>📍</span>
-            <span>Sackweidstrasse 1, 6010 Kriens
-              <a class="link text-xs ml-2" href="https://maps.google.com/?q=Sackweidstrasse+1+6010+Kriens" target="_blank">Karte ↗</a>
-              <button class="text-xs ml-1" style="color:var(--text-subtle)">kopieren</button>
-            </span>
-          </div>
-          <div class="flex gap-2"><span>👤</span><span><span style="color:var(--text-subtle)">Fotograf: </span><span class="muted">nicht zugewiesen</span></span></div>
-        </div>
+      <section class="card">
+        <div class="lbl">Termin &amp; Adresse</div>
+        <div class="line"><span class="ic">🗓️</span><div>13.05.2026, 14:00 <span style="color:var(--subtle)">· 90 Min.</span></div></div>
+        <div class="line"><span class="ic">📍</span><div>Sackweidstrasse 1, 6010 Kriens
+          <a class="link" href="#" style="font-size:12px;margin-left:6px">Karte ↗</a>
+          <button class="mini-act">kopieren</button></div></div>
+        <div class="line"><span class="ic">👤</span><div><span style="color:var(--subtle)">Fotograf: </span><span class="muted">nicht zugewiesen</span></div></div>
       </section>
 
-      <!-- Objekt (komplett leer -> ausgeblendet, hier als Hinweis) -->
-      <section class="sec p-3 opacity-60">
-        <div class="lbl mb-2 font-semibold">Objekt</div>
-        <div class="text-sm muted">Keine Objektdaten erfasst</div>
+      <section class="card dim">
+        <div class="lbl">Objekt</div>
+        <div class="muted">Keine Objektdaten erfasst — Sektion wird ausgeblendet</div>
       </section>
 
-      <!-- Total -->
-      <section class="sec p-3">
-        <div class="lbl mb-2 font-semibold">Zusammenfassung</div>
-        <div class="flex gap-2 text-sm mb-2"><span>📦</span><span class="muted">Kein Paket gewählt</span></div>
-        <div class="space-y-1 text-sm">
-          <div class="flex justify-between"><span style="color:var(--text-subtle)">Zwischensumme</span><span>CHF 318.00</span></div>
-          <div class="flex justify-between"><span style="color:var(--text-subtle)">MwSt. 8.1%</span><span>CHF 25.75</span></div>
-          <div class="flex justify-between border-t pt-2 mt-1 text-base font-semibold" style="border-color:var(--border-soft);color:var(--gold-700)"><span>Total</span><span>CHF 343.75</span></div>
-        </div>
+      <section class="card">
+        <div class="lbl">Zusammenfassung</div>
+        <div class="line"><span class="ic">📦</span><div class="muted">Kein Paket gewählt</div></div>
+        <div class="kv"><span class="k">Zwischensumme</span><span class="v">CHF 318.00</span></div>
+        <div class="kv"><span class="k">MwSt. 8.1 %</span><span class="v">CHF 25.75</span></div>
+        <div class="total"><span>Total</span><span>CHF 343.75</span></div>
       </section>
 
-      <!-- Mini-Verlauf -->
-      <section class="sec p-3">
-        <div class="lbl mb-2 font-semibold">Letzte Ereignisse</div>
-        <ul class="text-xs space-y-1.5" style="color:var(--text-subtle)">
+      <section class="card">
+        <div class="lbl">Letzte Ereignisse</div>
+        <ul class="events">
           <li>🗓️ Termin · 13.05.2026, 14:00</li>
-          <li>⏳ Bestätigung ausstehend · 09.05.2026</li>
+          <li>⏳ Bestätigung ausstehend · seit 09.05.2026</li>
         </ul>
-        <a class="link text-xs mt-2 inline-block" href="#">Vollständige Historie öffnen ↗</a>
+        <a class="link" href="#" style="font-size:12px">Vollständige Historie öffnen ↗</a>
       </section>
     </div>
 
-    <!-- footer -->
-    <div class="mt-auto px-5 py-3 border-t flex justify-end gap-2" style="border-color:var(--border-soft)">
-      <button class="text-sm px-3 py-1.5 rounded" style="color:var(--text-subtle)">Schliessen</button>
-      <a href="#" class="text-sm px-3 py-1.5 rounded font-medium no-underline inline-flex items-center gap-1.5" style="background:var(--accent);color:#1a1a1d">↗ Volle Ansicht</a>
+    <div class="ft">
+      <button class="btn-ghost">Schliessen</button>
+      <a class="btn-primary" href="#">↗ Volle Ansicht</a>
     </div>
   </aside>
+
+  <div class="note">Mockup zum Vergleich — noch nichts am echten <code>OrderSidePanel.tsx</code> geändert. Änderungen ggü. jetzt: Status neben Titel · Quick-Actions-Reihe · 3 statt 4 Tabs · klickbare Mail/Tel · Maps-Link + „kopieren" · leere Felder ausgegraut · Total immer mit Subtotal+MwSt · Mini-Verlauf in der Übersicht.</div>
 </body>
 </html>
