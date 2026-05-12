@@ -116,6 +116,21 @@ export function UploadsPage() {
   const [query, setQuery] = useState("");
   const [selectedOrderNo, setSelectedOrderNo] = useState<string>("");
   const [selectedFolderType, setSelectedFolderType] = useState<OrderFolderType | null>(null);
+
+  // Upload-Popup: ESC schliesst, Body-Scroll lock waehrend geoeffnet.
+  useEffect(() => {
+    if (!selectedFolderType) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedFolderType(null);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [selectedFolderType]);
   const [summary, setSummary] = useState<OrderStorageSummaryResponse | null>(null);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
@@ -859,70 +874,50 @@ export function UploadsPage() {
                 })}
               </section>
 
-              {/* Upload-Tool / Chooser */}
-              {selectedFolderType ? (
-                <div className="uppv-upload-wrap">
+              {/* Chooser — Upload-Tool oeffnet sich als Modal-Popup (siehe unten). */}
+              <div className="uppv-summary" style={{ textAlign: "center" }}>
+                <h3 className="uppv-summary-label" style={{ marginBottom: 18 }}>
+                  {t(lang, "upload.folderType.chooseTitle")}
+                </h3>
+                <div className="uppv-folder-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                   <button
                     type="button"
-                    onClick={() => setSelectedFolderType(null)}
-                    className="uppv-upload-back"
+                    onClick={() => setSelectedFolderType("raw_material")}
+                    className="uppv-folder-card is-raw"
+                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
                   >
-                    ← {t(lang, "upload.folderType.chooseTitle")}
+                    <i className={`${folderTypeIcon.raw_material} text-2xl`} style={{ fontSize: 28, color: "#9a8456", marginBottom: 10 }} aria-hidden />
+                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Rohmaterial</div>
+                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                      Unbearbeitete Bilder &amp; Videos
+                    </div>
                   </button>
-                  <UploadTool
-                    key={`${selectedOrderNo}-${selectedFolderType}`}
-                    token={token}
-                    orderNo={selectedOrderNo}
-                    folderType={selectedFolderType}
-                    embedded
-                    onChanged={async () => { await loadSummary(selectedOrderNo); }}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderType("selection")}
+                    className="uppv-folder-card is-selection"
+                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
+                  >
+                    <i className={`${folderTypeIcon.selection} text-2xl`} style={{ fontSize: 28, color: "#8a6ba0", marginBottom: 10 }} aria-hidden />
+                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Zur Auswahl</div>
+                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                      Bilder, die dem Kunden zur Auswahl gehen
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderType("customer_folder")}
+                    className="uppv-folder-card is-customer"
+                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
+                  >
+                    <i className={`${folderTypeIcon.customer_folder} text-2xl`} style={{ fontSize: 28, color: "var(--up-gold)", marginBottom: 10 }} aria-hidden />
+                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Kundenordner</div>
+                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                      Finale Lieferung an den Kunden
+                    </div>
+                  </button>
                 </div>
-              ) : (
-                <div className="uppv-summary" style={{ textAlign: "center" }}>
-                  <h3 className="uppv-summary-label" style={{ marginBottom: 18 }}>
-                    {t(lang, "upload.folderType.chooseTitle")}
-                  </h3>
-                  <div className="uppv-folder-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFolderType("raw_material")}
-                      className="uppv-folder-card is-raw"
-                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
-                    >
-                      <i className={`${folderTypeIcon.raw_material} text-2xl`} style={{ fontSize: 28, color: "#9a8456", marginBottom: 10 }} aria-hidden />
-                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Rohmaterial</div>
-                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                        Unbearbeitete Bilder &amp; Videos
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFolderType("selection")}
-                      className="uppv-folder-card is-selection"
-                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
-                    >
-                      <i className={`${folderTypeIcon.selection} text-2xl`} style={{ fontSize: 28, color: "#8a6ba0", marginBottom: 10 }} aria-hidden />
-                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Zur Auswahl</div>
-                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                        Bilder, die dem Kunden zur Auswahl gehen
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFolderType("customer_folder")}
-                      className="uppv-folder-card is-customer"
-                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
-                    >
-                      <i className={`${folderTypeIcon.customer_folder} text-2xl`} style={{ fontSize: 28, color: "var(--up-gold)", marginBottom: 10 }} aria-hidden />
-                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Kundenordner</div>
-                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                        Finale Lieferung an den Kunden
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
             </>
           ) : (
             <div className="uppv-empty">
@@ -932,6 +927,56 @@ export function UploadsPage() {
         </main>
       </div>
       </div>
+
+      {/* Upload-Popup */}
+      {selectedFolderType && selectedOrder && (
+        <div
+          className="uppv-upload-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="uppv-upload-modal-title"
+          onClick={(e) => {
+            // Backdrop-Klick schliesst — Klicks im Dialog stoppen via stopPropagation am Kind.
+            if (e.target === e.currentTarget) setSelectedFolderType(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setSelectedFolderType(null);
+          }}
+          tabIndex={-1}
+        >
+          <div className="uppv-upload-modal-dialog">
+            <div className="uppv-upload-modal-head">
+              <div className="uppv-upload-modal-title">
+                <span className="uppv-up-eyebrow">Upload</span>
+                <span>#{selectedOrder.orderNo}</span>
+                <span style={{ color: "var(--up-ink-3)", fontWeight: 400 }}>·</span>
+                <span style={{ color: "var(--up-ink-2)", fontWeight: 500 }}>
+                  {formatFolderLabel(selectedFolderType as AllFolderType)}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedFolderType(null)}
+                className="uppv-upload-modal-close"
+                aria-label="Schliessen"
+                title="Schliessen"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+            <div className="uppv-upload-modal-body">
+              <UploadTool
+                key={`${selectedOrderNo}-${selectedFolderType}`}
+                token={token}
+                orderNo={selectedOrderNo}
+                folderType={selectedFolderType}
+                embedded
+                onChanged={async () => { await loadSummary(selectedOrderNo); }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ordner-Inhalt Modal */}
       {contentModal && (

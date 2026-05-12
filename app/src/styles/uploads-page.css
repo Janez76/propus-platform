@@ -787,6 +787,81 @@
 }
 .uppv-upload-wrap .uppv-upload-back:hover { color: var(--up-ink); }
 
+/* ── Upload-Popup (Modal-Overlay ueber der gesamten Seite) ── */
+.uppv-upload-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(20, 20, 19, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow-y: auto;
+  animation: uppv-modal-fade 180ms ease-out;
+}
+@keyframes uppv-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.uppv-upload-modal-dialog {
+  background: var(--up-card);
+  border: 1px solid var(--up-line);
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: uppv-modal-rise 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes uppv-modal-rise {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.uppv-upload-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--up-line);
+  background: var(--up-paper-soft);
+}
+.uppv-upload-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--up-ink);
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.uppv-upload-modal-title .uppv-up-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.8px;
+  color: var(--up-gold);
+  text-transform: uppercase;
+}
+.uppv-upload-modal-close {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--up-line-strong);
+  background: transparent;
+  color: var(--up-ink-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 150ms, color 150ms, background-color 150ms;
+}
+.uppv-upload-modal-close:hover {
+  border-color: var(--up-gold-line);
+  color: var(--up-ink);
+  background: var(--up-card);
+}
+.uppv-upload-modal-body { padding: 0; }
+
 .uppv-error-banner {
   margin-top: 16px;
   padding: 10px 14px;
