@@ -945,6 +945,7 @@ export function UploadsPage() {
           tabIndex={-1}
         >
           <div className="uppv-upload-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            {/* Kompakter Top-Header mit Eyebrow + Num + Sep + Target + Close */}
             <div className="uppv-upload-modal-head">
               <div className="uppv-upload-modal-title" id="uppv-upload-modal-title">
                 <span className="uppv-up-eyebrow">Upload</span>
@@ -964,6 +965,25 @@ export function UploadsPage() {
                 <X className="h-4 w-4" aria-hidden />
               </button>
             </div>
+
+            {/* Title-Block mit gold-Ring-Icon + Adresse → Target Breadcrumb */}
+            <div className="uppv-upload-titleblock">
+              <div className="uppv-upload-titleblock-icon">
+                <i className="fa-solid fa-cloud-arrow-up" aria-hidden />
+              </div>
+              <div className="uppv-upload-titleblock-text">
+                <div className="uppv-upload-titleblock-headline">
+                  <span className="uppv-upload-titleblock-label">Upload</span>
+                  <span className="uppv-upload-titleblock-num">#{selectedOrder.orderNo}</span>
+                </div>
+                <div className="uppv-upload-titleblock-sub">
+                  <span>{selectedOrder.address || selectedOrder.customerName || "—"}</span>
+                  <ChevronRight className="uppv-upload-titleblock-arrow h-3 w-3" aria-hidden />
+                  <strong>{formatFolderLabel(selectedFolderType as AllFolderType)}</strong>
+                </div>
+              </div>
+            </div>
+
             <div className="uppv-upload-modal-body">
               <UploadTool
                 key={`${selectedOrderNo}-${selectedFolderType}`}

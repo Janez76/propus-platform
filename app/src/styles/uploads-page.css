@@ -787,12 +787,29 @@
 }
 .uppv-upload-wrap .uppv-upload-back:hover { color: var(--up-ink); }
 
-/* ── Upload-Popup (zentriertes Dark-Modal mit gold-Akzent) ── */
+/* =====================================================================
+   Upload-Popup — Theme-aware Modal (light by default, dark via html.dark)
+   Tokens hier sind Light-Mode; der html.dark-Override am Ende der Datei
+   wechselt sie auf die Dark-Variante.
+===================================================================== */
 .uppv-upload-modal {
+  /* Light-Defaults */
+  --upm-backdrop: rgba(20, 20, 19, 0.45);
+  --upm-surface: #FFFFFF;
+  --upm-surface-soft: #F4F1EA;
+  --upm-surface-deep: #EEEAE0;
+  --upm-border: #E5DFD2;
+  --upm-border-strong: #D6CFBF;
+  --upm-text: #141413;
+  --upm-text-2: #3a3833;
+  --upm-text-3: #5B564C;
+  --upm-text-4: #8A8478;
+  --upm-shadow: 0 40px 120px -32px rgba(20, 20, 19, 0.28), 0 0 0 1px rgba(20, 20, 19, 0.05);
+
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(20, 20, 19, 0.62);
+  background: var(--upm-backdrop);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   display: flex;
@@ -807,22 +824,18 @@
 }
 
 .uppv-upload-modal-dialog {
-  /* Komplett dunkler Body — die UploadTool selbst rendert auf dem
-     gleichen Untergrund, sodass kein zweifarbiger Sandwich-Look
-     entsteht. */
-  background: #14161b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--upm-surface);
+  border: 1px solid var(--upm-border);
   width: 100%;
-  max-width: 1120px;
+  max-width: 1000px;
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
   position: relative;
-  box-shadow:
-    0 40px 120px -32px rgba(0, 0, 0, 0.75),
-    0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--upm-shadow);
   animation: uppv-modal-rise 280ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
+  color: var(--upm-text);
 }
 @keyframes uppv-modal-rise {
   from { transform: translateY(16px) scale(0.985); opacity: 0; }
@@ -840,57 +853,57 @@
   z-index: 2;
 }
 
+/* Kompakter Top-Header: Eyebrow + Order# + Sep + Target + Close */
 .uppv-upload-modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 22px 28px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  background: transparent;
+  gap: 16px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--upm-border);
+  background: var(--upm-surface-soft);
   flex-shrink: 0;
 }
 .uppv-upload-modal-title {
   font-family: 'DM Sans', system-ui, sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #F4F1EA;
-  letter-spacing: 0.1px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--upm-text);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   flex-wrap: wrap;
   min-width: 0;
 }
 .uppv-upload-modal-title .uppv-up-eyebrow {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 2.2px;
+  letter-spacing: 2.4px;
   color: var(--up-gold);
   text-transform: uppercase;
 }
 .uppv-upload-modal-title .uppv-up-num {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  color: #F4F1EA;
+  color: var(--upm-text);
 }
 .uppv-upload-modal-title .uppv-up-sep {
-  color: rgba(244, 241, 234, 0.35);
+  color: var(--upm-text-4);
   font-weight: 400;
 }
 .uppv-upload-modal-title .uppv-up-target {
-  color: rgba(244, 241, 234, 0.78);
+  color: var(--upm-text-2);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .uppv-upload-modal-close {
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--upm-border-strong);
   background: transparent;
-  color: rgba(244, 241, 234, 0.72);
+  color: var(--upm-text-3);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -900,8 +913,68 @@
 }
 .uppv-upload-modal-close:hover {
   border-color: var(--up-gold-line);
-  color: #F4F1EA;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--upm-text);
+  background: var(--upm-surface);
+}
+
+/* Title-Block direkt unter dem Header: gold-Ring-Icon + Label + Mono-Num + Adresse → Target */
+.uppv-upload-titleblock {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--upm-border);
+  background: var(--upm-surface);
+  flex-shrink: 0;
+}
+.uppv-upload-titleblock-icon {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--up-gold-line);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--up-gold);
+  font-size: 16px;
+  flex-shrink: 0;
+  background: var(--upm-surface-soft);
+}
+.uppv-upload-titleblock-text { flex: 1; min-width: 0; }
+.uppv-upload-titleblock-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.uppv-upload-titleblock-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--upm-text);
+  letter-spacing: -0.1px;
+}
+.uppv-upload-titleblock-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--up-gold);
+}
+.uppv-upload-titleblock-sub {
+  font-size: 12px;
+  color: var(--upm-text-3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.uppv-upload-titleblock-sub strong {
+  color: var(--upm-text-2);
+  font-weight: 500;
+}
+.uppv-upload-titleblock-arrow {
+  font-size: 9px;
+  color: var(--upm-text-4);
 }
 
 .uppv-upload-modal-body {
@@ -909,16 +982,31 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Dezenter Scrollbar im Dark-Look */
+  background: var(--upm-surface);
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-color: var(--upm-border-strong) transparent;
 }
 .uppv-upload-modal-body::-webkit-scrollbar { width: 8px; }
 .uppv-upload-modal-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--upm-border-strong);
 }
 .uppv-upload-modal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--upm-text-4);
+}
+
+/* ── Dark-Theme Override fuer den Modal-Frame ── */
+html.dark .uppv-upload-modal {
+  --upm-backdrop: rgba(20, 20, 19, 0.62);
+  --upm-surface: #14161b;
+  --upm-surface-soft: #0a0b0e;
+  --upm-surface-deep: #1c1f26;
+  --upm-border: rgba(255, 255, 255, 0.08);
+  --upm-border-strong: rgba(255, 255, 255, 0.14);
+  --upm-text: #F4F1EA;
+  --upm-text-2: #c4c0b6;
+  --upm-text-3: #8a8478;
+  --upm-text-4: #56524a;
+  --upm-shadow: 0 40px 120px -32px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .uppv-error-banner {
