@@ -4,7 +4,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 
-import { loginAction, INITIAL_STATE } from "../actions";
+import { loginAction } from "../actions";
+import { INITIAL_STATE } from "../state";
 import { normalizeStoredRole, useAuthStore } from "@/store/authStore";
 
 type Props = {

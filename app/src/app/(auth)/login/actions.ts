@@ -3,12 +3,13 @@
 import { cookies } from "next/headers";
 
 import { resolvePostLoginTarget } from "@/lib/postLoginRedirect";
+import type { LoginState } from "./state";
 
 /**
  * Login-Server-Action für die Propus Platform.
  *
  * Authentifizierung läuft über den bestehenden Express-Endpunkt
- * `/api/auth/login` (→ Express `/auth/login`). Der Endpunkt setzt das
+ * `/auth/login` (über `PLATFORM_INTERNAL_URL`). Der Endpunkt setzt das
  * HttpOnly-Cookie `admin_session` (SHA-256-Token-Hash, siehe
  * `lib/auth.server.ts`) und liefert `{ token, role, permissions }` zurück.
  *
@@ -18,20 +19,10 @@ import { resolvePostLoginTarget } from "@/lib/postLoginRedirect";
  * navigiert der Client clientseitig auf das Ziel — ein serverseitiger
  * `redirect` würde sonst in einem `/login` ↔ `/dashboard`-Loop landen,
  * weil die SPA ohne Token im Store sofort wieder auf `/login` schickt.
+ *
+ * Hinweis: Aus `"use server"`-Dateien dürfen nur async-Funktionen exportiert
+ * werden — `LoginState`/`INITIAL_STATE` liegen daher in `./state`.
  */
-
-export type LoginState = {
-  ok: boolean;
-  error: string | null;
-  field?: "email" | "password" | "form";
-  token?: string;
-  role?: string;
-  permissions?: string[];
-  remember?: boolean;
-  target?: string;
-};
-
-const INITIAL_STATE: LoginState = { ok: false, error: null };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -205,5 +196,3 @@ export async function loginAction(
     target,
   };
 }
-
-export { INITIAL_STATE };

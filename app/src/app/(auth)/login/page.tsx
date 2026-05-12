@@ -25,38 +25,22 @@ export const metadata: Metadata = {
 /**
  * Hintergrundbilder.
  *
- * Empfehlung: durch eigene Propus-Aufnahmen ersetzen
- * (Querformat, neutral bearbeitet, min. 2000 × 1200 px).
- * Ablage: app/public/login/
+ * Solange keine echten Propus-Aufnahmen unter `app/public/login/` liegen,
+ * bleibt diese Liste leer → die Slideshow rendert nur den dunklen
+ * Hintergrund (kein 404 auf nicht vorhandene Bilder). Sobald Bilder da
+ * sind, hier eintragen:
  *
- * Für optimale Performance als WebP/AVIF speichern.
+ *   { src: "/login/bg-1.jpg", alt: "…", credit: "…", photographer: "Propus Portfolio" }
+ *
+ * Empfehlung: Querformat, neutral bearbeitet, min. 2000 × 1200 px,
+ * WebP/AVIF bevorzugt.
  */
-const BG_IMAGES = [
-  {
-    src: "/login/bg-1.jpg",
-    alt: "Modernes Wohnzimmer, lichtdurchflutet",
-    credit: "Modern Living · Lichtdurchflutet",
-    photographer: "Propus Portfolio",
-  },
-  {
-    src: "/login/bg-2.jpg",
-    alt: "Architektur, Bauhaus-Inspiration",
-    credit: "Architektur · Bauhaus-Inspiration",
-    photographer: "Propus Portfolio",
-  },
-  {
-    src: "/login/bg-3.jpg",
-    alt: "Loft mit hohen Decken",
-    credit: "Loft · Hohe Decken, klare Linien",
-    photographer: "Propus Portfolio",
-  },
-  {
-    src: "/login/bg-4.jpg",
-    alt: "Interieur Zürich",
-    credit: "Interieur · Wohnen in Zürich",
-    photographer: "Propus Portfolio",
-  },
-] as const;
+const BG_IMAGES: readonly {
+  src: string;
+  alt: string;
+  credit: string;
+  photographer: string;
+}[] = [];
 
 type LoginSearchParams = Promise<{
   next?: string;
@@ -96,7 +80,13 @@ export default async function LoginPage({
   }
 
   // Bereits angemeldet? -> Weiterleitung (Portal-Rollen → Portal-URL).
-  const session = await getAdminSession();
+  // Ein DB-Hänger darf die Login-Seite nicht 500en — im Zweifel Formular zeigen.
+  let session: Awaited<ReturnType<typeof getAdminSession>> = null;
+  try {
+    session = await getAdminSession();
+  } catch (err) {
+    console.error("[LoginPage] getAdminSession fehlgeschlagen:", err);
+  }
   if (session) {
     redirect(
       resolvePostLoginTarget(
