@@ -50,16 +50,6 @@ function formatBytes(n: number) {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-type StatusMeta = { label: string; className: string };
-function getFolderStatusMeta(status: string, exists: boolean): StatusMeta {
-  if (status === "ready" && exists)  return { label: "Automatisch erstellt", className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400" };
-  if (status === "ready" && !exists) return { label: "Ordner fehlt",         className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
-  if (status === "linked")           return { label: "Manuell verknüpft",    className: "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400" };
-  if (status === "failed")           return { label: "Fehler",               className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
-  if (status === "archived")         return { label: "Archiviert",           className: "bg-[var(--surface-raised)] text-[var(--text-subtle)]" };
-  return { label: "Keine Verknüpfung", className: "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400" };
-}
-
 function TreeNode({ node, depth = 0 }: { node: OrderUploadTreeNode; depth?: number }) {
   const [open, setOpen] = useState(depth < 1);
   if (node.type === "file") {
@@ -418,7 +408,7 @@ export function UploadsPage() {
             <div className="uppv-eyebrow">Lieferung</div>
             <h1 className="uppv-page-title">Upload</h1>
             <p className="uppv-page-sub">
-              Auftrag suchen, NAS-Ordner verwalten und Uploads zuerst lokal auf der VPS stagen.
+              Uploade hier direkt das Material in den richtigen Bestellordner.
             </p>
           </div>
           <button
@@ -448,9 +438,7 @@ export function UploadsPage() {
                 placeholder="Nummer, Kunde oder Strasse"
               />
             </div>
-            <p className="uppv-search-hint">
-              {query.trim() ? "Suchtreffer" : "Ohne Suche werden die letzten 6 Auftraege in Bearbeitung angezeigt."}
-            </p>
+            {query.trim() ? <p className="uppv-search-hint">Suchtreffer</p> : null}
           </div>
           <div className="uppv-order-list">
             {loadingOrders ? (
@@ -487,7 +475,11 @@ export function UploadsPage() {
                     </div>
                     <div className="uppv-order-addr">{order.address || "-"}</div>
                     <div className="uppv-order-customer">
-                      {order.customerName || order.customerEmail || "Ohne Kunde"}
+                      {order.billing?.company?.trim()
+                        || order.billing?.alt_company?.trim()
+                        || order.customerName
+                        || order.customerEmail
+                        || "Ohne Kunde"}
                     </div>
                   </button>
                 );
@@ -511,7 +503,11 @@ export function UploadsPage() {
                     <div className="uppv-summary-num">#{selectedOrder.orderNo}</div>
                     <div className="uppv-summary-addr">{selectedOrder.address || "-"}</div>
                     <div className="uppv-summary-customer">
-                      {selectedOrder.customerName || selectedOrder.customerEmail || "Ohne Kunde"}
+                      {selectedOrder.billing?.company?.trim()
+                        || selectedOrder.billing?.alt_company?.trim()
+                        || selectedOrder.customerName
+                        || selectedOrder.customerEmail
+                        || "Ohne Kunde"}
                     </div>
                   </div>
                   <div className="uppv-summary-actions">
@@ -522,7 +518,7 @@ export function UploadsPage() {
                       className="uppv-primary-btn"
                     >
                       <HardDrive className="h-4 w-4" aria-hidden />
-                      Ordner automatisch erstellen
+                      Ordner erstellen
                     </button>
                     {(() => {
                       const customerFolder = (summary?.folders || []).find(
@@ -650,7 +646,7 @@ export function UploadsPage() {
                     : folder.status === "failed" ? "is-err"
                     : "is-pending";
                   const badgeLabel =
-                    folder.status === "ready" && folder.exists ? "Automatisch erstellt"
+                    folder.status === "ready" && folder.exists ? "Ordner erstellt"
                     : folder.status === "ready" && !folder.exists ? "Ordner fehlt"
                     : folder.status === "linked" ? "Manuell verknüpft"
                     : folder.status === "archived" ? "Archiviert"
