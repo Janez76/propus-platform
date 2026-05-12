@@ -402,13 +402,17 @@ html { scrollbar-gutter: stable; }
   box-shadow: 0 12px 28px -16px rgba(20, 20, 19, 0.18);
 }
 
-/* Side stripe per status */
-.pd-img-card.pd-fl-bearbeiten { box-shadow: inset 3px 0 0 var(--pd-gold-base); }
-.pd-img-card.pd-fl-staging    { box-shadow: inset 3px 0 0 var(--pd-sage-base); }
-.pd-img-card.pd-fl-retusche   { box-shadow: inset 3px 0 0 var(--pd-plum-base); }
-.pd-img-card.pd-fl-bearbeiten:hover { box-shadow: inset 3px 0 0 var(--pd-gold-base), 0 12px 28px -16px rgba(20, 20, 19, 0.18); }
-.pd-img-card.pd-fl-staging:hover    { box-shadow: inset 3px 0 0 var(--pd-sage-base), 0 12px 28px -16px rgba(20, 20, 19, 0.18); }
-.pd-img-card.pd-fl-retusche:hover   { box-shadow: inset 3px 0 0 var(--pd-plum-base), 0 12px 28px -16px rgba(20, 20, 19, 0.18); }
+/* Multi-Color Side-Stripe — separates Element, weil ein einzelner
+   box-shadow nicht mehrere Farben pro Segment darstellen kann. */
+.pd-card-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  pointer-events: none;
+  z-index: 1;
+}
 
 .pd-thumb {
   position: relative;

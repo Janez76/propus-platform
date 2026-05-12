@@ -51,11 +51,27 @@ const CHIP_ICON: Record<Flag, string> = {
   retusche: "fa-solid fa-wand-magic-sparkles",
 };
 
-const CARD_FLAG_CLASS: Record<Flag, string> = {
-  bearbeiten: "pd-fl-bearbeiten",
-  staging: "pd-fl-staging",
-  retusche: "pd-fl-retusche",
+/**
+ * Token-Farben pro Flag fuer den Side-Stripe an der Karte. Multi-Flag-Bilder
+ * werden als gleich grosse Segmente uebereinander gestapelt.
+ */
+const FLAG_STRIPE_COLOR: Record<Flag, string> = {
+  bearbeiten: "var(--pd-gold-base, #B68E20)",
+  staging: "var(--pd-sage-base, #7a9461)",
+  retusche: "var(--pd-plum-base, #8a6ba0)",
 };
+
+function flagStripeBackground(flags: readonly Flag[]): string | undefined {
+  if (flags.length === 0) return undefined;
+  if (flags.length === 1) return FLAG_STRIPE_COLOR[flags[0]];
+  const stops: string[] = [];
+  flags.forEach((f, i) => {
+    const start = ((i / flags.length) * 100).toFixed(2);
+    const end = (((i + 1) / flags.length) * 100).toFixed(2);
+    stops.push(`${FLAG_STRIPE_COLOR[f]} ${start}% ${end}%`);
+  });
+  return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
 
 function mergePicdropDraft(json: string | null | undefined, keys: string[]): Record<string, ImageState> {
   const base = emptyPicdropState(keys);
@@ -357,18 +373,20 @@ export function PicdropSelectionView({
   const currentState = currentImg ? byId[currentImg.key] : null;
 
   /**
-   * Setzt die Flagge fuer ein Bild radio-style:
-   *   aktiv klicken  → abwaehlen (keine Markierung)
-   *   inaktiv klicken → ersetzt aktuelle Markierung mit f
-   * Ein Bild traegt damit immer genau 0 oder 1 Flag — passt zu Chip und
-   * Side-Stripe pro Karte.
+   * Toggle multi-select: ein Bild kann beliebig viele Tags tragen.
+   *   aktiv klicken  → entfernt nur diesen Tag, andere bleiben
+   *   inaktiv klicken → fuegt den Tag zur Liste hinzu
+   * Reihenfolge bleibt erhalten (bearbeiten/staging/retusche je nach Klick).
    */
   const setImageFlag = useCallback((key: string, f: Flag) => {
     setById((prev) => {
       const s = prev[key];
       if (!s) return prev;
       const isActive = s.flags.includes(f);
-      return { ...prev, [key]: { ...s, flags: isActive ? [] : [f] } };
+      const nextFlags = isActive
+        ? s.flags.filter((x) => x !== f)
+        : [...s.flags, f];
+      return { ...prev, [key]: { ...s, flags: nextFlags } };
     });
   }, []);
 
@@ -654,28 +672,34 @@ export function PicdropSelectionView({
                 {images.map((img, idx) => {
                   const s = byId[img.key];
                   if (!s) return null;
-                  const top = s.flags[0];
-                  // Filter: aktiv-flag muss zur Filter-Wahl passen.
+                  // Filter: mindestens ein Flag muss zur Filter-Wahl passen
+                  // (Multi-Tag-Bilder erscheinen in jedem ihrer Filter).
                   if (filter !== "all") {
-                    if (filter === "none" && top) return null;
-                    if (filter !== "none" && top !== filter) return null;
+                    if (filter === "none" && s.flags.length > 0) return null;
+                    if (filter !== "none" && !s.flags.includes(filter)) return null;
                   }
+                  const stripeBg = flagStripeBackground(s.flags);
                   return (
                     <article
                       key={img.key}
-                      className={`pd-img-card${top ? ` ${CARD_FLAG_CLASS[top]}` : ""}${
+                      className={`pd-img-card${s.flags.length > 0 ? " pd-has-flags" : ""}${
                         s.msgs.length ? " pd-has-cmt" : ""
                       }`}
                       onClick={() => openLb(idx)}
                     >
+                      {stripeBg ? (
+                        <span className="pd-card-stripe" style={{ background: stripeBg }} aria-hidden />
+                      ) : null}
                       <div className={`pd-thumb${watermarkEnabled ? " pd-thumb--watermark" : ""}`}>
                         <ThumbVisual img={img} index={idx} restrictDownloadGestures={customerMode} />
-                        {top ? (
+                        {s.flags.length > 0 ? (
                           <div className="pd-flag-chips">
-                            <span className={CHIP_CLASS[top]}>
-                              <i className={CHIP_ICON[top]} aria-hidden="true" />
-                              {FLAG_LABEL[top]}
-                            </span>
+                            {s.flags.map((f) => (
+                              <span key={f} className={CHIP_CLASS[f]}>
+                                <i className={CHIP_ICON[f]} aria-hidden="true" />
+                                {FLAG_LABEL[f]}
+                              </span>
+                            ))}
                           </div>
                         ) : null}
                         {s.msgs.length > 0 ? (
@@ -683,30 +707,33 @@ export function PicdropSelectionView({
                             <i className="fa-solid fa-comment" />
                           </div>
                         ) : null}
-                        {/* Quick-Flag-Overlay (Hover) */}
+                        {/* Quick-Flag-Overlay (Hover) — Multi-Toggle */}
                         <div
                           className="pd-card-actions"
                           onClick={(e) => e.stopPropagation()}
                           role="group"
                           aria-label="Schnellmarkierung"
                         >
-                          {(["bearbeiten", "staging", "retusche"] as const).map((f) => (
-                            <button
-                              key={f}
-                              type="button"
-                              className={`pd-quick-flag${top === f ? " is-active" : ""}`}
-                              data-flag={f}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setImageFlag(img.key, f);
-                              }}
-                              title={FLAG_LABEL[f]}
-                              aria-label={`${FLAG_LABEL[f]} markieren`}
-                              aria-pressed={top === f}
-                            >
-                              <i className={CHIP_ICON[f]} aria-hidden />
-                            </button>
-                          ))}
+                          {(["bearbeiten", "staging", "retusche"] as const).map((f) => {
+                            const isActive = s.flags.includes(f);
+                            return (
+                              <button
+                                key={f}
+                                type="button"
+                                className={`pd-quick-flag${isActive ? " is-active" : ""}`}
+                                data-flag={f}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setImageFlag(img.key, f);
+                                }}
+                                title={FLAG_LABEL[f]}
+                                aria-label={`${FLAG_LABEL[f]} markieren`}
+                                aria-pressed={isActive}
+                              >
+                                <i className={CHIP_ICON[f]} aria-hidden />
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                       <div className="pd-img-name">

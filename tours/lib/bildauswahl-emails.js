@@ -202,11 +202,18 @@ function defaultAdminNotifyBody() {
  * Tests gruen.
  */
 function renderItemRow(item, isLast) {
-  const flag = Array.isArray(item.flags) && item.flags.length > 0 ? item.flags[0] : null;
-  const palette = flag && FLAG_PALETTE[flag] ? FLAG_PALETTE[flag] : null;
-  const chipHtml = palette
-    ? `<span style="display:inline-block;padding:2px 8px;background:${palette.bg};color:${palette.fg};font-family:${FF};font-size:11px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;">${escapeHtml(palette.label)}</span>`
-    : '';
+  /**
+   * Multi-Tag: ein Bild kann mehrere Flags tragen. Wir rendern alle
+   * uebergebenen Flags als separate Chips nebeneinander; Reihenfolge
+   * bleibt wie vom Kunden geklickt.
+   */
+  const flags = Array.isArray(item.flags) ? item.flags.filter((f) => FLAG_PALETTE[f]) : [];
+  const chipHtml = flags
+    .map((flag) => {
+      const palette = FLAG_PALETTE[flag];
+      return `<span style="display:inline-block;padding:2px 8px;margin-right:4px;background:${palette.bg};color:${palette.fg};font-family:${FF};font-size:11px;font-weight:600;letter-spacing:0.4px;text-transform:uppercase;">${escapeHtml(palette.label)}</span>`;
+    })
+    .join('');
   const commentHtml = (item.body || '').trim()
     ? `<div style="margin-top:6px;font-family:${FF};font-size:13px;line-height:20px;color:#5B564C;font-style:italic;border-left:2px solid #C5A073;padding:2px 0 2px 10px;">&bdquo;${nl2br(escapeHtml(item.body))}&ldquo;</div>`
     : '';
