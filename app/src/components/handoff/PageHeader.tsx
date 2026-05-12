@@ -33,7 +33,7 @@ export function PageHeader({ eyebrow, title, sub, actions, kpis = [] }: PageHead
       {kpis.length > 0 ? (
         <div className="ph-kpis">
           {kpis.map((kpi) => (
-            <article key={kpi.id} className="ph-kpi">
+            <article key={kpi.id} className={`ph-kpi${kpi.tone === "warn" ? " warn" : kpi.tone === "gold" ? " gold" : ""}`}>
               <div className="ph-k-label">{kpi.label}</div>
               <div className={`ph-k-value${kpi.tone === "gold" ? " gold" : ""}`}>{kpi.value}</div>
               {kpi.trend ? (

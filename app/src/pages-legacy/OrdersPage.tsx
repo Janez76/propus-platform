@@ -642,10 +642,17 @@ export function OrdersPage() {
       id: "today",
       label: t(lang, "orders.kpi.today") || "Heute",
       value: String(kpiTodayCount),
+      trend: t(lang, "orders.kpi.todayHint") || "fällige Shootings heute",
+    },
+    {
+      id: "unassigned",
+      label: t(lang, "orders.kpi.unassigned") || "Ungeplant",
+      value: String(kpiUnassignedCount),
       trend: kpiUnassignedCount > 0
-        ? `${kpiUnassignedCount} ${t(lang, "orders.kpi.unassignedShort") || "ungeplant"}`
+        ? (t(lang, "orders.kpi.unassignedHint") || "ohne Fotograf")
         : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen"),
       trendTone: kpiUnassignedCount > 0 ? "warn" as const : "default" as const,
+      tone: kpiUnassignedCount > 0 ? "warn" as const : undefined,
     },
   ];
 
