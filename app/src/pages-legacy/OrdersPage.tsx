@@ -899,7 +899,7 @@ export function OrdersPage() {
             )}
           </div>
         ) : view === "kanban" ? (
-          <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} />
+          <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} lang={lang} />
         ) : view === "calendar" ? (
           <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
         ) : (
@@ -1043,47 +1043,83 @@ export function OrdersPage() {
   );
 }
 
-function OrdersKanban({ orders, onOpenDetail }: { orders: Order[]; onOpenDetail: (orderNo: string) => void }) {
-  const columns: { id: StatusKey; title: string }[] = [
-    { id: "pending", title: "Ausstehend" },
-    { id: "confirmed", title: "Bestätigt" },
-    { id: "done", title: "Abgeschlossen" },
-    { id: "cancelled", title: "Storniert" },
-  ];
+// Workflow-Spalten wie auf der dedizierten Kanban-Seite — Reihenfolge und
+// Status-Mapping spiegeln OrdersKanbanPage. Wenn die Drag&Drop-Persistierung
+// erwuenscht ist, bleibt /orders/kanban die volle Variante.
+const KANBAN_COLUMNS: { id: string; labelKey: string }[] = [
+  { id: "disposition-offen", labelKey: "orders.kanban.col.dispositionOffen" },
+  { id: "neu", labelKey: "orders.kanban.col.neu" },
+  { id: "termin-abmachen", labelKey: "orders.kanban.col.terminAbmachen" },
+  { id: "termin-abgemacht", labelKey: "orders.kanban.col.terminAbgemacht" },
+  { id: "wartet-kunde", labelKey: "orders.kanban.col.wartetKunde" },
+  { id: "material-bearbeitung", labelKey: "orders.kanban.col.materialBearbeitung" },
+  { id: "grundrisse-fehlen", labelKey: "orders.kanban.col.grundrisseFehlen" },
+  { id: "staging-fehlt", labelKey: "orders.kanban.col.stagingFehlt" },
+  { id: "video-fehlt", labelKey: "orders.kanban.col.videoFehlt" },
+  { id: "bereit-versenden", labelKey: "orders.kanban.col.bereitVersenden" },
+  { id: "revision", labelKey: "orders.kanban.col.revision" },
+  { id: "versendet", labelKey: "orders.kanban.col.versendet" },
+  { id: "bereit-verrechnung", labelKey: "orders.kanban.col.bereitVerrechnung" },
+  { id: "abgeschlossen", labelKey: "orders.kanban.col.abgeschlossen" },
+];
+
+function kanbanColumnFor(order: Order): string {
+  const k: StatusKey | null = normalizeStatusKey(order.status);
+  switch (k) {
+    case "disposition_offen": return "disposition-offen";
+    case "pending": return order.appointmentDate ? "termin-abmachen" : "neu";
+    case "provisional":
+    case "confirmed": return "termin-abgemacht";
+    case "paused": return "wartet-kunde";
+    case "completed": return "material-bearbeitung";
+    case "done": return "bereit-verrechnung";
+    case "archived": return "abgeschlossen";
+    default: return "neu";
+  }
+}
+
+function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenDetail: (orderNo: string) => void; lang: "de" | "en" | "fr" | "it" }) {
+  const buckets = new Map<string, Order[]>();
+  for (const c of KANBAN_COLUMNS) buckets.set(c.id, []);
+  for (const o of orders) {
+    if (normalizeStatusKey(o.status) === "cancelled") continue;
+    const colId = kanbanColumnFor(o);
+    buckets.get(colId)?.push(o);
+  }
   return (
-    <section className="grid gap-3 xl:grid-cols-4 md:grid-cols-2 grid-cols-1">
-      {columns.map((col) => {
-        const rows = orders.filter((o) => {
-          const s = normalizeStatusKey(o.status);
-          if (col.id === "done") return s === "done" || s === "completed";
-          return s === col.id;
-        });
+    <div className="op-kanban-board">
+      {KANBAN_COLUMNS.map((col) => {
+        const rows = buckets.get(col.id) ?? [];
         return (
-          <article key={col.id} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-3">
-            <header className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{col.title}</h3>
-              <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-xs text-[var(--text-muted)]">{rows.length}</span>
+          <section key={col.id} className="op-kanban-col">
+            <header className="op-kanban-col-head">
+              <span className="op-kanban-col-title">{t(lang, col.labelKey)}</span>
+              <span className="op-kanban-col-count">{rows.length}</span>
             </header>
-            <div className="space-y-2">
+            <div className="op-kanban-col-body">
               {rows.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[var(--border-soft)] p-3 text-xs text-[var(--text-subtle)]">Keine Einträge</div>
+                <div className="op-kanban-col-empty">{t(lang, "orders.kanban.column.empty") || "Keine Einträge"}</div>
               ) : rows.map((o) => (
                 <button
                   key={o.orderNo}
                   type="button"
                   onClick={() => onOpenDetail(o.orderNo)}
-                  className="w-full rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-3 text-left transition hover:border-[var(--border-strong)]"
+                  className="op-kanban-card"
                 >
-                  <div className="mb-1 text-xs text-[var(--text-subtle)]">#{o.orderNo}</div>
-                  <div className="text-sm font-medium text-[var(--text-main)]">{o.customerName || "Unbekannt"}</div>
-                  <div className="mt-1 text-xs text-[var(--text-muted)]">{o.address || o.customerZipcity || "—"}</div>
+                  <div className="op-kanban-card-no">#{o.orderNo}</div>
+                  <div className="op-kanban-card-title">
+                    {o.billing?.company || o.customerName || "—"}
+                  </div>
+                  <div className="op-kanban-card-sub">
+                    {o.address || o.customerZipcity || ""}
+                  </div>
                 </button>
               ))}
             </div>
-          </article>
+          </section>
         );
       })}
-    </section>
+    </div>
   );
 }
 
