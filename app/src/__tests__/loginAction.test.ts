@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { cookieSetMock } = vi.hoisted(() => ({ cookieSetMock: vi.fn() }));
+const { cookieSetMock, headerMap } = vi.hoisted(() => ({
+  cookieSetMock: vi.fn(),
+  headerMap: new Map<string, string>(),
+}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ set: cookieSetMock })),
+  headers: vi.fn(async () => ({ get: (k: string) => headerMap.get(k.toLowerCase()) ?? null })),
 }));
 
 import { loginAction } from "@/app/(auth)/login/actions";
@@ -33,6 +37,9 @@ const originalEnv = { ...process.env };
 
 beforeEach(() => {
   cookieSetMock.mockReset();
+  headerMap.clear();
+  headerMap.set("x-forwarded-for", "203.0.113.7");
+  headerMap.set("host", "admin-booking.propus.ch");
   process.env = { ...originalEnv };
   process.env.PLATFORM_INTERNAL_URL = "http://backend.internal";
   delete process.env.NEXT_PUBLIC_PORTAL_URL;
@@ -71,12 +78,14 @@ describe("loginAction – backend wiring", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("targets the trusted backend origin, not request headers", async () => {
+  it("targets the trusted backend origin and forwards the client IP", async () => {
     const fetchMock = vi.fn(async () => mockRes({ body: { token: "t", role: "admin" } }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     await loginAction({ ok: false, error: null }, fd(VALID));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toBe("http://backend.internal/auth/login");
+    const sentHeaders = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    expect(sentHeaders["x-forwarded-for"]).toBe("203.0.113.7");
   });
 
   it("returns a form error when the backend is unreachable", async () => {
