@@ -94,6 +94,12 @@ describe("assistant order tools", () => {
           photographerName: "Janez",
           scheduledDate: "2026-05-01",
           scheduledTime: "10:30",
+          // Fixed scheduledDate liegt fix in der Vergangenheit (2026-05-01)
+          // relativ zur Test-Laufzeit Mai 2026+ — die Order-Tool-Helper
+          // markieren entsprechend isOverdue/isToday/hasNoDate.
+          isOverdue: true,
+          isToday: false,
+          hasNoDate: false,
           createdAt: "2026-04-30T10:00:00.000Z",
         },
       ],
