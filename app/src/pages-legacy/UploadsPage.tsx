@@ -518,7 +518,7 @@ export function UploadsPage() {
                           ) : (
                             <ImageIcon className="h-3.5 w-3.5" aria-hidden />
                           )}
-                          {websiteSuccess ? "Webseite gestartet!" : "Webseite generieren"}
+                          {websiteSuccess ? "Websize gestartet!" : "Websize generieren"}
                         </button>
                       );
                     })()}
