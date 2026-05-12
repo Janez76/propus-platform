@@ -1,0 +1,5 @@
+Platzhalter — hier vier Hintergrundbilder ablegen:
+  bg-1.jpg  bg-2.jpg  bg-3.jpg  bg-4.jpg
+Querformat, neutral bearbeitet, min. 2000x1200 px (WebP/AVIF bevorzugt;
+dann Dateinamen in app/src/app/(auth)/login/page.tsx anpassen).
+Ohne Bilder bleibt der Login-Hintergrund einfach dunkel — kein Fehler.

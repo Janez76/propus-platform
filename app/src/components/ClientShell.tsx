@@ -128,6 +128,22 @@ function AssistantAppRouterRedirect() {
   return <PageSkeleton />;
 }
 
+/**
+ * `/login`: Auf Admin-Hosts übernimmt die neue App-Router-Login-Seite
+ * (Server Component unter `app/src/app/(auth)/login/`). Bei SPA-internen
+ * Navigationen (z. B. `<Navigate to="/login">` nach Token-Ablauf) erzwingen
+ * wir darum eine harte Navigation. Auf dem Kunden-Portal bleibt der
+ * SPA-Login mit Magic-Link-Flow erhalten.
+ */
+function LoginRoute() {
+  const portalHost = typeof window !== "undefined" && isPortalHost();
+  useEffect(() => {
+    if (!portalHost) window.location.assign("/login" + window.location.search);
+  }, [portalHost]);
+  if (!portalHost) return <PageSkeleton />;
+  return <LoginPage />;
+}
+
 function OrderDetailRoute() {
   const { orderNo } = useParams<{ orderNo: string }>();
   const navigate = useNavigate();
@@ -371,7 +387,7 @@ export default function ClientShell() {
           <Routes>
             <Route path="/" element={<PublicBookingIndex />} />
             <Route path="/book" element={<BookingWizardPage />} />
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<LoginRoute />} />
             <Route path="/accept-invite" element={<AcceptInvitePage />} />
             <Route path="/confirm/:token" element={<ConfirmBookingPage />} />
             <Route path="/print/orders/:orderNo" element={<PrintOrderPage />} />
