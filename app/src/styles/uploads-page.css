@@ -28,16 +28,16 @@
   background: var(--up-paper);
   color: var(--up-ink);
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
-  font-size: 13px;
+  font-size: 14.5px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
 .uploads-page-v2 .uppv-page {
-  max-width: 1280px;
+  max-width: 1500px;
   margin: 0 auto;
-  padding: 28px 32px 60px 32px;
+  padding: 36px 40px 80px 40px;
 }
 
 /* ── Header ───────────────────────────────────────────── */
@@ -45,42 +45,42 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 22px;
-  gap: 24px;
+  margin-bottom: 28px;
+  gap: 28px;
 }
 .uppv-page-header-text { flex: 1; min-width: 0; }
 .uppv-eyebrow {
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 2.4px;
+  letter-spacing: 2.6px;
   color: var(--up-gold);
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .uppv-page-title {
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 700;
   color: var(--up-ink);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
   line-height: 1.1;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 .uppv-page-sub {
-  font-size: 13px;
+  font-size: 14.5px;
   color: var(--up-ink-2);
-  max-width: 640px;
+  max-width: 720px;
   margin: 0;
 }
 .uppv-ghost-btn {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 16px;
+  gap: 10px;
+  padding: 11px 20px;
   background: var(--up-card);
   border: 1px solid var(--up-line-strong);
   color: var(--up-ink-1);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
   transition: border-color 150ms, color 150ms;
@@ -95,8 +95,8 @@
 /* ── Layout grid ──────────────────────────────────────── */
 .uppv-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 20px;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
   align-items: start;
 }
 
@@ -105,14 +105,14 @@
   background: var(--up-card);
   border: 1px solid var(--up-line);
 }
-.uppv-rail-head { padding: 14px 16px 10px 16px; }
+.uppv-rail-head { padding: 18px 20px 14px 20px; }
 .uppv-rail-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
   color: var(--up-ink-3);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: block;
 }
 .uppv-search-wrap { position: relative; }
@@ -127,11 +127,11 @@
 }
 .uppv-search-input {
   width: 100%;
-  padding: 8px 12px 8px 32px;
+  padding: 10px 14px 10px 36px;
   border: 1px solid var(--up-line);
   background: var(--up-paper);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--up-ink);
   transition: border-color 150ms, background-color 150ms;
 }
@@ -161,7 +161,7 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border: 0;
   border-bottom: 1px solid var(--up-line-soft);
   border-left: 3px solid transparent;
@@ -186,37 +186,37 @@
 }
 .uppv-order-num {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--up-ink);
 }
 .uppv-order-status {
-  font-size: 8.5px;
+  font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 1.2px;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: 3px 8px;
   white-space: nowrap;
 }
 .uppv-order-status.is-pending { background: var(--up-gold-soft); color: var(--up-gold-deep); }
 .uppv-order-status.is-ok { background: var(--up-sage-soft); color: var(--up-sage); }
 .uppv-order-status.is-warn { background: var(--up-rust-soft); color: var(--up-rust); }
 .uppv-order-addr {
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--up-ink-1);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 .uppv-order-customer {
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--up-ink-3);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 /* ── Main content ─────────────────────────────────────── */
 .uppv-main {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   min-width: 0;
 }
 
@@ -224,54 +224,54 @@
 .uppv-summary {
   background: var(--up-card);
   border: 1px solid var(--up-line);
-  padding: 22px 24px;
+  padding: 28px 30px;
 }
 .uppv-summary-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 22px;
+  gap: 28px;
+  margin-bottom: 26px;
 }
 .uppv-summary-left { flex: 1; min-width: 0; }
 .uppv-summary-label {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 1.8px;
   color: var(--up-ink-3);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   display: block;
 }
 .uppv-summary-num {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 600;
   color: var(--up-ink);
   letter-spacing: -0.5px;
   line-height: 1;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .uppv-summary-addr {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--up-ink-1);
   font-weight: 500;
 }
 .uppv-summary-customer {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--up-ink-3);
-  margin-top: 3px;
+  margin-top: 4px;
 }
 .uppv-primary-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 18px;
+  gap: 11px;
+  padding: 13px 22px;
   background: var(--up-gold);
   color: var(--up-ink);
   border: 0;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.6px;
   cursor: pointer;
@@ -289,12 +289,12 @@
 .uppv-status-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 12px;
 }
 .uppv-status-card {
   background: var(--up-paper);
   border: 1px solid var(--up-line);
-  padding: 12px 14px;
+  padding: 14px 18px;
 }
 .uppv-status-card.is-err {
   background: #FBEEEE;
@@ -308,7 +308,7 @@
   gap: 8px;
 }
 .uppv-status-card-name {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--up-ink);
   font-family: 'JetBrains Mono', monospace;
@@ -317,8 +317,8 @@
 .uppv-status-card-err {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -328,14 +328,14 @@
 .uppv-status-card-ok i, .uppv-status-card-err i { font-size: 9px; }
 .uppv-status-card-path {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
+  font-size: 12px;
   color: var(--up-ink-2);
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-all;
 }
 .uppv-status-card-msg {
-  margin-top: 4px;
-  font-size: 10.5px;
+  margin-top: 6px;
+  font-size: 12px;
   color: var(--up-rust);
 }
 
@@ -343,13 +343,13 @@
 .uppv-folder-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 24px;
 }
 
 .uppv-folder-card {
   background: var(--up-card);
   border: 1px solid var(--up-line);
-  padding: 22px 24px;
+  padding: 26px 28px;
 }
 .uppv-folder-card.is-customer {
   background: linear-gradient(180deg, #FCFAF5 0%, var(--up-card) 50%);
@@ -365,13 +365,13 @@
 .uppv-folder-name {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 17px;
+  gap: 12px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--up-ink);
-  letter-spacing: -0.2px;
+  letter-spacing: -0.25px;
 }
-.uppv-folder-name i { font-size: 14px; }
+.uppv-folder-name i { font-size: 16px; }
 .uppv-folder-card.is-raw .uppv-folder-name i { color: #9a8456; }
 .uppv-folder-card.is-customer .uppv-folder-name i { color: var(--up-gold); }
 .uppv-folder-card.is-selection .uppv-folder-name i { color: #8a6ba0; }
@@ -379,9 +379,9 @@
 .uppv-folder-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 9px;
-  font-size: 10px;
+  gap: 7px;
+  padding: 5px 11px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -402,13 +402,13 @@
 .uppv-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 10px 14px;
   background: var(--up-paper);
   border: 1px solid var(--up-line);
   color: var(--up-ink-1);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 150ms, border-color 150ms, color 150ms;
@@ -429,17 +429,17 @@
 .uppv-feature-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 9px;
+  padding: 10px 14px;
   background: var(--up-gold-tint);
   border: 1px solid var(--up-gold-line);
   color: var(--up-gold-deep);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 150ms, color 150ms, border-color 150ms;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .uppv-feature-pill:hover:not(:disabled) {
   background: var(--up-gold);
@@ -450,22 +450,22 @@
 .uppv-feature-pill i { font-size: 10.5px; }
 
 .uppv-folder-addr-block {
-  padding: 12px 14px;
+  padding: 14px 16px;
   background: var(--up-paper);
   border: 1px solid var(--up-line-soft);
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .uppv-folder-addr {
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--up-ink-1);
   font-weight: 500;
   line-height: 1.4;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .uppv-folder-addr-sub {
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--up-ink-3);
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-all;
 }
 .uppv-folder-err {
@@ -477,15 +477,15 @@
 /* Cloud share row */
 .uppv-cloud-block { margin-bottom: 16px; }
 .uppv-cloud-label {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
   color: var(--up-ink-3);
   text-transform: uppercase;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 .uppv-cloud-row {
   display: flex;
@@ -496,22 +496,22 @@
   flex: 1;
   border: 0;
   background: transparent;
-  padding: 9px 12px;
+  padding: 11px 14px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--up-ink-1);
   min-width: 0;
 }
 .uppv-cloud-input:focus { outline: none; }
 .uppv-cloud-icon-btn {
-  width: 36px;
+  width: 42px;
   background: transparent;
   border: 0;
   border-left: 1px solid var(--up-line);
   color: var(--up-ink-3);
   cursor: pointer;
   transition: color 150ms, background-color 150ms;
-  font-size: 11px;
+  font-size: 12.5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -564,28 +564,28 @@
 /* Link section */
 .uppv-link-section {
   border-top: 1px dashed var(--up-line);
-  padding-top: 14px;
+  padding-top: 16px;
 }
 .uppv-link-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   gap: 10px;
   flex-wrap: wrap;
 }
 .uppv-link-label {
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.6px;
   color: var(--up-ink-3);
   text-transform: uppercase;
 }
 .uppv-rename-check {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 11px;
+  gap: 8px;
+  font-size: 12.5px;
   color: var(--up-ink-2);
   cursor: pointer;
 }
@@ -597,12 +597,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 14px;
+  padding: 11px 16px;
   background: var(--up-paper);
   border: 1px solid var(--up-line);
   color: var(--up-ink-1);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 150ms, border-color 150ms;
@@ -692,9 +692,9 @@
   border: 1px solid var(--up-line);
   border-right: 0;
   background: var(--up-card);
-  padding: 9px 12px;
+  padding: 11px 14px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--up-ink);
   min-width: 0;
 }
@@ -707,12 +707,12 @@
   border-color: var(--up-gold-line);
 }
 .uppv-manual-submit {
-  padding: 0 18px;
+  padding: 0 22px;
   background: var(--up-gold-tint);
   color: var(--up-gold-deep);
   border: 1px solid var(--up-gold-line);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.4px;
   cursor: pointer;
@@ -725,14 +725,14 @@
 }
 .uppv-manual-submit:disabled { opacity: 0.55; cursor: not-allowed; }
 .uppv-manual-hint {
-  margin: 6px 0 0;
-  font-size: 10.5px;
+  margin: 8px 0 0;
+  font-size: 12px;
   color: var(--up-ink-3);
   font-family: 'JetBrains Mono', monospace;
-  line-height: 1.45;
+  line-height: 1.5;
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 7px;
 }
 .uppv-manual-hint i { font-size: 10px; margin-top: 2px; color: var(--up-ink-4); }
 .uppv-rename-warn {
