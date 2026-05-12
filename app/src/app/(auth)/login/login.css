@@ -4,7 +4,7 @@
    Fonts: DM Serif Display + DM Sans
    ============================================================ */
 
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap");
+@import "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap";
 
 .login-shell {
   --ink: #0c0d10;
@@ -87,7 +87,7 @@
   will-change: transform, opacity;
 }
 .bg-slide.active { opacity: 1; }
-.bg-slide :global(img) { object-fit: cover; }
+.bg-slide img { object-fit: cover; }
 @keyframes kenburns {
   0%   { transform: scale(1.02) translate(0, 0); }
   100% { transform: scale(1.14) translate(-1.5%, -1%); }
@@ -340,9 +340,9 @@
     0 1px 0 rgba(255, 255, 255, 0.04) inset;
   opacity: 0;
   transform: translateY(20px);
-  animation: cardIn 900ms cubic-bezier(.2, .7, .2, 1) 0.3s forwards;
+  animation: card-in 900ms cubic-bezier(.2, .7, .2, 1) 0.3s forwards;
 }
-@keyframes cardIn {
+@keyframes card-in {
   to { opacity: 1; transform: translateY(0); }
 }
 .card::before,
