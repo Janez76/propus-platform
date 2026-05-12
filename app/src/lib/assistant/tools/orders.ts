@@ -166,7 +166,7 @@ export const ordersTools: ToolDefinition[] = [
   {
     name: "get_m365_calendar_overlay",
     description:
-      "Microsoft-365-Kalendertermine des angemeldeten Nutzers, die nicht bereits als Buchungsauftrag in der DB stehen (manuell erfasste Shootings/Meetings in Outlook). Bei Fragen zum Gesamtterminplan zusammen mit get_open_orders/get_today_schedule nutzen. Ergebnis enthält `outlookEnabled` und ggf. `error`/`warning` — bei `error` oder `outlookEnabled:false` darfst du NICHT „keine Termine“ sagen, sondern musst die Unsicherheit nennen.",
+      "Outlook-Termine, die noch nicht als Buchungsauftrag in der DB geführt werden: merged aus mehreren 365-Kalendern — standardmässig Büro-OFFICE_EMAIL + BKBN_CALENDAR_MAILBOXES (Fotografen) + Session-E-Mail (optional ASSISTANT_OUTLOOK_OVERLAY_MAILBOXES ersetzt die Liste). Für den Gesamtterminplan zusammen mit get_open_orders/get_today_schedule nutzen. Antwort enthält outlookEnabled sowie outlookError/teils fehlgeschlagene Postfächer in error — bei error oder outlookEnabled:false nicht „keine Termine“, sondern die Unsicherheit nennen.",
     input_schema: {
       type: "object",
       properties: {
@@ -408,31 +408,47 @@ export function createOrdersHandlers(deps: OrdersDeps): Record<string, ToolHandl
         const data = (await res.json()) as {
           ok?: boolean;
           events?: Array<Record<string, unknown>>;
-          outlook?: { enabled?: boolean; error?: string | null; count?: number };
+          outlook?: {
+            enabled?: boolean;
+            error?: string | null;
+            count?: number;
+            mailboxes?: string[];
+            user?: string;
+          };
           range?: { from?: string; to?: string };
         };
         const raw = Array.isArray(data.events) ? data.events : [];
         const outlook = data.outlook || {};
-        const simplified = raw.map((ev) => ({
-          title: ev.title,
-          start: ev.start,
-          end: ev.end,
-          allDay: ev.allDay,
-          location: ev.address || null,
-          category: ev.category || null,
-          source: ev.source || "m365",
-          orderNoInBookingDb: ev.orderNo != null ? ev.orderNo : null,
-        }));
+        const consulted = Array.isArray(outlook.mailboxes) ? outlook.mailboxes.map(String) : [userEmail];
+        const simplified = raw.map((ev) => {
+          const mboxes = Array.isArray(ev.mailboxes)
+            ? (ev.mailboxes as unknown[]).map((x) => String(x)).filter(Boolean)
+            : ev.mailbox != null && String(ev.mailbox).trim()
+              ? [String(ev.mailbox).trim().toLowerCase()]
+              : [];
+          return {
+            title: ev.title,
+            start: ev.start,
+            end: ev.end,
+            allDay: ev.allDay,
+            location: ev.address || null,
+            category: ev.category || null,
+            calendarMailboxes: mboxes.length > 0 ? mboxes.join(", ") : null,
+            source: ev.source || "m365",
+            orderNoInBookingDb: ev.orderNo != null ? ev.orderNo : null,
+          };
+        });
         const enabled = outlook.enabled === true;
         return {
-          mailbox: userEmail,
+          sessionUserEmail: userEmail,
+          consultedMailboxes: consulted,
           range: data.range || { from: fromIso, to: toIso },
           outlookEnabled: enabled,
           outlookError: outlook.error || null,
           count: simplified.length,
           events: simplified,
           hint:
-            "Termine mit gleicher Auftragsnummer wie ein Buchungsauftrag sind im Overlay ausgeblendet (keine Dubletten). Nur-Einträge in 365 erscheinen hier.",
+            "Ein Termin kann in mehreren Postfächern vorkommen; calendarMailboxes nennt die Quelle(n). Termine mit gleicher Auftragsnummer wie ein Buchungsauftrag sind ausgeblendet.",
           ...(enabled
             ? {}
             : {

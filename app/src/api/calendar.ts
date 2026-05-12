@@ -24,6 +24,8 @@ export type CalendarEvent = {
   /** BKBN-Auftrag (Backbone Photo): Postfach, in dem der Termin gefunden wurde. */
   mailbox?: string;
   mailboxes?: string[];
+  /** Gesammelte Outlook-Graph-Event-IDs wenn ein Termin mehrfach vorkommt. */
+  graphIds?: string[];
   organizerEmail?: string;
   organizerName?: string;
 };
@@ -31,6 +33,8 @@ export type CalendarEvent = {
 export type CalendarOutlookMeta = {
   enabled: boolean;
   user: string | null;
+  /** Postfächer, die beim M365-Overlay abgefragt wurden (Büro + BKBN + Nutzer). */
+  mailboxes?: string[];
   count: number;
   error: string | null;
 };

@@ -1617,12 +1617,11 @@ async function loadAbsenceCalendarEvents(colorMap, photographerKeyFilter) {
 }
 
 // ─── Outlook/365 Kalender-Events (Read-only Overlay) ─────────────────────────
-// Liefert die persoenlichen Termine eines Mitarbeiters aus Microsoft 365 als
-// CalendarEvent[]-kompatible Objekte. Termine, die bereits als Buchungsauftrag
-// in der DB existieren (Betreff enthaelt dieselbe Auftragsnummer wie
-// buildCalendarSubject, z. B. "(#123)"), werden ausgefiltert, um Duplikate zu
-// vermeiden. Termine mit "(#123)" OHNE passenden DB-Auftrag bleiben sichtbar
-// (manuell in 365 erfasst). Cache: 60 s pro userEmail+range+dedupeKey.
+// Liefert M365-Termine als CalendarEvent[]-kompatible Objekte. Multi-Mailbox-
+// Modi mergen Kopien desselben Termins per iCalUId (Fallback: stabiler Fallback-
+// Schluessel je Graph-Instanz).
+// Buchungsauftraege (Betreff mit gleicher Auftragsnummer wie DB) werden
+// ausgefiltert. Cache: 60 s pro Mailbox-Set + Range + dedupeIds.
 const __outlookCalendarCache = new Map();
 const OUTLOOK_CACHE_TTL_MS = 60_000;
 
@@ -1661,81 +1660,171 @@ function __shouldSkipOutlookAsBookingDuplicate(graphEvent, existingOrderNos) {
   return n != null && set.has(n);
 }
 
-async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
-  const out = [];
-  if (!graphClient) return out;
-  const email = String(userEmail || "").trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return out;
+function __normalizedOutlookDedupeKeyFromGraph(ev, mailboxLower, graphEventIdStr) {
+  const iUid = String((ev && ev.iCalUId) || "").trim();
+  if (iUid) return `ical:${iUid.toLowerCase()}`;
+  const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
+  const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
+  const subject = String((ev && ev.subject) || "Termin").trim().toLowerCase() || "termin";
+  return `fallback:${mailboxLower}:${graphEventIdStr}:${subject}:${startDt}:${endDt}`;
+}
+
+function __eventObjFromOutlookGraph(ev, mailboxLower, graphIds) {
+  const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
+  const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
+  const gid = Array.isArray(graphIds) && graphIds.length ? graphIds[0] : "";
+  const category = __extractOutlookCategory(ev);
+  const subject = String(ev.subject || "Termin").trim() || "Termin";
+  const sensitivity = String(ev.sensitivity || "").toLowerCase();
+  const title = sensitivity === "private" || sensitivity === "confidential" ? "Privater Termin" : subject;
+  const address = (ev.location && (ev.location.displayName || "")) || "";
+  return {
+    id: gid ? `outlook-${gid}` : `outlook-missing-${mailboxLower}-${startDt}`,
+    title,
+    start: startDt.length > 19 ? startDt.slice(0, 19) : startDt,
+    end: endDt ? (endDt.length > 19 ? endDt.slice(0, 19) : endDt) : undefined,
+    allDay: !!ev.isAllDay,
+    status: "outlook",
+    type: "outlook",
+    source: "m365",
+    orderNo: null,
+    address: String(address || ""),
+    category: category || undefined,
+    bodyPreview:
+      sensitivity === "private" || sensitivity === "confidential" ? "" : String(ev.bodyPreview || "").slice(0, 500),
+    webLink: ev.webLink ? String(ev.webLink) : undefined,
+    showAs: ev.showAs ? String(ev.showAs) : undefined,
+    color: __outlookEventColor(),
+    photographerColor: __outlookEventColor(),
+    mailbox: mailboxLower,
+    mailboxes: [mailboxLower],
+    graphIds: Array.isArray(graphIds) ? graphIds.slice() : [],
+  };
+}
+
+function __normalizeOutlookMailboxList(mailboxesIn) {
+  const seenMb = new Set();
+  const mailboxes = [];
+  for (const m of mailboxesIn) {
+    const x = String(m || "").trim().toLowerCase();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) && !seenMb.has(x)) {
+      seenMb.add(x);
+      mailboxes.push(x);
+    }
+  }
+  return mailboxes;
+}
+
+async function loadOutlookCalendarEventsMulti(mailboxesIn, opts, existingOrderNos) {
+  if (!graphClient) {
+    return { events: [], partialError: null };
+  }
+  const mailboxes = __normalizeOutlookMailboxList(Array.isArray(mailboxesIn) ? mailboxesIn : []);
+  if (mailboxes.length === 0) {
+    return { events: [], partialError: null };
+  }
 
   const from = opts && opts.from ? String(opts.from) : "";
   const to = opts && opts.to ? String(opts.to) : "";
   const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(from) ? `${from}T00:00:00` : from;
   const toIso = /^\d{4}-\d{2}-\d{2}$/.test(to) ? `${to}T23:59:59` : to;
-  if (!fromIso || !toIso) return out;
+  if (!fromIso || !toIso) {
+    return { events: [], partialError: null };
+  }
 
   const dedupeIds =
     existingOrderNos && typeof existingOrderNos.has === "function" && existingOrderNos.size > 0
       ? [...existingOrderNos].filter((n) => Number.isFinite(n)).sort((a, b) => a - b).join(",")
       : "";
-  const cacheKey = `${email.toLowerCase()}|${fromIso}|${toIso}|${dedupeIds}`;
+  const mailboxKeyPart = mailboxes.join("|").toLowerCase();
+  const cacheKey = `${mailboxKeyPart}|${fromIso}|${toIso}|${dedupeIds}`;
   const now = Date.now();
   const cached = __outlookCalendarCache.get(cacheKey);
   if (cached && (now - cached.t) < OUTLOOK_CACHE_TTL_MS) {
-    return cached.events.slice();
+    return { events: cached.events.slice(), partialError: cached.partialError ?? null };
   }
 
-  let response;
-  try {
-    response = await graphClient
-      .api(`/users/${encodeURIComponent(email)}/calendarView`)
-      .query({ startDateTime: fromIso, endDateTime: toIso, $top: "200" })
-      .header("Prefer", `outlook.timezone="${process.env.TIMEZONE || "Europe/Zurich"}"`)
-      .select("id,subject,start,end,isAllDay,location,categories,bodyPreview,webLink,showAs,sensitivity")
-      .orderby("start/dateTime")
-      .get();
-  } catch (err) {
-    const code = err && (err.statusCode || err.code) || "";
-    console.warn("[outlook-calendar] fetch failed", { email, code, msg: err && err.message });
-    return out;
+  const tz = process.env.TIMEZONE || "Europe/Zurich";
+  const byDup = new Map();
+  const failedMailboxes = [];
+  let lastFetchErrMsg = "";
+
+  for (const mb of mailboxes) {
+    try {
+      let response = await graphClient
+        .api(`/users/${encodeURIComponent(mb)}/calendarView`)
+        .query({ startDateTime: fromIso, endDateTime: toIso, $top: "200" })
+        .header("Prefer", `outlook.timezone="${tz}"`)
+        .select(
+          "id,iCalUId,subject,start,end,isAllDay,location,categories,bodyPreview,webLink,showAs,sensitivity",
+        )
+        .orderby("start/dateTime")
+        .get();
+      let items = Array.isArray(response && response.value) ? response.value.slice() : [];
+      let guardPage = 0;
+      while (response && response["@odata.nextLink"] && guardPage < 10) {
+        guardPage += 1;
+        response = await graphClient.api(response["@odata.nextLink"]).get();
+        if (Array.isArray(response && response.value)) items.push(...response.value);
+      }
+      for (const ev of items) {
+        if (__shouldSkipOutlookAsBookingDuplicate(ev, existingOrderNos)) continue;
+        const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
+        if (!startDt) continue;
+        const gid = String(ev && ev.id || "").trim();
+        if (!gid) continue;
+        const dk = __normalizedOutlookDedupeKeyFromGraph(ev, mb, gid);
+        if (byDup.has(dk)) {
+          const ex = byDup.get(dk);
+          if (!Array.isArray(ex.graphIds)) ex.graphIds = [];
+          if (!ex.graphIds.includes(gid)) ex.graphIds.push(gid);
+          if (!Array.isArray(ex.mailboxes)) ex.mailboxes = [];
+          if (!ex.mailboxes.includes(mb)) ex.mailboxes.push(mb);
+          if (ex.graphIds.length > 1) {
+            ex.id = `outlook-${String(ex.graphIds[0])}`;
+          }
+          continue;
+        }
+        byDup.set(dk, __eventObjFromOutlookGraph(ev, mb, [gid]));
+      }
+    } catch (err) {
+      lastFetchErrMsg = String((err && err.message) || err || "fetch_failed");
+      failedMailboxes.push(mb);
+      const code = (err && (err.statusCode || err.code)) || "";
+      console.warn("[outlook-calendar] fetch failed", { mailbox: mb, code, msg: err && err.message });
+    }
   }
 
-  const items = Array.isArray(response && response.value) ? response.value : [];
-  for (const ev of items) {
-    if (__shouldSkipOutlookAsBookingDuplicate(ev, existingOrderNos)) continue;
-    const startDt = ev && ev.start && ev.start.dateTime ? String(ev.start.dateTime) : "";
-    const endDt = ev && ev.end && ev.end.dateTime ? String(ev.end.dateTime) : "";
-    if (!startDt) continue;
-    const category = __extractOutlookCategory(ev);
-    const subject = String(ev.subject || "Termin").trim() || "Termin";
-    const sensitivity = String(ev.sensitivity || "").toLowerCase();
-    const title = sensitivity === "private" || sensitivity === "confidential" ? "Privater Termin" : subject;
-    const address = (ev.location && (ev.location.displayName || "")) || "";
-    out.push({
-      id: `outlook-${ev.id}`,
-      title,
-      start: startDt.length > 19 ? startDt.slice(0, 19) : startDt,
-      end: endDt ? (endDt.length > 19 ? endDt.slice(0, 19) : endDt) : undefined,
-      allDay: !!ev.isAllDay,
-      status: "outlook",
-      type: "outlook",
-      source: "m365",
-      orderNo: null,
-      address: String(address || ""),
-      category: category || undefined,
-      bodyPreview: sensitivity === "private" || sensitivity === "confidential" ? "" : String(ev.bodyPreview || "").slice(0, 500),
-      webLink: ev.webLink ? String(ev.webLink) : undefined,
-      showAs: ev.showAs ? String(ev.showAs) : undefined,
-      color: __outlookEventColor(),
-      photographerColor: __outlookEventColor(),
-    });
-  }
+  const merged = [...byDup.values()].sort((a, b) => {
+    const at = Date.parse(a.start);
+    const bt = Date.parse(b.start);
+    if (!Number.isFinite(at) && !Number.isFinite(bt)) return 0;
+    if (!Number.isFinite(at)) return 1;
+    if (!Number.isFinite(bt)) return -1;
+    return at - bt;
+  });
 
-  __outlookCalendarCache.set(cacheKey, { t: now, events: out.slice() });
+  const partialError =
+    failedMailboxes.length > 0 ? `[${failedMailboxes.join(", ")}] ${lastFetchErrMsg || "Graph fetch failed"}` : null;
+
+  __outlookCalendarCache.set(cacheKey, {
+    t: now,
+    events: merged.slice(),
+    partialError,
+  });
   if (__outlookCalendarCache.size > 50) {
     const oldestKey = __outlookCalendarCache.keys().next().value;
     if (oldestKey) __outlookCalendarCache.delete(oldestKey);
   }
-  return out;
+
+  return { events: merged, partialError };
+}
+
+async function loadOutlookCalendarEvents(userEmail, opts, existingOrderNos) {
+  const email = String(userEmail || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return [];
+  const { events } = await loadOutlookCalendarEventsMulti([email], opts, existingOrderNos);
+  return events;
 }
 
 // ─── BKBN-Auftraege (Backbone Photo) aus geteilten 365-Kalendern ─────────────
@@ -1784,6 +1873,34 @@ function bkbnMailboxes() {
     .split(/[,;\s]+/)
     .map((s) => s.trim().toLowerCase())
     .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+}
+
+/**
+ * Postfaec fuer GET /api/internal/assistant/outlook-overlay (Merged Kalender ohne BKBN-Domainfilter).
+ * Default: eingeloggter Nutzer + OFFICE_EMAIL + BKBN_CALENDAR_MAILBOXES (Ivan/Janez/…).
+ * Mit ASSISTANT_OUTLOOK_OVERLAY_MAILBOXES optional komplette Liste ersetzen.
+ */
+function outlookAssistantOverlayMailboxes(primaryUserEmailRaw) {
+  const override = String(process.env.ASSISTANT_OUTLOOK_OVERLAY_MAILBOXES || "").trim();
+  const seen = new Set();
+  const ordered = [];
+  function push(mbRaw) {
+    const x = String(mbRaw || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x) || seen.has(x)) return;
+    seen.add(x);
+    ordered.push(x);
+  }
+  if (override) {
+    for (const token of override.split(/[,;\s]+/)) {
+      const s = token.trim().toLowerCase();
+      if (s) push(s);
+    }
+    return ordered;
+  }
+  push(primaryUserEmailRaw);
+  push(OFFICE_EMAIL);
+  for (const bx of bkbnMailboxes()) push(bx);
+  return ordered;
 }
 
 function bkbnMatchTokens() {
@@ -11931,9 +12048,20 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
         const fromIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookFromRaw) ? outlookFromRaw : fmt(defaultFrom);
         const toIso = /^\d{4}-\d{2}-\d{2}$/.test(outlookToRaw) ? outlookToRaw : fmt(defaultTo);
         try {
-          const outlookEvents = await loadOutlookCalendarEvents(candidate, { from: fromIso, to: toIso }, existingOrderNos);
+          const overlayMb = outlookAssistantOverlayMailboxes(candidate);
+          const { events: outlookEvents, partialError } = await loadOutlookCalendarEventsMulti(
+            overlayMb,
+            { from: fromIso, to: toIso },
+            existingOrderNos,
+          );
           events.push(...outlookEvents);
-          outlookMeta = { enabled: true, user: candidate, count: outlookEvents.length, error: null };
+          outlookMeta = {
+            enabled: true,
+            user: candidate,
+            mailboxes: overlayMb,
+            count: outlookEvents.length,
+            error: partialError,
+          };
         } catch (err) {
           outlookMeta = { enabled: false, user: candidate, count: 0, error: String(err && err.message || err) };
         }
@@ -11974,9 +12102,12 @@ app.get("/api/admin/calendar-events", requirePhotographerOrAdmin, async (req, re
         if (bkGraphIds.size > 0) {
           for (let i = events.length - 1; i >= 0; i -= 1) {
             const e = events[i];
-            if (e && (e.type === "outlook" || e.source === "m365") && typeof e.id === "string" && e.id.startsWith("outlook-")) {
-              if (bkGraphIds.has(e.id.slice("outlook-".length))) events.splice(i, 1);
-            }
+            if (!(e && (e.type === "outlook" || e.source === "m365") && typeof e.id === "string")) continue;
+            if (!e.id.startsWith("outlook-")) continue;
+            const fromPrimary = e.id.slice("outlook-".length);
+            const overlayIds =
+              Array.isArray(e.graphIds) && e.graphIds.length ? e.graphIds.map((id) => String(id || "").trim()).filter(Boolean) : [fromPrimary];
+            if (overlayIds.some((id) => bkGraphIds.has(id))) events.splice(i, 1);
           }
         }
         events.push(...bk.events);
@@ -12079,24 +12210,38 @@ app.get("/api/internal/assistant/outlook-overlay", async (req, res) => {
       if (Number.isFinite(no) && no > 0) existingOrderNos.add(no);
     }
 
+    const overlayMailboxList = outlookAssistantOverlayMailboxes(userEmail);
+
     if (!graphClient) {
       return res.json({
         ok: true,
         events: [],
-        outlook: { enabled: false, user: userEmail, count: 0, error: "graph_not_configured" },
+        outlook: {
+          enabled: false,
+          user: userEmail,
+          mailboxes: overlayMailboxList,
+          count: 0,
+          error: "graph_not_configured",
+        },
         range: { from: fromIso, to: toIso },
       });
     }
 
-    const outlookEvents = await loadOutlookCalendarEvents(
-      userEmail,
+    const { events: outlookEvents, partialError } = await loadOutlookCalendarEventsMulti(
+      overlayMailboxList,
       { from: fromIso, to: toIso },
       existingOrderNos,
     );
     return res.json({
       ok: true,
       events: outlookEvents,
-      outlook: { enabled: true, user: userEmail, count: outlookEvents.length, error: null },
+      outlook: {
+        enabled: true,
+        user: userEmail,
+        mailboxes: overlayMailboxList,
+        count: outlookEvents.length,
+        error: partialError,
+      },
       range: { from: fromIso, to: toIso },
     });
   } catch (err) {

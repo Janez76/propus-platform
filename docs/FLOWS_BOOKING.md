@@ -354,16 +354,17 @@ provisional → pending nur automatisch via expiry_job
 
 **Endpunkt:** `GET /api/admin/calendar-events?includeOutlook=true&outlookFrom=YYYY-MM-DD&outlookTo=YYYY-MM-DD&outlookUser=<email>`
 
-**Backend:** `loadOutlookCalendarEvents(userEmail, { from, to })` in `booking/server.js`
+**Backend:** `loadOutlookCalendarEventsMulti` in `booking/server.js` (`loadOutlookCalendarEvents` = Komfort-Wrapper nur für genau ein Postfach).
 
-- Liest persönliche Termine via `graphClient.api('/users/{email}/calendarView')`
-- Default-Range: aktueller Monat ± 1 Monat (deckt Mini-Monat-Navigation ab)
-- Caching: 60 s pro `email|from|to` (In-Memory, Map)
-- Filtert eigene Buchungs-Events (`[Auftrag #...]`, `Propus Buchung` oder Titel mit `(#100091)`) raus, um Duplikate zu vermeiden
-- Sensitivity `private`/`confidential` → Titel und `bodyPreview` werden auf "Privater Termin" maskiert
-- Kategorie wird aus Graph `categories[]` oder Subject-Präfix `[xyz]` extrahiert
+- Kombination Postfächer (Admin-/Assistant-Overlay): `outlookAssistantOverlayMailboxes(primaryEmail)` ⇒ **Fallback** = Session-/Header-Nutzer + `OFFICE_EMAIL` + jedes Postfach aus `BKBN_CALENDAR_MAILBOXES` (Komma/Leerzeichen). Mit ENV `ASSISTANT_OUTLOOK_OVERLAY_MAILBOXES` lässt sich die Liste **komplett** überschreiben (gleiche Grammatik wie BKBN-Mailboxliste).
+- Liest jedes Postfach via `GET /users/{mailbox}/calendarView`, folgt `@odata.nextLink` (max. 10 Seiten)
+- Doppelte Einträge derselben Besprechung zwischen Postfächern werden per `iCalUId` (Fallback stabil pro Graph-Instanz) zusammengeführt (`mailboxes[]`, `graphIds[]`); `event.id = outlook-{primaryGraphId}` bleibt kompatibel mit BKBN-Dedupliziierung im Kalender-Endpunkt
+- Default-Range: aktueller Monat ± 1 Monat (deckt Mini-Monat-Navigation ab); Assistant-Overlay bekommt `from`/`to` aus Query
+- Caching: 60 s pro `mailboxJoined|from|to|dedupeExistingOrderIds` (In-Memory-Map); Cache speichert zugleich `partialError`
+- Teilfehler beim Lesen eines Postfachs ⇒ `outlook.error` enthält Liste + Meldung, aber andere erfolgreichen Termine werden trotzdem geliefert
+- Filter/Buchungs-Dubletten-/Privacy wie zuvor (ohne Änderungsbedarf hier)
 
-**Response-Erweiterung:** `{ ok: true, events: [...], outlook: { enabled, user, count, error } }`
+**Response-Erweiterung:** `{ ok: true, events: [...], outlook: { enabled, user, mailboxes[], count, error } }`
 
 **Frontend:** `app/src/pages-legacy/CalendarPage.tsx`
 
@@ -378,6 +379,7 @@ provisional → pending nur automatisch via expiry_job
 - MS Graph App-Only Berechtigung `Calendars.Read` (mind. delegiert auf den Service-Principal)
 - `req.user.email` muss eine Mailbox im Mandanten sein, sonst `outlook.error = "no_user_email"`
 - Bei fehlender Konfiguration: `outlook.error = "graph_not_configured"`, Toggle bleibt sichtbar mit Hinweis
+- **KI-Assistenz-Endpunkt:** `GET /api/internal/assistant/outlook-overlay` (Loopback-/`ASSISTANT_BOOKING_GRAPH_PROXY_KEY`) erhält denselben gemergten Datenstand via `loadOutlookCalendarEventsMulti(outlookAssistantOverlayMailboxes(headerEmail),…)`.
 
 ### 4b. BKBN-Aufträge (Backbone Photo) im Admin-Panel (read-only)
 
@@ -408,7 +410,9 @@ ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul
 
 **Voraussetzungen:** wie 4a (`Calendars.Read` app-only); ohne Graph → `meta.enabled=false`, Seite/Banner/Filter bleiben leer.
 
-ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`), `BKBN_CACHE_TTL_MS` (Default `300000`), `BKBN_PAST_DAYS` (Default `10`), `BKBN_FUTURE_MONTHS` (Default `6`).
+ENV BKBN (`booking/server.js`): `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`), `BKBN_CACHE_TTL_MS` (Default `300000`), `BKBN_PAST_DAYS` (Default `10`), `BKBN_FUTURE_MONTHS` (Default `6`).
+
+Outlook-Assistenz zusätzlich: `ASSISTANT_OUTLOOK_OVERLAY_MAILBOXES` überschreibt die Auto-Liste `{Nutzer,OFFICE_EMAIL,BKBN_MAILBOX…}` nur für `/api/internal/assistant/outlook-overlay`.
 
 **Betrieb (Azure Admin-Consent, VPS-ENV, Verifikation):** [docs/OPS_M365_GRAPH_BKBN.md](./OPS_M365_GRAPH_BKBN.md) — Script `booking/scripts/verify-graph-bkbn-mailboxes.js` bzw. `npm run verify:graph-bkbn` im Ordner `booking/`.
 
