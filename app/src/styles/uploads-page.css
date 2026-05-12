@@ -3,6 +3,7 @@
    Scoped unter .uploads-page-v2 damit globale Token nicht beruehrt werden.
 ===================================================================== */
 .uploads-page-v2 {
+  /* Light-Defaults */
   --up-paper: #F4F1EA;
   --up-paper-soft: #EEEAE0;
   --up-paper-deep: #E5DFD2;
@@ -25,6 +26,16 @@
   --up-rust: #B85C3D;
   --up-rust-soft: #F3E2D9;
 
+  /* Status-Tints fuer die linke Rail (theme-aware) */
+  --up-status-pending-bg: rgba(182, 142, 32, 0.12);
+  --up-status-pending-fg: var(--up-gold-deep);
+  --up-status-ok-bg: var(--up-sage-soft);
+  --up-status-ok-fg: var(--up-sage);
+  --up-status-warn-bg: var(--up-rust-soft);
+  --up-status-warn-fg: var(--up-rust);
+  --up-info-bg: #E1E9F2;
+  --up-info-fg: #2C5689;
+
   background: var(--up-paper);
   color: var(--up-ink);
   font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
@@ -32,6 +43,37 @@
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+}
+
+/* ── Dark-Mode-Tokens fuer die ganze Upload-Seite ── */
+html.dark .uploads-page-v2 {
+  --up-paper: #0d0f13;
+  --up-paper-soft: #14161b;
+  --up-paper-deep: #1c1f26;
+  --up-card: #14161b;
+  --up-line: rgba(255, 255, 255, 0.08);
+  --up-line-soft: rgba(255, 255, 255, 0.05);
+  --up-line-strong: rgba(255, 255, 255, 0.14);
+  --up-ink: #F4F1EA;
+  --up-ink-1: #d8d3c7;
+  --up-ink-2: #b3aea0;
+  --up-ink-3: #8a8478;
+  --up-ink-4: #56524a;
+
+  --up-gold-tint: rgba(182, 142, 32, 0.16);
+  --up-gold-soft: rgba(182, 142, 32, 0.18);
+
+  --up-sage-soft: rgba(122, 148, 97, 0.18);
+  --up-rust-soft: rgba(184, 92, 61, 0.18);
+
+  --up-status-pending-bg: rgba(182, 142, 32, 0.22);
+  --up-status-pending-fg: #E5C77A;
+  --up-status-ok-bg: rgba(122, 148, 97, 0.22);
+  --up-status-ok-fg: #B5CC9A;
+  --up-status-warn-bg: rgba(184, 92, 61, 0.22);
+  --up-status-warn-fg: #ECA48F;
+  --up-info-bg: rgba(116, 154, 220, 0.18);
+  --up-info-fg: #A8C2EE;
 }
 
 .uploads-page-v2 .uppv-page {
@@ -116,13 +158,17 @@
   display: block;
 }
 .uppv-search-wrap { position: relative; }
-.uppv-search-wrap i {
+/* Greift fuer Font-Awesome (<i>) UND fuer Lucide-React (<svg>) gleichermassen. */
+.uppv-search-wrap > i,
+.uppv-search-wrap > svg {
   position: absolute;
-  left: 11px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
   color: var(--up-ink-4);
-  font-size: 11px;
+  font-size: 12px;
   pointer-events: none;
 }
 .uppv-search-input {
@@ -198,9 +244,9 @@
   padding: 3px 8px;
   white-space: nowrap;
 }
-.uppv-order-status.is-pending { background: var(--up-gold-soft); color: var(--up-gold-deep); }
-.uppv-order-status.is-ok { background: var(--up-sage-soft); color: var(--up-sage); }
-.uppv-order-status.is-warn { background: var(--up-rust-soft); color: var(--up-rust); }
+.uppv-order-status.is-pending { background: var(--up-status-pending-bg); color: var(--up-status-pending-fg); }
+.uppv-order-status.is-ok { background: var(--up-status-ok-bg); color: var(--up-status-ok-fg); }
+.uppv-order-status.is-warn { background: var(--up-status-warn-bg); color: var(--up-status-warn-fg); }
 .uppv-order-addr {
   font-size: 13px;
   color: var(--up-ink-1);
@@ -330,8 +376,8 @@
   padding: 14px 18px;
 }
 .uppv-status-card.is-err {
-  background: #FBEEEE;
-  border-color: #ECC9C9;
+  background: var(--up-status-warn-bg);
+  border-color: var(--up-rust);
 }
 .uppv-status-card-head {
   display: flex;
@@ -385,7 +431,7 @@
   padding: 26px 28px;
 }
 .uppv-folder-card.is-customer {
-  background: linear-gradient(180deg, #FCFAF5 0%, var(--up-card) 50%);
+  background: linear-gradient(180deg, var(--up-gold-soft) 0%, var(--up-card) 50%);
 }
 .uppv-folder-head {
   display: flex;
@@ -419,10 +465,10 @@
   letter-spacing: 0.6px;
   text-transform: uppercase;
 }
-.uppv-folder-badge.is-ok { background: var(--up-sage-soft); color: var(--up-sage); }
-.uppv-folder-badge.is-pending { background: var(--up-gold-soft); color: var(--up-gold-deep); }
-.uppv-folder-badge.is-err { background: var(--up-rust-soft); color: var(--up-rust); }
-.uppv-folder-badge.is-linked { background: #E1E9F2; color: #2C5689; }
+.uppv-folder-badge.is-ok { background: var(--up-status-ok-bg); color: var(--up-status-ok-fg); }
+.uppv-folder-badge.is-pending { background: var(--up-status-pending-bg); color: var(--up-status-pending-fg); }
+.uppv-folder-badge.is-err { background: var(--up-status-warn-bg); color: var(--up-status-warn-fg); }
+.uppv-folder-badge.is-linked { background: var(--up-info-bg, #E1E9F2); color: var(--up-info-fg, #2C5689); }
 .uppv-folder-badge.is-archived { background: var(--up-paper-deep); color: var(--up-ink-3); }
 .uppv-folder-badge i { font-size: 9px; }
 
@@ -771,9 +817,9 @@
 .uppv-rename-warn {
   margin-top: 8px;
   padding: 8px 10px;
-  background: #FFF8E5;
-  border: 1px solid #EAD9A3;
-  color: #6B5012;
+  background: var(--up-status-pending-bg);
+  border: 1px solid var(--up-gold-line);
+  color: var(--up-status-pending-fg);
   font-size: 11px;
 }
 
@@ -1570,10 +1616,13 @@ html.dark .uppv-upload-modal {
 .uppv-error-banner {
   margin-top: 16px;
   padding: 10px 14px;
-  background: #FBEEEE;
-  border: 1px solid #ECC9C9;
-  color: #8C2A2A;
+  background: var(--up-status-warn-bg);
+  border: 1px solid var(--up-rust);
+  color: var(--up-status-warn-fg);
   font-size: 12px;
+}
+html.dark .uppv-error-banner {
+  color: #ECA48F;
 }
 
 .uppv-empty {
