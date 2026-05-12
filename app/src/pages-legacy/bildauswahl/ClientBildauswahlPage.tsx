@@ -151,6 +151,9 @@ export function ClientBildauswahlPage() {
       initialPicdropDraftJson={data.picdrop_selection_json ?? null}
       watermarkEnabled={false}
       submissionAdapter={adapter}
+      customerName={data.client_name}
+      orderNo={data.booking_order_no}
+      address={data.address}
     />
   );
 }

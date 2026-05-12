@@ -15,6 +15,7 @@ export type BildauswahlPublicPayload = {
   title: string;
   address: string | null;
   client_name: string | null;
+  booking_order_no: string | null;
   updated_at: string;
   watermark_enabled: boolean;
   picdrop_selection_json: string | null;

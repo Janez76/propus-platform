@@ -239,6 +239,15 @@ export type PicdropSelectionViewProps = {
   watermarkEnabled?: boolean;
   /** Wenn gesetzt: ersetzt IndexedDB-Submit/Draft durch eigene Callbacks (server-backed). */
   submissionAdapter?: PicdropSubmissionAdapter;
+  /**
+   * Optional fuer die Lightbox-Top-Bar (editorial dark layout):
+   * Kundenname und Bestell-Nr. werden links als kleine Marken-Zeile angezeigt,
+   * Adresse darunter unter dem Titel. Falls leer, faellt die Topbar elegant
+   * auf nur PROPUS + Titel zurueck.
+   */
+  customerName?: string | null;
+  orderNo?: string | null;
+  address?: string | null;
 };
 
 export function PicdropSelectionView({
@@ -254,7 +263,13 @@ export function PicdropSelectionView({
   initialPicdropDraftJson = null,
   watermarkEnabled = true,
   submissionAdapter = undefined,
+  customerName = null,
+  orderNo = null,
+  address = null,
 }: PicdropSelectionViewProps) {
+  const [commentPanelOpen, setCommentPanelOpen] = useState(false);
+  // Body-Scroll lock waehrend Lightbox offen — Mobile Safari rutscht sonst.
+  // Wird per useEffect unten gesteuert.
   const imageKeySig = useMemo(() => images.map((i) => i.key).join("|"), [images]);
 
   const [byId, setById] = useState<Record<string, ImageState>>(() =>
@@ -441,13 +456,31 @@ export function PicdropSelectionView({
   useEffect(() => {
     if (lightboxIndex === null) return;
     const onKey = (e: KeyboardEvent) => {
+      // Tastatur-Navigation deaktivieren waehrend Kunde im Kommentar-Feld tippt.
+      const target = e.target as HTMLElement | null;
+      const inEditable =
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "INPUT" ||
+        target?.isContentEditable;
+      if (e.key === "Escape") {
+        // Erst Panel schliessen, danach Lightbox — wie Photoshop/Apple.
+        if (commentPanelOpen) setCommentPanelOpen(false);
+        else closeLb();
+        return;
+      }
+      if (inEditable) return;
       if (e.key === "ArrowRight") navigateLb(1);
       if (e.key === "ArrowLeft") navigateLb(-1);
-      if (e.key === "Escape") closeLb();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [lightboxIndex, navigateLb, closeLb]);
+  }, [lightboxIndex, navigateLb, closeLb, commentPanelOpen]);
+
+  // Beim Bildwechsel das Kommentar-Panel schliessen — die Nachrichten gehoeren
+  // zum vorherigen Bild und der Kunde soll bewusst neu oeffnen.
+  useEffect(() => {
+    setCommentPanelOpen(false);
+  }, [lightboxIndex]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -608,125 +641,260 @@ export function PicdropSelectionView({
       >
         {currentImg && currentState ? (
           <>
+            {/* ── Topbar: Marke · Projekt · Schliessen ─────────────────── */}
             <div className="pd-lb-topbar">
-              <div className="pd-lb-filename">{currentImg.name}</div>
-              <button type="button" className="pd-lb-close" onClick={closeLb} aria-label="Schließen">
-                <i className="fa-solid fa-xmark" />
-              </button>
+              <div className="pd-lb-brand">
+                <span className="pd-lb-brand-mark">PROPUS</span>
+                {orderNo || customerName ? (
+                  <>
+                    <span className="pd-lb-brand-divider" aria-hidden />
+                    <span className="pd-lb-brand-context">
+                      {orderNo ? (
+                        <>
+                          Bestell-Nr. <strong>{orderNo}</strong>
+                        </>
+                      ) : null}
+                      {orderNo && customerName ? " · " : null}
+                      {customerName ? <strong>{customerName}</strong> : null}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+              <div className="pd-lb-project-meta">
+                <span className="pd-lb-project-eyebrow">Bildauswahl</span>
+                <span className="pd-lb-project-title">{projectTitle || address || ""}</span>
+              </div>
+              <div className="pd-lb-topbar-actions">
+                <button
+                  type="button"
+                  className="pd-lb-close"
+                  onClick={closeLb}
+                  aria-label="Schliessen"
+                  title="Schliessen"
+                >
+                  <i className="fa-solid fa-xmark" aria-hidden />
+                </button>
+              </div>
             </div>
 
-            <div className="pd-lb-img-wrap">
-              <div className={`pd-lb-img-box${watermarkEnabled ? " pd-lb-img-box--watermark" : ""}`}>
-                {(() => {
-                  const lbSrc = orderedLightboxSources(currentImg);
-                  if (lbSrc.length > 0) {
+            {/* ── Stage: Pfeile + Bild mit Editorial-Corner-Brackets ───── */}
+            <div className="pd-lb-stage">
+              <button
+                type="button"
+                className="pd-lb-nav-arrow"
+                onClick={() => navigateLb(-1)}
+                aria-label="Vorheriges Bild"
+              >
+                <i className="fa-solid fa-chevron-left" aria-hidden />
+              </button>
+              <div className="pd-lb-image-wrap">
+                <div className={`pd-lb-image-frame${watermarkEnabled ? " is-watermark" : ""}`}>
+                  <span className="pd-lb-corner tl" aria-hidden />
+                  <span className="pd-lb-corner tr" aria-hidden />
+                  <span className="pd-lb-corner bl" aria-hidden />
+                  <span className="pd-lb-corner br" aria-hidden />
+                  {(() => {
+                    const lbSrc = orderedLightboxSources(currentImg);
+                    if (lbSrc.length > 0) {
+                      return (
+                        <PicdropRasterImg
+                          sources={lbSrc}
+                          alt=""
+                          restrictDownloadGestures={customerMode}
+                        />
+                      );
+                    }
                     return (
-                      <PicdropRasterImg
-                        className="pd-lb-fullimg"
-                        sources={lbSrc}
-                        alt=""
-                        restrictDownloadGestures={customerMode}
-                      />
+                      <div className="pd-lb-bg" style={{ background: currentImg.placeholderColor }}>
+                        <i
+                          className="fa-solid fa-image"
+                          style={{ fontSize: 40, color: "rgba(255,255,255,0.18)" }}
+                          aria-hidden
+                        />
+                      </div>
                     );
-                  }
-                  return (
-                    <div className="pd-lb-bg" style={{ background: currentImg.placeholderColor }}>
-                      <i className="fa-solid fa-image" style={{ fontSize: 40, color: "rgba(255,255,255,0.1)" }} />
+                  })()}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="pd-lb-nav-arrow"
+                onClick={() => navigateLb(1)}
+                aria-label="Naechstes Bild"
+              >
+                <i className="fa-solid fa-chevron-right" aria-hidden />
+              </button>
+            </div>
+
+            {/* ── Control bar: Counter · Flag-Pills · Comment-Toggle ──── */}
+            <div className="pd-lb-controlbar">
+              <div className="pd-lb-meta-left">
+                <div className="pd-lb-counter-row">
+                  <span className="pd-lb-counter-num">
+                    <em>{String((lightboxIndex ?? 0) + 1).padStart(2, "0")}</em>
+                    /{String(nImg).padStart(2, "0")}
+                  </span>
+                  <span className="pd-lb-counter-total">Bilder im Set</span>
+                </div>
+                <div className="pd-lb-filename-row">
+                  <span className="pd-lb-gold-tick" aria-hidden />
+                  <span>{currentImg.name}</span>
+                </div>
+              </div>
+
+              <div className="pd-lb-flag-group">
+                <span className="pd-lb-flag-label">Flagge setzen</span>
+                <div className="pd-lb-flag-pills">
+                  {(["bearbeiten", "staging", "retusche"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`pd-lb-flag-pill${currentState.flags.includes(f) ? " is-active" : ""}`}
+                      data-flag={f}
+                      onClick={() => toggleFlag(f)}
+                      aria-pressed={currentState.flags.includes(f)}
+                    >
+                      <i className={`icon ${CHIP_ICON[f]}`} aria-hidden />
+                      <span>{FLAG_LABEL[f]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pd-lb-meta-right">
+                <button
+                  type="button"
+                  className="pd-lb-comment-toggle"
+                  onClick={() => setCommentPanelOpen((o) => !o)}
+                  aria-expanded={commentPanelOpen}
+                  aria-controls="pd-lb-comment-panel"
+                >
+                  <i className="fa-regular fa-comment" aria-hidden />
+                  <span>Kommentar</span>
+                  <span
+                    className={`pd-lb-comment-badge${currentState.msgs.length === 0 ? " is-empty" : ""}`}
+                  >
+                    {currentState.msgs.length}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* ── Thumbnail strip ──────────────────────────────────────── */}
+            <div className="pd-lb-thumbstrip" role="tablist" aria-label="Bilder">
+              {images.map((img, idx) => {
+                const isActive = idx === lightboxIndex;
+                const s = byId[img.key];
+                const topFlag: Flag | undefined = s?.flags[0];
+                const thumbSrc = orderedThumbSources(img)[0] ?? null;
+                return (
+                  <button
+                    key={img.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`pd-lb-thumb${isActive ? " is-active" : ""}`}
+                    onClick={() => setLightboxIndex(idx)}
+                    aria-label={`Bild ${idx + 1}: ${img.name}`}
+                    title={img.name}
+                  >
+                    {thumbSrc ? (
+                      <img src={thumbSrc} alt="" loading="lazy" />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          background: img.placeholderColor,
+                        }}
+                      />
+                    )}
+                    {topFlag ? <span className={`pd-lb-thumb-dot pd-lb-thumb-dot--${topFlag}`} aria-hidden /> : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Slide-in Kommentar-Panel ─────────────────────────────── */}
+            <div
+              className={`pd-lb-comment-backdrop${commentPanelOpen ? " is-show" : ""}`}
+              onClick={() => setCommentPanelOpen(false)}
+              aria-hidden
+            />
+            <aside
+              id="pd-lb-comment-panel"
+              className={`pd-lb-comment-panel${commentPanelOpen ? " is-open" : ""}`}
+              aria-hidden={!commentPanelOpen}
+            >
+              <button
+                type="button"
+                className="pd-lb-comment-panel-close"
+                onClick={() => setCommentPanelOpen(false)}
+                aria-label="Schliessen"
+                title="Schliessen"
+              >
+                <i className="fa-solid fa-xmark" aria-hidden />
+              </button>
+              <header className="pd-lb-comment-panel-header">
+                <div className="pd-lb-comment-panel-eyebrow">Kommentare</div>
+                <div className="pd-lb-comment-panel-title">{currentImg.name}</div>
+                <div className="pd-lb-comment-panel-goldline" aria-hidden />
+              </header>
+              <div className="pd-lb-comment-list">
+                {currentState.msgs.length === 0 ? (
+                  <div className="pd-lb-comment-empty">
+                    <div className="pd-lb-comment-empty-icon">
+                      <i className="fa-regular fa-comment" aria-hidden />
                     </div>
-                  );
-                })()}
-              </div>
-            </div>
-
-            <div className="pd-lb-nav-row">
-              <button type="button" className="pd-nav-btn" onClick={() => navigateLb(-1)} aria-label="Vorheriges Bild">
-                <i className="fa-solid fa-chevron-left" />
-              </button>
-              <span className="pd-nav-ctr">
-                {lightboxIndex! + 1} / {nImg}
-              </span>
-              <button type="button" className="pd-nav-btn" onClick={() => navigateLb(1)} aria-label="Nächstes Bild">
-                <i className="fa-solid fa-chevron-right" />
-              </button>
-            </div>
-
-            <div className="pd-lb-bottom">
-              <div className="pd-lb-flags-col">
-                <div className="pd-panel-title">Flaggen setzen</div>
-                <div className="pd-flag-btns">
-                  <button
-                    type="button"
-                    className={`pd-fb${currentState.flags.includes("bearbeiten") ? " pd-fb--on" : ""}`}
-                    onClick={() => toggleFlag("bearbeiten")}
-                  >
-                    <span className="pd-fb-icon" aria-hidden="true">
-                      <i className="fa-solid fa-pencil" />
-                    </span>
-                    Bearbeiten
-                  </button>
-                  <button
-                    type="button"
-                    className={`pd-fb${currentState.flags.includes("staging") ? " pd-fb--on" : ""}`}
-                    onClick={() => toggleFlag("staging")}
-                  >
-                    <span className="pd-fb-icon" aria-hidden="true">
-                      <i className="fa-solid fa-couch" />
-                    </span>
-                    Staging
-                  </button>
-                  <button
-                    type="button"
-                    className={`pd-fb${currentState.flags.includes("retusche") ? " pd-fb--on" : ""}`}
-                    onClick={() => toggleFlag("retusche")}
-                  >
-                    <span className="pd-fb-icon" aria-hidden="true">
-                      <i className="fa-solid fa-wand-magic-sparkles" />
-                    </span>
-                    Retusche
-                  </button>
-                </div>
-              </div>
-
-              <div className="pd-chat-panel">
-                <div className="pd-chat-panel-head">
-                  <div className="pd-panel-title">Kommentare</div>
-                </div>
-                <div className="pd-chat-log">
-                  {currentState.msgs.length === 0 ? (
-                    <div className="pd-chat-empty">Noch keine Kommentare</div>
-                  ) : (
-                    currentState.msgs.map((m, i) => (
-                      <div key={i} className="pd-chat-msg pd-own">
+                    <p>Noch keine Kommentare</p>
+                    <small>Schreiben Sie eine Notiz an das Propus-Team.</small>
+                  </div>
+                ) : (
+                  currentState.msgs.map((m, i) => (
+                    <div key={i} className="pd-lb-comment-item">
+                      <div className="pd-lb-comment-item-meta">
+                        <strong>{customerMode ? "Sie" : "Notiz"}</strong>
+                        <span className="pd-lb-comment-item-time">{m.time}</span>
                         <button
                           type="button"
-                          className="pd-chat-msg-del"
+                          className="pd-lb-comment-item-del"
                           onClick={() => deleteMsg(i)}
                           aria-label="Kommentar loeschen"
                           title="Kommentar loeschen"
                         >
-                          <i className="fa-solid fa-trash-can" aria-hidden="true" />
+                          <i className="fa-solid fa-trash-can" aria-hidden />
                         </button>
-                        {m.text}
-                        <div className="pd-chat-meta">{m.time}</div>
                       </div>
-                    ))
-                  )}
-                </div>
-                <div className="pd-chat-input-row">
-                  <textarea
-                    className="pd-chat-input"
-                    placeholder={customerMode ? "Nachricht an Propus…" : "Nachricht…"}
-                    rows={2}
-                    value={chatDraft}
-                    onChange={(e) => setChatDraft(e.target.value)}
-                    onKeyDown={onChatKeyDown}
-                  />
-                  <button type="button" className="pd-chat-send" onClick={sendMsg} aria-label="Senden">
-                    <i className="fa-solid fa-paper-plane" />
+                      <div className="pd-lb-comment-item-body">{m.text}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="pd-lb-comment-compose">
+                <textarea
+                  className="pd-lb-comment-input"
+                  rows={3}
+                  placeholder={customerMode ? "Nachricht an Propus …" : "Nachricht …"}
+                  value={chatDraft}
+                  onChange={(e) => setChatDraft(e.target.value)}
+                  onKeyDown={onChatKeyDown}
+                />
+                <div className="pd-lb-comment-compose-actions">
+                  <span className="pd-lb-comment-compose-hint">
+                    {customerMode ? "Sichtbar fuer Propus-Team" : "Interne Notiz"}
+                  </span>
+                  <button
+                    type="button"
+                    className="pd-lb-comment-send"
+                    onClick={sendMsg}
+                    disabled={!chatDraft.trim()}
+                  >
+                    Senden
+                    <i className="fa-solid fa-arrow-right" aria-hidden />
                   </button>
                 </div>
               </div>
-            </div>
+            </aside>
           </>
         ) : null}
       </div>

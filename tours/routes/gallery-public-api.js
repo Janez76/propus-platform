@@ -74,6 +74,7 @@ router.get('/:slug', async (req, res) => {
         title: g.title,
         address: g.address || null,
         client_name: g.client_name || null,
+        booking_order_no: g.booking_order_no != null ? String(g.booking_order_no) : null,
         updated_at: g.updated_at,
         watermark_enabled: g.watermark_enabled !== false,
         picdrop_selection_json: g.picdrop_selection_json || null,
