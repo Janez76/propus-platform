@@ -230,7 +230,7 @@ function RememberCheckbox() {
           height="10"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#0c0d10"
+          stroke="var(--ink)"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"

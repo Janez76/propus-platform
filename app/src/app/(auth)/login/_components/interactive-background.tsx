@@ -66,7 +66,8 @@ export function InteractiveBackground({
     );
   }
 
-  const current = images[slideIdx];
+  const safeIdx = slideIdx % images.length;
+  const current = images[safeIdx];
 
   return (
     <>
@@ -75,7 +76,7 @@ export function InteractiveBackground({
         {images.map((img, i) => (
           <div
             key={img.src}
-            className={`bg-slide${i === slideIdx ? " active" : ""}`}
+            className={`bg-slide${i === safeIdx ? " active" : ""}`}
           >
             <Image
               src={img.src}
@@ -98,8 +99,8 @@ export function InteractiveBackground({
       {!reducedMotion && <CursorAndSpotlight />}
       {!reducedMotion && <ParticleConstellation />}
 
-      {/* Bildcredit */}
-      <aside className="image-credit" aria-live="polite">
+      {/* Bildcredit (rein dekorativ, rotiert automatisch — keine Live-Region) */}
+      <aside className="image-credit" aria-hidden="true">
         <span className="label">— Aktuelles Bild</span>
         <span className="name">{current.credit}</span>
         <span className="meta">Foto: {current.photographer}</span>
@@ -112,9 +113,9 @@ export function InteractiveBackground({
             key={img.src}
             type="button"
             role="tab"
-            aria-selected={i === slideIdx}
+            aria-selected={i === safeIdx}
             aria-label={`Bild ${i + 1}: ${img.alt}`}
-            className={`slide-dot${i === slideIdx ? " active" : ""}`}
+            className={`slide-dot${i === safeIdx ? " active" : ""}`}
             onClick={() => setSlideIdx(i)}
           />
         ))}
