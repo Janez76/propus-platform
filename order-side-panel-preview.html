@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bestell-Side-Panel — Vorschau (neu)</title>
+<style>
+  :root {
+    --border-soft: #e7e2d8;
+    --surface-soft: #faf8f3;
+    --text-main: #2b2620;
+    --text-subtle: #8a8275;
+    --accent: #b8924a;
+    --gold-700: #8a6a1f;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #ece8df; color: var(--text-main); padding: 24px;
+  }
+  .stage { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  .note { max-width: 320px; font-size: 13px; line-height: 1.6; color: #555; }
+  .note h2 { font-size: 14px; margin: 0 0 8px; }
+  .note ul { padding-left: 18px; margin: 0; }
+
+  /* panel */
+  .sp-panel {
+    width: 420px; background: #fffdf8; border: 1px solid var(--border-soft);
+    border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,.18); overflow: hidden;
+    display: flex; flex-direction: column; max-height: 90vh;
+  }
+  .sp-head { padding: 14px 16px; border-bottom: 1px solid var(--border-soft); }
+  .sp-head-row { display: flex; align-items: center; gap: 10px; }
+  .sp-head h3 { margin: 0; font-size: 16px; font-weight: 600; flex: 0 0 auto; }
+  .chip-status {
+    font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 999px;
+    background: #fdf3e0; color: var(--gold-700); border: 1px solid #ecdcb8;
+  }
+  .btn-ghost {
+    margin-left: auto; border: 1px solid var(--border-soft); background: #fff;
+    border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--text-main);
+  }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border-soft); color: var(--text-subtle);
+  }
+  .sp-body { padding: 16px; overflow: auto; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft); padding-bottom: 8px; margin-bottom: 14px; }
+  .tab { font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; cursor: pointer; color: var(--text-subtle); border: none; background: none; }
+  .tab.active { background: rgba(184,146,74,.15); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(184,146,74,.3); }
+  section.card {
+    border: 1px solid var(--border-soft); border-radius: 10px; background: var(--surface-soft);
+    padding: 12px; margin-bottom: 12px;
+  }
+  section.card h4 { margin: 0 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-subtle); }
+  .row { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+  .row:last-child { margin-bottom: 0; }
+  .ico { width: 16px; height: 16px; flex: 0 0 16px; margin-top: 2px; color: var(--text-subtle); }
+  .sub { color: var(--text-subtle); font-size: 12px; }
+  a.link { color: var(--accent); text-decoration: none; }
+  a.link:hover { text-decoration: underline; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; margin-bottom: 6px; }
+  .kv .k { color: var(--text-subtle); }
+  .kv .v { font-weight: 600; }
+  .addons { list-style: none; padding: 0; margin: 6px 0; }
+  .addons li { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-subtle); margin-bottom: 4px; }
+  .total { display: flex; justify-content: space-between; border-top: 1px solid var(--border-soft); padding-top: 8px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--gold-700); }
+  .events { list-style: none; padding: 0; margin: 0; }
+  .events li { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-subtle); margin-bottom: 6px; }
+  .more { margin-top: 8px; background: none; border: none; color: var(--accent); font-size: 12px; cursor: pointer; padding: 0; }
+  .sp-foot { padding: 14px 16px; border-top: 1px solid var(--border-soft); }
+  .btn-primary {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    background: var(--accent); color: #fff; border: none; border-radius: 10px;
+    padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none;
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="note">
+    <h2>Was sich ändert</h2>
+    <ul>
+      <li>Die drei Icon-Buttons <b>Termin / Fotograf / Status</b> (und „Voll") im Header sind weg.</li>
+      <li>Doppeltes <b>„Schliessen"</b> entfernt — nur noch oben rechts.</li>
+      <li>Footer = ein klarer <b>„Volle Ansicht"</b>-Button (vollbreit).</li>
+      <li>Badges (Kalender/Exxas/bexio) nur wenn vorhanden — kein leerer Block.</li>
+      <li><b>Objekt</b>: keine „—"-Platzhalterzeile mehr.</li>
+      <li><b>Zusammenfassung</b>: „Kein Paket gewählt" entfällt, wenn Add-ons da sind.</li>
+    </ul>
+  </div>
+
+  <aside class="sp-panel">
+    <header class="sp-head">
+      <div class="sp-head-row">
+        <h3>Bestellung #100114</h3>
+        <span class="chip-status">Ausstehend</span>
+        <button class="btn-ghost">Schliessen</button>
+      </div>
+      <div class="badges">
+        <span class="badge">Kalender: pending</span>
+      </div>
+    </header>
+
+    <div class="sp-body">
+      <div class="tabs">
+        <button class="tab active">Übersicht</button>
+        <button class="tab">Kunde</button>
+        <button class="tab">Verlauf</button>
+      </div>
+
+      <section class="card">
+        <h4>Kunde</h4>
+        <div class="row">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <div>
+            <strong>Yves Schmid</strong>
+            <div class="sub"><a class="link" href="#">yves.schmid@engelvoelkers.com</a></div>
+            <div class="sub"><a class="link" href="#">0414106691</a></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h4>Termin &amp; Adresse</h4>
+        <div class="row">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <div>13.05.2026, 14:00 <span class="sub">· 90 Min.</span></div>
+        </div>
+        <div class="row">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          <div>Sackweidstrasse 1, 6010 Kriens, 6003 Luzern <a class="link sub" href="#">Karte ↗</a></div>
+        </div>
+        <div class="row">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <div><span class="sub">Fotograf: </span><span class="sub" style="font-style:italic;opacity:.7">nicht zugewiesen</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h4>Zusammenfassung</h4>
+        <ul class="addons">
+          <li><span>+ 10 Bodenfotos</span><span>CHF 229.00</span></li>
+          <li><span>+ Anfahrt Zone B</span><span>CHF 89.00</span></li>
+        </ul>
+        <div class="kv"><span class="k">Zwischensumme</span><span class="v">CHF 318.00</span></div>
+        <div class="kv"><span class="k">MwSt.</span><span class="v">CHF 25.75</span></div>
+        <div class="total"><span>Total</span><span>CHF 343.75</span></div>
+      </section>
+
+      <section class="card">
+        <h4>Letzte Ereignisse</h4>
+        <ul class="events">
+          <li>📅 <span>Termin</span> <span style="opacity:.7">· 13.05.2026, 14:00</span></li>
+        </ul>
+        <button class="more">Vollständige Historie öffnen →</button>
+      </section>
+    </div>
+
+    <footer class="sp-foot">
+      <a class="btn-primary" href="#">↗ Volle Ansicht</a>
+    </footer>
+  </aside>
+</div>
+</body>
+</html>
