@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, Calendar, Columns3, List, Map as MapIcon, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, Calendar, ChevronDown, Columns3, List, Map as MapIcon, Plus, Search, Trash2, X } from "lucide-react";
+import "../styles/orders-page.css";
 import {
   createBexioSalesOrder,
   createExxasServiceOrder,
@@ -28,7 +29,6 @@ import { getStatusLabel, normalizeStatusKey, STATUS_KEYS, type StatusKey } from 
 import { getTerminInfo, startOfWeek, addDays, sameDay } from "../lib/orderTermin";
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useOrderStore } from "../store/orderStore";
-import { FilterBar, PageHeader } from "../components/handoff";
 import { BkbnOrdersBanner } from "../components/bkbn/BkbnOrdersBanner";
 // BKBN-Auftraege haben eine eigene Detailseite (/admin/bkbn-orders) und
 // werden NICHT mehr in die Auftraege-Liste gemischt — nur der Banner oben
@@ -549,204 +549,284 @@ export function OrdersPage() {
     );
   }
 
-  const eyebrowText = `${t(lang, "orders.eyebrow") || "Operativ"} · ${kpiActiveCount} ${t(lang, "orders.eyebrowSuffix") || "aktive Bestellungen"}`;
   const formattedRevenue = new Intl.NumberFormat("de-CH", {
-    style: "currency",
-    currency: "CHF",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(kpiOpenRevenue);
-  const headerKpis = [
-    {
-      id: "active",
-      label: t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv",
-      value: String(kpiActiveCount),
-      trend: (t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length)),
-    },
-    {
-      id: "revenue",
-      label: t(lang, "orders.kpi.openRevenue") || "Umsatz offen",
-      value: formattedRevenue,
-      trend: t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet",
-      tone: "gold" as const,
-    },
-    {
-      id: "today",
-      label: t(lang, "orders.kpi.today") || "Heute",
-      value: String(kpiTodayCount),
-      trend: t(lang, "orders.kpi.todayHint") || "fällige Shootings heute",
-    },
-    {
-      id: "unassigned",
-      label: t(lang, "orders.kpi.unassigned") || "Ungeplant",
-      value: String(kpiUnassignedCount),
-      trend: kpiUnassignedCount > 0
-        ? (t(lang, "orders.kpi.unassignedHint") || "ohne Fotograf")
-        : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen"),
-      trendTone: kpiUnassignedCount > 0 ? "warn" as const : "default" as const,
-      tone: kpiUnassignedCount > 0 ? "warn" as const : undefined,
-    },
-  ];
 
-  const quickPills = [
+  const quickPills: { id: QuickFilter; label: string; badge?: number }[] = [
     { id: "none", label: t(lang, "orders.quick.all") },
     { id: "today", label: t(lang, "orders.quick.today") },
     { id: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
     { id: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
-    { id: "overdue", label: `${t(lang, "orders.quick.overdue")}${overdueCount > 0 ? ` (${overdueCount})` : ""}` },
+    { id: "overdue", label: t(lang, "orders.quick.overdue"), badge: overdueCount > 0 ? overdueCount : undefined },
     // "Flex überfällig" nur einblenden, wenn es überhaupt offene Flex-Aufträge
     // mit verpasster Deadline gibt — sonst belastet der Pill den Filter-Bar
     // unnötig für Setups ohne Flex-Buchungen.
     ...(overdueFlexCount > 0
-      ? [{ id: "overdueFlex", label: `${t(lang, "orders.quick.overdueFlex")} (${overdueFlexCount})` }]
+      ? [{ id: "overdueFlex" as QuickFilter, label: t(lang, "orders.quick.overdueFlex"), badge: overdueFlexCount }]
       : []),
     { id: "mine", label: t(lang, "orders.quick.mine") },
   ];
 
+  const viewItems = [
+    { key: "list" as const, label: t(lang, "orders.view.list"), icon: <List /> },
+    { key: "kanban" as const, label: "Kanban", icon: <Columns3 /> },
+    { key: "calendar" as const, label: t(lang, "orders.view.calendar"), icon: <Calendar /> },
+    { key: "map" as const, label: t(lang, "orders.view.map"), icon: <MapIcon /> },
+  ];
+
   return (
-    <div className="padmin-shell space-y-4">
-      <PageHeader
-        eyebrow={eyebrowText}
-        title={t(lang, "orders.title")}
-        sub={t(lang, "orders.description")}
-        kpis={headerKpis}
-        actions={(
-          <>
-            <Segmented
-              items={[
-                { key: "list", label: t(lang, "orders.view.list"), icon: <List className="h-3.5 w-3.5" /> },
-                { key: "kanban", label: "Kanban", icon: <Columns3 className="h-3.5 w-3.5" /> },
-                { key: "calendar", label: t(lang, "orders.view.calendar"), icon: <Calendar className="h-3.5 w-3.5" /> },
-                { key: "map", label: t(lang, "orders.view.map"), icon: <MapIcon className="h-3.5 w-3.5" /> },
-              ]}
-              value={view}
-              onChange={(v) => setView(v as ViewMode)}
-            />
-            <button
-              onClick={() => setShowCreate(true)}
-              className="cust-btn-new"
-            >
-              <Plus className="h-5 w-5" />
-              <span className="hidden sm:inline">{t(lang, "orders.button.newOrder")}</span>
+    <div className="orders-page-v2">
+      <div className="op-page">
+        {/* Header */}
+        <header className="op-header">
+          <div className="op-header-text">
+            <div className="op-eyebrow">
+              <span>{t(lang, "orders.eyebrow") || "Operativ"}</span>
+              <span className="op-eyebrow-sep">·</span>
+              <span className="op-eyebrow-count">
+                {kpiActiveCount} {t(lang, "orders.eyebrowSuffix") || "aktive Bestellungen"}
+              </span>
+            </div>
+            <h1 className="op-page-title">{t(lang, "orders.title")}</h1>
+            <p className="op-page-sub">{t(lang, "orders.description")}</p>
+          </div>
+          <div className="op-header-right">
+            <div className="op-view-switch" role="tablist">
+              {viewItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`op-view-btn ${view === item.key ? "is-active" : ""}`}
+                  onClick={() => setView(item.key)}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="op-primary-btn" onClick={() => setShowCreate(true)}>
+              <Plus />
+              <span>{t(lang, "orders.button.newOrder")}</span>
             </button>
-          </>
-        )}
-      />
+          </div>
+        </header>
 
-      <BkbnOrdersBanner />
+        {/* KPI row */}
+        <section className="op-kpi-row">
+          <div className="op-kpi">
+            <span className="op-kpi-label">{t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv"}</span>
+            <div className="op-kpi-value">{kpiActiveCount}</div>
+            <div className="op-kpi-hint">
+              {(t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length))}
+            </div>
+          </div>
+          <div className="op-kpi is-accent">
+            <span className="op-kpi-label">{t(lang, "orders.kpi.openRevenue") || "Umsatz offen"}</span>
+            <div className="op-kpi-value">
+              <span className="op-kpi-unit">CHF</span>
+              {formattedRevenue}
+            </div>
+            <div className="op-kpi-hint">{t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet"}</div>
+          </div>
+          <div className="op-kpi">
+            <span className="op-kpi-label">{t(lang, "orders.kpi.today") || "Heute"}</span>
+            <div className="op-kpi-value">{kpiTodayCount}</div>
+            <div className="op-kpi-hint">{t(lang, "orders.kpi.todayHint") || "fällige Shootings heute"}</div>
+          </div>
+          <div className={`op-kpi ${kpiUnassignedCount > 0 ? "is-warning" : ""}`}>
+            <span className="op-kpi-label">{t(lang, "orders.kpi.unassigned") || "Ungeplant"}</span>
+            <div className="op-kpi-value">{kpiUnassignedCount}</div>
+            <div className="op-kpi-hint">
+              {kpiUnassignedCount > 0
+                ? (t(lang, "orders.kpi.unassignedHint") || "ohne Fotograf")
+                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
+            </div>
+          </div>
+        </section>
 
-      {/* Filter bar */}
-      <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] p-4">
-        <FilterBar
-          searchValue={query}
-          onSearchChange={setQuery}
-          searchPlaceholder={t(lang, "orders.placeholder.search")}
-          pills={quickPills}
-          activePillId={quickFilter}
-          onPillClick={(v) => setQuickFilter(v as QuickFilter)}
-          rightSlot={(
-            <>
+        <BkbnOrdersBanner />
+
+        {/* Filter bar */}
+        <section className="op-filter-bar">
+          <div className="op-filter-top">
+            <div className="op-search-wrap">
+              <Search />
+              <input
+                type="search"
+                className="op-search-input"
+                placeholder={t(lang, "orders.placeholder.search")}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <div className="op-quick-filters">
+              {quickPills.map((pill) => (
+                <button
+                  key={pill.id}
+                  type="button"
+                  className={`op-quick-filter ${quickFilter === pill.id ? "is-active" : ""}`}
+                  onClick={() => setQuickFilter(pill.id)}
+                >
+                  <span>{pill.label}</span>
+                  {pill.badge ? <span className="op-qf-badge">{pill.badge}</span> : null}
+                </button>
+              ))}
+            </div>
+            <div className="op-select-wrap">
               <select
                 value={photographerFilter}
                 onChange={(e) => setPhotographerFilter(e.target.value)}
-                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
+                aria-label={t(lang, "orders.filter.allEmployees")}
               >
                 <option value="all">{t(lang, "orders.filter.allEmployees")}</option>
                 {photographers.map((p) => (
                   <option key={p.key} value={p.key}>{p.name || p.key}</option>
                 ))}
               </select>
+            </div>
+            <div className="op-select-wrap">
               <select
                 value={kindFilter}
                 onChange={(e) => setKindFilter(e.target.value as "all" | "fixed" | "flexible")}
                 aria-label={t(lang, "orders.filter.kind.label")}
-                className="h-9 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 text-sm text-[var(--text-main)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-subtle)]"
               >
                 <option value="all">{t(lang, "orders.filter.kind.all")}</option>
                 <option value="fixed">{t(lang, "orders.filter.kind.fixed")}</option>
                 <option value="flexible">{t(lang, "orders.filter.kind.flexible")}</option>
               </select>
-              {hasAnyActiveFilter ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusSelection(new Set());
-                    setQuickFilter("none");
-                    setPhotographerFilter("all");
-                    setKindFilter("all");
-                    setQuery("");
-                  }}
-                  className="h-9 rounded-lg border border-[var(--border-soft)] bg-transparent px-3 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
-                >
-                  {t(lang, "orders.filter.reset")}
-                </button>
-              ) : null}
-            </>
-          )}
-        />
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-dashed border-[var(--border-soft)] pt-3">
-          {CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id)).map((group) => {
-            const n = group.members.reduce((acc, k) => acc + (statusCounts[k] || 0), 0);
-            const active = statusSelection.has(group.id);
-            const label = t(lang, group.labelKey) || group.fallbackLabel;
-            return (
+            </div>
+            {hasAnyActiveFilter ? (
               <button
-                key={group.id}
                 type="button"
-                data-testid={`orders-chip-${group.id}`}
-                onClick={() => toggleStatusChip(group.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${active
-                  ? "border-[var(--accent)] bg-[var(--accent-subtle)] text-[var(--accent)]"
-                  : "border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text-muted)] hover:border-[var(--border-strong)] hover:text-[var(--text-main)]"}`}
+                className="op-toggle-link"
+                onClick={() => {
+                  setStatusSelection(new Set());
+                  setQuickFilter("none");
+                  setPhotographerFilter("all");
+                  setKindFilter("all");
+                  setQuery("");
+                }}
               >
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: group.dot }} />
-                {label}
-                <span
-                  className={`rounded-full px-1.5 py-0 text-[10px] ${active
-                    ? "bg-[color-mix(in_srgb,var(--accent)_30%,transparent)]"
-                    : "bg-[color-mix(in_srgb,var(--text-subtle)_20%,transparent)] text-[var(--text-muted)]"}`}
-                >
-                  {n}
-                </span>
+                <X />
+                <span>{t(lang, "orders.filter.reset")}</span>
               </button>
-            );
-          })}
-          {!showArchivedChip ? (
-            <button
-              type="button"
-              onClick={() => setShowArchivedChip(true)}
-              className="text-[11px] text-[var(--text-subtle)] hover:text-[var(--text-main)] underline-offset-2 hover:underline"
-            >
-              {t(lang, "orders.chip.showArchived") || "Archivierte zeigen"}
-            </button>
-          ) : null}
-          {statusSelection.size === 0 ? (
-            <span className="text-[11px] text-[var(--text-subtle)]">{t(lang, "orders.filter.chipsHint")}</span>
-          ) : null}
-        </div>
-      </div>
+            ) : null}
+          </div>
 
-      {bulkFeedback ? (
-        <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{bulkFeedback}</div>
-      ) : null}
-      {exxasNotice ? (
-        <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{exxasNotice}</div>
-      ) : null}
+          {/* Status filter row */}
+          <div className="op-status-filters">
+            {CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id)).map((group) => {
+              const n = group.members.reduce((acc, k) => acc + (statusCounts[k] || 0), 0);
+              const active = statusSelection.has(group.id);
+              const label = t(lang, group.labelKey) || group.fallbackLabel;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  data-testid={`orders-chip-${group.id}`}
+                  data-status={group.members[0]}
+                  className={`op-status-filter ${active ? "is-active" : ""}`}
+                  onClick={() => toggleStatusChip(group.id)}
+                >
+                  <span className="op-dot" />
+                  <span>{label}</span>
+                  <span className="op-count">{n}</span>
+                </button>
+              );
+            })}
+            {!showArchivedChip ? (
+              <button
+                type="button"
+                className="op-toggle-link"
+                onClick={() => setShowArchivedChip(true)}
+              >
+                <ChevronDown />
+                <span>{t(lang, "orders.chip.showArchived") || "Archivierte zeigen"}</span>
+              </button>
+            ) : null}
+          </div>
+        </section>
 
-      {selectedNos.size > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-2.5 text-[var(--primary-contrast)] shadow-md" style={{ color: "#1a1200" }}>
-          <span className="rounded-full bg-black/20 px-2.5 py-0.5 text-xs font-semibold">
-            {t(lang, "orders.bulk.selected").replace("{{count}}", String(selectedNos.size))}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide opacity-80">
-              {t(lang, "orders.bulk.targetStatus")}
-            </label>
+        {bulkFeedback ? (
+          <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{bulkFeedback}</div>
+        ) : null}
+        {exxasNotice ? (
+          <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{exxasNotice}</div>
+        ) : null}
+
+        {/* View */}
+        {view === "list" ? (
+          <div className="space-y-4">
+            {orders.length === 0 ? (
+              <EmptyState lang={lang} />
+            ) : (
+              <OrderTable
+                orders={orders}
+                onOpenDetail={openOrderPreview}
+                onOpenMessages={setMsgNo}
+                onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
+                selectedNos={selectedNos}
+                onToggleRow={toggleRowSelection}
+                onToggleAllVisible={toggleAllVisible}
+                onToggleSection={toggleSectionSelection}
+                onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
+                onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
+                onCreateBexioOrder={canCreateExxasOrder ? handleCreateBexioOrder : undefined}
+              />
+            )}
+          </div>
+        ) : view === "kanban" ? (
+          <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} />
+        ) : view === "calendar" ? (
+          <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
+        ) : (
+          mapOrders.length === 0 ? (
+            <EmptyState lang={lang} />
+          ) : bookingConfigLoading ? (
+            <div className="flex h-64 items-center justify-center rounded-xl border border-[var(--border-soft)]">
+              <div
+                className="h-12 w-12 animate-spin rounded-full border-2"
+                style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }}
+              />
+              <span className="ml-3 text-sm text-[var(--text-subtle)]">{t(lang, "orders.map.configLoading")}</span>
+            </div>
+          ) : !googleMapsKey ? (
+            <OrdersMapViewNoKey lang={lang} />
+          ) : (
+            <OrdersMapView
+              apiKey={googleMapsKey}
+              googleMapId={bookingConfig?.googleMapId ?? null}
+              orders={mapOrders}
+              onOpenDetail={openOrderPreview}
+              lang={lang}
+            />
+          )
+        )}
+
+        {/* Sticky Bulk-Bar */}
+        {selectedNos.size > 0 ? (
+          <div className="op-bulk-bar">
+            <span className="op-bulk-count">
+              {(() => {
+                const full = t(lang, "orders.bulk.selected").replace("{{count}}", String(selectedNos.size));
+                const parts = full.split(String(selectedNos.size));
+                return (
+                  <>
+                    {parts[0] || ""}
+                    <strong>{selectedNos.size}</strong>
+                    {parts.slice(1).join(String(selectedNos.size)) || ""}
+                  </>
+                );
+              })()}
+            </span>
             <select
               value={bulkTargetStatus}
               onChange={(e) => setBulkTargetStatus(e.target.value as StatusKey)}
-              className="h-7 rounded-md border border-black/20 bg-white/30 px-2 text-xs font-medium text-[#1a1200]"
+              className="op-bulk-select"
               disabled={bulkBusy}
+              aria-label={t(lang, "orders.bulk.targetStatus")}
             >
               {STATUS_KEYS.map((s) => (
                 <option key={s} value={s}>
@@ -756,84 +836,37 @@ export function OrdersPage() {
             </select>
             <button
               type="button"
-              className="h-7 rounded-md bg-black/15 px-3 text-xs font-semibold hover:bg-black/25 disabled:opacity-50"
+              className="op-bulk-btn"
               disabled={bulkBusy}
               onClick={() => void runBulkSetStatus()}
             >
-              {bulkBusy ? t(lang, "orders.bulk.applying") : t(lang, "orders.bulk.applyStatus")}
+              <ArrowRight />
+              <span>{bulkBusy ? t(lang, "orders.bulk.applying") : t(lang, "orders.bulk.applyStatus")}</span>
             </button>
+            <div className="op-bulk-actions">
+              <button
+                type="button"
+                className="op-bulk-btn"
+                disabled={bulkBusy}
+                onClick={() => setShowBulkDelete(true)}
+              >
+                <Trash2 />
+                <span>{t(lang, "orders.bulk.deleteSelected")}</span>
+              </button>
+              <button
+                type="button"
+                className="op-bulk-btn"
+                disabled={bulkBusy}
+                onClick={() => setSelectedNos(new Set())}
+              >
+                <X />
+                <span>{t(lang, "orders.bulk.clearSelection")}</span>
+              </button>
+            </div>
           </div>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className="h-7 rounded-md bg-black/15 px-3 text-xs font-semibold hover:bg-black/25 disabled:opacity-50"
-              disabled={bulkBusy}
-              onClick={() => setShowBulkDelete(true)}
-            >
-              {t(lang, "orders.bulk.deleteSelected")}
-            </button>
-            <button
-              type="button"
-              className="h-7 rounded-md bg-transparent px-3 text-xs font-semibold hover:bg-black/15 disabled:opacity-50"
-              disabled={bulkBusy}
-              onClick={() => setSelectedNos(new Set())}
-            >
-              {t(lang, "orders.bulk.clearSelection")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {/* View */}
-      {view === "list" ? (
-        <div className="space-y-4">
-          {orders.length === 0 ? (
-            <EmptyState lang={lang} />
-          ) : (
-            <OrderTable
-              orders={orders}
-              onOpenDetail={openOrderPreview}
-              onOpenMessages={setMsgNo}
-              onOpenUpload={(no) => navigate(`/upload?order=${encodeURIComponent(no)}`)}
-              selectedNos={selectedNos}
-              onToggleRow={toggleRowSelection}
-              onToggleAllVisible={toggleAllVisible}
-              onToggleSection={toggleSectionSelection}
-              onCreateExxasOrder={canCreateExxasOrder ? handleCreateExxasOrder : undefined}
-              onSyncExxasOrderLinks={canCreateExxasOrder ? handleSyncExxasOrderLinks : undefined}
-              onCreateBexioOrder={canCreateExxasOrder ? handleCreateBexioOrder : undefined}
-            />
-          )}
-        </div>
-      ) : view === "kanban" ? (
-        <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} />
-      ) : view === "calendar" ? (
-        <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
-      ) : (
-        mapOrders.length === 0 ? (
-          <EmptyState lang={lang} />
-        ) : bookingConfigLoading ? (
-          <div className="flex h-64 items-center justify-center rounded-xl border border-[var(--border-soft)]">
-            <div
-              className="h-12 w-12 animate-spin rounded-full border-2"
-              style={{ borderColor: "var(--accent-subtle)", borderTopColor: "var(--accent)" }}
-            />
-            <span className="ml-3 text-sm text-[var(--text-subtle)]">{t(lang, "orders.map.configLoading")}</span>
-          </div>
-        ) : !googleMapsKey ? (
-          <OrdersMapViewNoKey lang={lang} />
-        ) : (
-          <OrdersMapView
-            apiKey={googleMapsKey}
-            googleMapId={bookingConfig?.googleMapId ?? null}
-            orders={mapOrders}
-            onOpenDetail={openOrderPreview}
-            lang={lang}
-          />
-        )
-      )}
-
-      <Dialog open={showBulkDelete} onOpenChange={(open) => !bulkBusy && setShowBulkDelete(open)}>
+        <Dialog open={showBulkDelete} onOpenChange={(open) => !bulkBusy && setShowBulkDelete(open)}>
         <DialogContent className="max-w-md border-red-500/25">
           <DialogClose onClose={() => !bulkBusy && setShowBulkDelete(false)} />
           <DialogHeader>
@@ -878,12 +911,13 @@ export function OrdersPage() {
       />
       {msgNo ? <OrderMessages token={token} orderNo={msgNo} onClose={() => setMsgNo(null)} /> : null}
 
-      <OrderSidePanel
-        open={Boolean(sidePanelNo && sidePanelOrder)}
-        order={sidePanelOrder}
-        onClose={() => setSidePanelNo(null)}
-        lang={lang}
-      />
+        <OrderSidePanel
+          open={Boolean(sidePanelNo && sidePanelOrder)}
+          order={sidePanelOrder}
+          onClose={() => setSidePanelNo(null)}
+          lang={lang}
+        />
+      </div>
     </div>
   );
 }
@@ -929,35 +963,6 @@ function OrdersKanban({ orders, onOpenDetail }: { orders: Order[]; onOpenDetail:
         );
       })}
     </section>
-  );
-}
-
-type SegmentedItem = { key: string; label: string; icon?: React.ReactNode; disabled?: boolean; tone?: "danger" };
-
-function Segmented({ items, value, onChange }: { items: SegmentedItem[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="inline-flex gap-0.5 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] p-0.5">
-      {items.map((item) => {
-        const active = value === item.key;
-        const danger = item.tone === "danger" && !active;
-        return (
-          <button
-            key={item.key}
-            type="button"
-            disabled={item.disabled}
-            onClick={() => !item.disabled && onChange(item.key)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${active
-              ? "bg-[var(--surface)] text-[var(--text-main)] shadow-sm"
-              : danger
-                ? "text-red-600 hover:bg-[var(--surface)]/50"
-                : "text-[var(--text-muted)] hover:text-[var(--text-main)]"} ${item.disabled ? "cursor-not-allowed opacity-40" : ""}`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
