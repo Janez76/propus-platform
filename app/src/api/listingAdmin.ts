@@ -129,7 +129,7 @@ export function getGalleryNasContext(galleryId: string, orderNoOverride?: number
     storageHealth: Array<{ key: string; path: string; ok: boolean; mounted: boolean | null; error?: string }>;
     suggestions: Array<{
       folderType: "raw_material" | "customer_folder";
-      rootKind: "customer" | "raw";
+      rootKind: "customer" | "raw" | "selection";
       relativePath: string;
       displayName: string;
       companyName: string;
@@ -140,7 +140,7 @@ export function getGalleryNasContext(galleryId: string, orderNoOverride?: number
     }>;
     currentSource: {
       storage_source_type: "share_link" | "order_folder" | "nas_browser" | null;
-      storage_root_kind: "customer" | "raw" | null;
+      storage_root_kind: "customer" | "raw" | "selection" | null;
       storage_relative_path: string | null;
     };
   }>(`/${galleryId}/nas-context${qs}`);
@@ -148,14 +148,14 @@ export function getGalleryNasContext(galleryId: string, orderNoOverride?: number
 
 export function browseGalleryNas(
   galleryId: string,
-  params: { rootKind: "customer" | "raw"; relativePath?: string | null },
+  params: { rootKind: "customer" | "raw" | "selection"; relativePath?: string | null },
 ) {
   const search = new URLSearchParams();
   search.set("rootKind", params.rootKind);
   if (params.relativePath?.trim()) search.set("relativePath", params.relativePath.trim());
   return galleryFetch<{
     ok: boolean;
-    rootKind: "customer" | "raw";
+    rootKind: "customer" | "raw" | "selection";
     rootPath: string;
     currentRelativePath: string;
     parentRelativePath: string | null;
@@ -167,7 +167,7 @@ export function browseGalleryNas(
 export function importGalleryFromNas(
   galleryId: string,
   body: {
-    rootKind: "customer" | "raw";
+    rootKind: "customer" | "raw" | "selection";
     relativePath: string;
     storageSourceType: "order_folder" | "nas_browser";
   },

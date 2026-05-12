@@ -692,7 +692,7 @@ export function BildauswahlEditorPage() {
   const [nasSuggestions, setNasSuggestions] = useState<
     Array<{
       folderType: "raw_material" | "customer_folder";
-      rootKind: "customer" | "raw";
+      rootKind: "customer" | "raw" | "selection";
       relativePath: string;
       displayName: string;
       companyName: string;
@@ -702,7 +702,7 @@ export function BildauswahlEditorPage() {
       nextcloudShareUrl: string | null;
     }>
   >([]);
-  const [nasRootKind, setNasRootKind] = useState<"customer" | "raw">("customer");
+  const [nasRootKind, setNasRootKind] = useState<"customer" | "raw" | "selection">("customer");
   const [nasRelativePath, setNasRelativePath] = useState("");
   const [nasEntries, setNasEntries] = useState<Array<{ name: string; relativePath: string }>>([]);
   const [nasParentPath, setNasParentPath] = useState<string | null>(null);
@@ -786,7 +786,7 @@ export function BildauswahlEditorPage() {
   }, [load]);
 
   const loadNasBrowser = useCallback(
-    async (rootKind: "customer" | "raw", relativePath: string) => {
+    async (rootKind: "customer" | "raw" | "selection" | "selection", relativePath: string) => {
       if (!id || id === "new") return;
       setNasLoading(true);
       setNasError(null);
@@ -820,9 +820,12 @@ export function BildauswahlEditorPage() {
       const context = await getGalleryNasContext(id);
       setNasHealth(context.storageHealth);
       setNasSuggestions(context.suggestions);
-      const nextRootKind = context.currentSource.storage_root_kind ?? context.suggestions[0]?.rootKind ?? "customer";
+      const nextRootKind = (context.currentSource.storage_root_kind ?? context.suggestions[0]?.rootKind ?? "customer") as "customer" | "raw" | "selection" | "selection";
       const nextRelativePath = context.currentSource.storage_relative_path ?? context.suggestions[0]?.relativePath ?? "";
-      const healthKey = nextRootKind === "raw" ? "rawRoot" : "customerRoot";
+      const healthKey =
+        nextRootKind === "raw" ? "rawRoot"
+        : nextRootKind === "selection" ? "selectionRoot"
+        : "customerRoot";
       const rootOk = context.storageHealth.find((h) => h.key === healthKey)?.ok === true;
       if (rootOk) {
         await loadNasBrowser(nextRootKind, nextRelativePath);
@@ -1104,7 +1107,7 @@ export function BildauswahlEditorPage() {
   }, [assignmentAutofillMsg]);
 
   const importNasSelection = useCallback(
-    async (rootKind: "customer" | "raw", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
+    async (rootKind: "customer" | "raw" | "selection", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
       if (!id) return;
       setNasImporting(true);
       setNasMsg(null);

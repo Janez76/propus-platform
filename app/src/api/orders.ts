@@ -197,7 +197,7 @@ export type OrderUploadTreeNode = OrderUploadTreeFileNode | OrderUploadTreeDirNo
 export type OrderUploadsResponse = {
   ok: boolean;
   orderNo: number;
-  folderType?: "raw_material" | "customer_folder";
+  folderType?: OrderFolderType;
   folderName: string;
   rootPath: string;
   exists?: boolean;
@@ -205,7 +205,7 @@ export type OrderUploadsResponse = {
 };
 
 export type OrderStorageFolderSummary = {
-  folderType: "raw_material" | "customer_folder";
+  folderType: OrderFolderType;
   status: "pending" | "ready" | "linked" | "archived" | "failed";
   orderNo: number;
   displayName: string;
@@ -229,7 +229,7 @@ export type OrderStorageHealthRoot = {
 export type OrderUploadBatch = {
   id: string;
   orderNo: number;
-  folderType: "raw_material" | "customer_folder";
+  folderType: OrderFolderType;
   category: OrderUploadCategory;
   uploadMode: OrderUploadMode;
   uploadGroupId: string | null;
@@ -266,7 +266,7 @@ export type OrderStorageSummaryResponse = {
   batches: OrderUploadBatch[];
 };
 
-export type OrderFolderType = "raw_material" | "customer_folder";
+export type OrderFolderType = "raw_material" | "customer_folder" | "selection";
 
 export type UploadConflictMode = "skip" | "replace";
 
@@ -804,7 +804,7 @@ export const provisionOrderStorage = (token: string, orderNo: string) =>
 export const linkOrderStorageFolder = (
   token: string,
   orderNo: string,
-  input: { folderType: "raw_material" | "customer_folder"; relativePath: string; rename?: boolean },
+  input: { folderType: OrderFolderType; relativePath: string; rename?: boolean },
 ) =>
   apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[]; renameWarning: string | null }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/link`,
@@ -816,7 +816,7 @@ export const linkOrderStorageFolder = (
 export const archiveOrderStorageFolder = (
   token: string,
   orderNo: string,
-  folderType: "raw_material" | "customer_folder",
+  folderType: OrderFolderType,
 ) =>
   apiRequest<{ ok: boolean; folders: OrderStorageFolderSummary[] }>(
     `/api/admin/orders/${encodeURIComponent(orderNo)}/storage/folder?folderType=${encodeURIComponent(folderType)}`,
@@ -870,7 +870,7 @@ export interface StorageBrowseResult {
 
 export const browseAdminStorage = (
   token: string,
-  rootKind: "customer" | "raw",
+  rootKind: "customer" | "raw" | "selection",
   relativePath: string,
 ) =>
   apiRequest<StorageBrowseResult>(

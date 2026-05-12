@@ -6,11 +6,13 @@ const ncShare = require("./nextcloud-share");
 
 const CUSTOMER_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ROOT || process.env.BOOKING_UPLOAD_ROOT || path.join(__dirname, "uploads");
 const RAW_MATERIAL_ROOT = process.env.BOOKING_UPLOAD_RAW_ROOT || path.join(__dirname, "uploads-raw");
+const SELECTION_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_SELECTION_ROOT || path.join(__dirname, "uploads-selection");
 const DEFAULT_LOCAL_STAGING_ROOT = path.join(os.tmpdir(), "buchungstool-upload-staging");
 const CONFIGURED_LOCAL_STAGING_ROOT = String(process.env.BOOKING_UPLOAD_STAGING_ROOT || "").trim();
 const LOCAL_STAGING_ROOT = CONFIGURED_LOCAL_STAGING_ROOT || DEFAULT_LOCAL_STAGING_ROOT;
 const CUSTOMER_ARCHIVE_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ARCHIVE_ROOT || path.join(CUSTOMER_UPLOAD_ROOT, "_ARCHIV");
 const RAW_ARCHIVE_ROOT = process.env.BOOKING_UPLOAD_RAW_ARCHIVE_ROOT || path.join(RAW_MATERIAL_ROOT, "_ARCHIV");
+const SELECTION_ARCHIVE_ROOT = process.env.BOOKING_UPLOAD_SELECTION_ARCHIVE_ROOT || path.join(SELECTION_UPLOAD_ROOT, "_ARCHIV");
 const REQUIRE_MOUNT = String(process.env.BOOKING_UPLOAD_REQUIRE_MOUNT || "false").toLowerCase() === "true";
 
 const CUSTOMER_UPLOAD_STRUCTURE = [
@@ -32,6 +34,54 @@ const RAW_MATERIAL_STRUCTURE = [
   "Unbearbeitete/Bilder",
   "Unbearbeitete/Video",
 ];
+
+/**
+ * Selection-Root ist der dritte Top-Level-Ordner: hier landen die Bilder,
+ * die dem Kunden zur Auswahl praesentiert werden sollen (Picdrop / Bildauswahl-
+ * Modul). Struktur bleibt flach — keine Sub-Ordner — weil die Auswahl
+ * je Auftrag in einer einzigen Bildmenge stattfindet.
+ */
+const SELECTION_UPLOAD_STRUCTURE = [];
+
+/**
+ * Folder-Type → Token-Maps. Vorher waren die meisten Werte als
+ * raw_material/customer_folder-Ternaer verstreut; mit drittem Typ
+ * ist eine Lookup-Tabelle deutlich pflegeleichter.
+ */
+const FOLDER_TYPE_DEFS = {
+  raw_material: {
+    rootPath: RAW_MATERIAL_ROOT,
+    archivePath: RAW_ARCHIVE_ROOT,
+    structure: RAW_MATERIAL_STRUCTURE,
+    rootKind: "raw",
+    label: "Rohmaterial",
+    rootLabel: "Raw-Root",
+    archiveLabel: "Raw-Archiv",
+    rootSummaryKey: "rawRoot",
+  },
+  customer_folder: {
+    rootPath: CUSTOMER_UPLOAD_ROOT,
+    archivePath: CUSTOMER_ARCHIVE_ROOT,
+    structure: CUSTOMER_UPLOAD_STRUCTURE,
+    rootKind: "customer",
+    label: "Kundenordner",
+    rootLabel: "Kunden-Root",
+    archiveLabel: "Kunden-Archiv",
+    rootSummaryKey: "customerRoot",
+  },
+  selection: {
+    rootPath: SELECTION_UPLOAD_ROOT,
+    archivePath: SELECTION_ARCHIVE_ROOT,
+    structure: SELECTION_UPLOAD_STRUCTURE,
+    rootKind: "selection",
+    label: "Zur Auswahl",
+    rootLabel: "Selection-Root",
+    archiveLabel: "Selection-Archiv",
+    rootSummaryKey: "selectionRoot",
+  },
+};
+
+const ALL_FOLDER_TYPES = Object.keys(FOLDER_TYPE_DEFS);
 
 const UPLOAD_CATEGORY_MAP = {
   staging_websize: "Finale/Staging/websize",
@@ -726,9 +776,11 @@ function getStorageRoots() {
   return {
     customerRoot: CUSTOMER_UPLOAD_ROOT,
     rawRoot: RAW_MATERIAL_ROOT,
+    selectionRoot: SELECTION_UPLOAD_ROOT,
     stagingRoot: getSafeStagingRootForDisplay(),
     customerArchiveRoot: CUSTOMER_ARCHIVE_ROOT,
     rawArchiveRoot: RAW_ARCHIVE_ROOT,
+    selectionArchiveRoot: SELECTION_ARCHIVE_ROOT,
   };
 }
 
@@ -736,6 +788,7 @@ function getStorageHealth() {
   const checks = [
     { key: "customerRoot", path: CUSTOMER_UPLOAD_ROOT, label: "Kunden-Root", allowCreate: false },
     { key: "rawRoot", path: RAW_MATERIAL_ROOT, label: "Raw-Root", allowCreate: false },
+    { key: "selectionRoot", path: SELECTION_UPLOAD_ROOT, label: "Selection-Root", allowCreate: false },
     { key: "stagingRoot", path: getSafeStagingRootForDisplay(), label: "Staging-Root", allowCreate: true },
   ];
   return checks.map((entry) => {
@@ -760,27 +813,47 @@ function getStorageHealth() {
 }
 
 function getFolderRoot(folderType) {
-  return folderType === "raw_material" ? RAW_MATERIAL_ROOT : CUSTOMER_UPLOAD_ROOT;
+  const def = FOLDER_TYPE_DEFS[folderType];
+  return def ? def.rootPath : CUSTOMER_UPLOAD_ROOT;
 }
 
 function getArchiveRoot(folderType) {
-  return folderType === "raw_material" ? RAW_ARCHIVE_ROOT : CUSTOMER_ARCHIVE_ROOT;
+  const def = FOLDER_TYPE_DEFS[folderType];
+  return def ? def.archivePath : CUSTOMER_ARCHIVE_ROOT;
 }
 
 function getFolderStructure(folderType) {
-  return folderType === "raw_material" ? RAW_MATERIAL_STRUCTURE : CUSTOMER_UPLOAD_STRUCTURE;
+  const def = FOLDER_TYPE_DEFS[folderType];
+  return def ? def.structure : CUSTOMER_UPLOAD_STRUCTURE;
+}
+
+function getFolderLabel(folderType) {
+  const def = FOLDER_TYPE_DEFS[folderType];
+  return def ? def.label : folderType;
+}
+
+function getRootLabel(folderType) {
+  const def = FOLDER_TYPE_DEFS[folderType];
+  return def ? def.rootLabel : folderType;
 }
 
 function buildFolderDefinitions(order) {
   const naming = deriveOrderNaming(order);
   const custBase = sanitizeNasFolderBase(order?.customerNasCustomerFolderBase);
   const rawBase = sanitizeNasFolderBase(order?.customerNasRawFolderBase);
+  /**
+   * Selection-Ordner verwendet bewusst dieselbe Naming-Konvention wie der
+   * Kundenordner: Firma + Anzeigename. So findet das Office in beiden
+   * Roots dieselbe Ordnerstruktur und kann Bildauswahl direkt verknuepfen.
+   */
   const customerRel = custBase
     ? joinPortableRelative(custBase, naming.customerCompanyName, naming.customerDisplayName)
     : joinPortableRelative(naming.customerCompanyName, naming.customerDisplayName);
   const rawRel = rawBase ? joinPortableRelative(rawBase, naming.rawDisplayName) : naming.rawDisplayName;
+  const selectionRel = customerRel;
   const customerAbs = path.join(CUSTOMER_UPLOAD_ROOT, ...customerRel.split("/").filter(Boolean));
   const rawAbs = path.join(RAW_MATERIAL_ROOT, ...rawRel.split("/").filter(Boolean));
+  const selectionAbs = path.join(SELECTION_UPLOAD_ROOT, ...selectionRel.split("/").filter(Boolean));
   return {
     raw_material: {
       folderType: "raw_material",
@@ -801,6 +874,16 @@ function buildFolderDefinitions(order) {
       displayName: naming.customerDisplayName,
       companyName: naming.companyName,
       structure: CUSTOMER_UPLOAD_STRUCTURE,
+    },
+    selection: {
+      folderType: "selection",
+      rootKind: "selection",
+      rootPath: SELECTION_UPLOAD_ROOT,
+      relativePath: selectionRel,
+      absolutePath: selectionAbs,
+      displayName: naming.customerDisplayName,
+      companyName: naming.companyName,
+      structure: SELECTION_UPLOAD_STRUCTURE,
     },
   };
 }
@@ -838,13 +921,13 @@ function isSameOrderFolderPath(p1, p2) {
   }
 }
 
-async function provisionOrderFolders(order, db, { folderTypes = ["raw_material", "customer_folder"], createMissing = true } = {}) {
+async function provisionOrderFolders(order, db, { folderTypes = ALL_FOLDER_TYPES, createMissing = true } = {}) {
   const defs = buildFolderDefinitions(order);
   const links = {};
   for (const folderType of folderTypes) {
     const def = defs[folderType];
     if (!def) continue;
-    assertRootReady(def.rootPath, { label: folderType === "raw_material" ? "Raw-Root" : "Kunden-Root" });
+    assertRootReady(def.rootPath, { label: getRootLabel(folderType) });
     if (createMissing) {
       const existingLink = await db.getOrderFolderLink(order.orderNo, def.folderType);
       if (
@@ -900,7 +983,7 @@ async function getOrderFolderSummary(order, db, { createMissing = false } = {}) 
     await provisionOrderFolders(order, db, { createMissing: true });
     return getOrderFolderSummary(order, db, { createMissing: false });
   }
-  return ["raw_material", "customer_folder"].map((folderType) => {
+  return ALL_FOLDER_TYPES.map((folderType) => {
     const row = byType[folderType];
     const expected = defs[folderType];
     const absolutePath = row?.absolute_path || expected.absolutePath;
@@ -924,7 +1007,7 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
   const defs = buildFolderDefinitions(order);
   const def = defs[folderType];
   if (!def) throw new Error("Ungültiger Ordnertyp");
-  const rootPath = assertRootReady(def.rootPath, { label: folderType === "raw_material" ? "Raw-Root" : "Kunden-Root" });
+  const rootPath = assertRootReady(def.rootPath, { label: getRootLabel(folderType) });
   const normalizedRelative = path.normalize(String(relativePath || "")).replace(/^([/\\])+/, "");
   if (!normalizedRelative) throw new Error("Pfad fehlt");
   let absolutePath = path.resolve(rootPath, normalizedRelative);
@@ -980,7 +1063,7 @@ async function linkExistingOrderFolder(order, db, { folderType, relativePath, re
   const link = await db.upsertOrderFolderLink({
     orderNo: order.orderNo,
     folderType,
-    rootKind: folderType === "raw_material" ? "raw" : "customer",
+    rootKind: def.rootKind,
     relativePath: nextRelativePath,
     absolutePath: nextAbsolutePath,
     displayName: def.displayName,
@@ -1001,7 +1084,7 @@ async function archiveOrderFolder(order, db, folderType) {
     return db.archiveOrderFolderLink(order.orderNo, folderType, current.absolute_path, "archived");
   }
   const archiveRoot = assertRootReady(getArchiveRoot(folderType), {
-    label: folderType === "raw_material" ? "Raw-Archiv" : "Kunden-Archiv",
+    label: FOLDER_TYPE_DEFS[folderType]?.archiveLabel || `${folderType}-Archiv`,
     allowCreate: true,
   });
   const timeStamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -1320,11 +1403,17 @@ function listUploadTree(baseDir, baseRelative = "") {
 module.exports = {
   CUSTOMER_UPLOAD_ROOT,
   RAW_MATERIAL_ROOT,
+  SELECTION_UPLOAD_ROOT,
   LOCAL_STAGING_ROOT,
   CUSTOMER_ARCHIVE_ROOT,
   RAW_ARCHIVE_ROOT,
+  SELECTION_ARCHIVE_ROOT,
   CUSTOMER_UPLOAD_STRUCTURE,
   RAW_MATERIAL_STRUCTURE,
+  SELECTION_UPLOAD_STRUCTURE,
+  FOLDER_TYPE_DEFS,
+  ALL_FOLDER_TYPES,
+  getFolderLabel,
   UPLOAD_CATEGORY_MAP,
   sanitizePathSegment,
   sanitizeUploadFilename,

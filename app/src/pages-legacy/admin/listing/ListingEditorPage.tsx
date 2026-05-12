@@ -692,7 +692,7 @@ export function ListingEditorPage() {
   const [nasSuggestions, setNasSuggestions] = useState<
     Array<{
       folderType: "raw_material" | "customer_folder";
-      rootKind: "customer" | "raw";
+      rootKind: "customer" | "raw" | "selection";
       relativePath: string;
       displayName: string;
       companyName: string;
@@ -702,7 +702,7 @@ export function ListingEditorPage() {
       nextcloudShareUrl: string | null;
     }>
   >([]);
-  const [nasRootKind, setNasRootKind] = useState<"customer" | "raw">("customer");
+  const [nasRootKind, setNasRootKind] = useState<"customer" | "raw" | "selection">("customer");
   const [nasRelativePath, setNasRelativePath] = useState("");
   const [nasEntries, setNasEntries] = useState<Array<{ name: string; relativePath: string }>>([]);
   const [nasParentPath, setNasParentPath] = useState<string | null>(null);
@@ -786,7 +786,7 @@ export function ListingEditorPage() {
   }, [load]);
 
   const loadNasBrowser = useCallback(
-    async (rootKind: "customer" | "raw", relativePath: string) => {
+    async (rootKind: "customer" | "raw" | "selection", relativePath: string) => {
       if (!id || id === "new") return;
       setNasLoading(true);
       setNasError(null);
@@ -1104,7 +1104,7 @@ export function ListingEditorPage() {
   }, [assignmentAutofillMsg]);
 
   const importNasSelection = useCallback(
-    async (rootKind: "customer" | "raw", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
+    async (rootKind: "customer" | "raw" | "selection", relativePath: string, storageSourceType: "order_folder" | "nas_browser") => {
       if (!id) return;
       setNasImporting(true);
       setNasMsg(null);

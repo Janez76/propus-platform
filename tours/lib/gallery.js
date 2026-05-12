@@ -228,6 +228,9 @@ function getGalleryRootConfig(rootKind) {
   if (rootKind === 'raw') {
     return { rootKind: 'raw', rootPath: roots.rawRoot, label: 'Raw-Root' };
   }
+  if (rootKind === 'selection') {
+    return { rootKind: 'selection', rootPath: roots.selectionRoot, label: 'Selection-Root' };
+  }
   throw new Error('Ungültiger Root-Typ');
 }
 
@@ -438,10 +441,25 @@ async function getGalleryNasContext(galleryId, { orderNoOverride = null } = {}) 
     const order = await bookingDb.getOrderByNo(effectiveOrderNo);
     if (order) {
       const folders = await orderStorage.getOrderFolderSummary(order, bookingDb, { createMissing: false });
-      for (const folder of folders) {
-        const rootKind = folder.folderType === 'raw_material' ? 'raw' : 'customer';
+      /**
+       * Reihenfolge der Vorschlaege: fuer Bildauswahl-Galerien soll der
+       * Selection-Root oben stehen (das ist der konzeptionelle Quellordner
+       * fuer Picdrop), fuer Listings bleibt customer_folder primaer.
+       */
+      const orderedFolders = gallery.kind === 'bildauswahl'
+        ? [...folders].sort((a, b) => {
+            const rank = (t) => (t === 'selection' ? 0 : t === 'customer_folder' ? 1 : 2);
+            return rank(a.folderType) - rank(b.folderType);
+          })
+        : folders;
+      for (const folder of orderedFolders) {
+        const rootKind =
+          folder.folderType === 'raw_material' ? 'raw'
+          : folder.folderType === 'selection' ? 'selection'
+          : 'customer';
         // Kundenordner: bevorzuge den '/Finale'-Unterordner, wenn er existiert,
-        // weil dort die publizierten Bilder liegen.
+        // weil dort die publizierten Bilder liegen. Selection-Root hat keine
+        // Unterordnerstruktur — der Ordner selbst ist die Quelle.
         let effectiveRelativePath = folder.relativePath;
         let effectiveExists = folder.exists;
         if (folder.folderType === 'customer_folder' && folder.exists) {

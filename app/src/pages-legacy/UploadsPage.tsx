@@ -22,12 +22,24 @@ import { normalizeStatusKey } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 
-function formatFolderLabel(folderType: "raw_material" | "customer_folder") {
-  return folderType === "raw_material" ? "Rohmaterial" : "Kundenordner";
+type AllFolderType = "raw_material" | "customer_folder" | "selection";
+
+function formatFolderLabel(folderType: AllFolderType) {
+  if (folderType === "raw_material") return "Rohmaterial";
+  if (folderType === "selection") return "Zur Auswahl";
+  return "Kundenordner";
 }
 
-function folderTypeToRootKind(folderType: "raw_material" | "customer_folder"): "customer" | "raw" {
-  return folderType === "raw_material" ? "raw" : "customer";
+function folderTypeToRootKind(folderType: AllFolderType): "customer" | "raw" | "selection" {
+  if (folderType === "raw_material") return "raw";
+  if (folderType === "selection") return "selection";
+  return "customer";
+}
+
+function folderTypeToRootSummaryKey(folderType: AllFolderType): "rawRoot" | "customerRoot" | "selectionRoot" {
+  if (folderType === "raw_material") return "rawRoot";
+  if (folderType === "selection") return "selectionRoot";
+  return "customerRoot";
 }
 
 function formatBytes(n: number) {
@@ -110,10 +122,12 @@ export function UploadsPage() {
   const [linkInputs, setLinkInputs] = useState<Record<string, string>>({
     raw_material: "",
     customer_folder: "",
+    selection: "",
   });
   const [renameOn, setRenameOn] = useState<Record<string, boolean>>({
     raw_material: false,
     customer_folder: false,
+    selection: false,
   });
   const [renameWarnings, setRenameWarnings] = useState<Record<string, string>>({});
 
@@ -164,14 +178,14 @@ export function UploadsPage() {
 
   // Ordner-Inhalt Modal
   const [contentModal, setContentModal] = useState<{
-    folderType: "raw_material" | "customer_folder";
+    folderType: AllFolderType;
     displayName: string;
     loading: boolean;
     tree: OrderUploadTreeNode[];
     error: string;
   } | null>(null);
 
-  async function openContentModal(folderType: "raw_material" | "customer_folder", displayName: string) {
+  async function openContentModal(folderType: AllFolderType, displayName: string) {
     setContentModal({ folderType, displayName, loading: true, tree: [], error: "" });
     try {
       const result = await getOrderUploads(token, selectedOrderNo, folderType);
@@ -236,7 +250,7 @@ export function UploadsPage() {
   }, [selectedOrderNo]);
 
   const browseFolder = useCallback(
-    async (folderType: "raw_material" | "customer_folder", relativePath: string) => {
+    async (folderType: AllFolderType, relativePath: string) => {
       const rootKind = folderTypeToRootKind(folderType);
       setBrowserState(folderType, { loading: true, error: "" });
       try {
@@ -267,7 +281,7 @@ export function UploadsPage() {
     }
   }
 
-  async function handleLink(folderType: "raw_material" | "customer_folder", relativePath?: string) {
+  async function handleLink(folderType: AllFolderType, relativePath?: string) {
     if (!selectedOrderNo) return;
     const linkPath = relativePath ?? String(linkInputs[folderType] || "").trim();
     if (!linkPath) return;
@@ -292,7 +306,7 @@ export function UploadsPage() {
     }
   }
 
-  async function handleArchive(folderType: "raw_material" | "customer_folder") {
+  async function handleArchive(folderType: AllFolderType) {
     if (!selectedOrderNo) return;
     if (!window.confirm(`${formatFolderLabel(folderType)} archiviert löschen?`)) return;
     setLoadingSummary(true);
@@ -473,10 +487,10 @@ export function UploadsPage() {
               {/* Ordner-Karten */}
               <div className="grid gap-4 xl:grid-cols-2">
                 {(summary?.folders || []).map((folder) => {
-                  const ft = folder.folderType as "raw_material" | "customer_folder";
+                  const ft = folder.folderType as AllFolderType;
                   const browser = browsers[ft] ?? defaultBrowserState();
                   const rootOk = summary?.roots?.find(
-                    (r) => r.key === (ft === "raw_material" ? "rawRoot" : "customerRoot")
+                    (r) => r.key === folderTypeToRootSummaryKey(ft)
                   )?.ok === true;
 
                   // Breadcrumb-Segmente
@@ -488,6 +502,9 @@ export function UploadsPage() {
 
                   return (
                     <div key={ft} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm">
+                      {/* Header: Titel + Status — Aktions-Buttons stehen darunter,
+                          damit drei Buttons (Inhalt / Archiv / Websize) bei schmaler
+                          Spalte sauber umbrechen statt aus der Karte zu schiessen. */}
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h3 className="text-lg font-semibold text-[var(--text-main)]">{formatFolderLabel(ft)}</h3>
@@ -495,42 +512,42 @@ export function UploadsPage() {
                             {statusMeta.label}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {folder.exists && (
-                            <button
-                              type="button"
-                              onClick={() => void openContentModal(ft, folder.displayName)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
-                            >
-                              <FolderOpen className="h-3.5 w-3.5" />
-                              Inhalt anzeigen
-                            </button>
-                          )}
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {folder.exists && (
                           <button
                             type="button"
-                            onClick={() => handleArchive(ft)}
+                            onClick={() => void openContentModal(ft, folder.displayName)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
                           >
-                            <Archive className="h-3.5 w-3.5" />
-                            Archiviert löschen
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            Inhalt anzeigen
                           </button>
-                          {ft === "customer_folder" && folder.exists && (
-                            <button
-                              type="button"
-                              onClick={() => void handleGenerateWebsite()}
-                              disabled={generatingWebsite}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold transition disabled:opacity-60 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
-                            >
-                              {generatingWebsite
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : websiteSuccess
-                                  ? <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                  : <ImageIcon className="h-3.5 w-3.5" />
-                              }
-                              {websiteSuccess ? "Gestartet!" : "Websize generieren"}
-                            </button>
-                          )}
-                        </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(ft)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                          Archiviert löschen
+                        </button>
+                        {ft === "customer_folder" && folder.exists && (
+                          <button
+                            type="button"
+                            onClick={() => void handleGenerateWebsite()}
+                            disabled={generatingWebsite}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold transition disabled:opacity-60 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
+                          >
+                            {generatingWebsite
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : websiteSuccess
+                                ? <Check className="h-3.5 w-3.5 text-emerald-600" />
+                                : <ImageIcon className="h-3.5 w-3.5" />
+                            }
+                            {websiteSuccess ? "Gestartet!" : "Websize generieren"}
+                          </button>
+                        )}
                       </div>
                       {ft === "customer_folder" && websiteError && (
                         <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
@@ -847,27 +864,32 @@ export function UploadsPage() {
                   <h3 className="mb-6 text-center text-xl font-bold text-[var(--text-main)]">
                     {t(lang, "upload.folderType.chooseTitle")}
                   </h3>
-                  <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() => setSelectedFolderType("raw_material")}
-                      className="group flex w-64 flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
                     >
                       <ImageIcon className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
-                      <span className="text-lg font-semibold text-[var(--text-main)]">
-                        {t(lang, "upload.folderType.rawMaterialButton")}
-                      </span>
-                      <span className="text-xs text-[var(--text-subtle)]">Unbearbeitete Bilder & Videos</span>
+                      <span className="text-lg font-semibold text-[var(--text-main)]">Rohmaterial</span>
+                      <span className="text-xs text-[var(--text-subtle)]">Unbearbeitete Bilder &amp; Videos</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFolderType("selection")}
+                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                    >
+                      <HardDrive className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
+                      <span className="text-lg font-semibold text-[var(--text-main)]">Zur Auswahl</span>
+                      <span className="text-xs text-[var(--text-subtle)]">Bilder, die dem Kunden zur Auswahl gehen</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedFolderType("customer_folder")}
-                      className="group flex w-64 flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
                     >
                       <FolderOpen className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
-                      <span className="text-lg font-semibold text-[var(--text-main)]">
-                        {t(lang, "upload.folderType.customerFolderButton")}
-                      </span>
+                      <span className="text-lg font-semibold text-[var(--text-main)]">Kundenordner</span>
                       <span className="text-xs text-[var(--text-subtle)]">Finale Lieferung an den Kunden</span>
                     </button>
                   </div>
