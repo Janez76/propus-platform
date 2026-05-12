@@ -927,7 +927,24 @@ async function provisionOrderFolders(order, db, { folderTypes = ALL_FOLDER_TYPES
   for (const folderType of folderTypes) {
     const def = defs[folderType];
     if (!def) continue;
-    assertRootReady(def.rootPath, { label: getRootLabel(folderType) });
+    try {
+      assertRootReady(def.rootPath, { label: getRootLabel(folderType) });
+    } catch (err) {
+      /**
+       * Selection-Root ist optional: wenn der Mount auf der VPS noch fehlt,
+       * ueberspringen wir den Selection-Ordner und legen Raw + Customer
+       * trotzdem an. Health-Check zeigt den Fehler weiterhin im UI an.
+       * Raw + Customer bleiben hart erforderlich — Provisionierung ohne
+       * diese Roots ist nicht sinnvoll.
+       */
+      if (folderType === "selection") {
+        console.warn(
+          `[order-storage] provisionOrderFolders: Selection-Root nicht erreichbar, uebersprungen: ${err.message}`
+        );
+        continue;
+      }
+      throw err;
+    }
     if (createMissing) {
       const existingLink = await db.getOrderFolderLink(order.orderNo, def.folderType);
       if (
