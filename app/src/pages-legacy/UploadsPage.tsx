@@ -914,42 +914,33 @@ export function UploadsPage() {
                 <h3 className="uppv-summary-label" style={{ marginBottom: 18 }}>
                   {t(lang, "upload.folderType.chooseTitle")}
                 </h3>
-                <div className="uppv-folder-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                <div className="uppv-chooser-grid">
                   <button
                     type="button"
                     onClick={() => setSelectedFolderType("raw_material")}
-                    className="uppv-folder-card is-raw"
-                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
+                    className="uppv-chooser-card"
                   >
-                    <i className={`${folderTypeIcon.raw_material} text-2xl`} style={{ fontSize: 28, color: "#9a8456", marginBottom: 10 }} aria-hidden />
-                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Rohmaterial</div>
-                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                      Unbearbeitete Bilder &amp; Videos
-                    </div>
+                    <i className={folderTypeIcon.raw_material} style={{ fontSize: 28, color: "#9a8456" }} aria-hidden />
+                    <span className="uppv-chooser-title">Rohmaterial</span>
+                    <span className="uppv-chooser-sub">Unbearbeitete Bilder &amp; Videos</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedFolderType("selection")}
-                    className="uppv-folder-card is-selection"
-                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
+                    className="uppv-chooser-card"
                   >
-                    <i className={`${folderTypeIcon.selection} text-2xl`} style={{ fontSize: 28, color: "#8a6ba0", marginBottom: 10 }} aria-hidden />
-                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Zur Auswahl</div>
-                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                      Bilder, die dem Kunden zur Auswahl gehen
-                    </div>
+                    <i className={folderTypeIcon.selection} style={{ fontSize: 28, color: "#8a6ba0" }} aria-hidden />
+                    <span className="uppv-chooser-title">Zur Auswahl</span>
+                    <span className="uppv-chooser-sub">Bilder, die dem Kunden zur Auswahl gehen</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedFolderType("customer_folder")}
-                    className="uppv-folder-card is-customer"
-                    style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
+                    className="uppv-chooser-card"
                   >
-                    <i className={`${folderTypeIcon.customer_folder} text-2xl`} style={{ fontSize: 28, color: "var(--up-gold)", marginBottom: 10 }} aria-hidden />
-                    <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Kundenordner</div>
-                    <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
-                      Finale Lieferung an den Kunden
-                    </div>
+                    <i className={folderTypeIcon.customer_folder} style={{ fontSize: 28, color: "var(--up-gold)" }} aria-hidden />
+                    <span className="uppv-chooser-title">Kundenordner</span>
+                    <span className="uppv-chooser-sub">Finale Lieferung an den Kunden</span>
                   </button>
                 </div>
               </div>
