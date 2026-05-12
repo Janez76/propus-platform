@@ -96,7 +96,14 @@ export default async function LoginPage({
   }
 
   // Bereits angemeldet? -> Weiterleitung (Portal-Rollen → Portal-URL).
-  const session = await getAdminSession();
+  // Ein DB-/Session-Hänger darf die Login-Seite nicht 500en — im Zweifel
+  // wird das Formular gezeigt.
+  let session: Awaited<ReturnType<typeof getAdminSession>> = null;
+  try {
+    session = await getAdminSession();
+  } catch (err) {
+    console.error("[LoginPage] getAdminSession fehlgeschlagen:", err);
+  }
   if (session) {
     redirect(
       resolvePostLoginTarget(

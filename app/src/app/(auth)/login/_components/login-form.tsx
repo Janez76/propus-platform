@@ -4,7 +4,9 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 
-import { loginAction, INITIAL_STATE } from "../actions";
+import { loginAction } from "../actions";
+import { INITIAL_STATE } from "../state";
+import { getPortalHostname } from "@/lib/postLoginRedirect";
 import { normalizeStoredRole, useAuthStore } from "@/store/authStore";
 
 type Props = {
@@ -15,14 +17,22 @@ type Props = {
 
 /**
  * Zulässige Redirect-Ziele: interner Pfad (kein protokoll-relativer `//`-Trick)
- * oder absolute `https://`-URL (Kunden-Portal). Sonst Fallback `/dashboard`.
+ * oder absolute `https://`-URL auf den Kunden-Portal-Host. Alles andere →
+ * Fallback `/dashboard` (kein Open-Redirect).
  */
 function safeRedirectTarget(target: string | undefined): string {
   if (!target) return "/dashboard";
   if (target.startsWith("/") && !target.startsWith("//") && !target.startsWith("/\\")) {
     return target;
   }
-  if (/^https:\/\/[^/]/i.test(target)) return target;
+  try {
+    const url = new URL(target);
+    if (url.protocol === "https:" && url.hostname.toLowerCase() === getPortalHostname()) {
+      return target;
+    }
+  } catch {
+    /* keine gültige URL → Fallback */
+  }
   return "/dashboard";
 }
 
