@@ -10,6 +10,7 @@ import { normalizeStoredRole, useAuthStore } from "@/store/authStore";
 type Props = {
   nextUrl?: string;
   initialError: string | null;
+  successMessage?: string | null;
 };
 
 /**
@@ -25,7 +26,7 @@ function safeRedirectTarget(target: string | undefined): string {
   return "/dashboard";
 }
 
-export function LoginForm({ nextUrl, initialError }: Props) {
+export function LoginForm({ nextUrl, initialError, successMessage }: Props) {
   const [state, formAction] = useActionState(loginAction, {
     ...INITIAL_STATE,
     error: initialError,
@@ -56,6 +57,12 @@ export function LoginForm({ nextUrl, initialError }: Props) {
       <p className="form-sub">
         Melden Sie sich mit Ihrer geschäftlichen E-Mail-Adresse an.
       </p>
+
+      {successMessage && !state.error && (
+        <div className="form-notice" role="status">
+          {successMessage}
+        </div>
+      )}
 
       <form action={formAction} autoComplete="on" noValidate>
         {nextUrl && <input type="hidden" name="returnTo" value={nextUrl} />}

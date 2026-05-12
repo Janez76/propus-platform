@@ -156,6 +156,7 @@ export async function loginAction(
         rememberMe: remember,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
     });
   } catch (err) {
     console.error("[loginAction] Backend-Fehler:", err);

@@ -64,7 +64,12 @@ type LoginSearchParams = Promise<{
   error?: string;
   reason?: string;
   forbidden?: string;
+  success?: string;
 }>;
+
+const SUCCESS_MESSAGES: Record<string, string> = {
+  password_reset: "Passwort gespeichert. Sie können sich jetzt anmelden.",
+};
 
 function isSafeInternalPath(path: string | undefined): path is string {
   if (!path || !path.startsWith("/")) return false;
@@ -106,6 +111,9 @@ export default async function LoginPage({
     : params.reason === "expired"
       ? "Ihre Sitzung ist abgelaufen. Bitte erneut anmelden."
       : (params.error ?? null);
+  const successMessage = params.success
+    ? (SUCCESS_MESSAGES[params.success] ?? null)
+    : null;
 
   return (
     <div className="login-shell">
@@ -158,6 +166,7 @@ export default async function LoginPage({
           <LoginForm
             nextUrl={isSafeInternalPath(returnTo) ? returnTo : undefined}
             initialError={initialError}
+            successMessage={successMessage}
           />
         </section>
       </main>

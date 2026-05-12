@@ -562,6 +562,17 @@
   line-height: 1.5;
 }
 
+.form-notice {
+  margin: 0 0 18px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--success);
+  background: rgba(111, 168, 106, 0.10);
+  color: var(--paper);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* Primary Button */
 .btn-wrap {
   position: relative;
