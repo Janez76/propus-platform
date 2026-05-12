@@ -703,6 +703,7 @@
   "upload.category.finalFloorplans": "Final floor plans",
   "upload.category.finalVideo": "Final video",
   "upload.category.selection": "For selection (JPG)",
+  "upload.category.selectionRoot": "For selection",
   "upload.label.folder": "Folder",
   "upload.label.empty": "Empty",
   "upload.label.preview": "Preview",

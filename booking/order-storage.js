@@ -103,6 +103,9 @@ const UPLOAD_CATEGORY_MAP = {
   raw_video: "Unbearbeitete/Video",
   raw_sonstiges: "Unbearbeitete/Sonstiges",
   zur_auswahl: "Zur Auswahl",
+  // Selection-Folder-Typ: Bilder landen direkt im Order-Ordner unter dem
+  // Selection-Root — die Bildauswahl-Galerie liest aus genau diesem Ordner.
+  selection: "",
 };
 
 const CATEGORY_PATH_SEGMENT_ALIASES = {
@@ -178,6 +181,7 @@ const CATEGORY_PATH_SEGMENT_ALIASES = {
     "Zur Auswahl",
     "Zur auswahl",
   ],
+  selection: [""],
 };
 
 const UPLOAD_ALLOWED_EXT = {
@@ -193,6 +197,7 @@ const UPLOAD_ALLOWED_EXT = {
   final_video: new Set([".mp4", ".mov", ".mkv", ".webm", ".m4v"]),
   raw_sonstiges: null,
   zur_auswahl: new Set([".jpg", ".jpeg"]),
+  selection: new Set([".jpg", ".jpeg", ".png", ".webp"]),
 };
 
 function sanitizePathSegment(value, fallback = "Unbekannt", maxLen = 120) {

@@ -41,6 +41,9 @@ const categoryAccept: Array<{ key: OrderUploadCategory; labelKey: string; accept
   { key: "final_grundrisse",labelKey: "upload.category.finalFloorplans",  accept: ".pdf,.jpg,.jpeg,.png,.svg,.tif,.tiff",                                        folderTypes: ["customer_folder"] },
   { key: "final_video",     labelKey: "upload.category.finalVideo",       accept: ".mp4,.mov,.mkv,.webm,.m4v",                                                   folderTypes: ["customer_folder"] },
   { key: "zur_auswahl",     labelKey: "upload.category.selection",        accept: ".jpg,.jpeg",                                                                  folderTypes: ["customer_folder"] },
+  // Selection-Folder-Typ: einziger Zielordner ist der Order-Root, dort liest
+  // die Bildauswahl-Galerie ihre Bilder.
+  { key: "selection",       labelKey: "upload.category.selectionRoot",    accept: ".jpg,.jpeg,.png,.webp",                                                       folderTypes: ["selection"] },
 ];
 
 function getCategoryOptions(lang: Lang, folderType: string) {

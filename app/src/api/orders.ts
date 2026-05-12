@@ -151,7 +151,8 @@ export type OrderUploadCategory =
   | "final_fullsize"
   | "final_grundrisse"
   | "final_video"
-  | "zur_auswahl";
+  | "zur_auswahl"
+  | "selection";
 export type OrderUploadMode = "existing" | "new_batch";
 
 export type OrderUploadFileStatus =
