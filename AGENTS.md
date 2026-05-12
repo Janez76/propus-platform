@@ -480,3 +480,54 @@ Client Secrets liegen in `.env` (lokal) bzw. `.env.vps` (VPS) — nicht hier.
 - **Propus-Assistant (Admin-Chat):** Wetter über **`get_weather_forecast`** / **`get_weather_for_order`** (Open-Meteo · MeteoSwiss ICON-CH; bis **7** Tage mit Parameter **`days`**). **MeteoSchweiz** als Behörde bietet **keine** einfache öffentliche Forecast-REST zum Einbinden; amtliche Warnungen: **https://www.meteoschweiz.admin.ch**. Routing primär **`get_route`** / **`get_distance_matrix`** (Regel **7b**); nur bei Tool-Fehler/Nichtkonfiguration grobe Schätzung + Karten-App („ROUTING UND ENTFERNUNGEN“). Prompt/Few-Shots: **`app/src/lib/assistant/system-prompt.ts`**, **`few-shot-examples.ts`**; Regression in **`app/scripts/eval-assistant.ts`** u. a. **`weather-honest`**, **`routing-honest`** sowie nutzerergänzte Szenarien wie **`typo-search`**, **`multi-tool`**, **`no-regreet`**, **`email-direct`**, **`order-slotfill`**, **`weather-honest-ch`**, **`routing-honest-ch`**, **`smalltalk-no-tools`**, **`correction`**, **`next-order-future-only`**, **`overdue-orders`**, **`weather-future-order`**. Trainings-/Eval-Workflow: **`app/scripts/README-training.md`**; npm **`eval:assistant`**, **`tune:assistant`**, **`replay:conversations`**, **`seed:memories`**; z. B. **`ASSISTANT_REPLAY_USER_ID`** (Replay-Harvest), **`ASSISTANT_SEED_USER_ID`** (YAML-Seeds mit Platzhalter-`userId`). **DB-Tools** (z. B. `search_customers`, `search_invoices`): **`core.customers`** nutzt **`notes`** / **`street`** (nicht `notiz` / Spalte `address`). View **`tour_manager.invoices_central_v`**: u. a. **`invoice_source`**, **`amount_chf`**, **`tour_customer_name`**, **`tour_object_label`**.
 - **Galerie-/Listing + Newsletter (Website):** Galerie: Backend **`tours/lib/gallery.js`**, Admin **`tours/routes/gallery-admin-api.js`**, Public **`tours/routes/gallery-public-api.js`**, UI **`ListingEditorPage.tsx`**; NAS-Import aktualisiert nur Bilder/Feedback. Newsletter seit Mai 2026 **MailerLite**: **`website/src/pages/api/newsletter/subscribe.ts`**, Popup **`NewsletterPopup.astro`** (`propus_nl_popup_v1`), Env **`MAILERLITE_*`**, Skripte unter `scripts/lib/mailerlite-fetch.ts`.
 - **Firmenwebsite Astro (`website/`):** u. a. Port **4343** in Compose; interner **`/guideline`**-Bereich (Cookie `propus_guideline`, **`GUIDELINE_SECRET`** / **`GUIDELINE_PASSWORD`**, auf VPS **`WEBSITE_GUIDELINE_*`**, optional **`GUIDELINE_CSRF_ORIGINS`** für `guideline.propus.ch`). **Statische Guideline-Inhalte:** Seiten unter **`website/src/pages/guideline/`** + **`website/src/lib/guideline-static.ts`** (`GUIDELINE_PAGES` / `GUIDELINE_DOWNLOADS`); geschützte Dateien **`website/private-guideline-assets/`** (nicht unter `public/`). **VPS-Deploy:** `scripts/deploy-remote.sh` lädt Docker Compose mit **`.env.vps`** und optional **`.env.vps.secrets`**, damit z. B. **`WEBSITE_GUIDELINE_*`** nicht bei jedem Release-Verlust aus der Haupt-Env fallen. **`private-guideline-assets`** werden ins **Website-Image** kopiert — neue Downloads brauchen **Image-Rebuild/Deploy**, nicht nur Dateien in einen laufenden Container kopieren. Anleitungsquellen wie **`Propus_Anleitungen`** können **außerhalb** des Git-Workspaces liegen; Ziel im Repo sind **`website/src/pages/guideline/`**, **`guideline-static.ts`** und **`website/private-guideline-assets/`**. Büro-Mail **upload.propus.ch** („PROPUS UPLOAD-SYSTEM“) vom **Uploadtool-Backend** auf dem VPS, nicht aus **`booking/server.js`**. **Kontaktformular** (`/kontakt` → `website/src/components/ContactForm.astro` → `website/src/pages/api/contact.ts`) seit Mai 2026 **eigener Endpoint mit Cloudflare Turnstile** (invisible Widget) statt FormSubmit.co; Versand via **nodemailer SMTP** über `website/src/lib/contactMail.ts` (Default M365 `smtp.office365.com:587`, alternativ lokales Postfix). Env: **`PUBLIC_TURNSTILE_SITE_KEY`** / **`TURNSTILE_SECRET_KEY`** + **`CONTACT_SMTP_HOST`** / **`CONTACT_SMTP_PORT`** / **`CONTACT_SMTP_USER`** / **`CONTACT_SMTP_PASS`** + **`CONTACT_FROM`** / **`CONTACT_TO`** (alle in `.env.vps.secrets`). Turnstile-Site muss in CF-Dashboard für `propus.ch`/`www.propus.ch` angelegt sein; Turnstile-Token wird serverseitig gegen `https://challenges.cloudflare.com/turnstile/v0/siteverify` validiert, Honeypot-Feld `_gotcha` zusätzlich vorgeschaltet.
+
+## Cursor Cloud specific instructions
+
+### Services starten (nach `npm install`)
+
+Die Entwicklungsumgebung benötigt 3 laufende Prozesse:
+
+1. **PostgreSQL** (Docker): `docker compose -f docker-compose.yml up -d postgres`
+   - Port 5435 (Host) → 5432 (Container)
+   - Wichtig: Es gibt einen Symlink `compose.yaml → docker-compose.vps.yml`. Immer explizit `-f docker-compose.yml` verwenden.
+
+2. **Express Backend** (platform/server.js): Port 3100
+   - Tours-DB-Pool nutzt `POSTGRES_HOST`/`POSTGRES_PORT` (nicht `DATABASE_URL`!) → muss auf `localhost:5435` zeigen.
+   - Health-Check: `GET http://localhost:3100/api/core/health`
+
+3. **Next.js Dev** (app/): `cd app && PLATFORM_INTERNAL_URL=http://localhost:3100 npm run dev`
+   - Port 3000; proxied `/api/*` an Express via `PLATFORM_INTERNAL_URL`.
+
+### Migrationen auf frischer DB
+
+Auf einer frischen DB gibt es eine Abhängigkeits-Reihenfolge zwischen `core/migrations/` und `booking/migrations/`:
+- `core/migrations/062` referenziert `avatar_url`, die erst in `booking/migrations/083` angelegt wird.
+- `booking/migrations/086` referenziert Permission-Keys, die erst durch `seedRbacIfNeeded()` nach den Migrationen angelegt werden.
+
+**Lösung bei frischem Setup:**
+1. Core-Migrationen laufen lassen → schlägt bei 062 fehl.
+2. `ALTER TABLE core.admin_users ADD COLUMN IF NOT EXISTS avatar_url TEXT;` manuell ausführen.
+3. Core-Migrationen nochmal laufen lassen → erfolgreich.
+4. Fehlende `permission_definitions` seeden (alle Keys aus `booking/access-rbac.js` `ALL_PERMISSION_KEYS`).
+5. Express starten → Booking-Migrationen laufen automatisch durch.
+
+### `.env`-Besonderheiten
+
+- `LOG_DIR` muss auf ein beschreibbares Verzeichnis zeigen (nicht `/app/logs`). Lokal: `/workspace/logs`.
+- `NODE_ENV=development` setzen (`.env.example` hat `production`).
+
+### Befehle (Referenz → `CLAUDE.md` §4)
+
+| Aktion | Befehl |
+|--------|--------|
+| Lint | `cd app && npm run lint` |
+| Tests (Frontend) | `cd app && npm test` |
+| Tests (Booking) | `cd booking && npm test` |
+| Tests (Tours) | `cd tours && npm test` |
+| Build | `cd app && npm run build` |
+| EJS Guard | `bash scripts/guard-no-ejs.sh` |
+
+### Login (Dev)
+
+Admin-Login: `POST http://localhost:3100/auth/login` mit `{"email":"js@propus.ch","password":"DevAdmin2026!"}`.
+Token als `Authorization: Bearer <token>` verwenden.
