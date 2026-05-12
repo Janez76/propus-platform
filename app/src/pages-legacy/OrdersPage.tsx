@@ -74,11 +74,12 @@ type ChipGroup = {
 };
 
 export const CHIP_GROUPS: ChipGroup[] = [
-  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Offen", members: ["pending", "provisional", "disposition_offen"], dot: "#f59e0b" },
+  { id: "open", labelKey: "orders.chip.open", fallbackLabel: "Ausstehend", members: ["pending", "provisional", "disposition_offen"], dot: "#f59e0b" },
   { id: "confirmed", labelKey: "orders.chip.confirmed", fallbackLabel: "Bestätigt", members: ["confirmed"], dot: "#3b82f6" },
-  { id: "completed", labelKey: "orders.chip.completed", fallbackLabel: "Abgeschlossen", members: ["completed", "done"], dot: "#10b981" },
-  { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Pausiert", members: ["paused"], dot: "#71717a" },
-  { id: "cancelled", labelKey: "orders.chip.cancelled", fallbackLabel: "Storniert", members: ["cancelled"], dot: "#ef4444" },
+  { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Wartet auf Kunde", members: ["paused"], dot: "#a78bfa" },
+  { id: "material", labelKey: "orders.chip.material", fallbackLabel: "Material in Bearbeitung", members: ["completed"], dot: "#ff9500" },
+  { id: "done", labelKey: "orders.chip.done", fallbackLabel: "Abgeschlossen", members: ["done"], dot: "#10b981" },
+  { id: "cancelled", labelKey: "orders.chip.cancelled", fallbackLabel: "Storniert", members: ["cancelled"], dot: "#ef4444", hiddenByDefault: true },
   { id: "archived", labelKey: "orders.chip.archived", fallbackLabel: "Archiviert", members: ["archived"], dot: "#94a3b8", hiddenByDefault: true },
 ];
 
@@ -1047,9 +1048,9 @@ function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenD
   const columns: { id: StatusKey; title: string }[] = [
     { id: "pending", title: "Ausstehend" },
     { id: "confirmed", title: "Bestätigt" },
+    { id: "paused", title: "Wartet auf Kunde" },
     { id: "completed", title: "Material in Bearbeitung" },
     { id: "done", title: "Abgeschlossen" },
-    { id: "cancelled", title: "Storniert" },
   ];
   return (
     <div className="op-kanban-board op-kanban-board--simple">
