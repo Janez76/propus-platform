@@ -235,7 +235,15 @@ function buildTimeline(order: Order, lang: Lang): TLEvent[] {
       detail: order.cancelReason || null,
       tone: "danger",
     });
-  return ev;
+  // Sort chronologically so `slice(-2)` picks the genuinely most recent events.
+  // Events without a timestamp (reschedule note, paused/cancelled state) sort
+  // to the end as "current" markers.
+  const ts = (v?: string | null) => {
+    if (!v) return Number.POSITIVE_INFINITY;
+    const n = new Date(v).getTime();
+    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY;
+  };
+  return ev.sort((a, b) => ts(a.when) - ts(b.when));
 }
 
 const ACTION_ICON: Record<NextStepAction, ReactNode> = {
@@ -311,7 +319,7 @@ export function OrderSidePanel({
               : "bg-[var(--surface-raised,transparent)] text-[var(--text-subtle)]"
           }`}
         >
-          {next.short}
+          {tr(lang, next.shortKey, next.short)}
         </span>
       ) : null}
     </div>
@@ -348,7 +356,7 @@ export function OrderSidePanel({
             className="btn-primary inline-flex flex-1 items-center justify-center gap-1.5 no-underline"
           >
             {ACTION_ICON[next.action]}
-            {next.label}
+            {tr(lang, next.labelKey, next.label)}
           </a>
           <a
             href={fullOrderHref}
@@ -730,8 +738,9 @@ export function OrderSidePanel({
                 </span>
               </div>
             ) : (
-              <ol className="relative m-0 list-none space-y-4 p-0 pl-5">
+              <div className="relative">
                 <span className="absolute left-[6px] top-1 bottom-1 w-px bg-[var(--border-soft)]" aria-hidden />
+                <ol className="relative m-0 list-none space-y-4 p-0 pl-5">
                 {timeline.map((e) => {
                   const dotColor =
                     e.tone === "danger"
@@ -764,7 +773,8 @@ export function OrderSidePanel({
                     </li>
                   );
                 })}
-              </ol>
+                </ol>
+              </div>
             )}
           </Section>
 
