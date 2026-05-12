@@ -29,10 +29,20 @@ export function InteractiveBackground({
     return () => clearInterval(id);
   }, [images.length, reducedMotion]);
 
-  // Tastatur-Navigation (Pfeile)
+  // Tastatur-Navigation (Pfeile) — nicht, wenn der Fokus in einem Eingabefeld liegt.
   useEffect(() => {
     if (images.length === 0) return;
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.tagName === "SELECT" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === "ArrowRight")
         setSlideIdx((i) => (i + 1) % images.length);
       if (e.key === "ArrowLeft")
@@ -124,6 +134,12 @@ function CursorAndSpotlight() {
   useEffect(() => {
     if (window.matchMedia("(pointer: coarse)").matches) return;
 
+    // Erst jetzt — wenn der Custom-Cursor wirklich aktiv ist — den
+    // System-Cursor ausblenden. Fällt dieses Skript aus, bleibt der native
+    // Cursor sichtbar (cursor: none ist in login.css an `.cursor-active` gebunden).
+    const shell = document.querySelector(".login-shell");
+    shell?.classList.add("cursor-active");
+
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
     let ringX = mouseX;
@@ -161,6 +177,7 @@ function CursorAndSpotlight() {
 
     return () => {
       cancelAnimationFrame(raf);
+      shell?.classList.remove("cursor-active");
       document.removeEventListener("mousemove", onMove);
       document
         .querySelectorAll("a, button, input, label.checkbox")

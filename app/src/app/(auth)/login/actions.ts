@@ -1,9 +1,22 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { resolvePostLoginTarget } from "@/lib/postLoginRedirect";
 import type { LoginState } from "./state";
+
+// Header, die wir an das Express-Backend weiterreichen, damit dessen
+// IP-basierter Rate-Limiter (`authLimiter`) weiterhin pro Client zählt und
+// nicht alle Logins in den Bucket der Next-Server-IP fallen.
+const FORWARDED_REQUEST_HEADERS = [
+  "x-forwarded-for",
+  "x-real-ip",
+  "x-forwarded-proto",
+  "x-forwarded-host",
+  "cf-connecting-ip",
+  "true-client-ip",
+  "user-agent",
+] as const;
 
 /**
  * Login-Server-Action für die Propus Platform.
@@ -135,11 +148,25 @@ export async function loginAction(
     return { ok: false, field: "form", error: "Anmeldedienst nicht erreichbar. Bitte später erneut versuchen." };
   }
 
+  const inbound = await headers();
+  const forwardHeaders: Record<string, string> = { "content-type": "application/json" };
+  for (const name of FORWARDED_REQUEST_HEADERS) {
+    const v = inbound.get(name);
+    if (v) forwardHeaders[name] = v;
+  }
+  // Falls kein Proxy-Header vorhanden ist, wenigstens den Host als
+  // x-forwarded-host mitgeben (Express `trust proxy` nutzt x-forwarded-for
+  // für req.ip; ein gesetzter Host schadet nicht).
+  if (!forwardHeaders["x-forwarded-host"]) {
+    const host = inbound.get("host");
+    if (host) forwardHeaders["x-forwarded-host"] = host;
+  }
+
   let res: Response;
   try {
     res = await fetch(new URL("/auth/login", backendOrigin), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: forwardHeaders,
       body: JSON.stringify({
         email,
         username: email,
@@ -172,8 +199,8 @@ export async function loginAction(
   // Set-Cookie aus der Backend-Antwort 1:1 (inkl. Original-Attribute) an die
   // Browser-Response weiterreichen.
   const cookieStore = await cookies();
-  const setCookies =
-    typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+  // getSetCookie() liefert ALLE Set-Cookie-Header als Array (Node ≥ 20).
+  const setCookies = res.headers.getSetCookie?.() ?? [];
   for (const raw of setCookies) {
     const parsed = parseSetCookie(raw);
     if (!parsed) continue;

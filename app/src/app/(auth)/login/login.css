@@ -27,8 +27,16 @@
   color: var(--paper);
   font-family: "DM Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   overflow: hidden;
-  cursor: none;
+  cursor: auto;
   -webkit-font-smoothing: antialiased;
+}
+
+/* System-Cursor erst ausblenden, wenn der JS-Custom-Cursor wirklich läuft
+   (Klasse wird in interactive-background.tsx gesetzt). Ohne JS bleibt der
+   native Cursor sichtbar. */
+.login-shell.cursor-active,
+.login-shell.cursor-active * {
+  cursor: none;
 }
 
 /* ============ CUSTOM CURSOR ============ */

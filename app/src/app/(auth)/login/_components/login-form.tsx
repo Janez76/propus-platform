@@ -14,16 +14,30 @@ type Props = {
   successMessage?: string | null;
 };
 
+const PORTAL_ORIGIN = (() => {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_PORTAL_URL || "https://portal.propus.ch",
+    ).origin;
+  } catch {
+    return "https://portal.propus.ch";
+  }
+})();
+
 /**
  * Zulässige Redirect-Ziele: interner Pfad (kein protokoll-relativer `//`-Trick)
- * oder absolute `https://`-URL (Kunden-Portal). Sonst Fallback `/dashboard`.
+ * oder absolute URL mit exakt der Kunden-Portal-Origin. Sonst `/dashboard`.
  */
 function safeRedirectTarget(target: string | undefined): string {
   if (!target) return "/dashboard";
   if (target.startsWith("/") && !target.startsWith("//") && !target.startsWith("/\\")) {
     return target;
   }
-  if (/^https:\/\/[^/]/i.test(target)) return target;
+  try {
+    if (new URL(target).origin === PORTAL_ORIGIN) return target;
+  } catch {
+    // ungültige URL → Fallback
+  }
   return "/dashboard";
 }
 
