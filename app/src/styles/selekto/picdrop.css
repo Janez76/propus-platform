@@ -425,9 +425,10 @@
   background: #181818;
   border-radius: 16px;
   flex-direction: column;
-  min-height: min(680px, 100vh);
+  min-height: min(760px, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
   width: 100%;
-  max-width: min(1100px, 92vw);
+  max-width: min(1280px, 94vw);
   margin: 0 auto;
   box-sizing: border-box;
   overflow: hidden;
@@ -804,9 +805,10 @@
 
 .pd-root-wrap.pd-lb-open {
   background: #0f0f0f;
-  padding: clamp(1.35rem, 3vw, 2.25rem) clamp(1.25rem, 3vw, 2.5rem);
+  padding: clamp(1rem, 2vw, 1.5rem) clamp(1rem, 2vw, 1.75rem);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  min-height: 100vh;
 }
