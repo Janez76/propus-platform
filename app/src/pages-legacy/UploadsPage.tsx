@@ -944,13 +944,13 @@ export function UploadsPage() {
           }}
           tabIndex={-1}
         >
-          <div className="uppv-upload-modal-dialog">
+          <div className="uppv-upload-modal-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="uppv-upload-modal-head">
-              <div className="uppv-upload-modal-title">
+              <div className="uppv-upload-modal-title" id="uppv-upload-modal-title">
                 <span className="uppv-up-eyebrow">Upload</span>
-                <span>#{selectedOrder.orderNo}</span>
-                <span style={{ color: "var(--up-ink-3)", fontWeight: 400 }}>·</span>
-                <span style={{ color: "var(--up-ink-2)", fontWeight: 500 }}>
+                <span className="uppv-up-num">#{selectedOrder.orderNo}</span>
+                <span className="uppv-up-sep">·</span>
+                <span className="uppv-up-target">
                   {formatFolderLabel(selectedFolderType as AllFolderType)}
                 </span>
               </div>
@@ -958,8 +958,8 @@ export function UploadsPage() {
                 type="button"
                 onClick={() => setSelectedFolderType(null)}
                 className="uppv-upload-modal-close"
-                aria-label="Schliessen"
-                title="Schliessen"
+                aria-label="Schließen"
+                title="Schließen"
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
