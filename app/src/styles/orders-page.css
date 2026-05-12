@@ -833,7 +833,13 @@
   flex-direction: column;
   max-height: calc(100vh - 360px);
   scroll-snap-align: start;
+  transition: box-shadow 0.18s, background-color 0.18s;
 }
+.op-kanban-col.is-drop-target {
+  background: var(--gold-bg);
+  box-shadow: 0 0 0 2px var(--gold), var(--shadow-md);
+}
+.op-kanban-board[data-busy="true"] { pointer-events: none; opacity: 0.85; }
 .op-kanban-col-head {
   padding: 12px 14px;
   border-bottom: 0.5px solid var(--border);
@@ -884,17 +890,23 @@
   padding: 10px 12px;
   border: 0;
   text-align: left;
-  cursor: pointer;
+  cursor: grab;
   font-family: inherit;
   display: block;
   width: 100%;
-  transition: background-color 0.12s, box-shadow 0.12s, transform 0.12s;
+  transition: background-color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s;
   box-shadow: 0 0 0 0.5px var(--border);
 }
+.op-kanban-card:active { cursor: grabbing; }
 .op-kanban-card:hover {
   background: var(--surface);
   box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm);
   transform: translateY(-1px);
+}
+.op-kanban-card[data-dragging="true"] {
+  opacity: 0.4;
+  cursor: grabbing;
+  transform: none;
 }
 .op-kanban-card-no {
   font-family: 'JetBrains Mono', monospace;

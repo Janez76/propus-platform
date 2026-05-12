@@ -900,7 +900,15 @@ export function OrdersPage() {
             )}
           </div>
         ) : view === "kanban" ? (
-          <OrdersKanban orders={orders} onOpenDetail={openOrderPreview} lang={lang} />
+          <OrdersKanban
+            orders={orders}
+            onOpenDetail={openOrderPreview}
+            lang={lang}
+            token={token}
+            onChanged={async () => {
+              await refetch({ force: true });
+            }}
+          />
         ) : view === "calendar" ? (
           <OrderWeekCalendar orders={orders} onOpenDetail={openOrderPreview} />
         ) : (
@@ -1044,7 +1052,19 @@ export function OrdersPage() {
   );
 }
 
-function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenDetail: (orderNo: string) => void; lang: "de" | "en" | "fr" | "it" }) {
+function OrdersKanban({
+  orders,
+  onOpenDetail,
+  lang,
+  token,
+  onChanged,
+}: {
+  orders: Order[];
+  onOpenDetail: (orderNo: string) => void;
+  lang: "de" | "en" | "fr" | "it";
+  token: string | null;
+  onChanged: () => void | Promise<void>;
+}) {
   const columns: { id: StatusKey; title: string }[] = [
     { id: "pending", title: "Ausstehend" },
     { id: "confirmed", title: "Bestätigt" },
@@ -1052,15 +1072,71 @@ function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenD
     { id: "completed", title: "Material in Bearbeitung" },
     { id: "done", title: "Abgeschlossen" },
   ];
+
+  const [draggingNo, setDraggingNo] = useState<string | null>(null);
+  const [dropCol, setDropCol] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [optimistic, setOptimistic] = useState<Record<string, StatusKey>>({});
+
+  function effectiveStatus(o: Order): StatusKey | null {
+    const o2 = optimistic[o.orderNo];
+    if (o2) return o2;
+    return normalizeStatusKey(o.status);
+  }
+
+  async function applyDrop(orderNo: string, target: StatusKey) {
+    const o = orders.find((x) => x.orderNo === orderNo);
+    if (!o || !token) return;
+    const current = normalizeStatusKey(o.status);
+    if (current === target) return;
+    setOptimistic((prev) => ({ ...prev, [orderNo]: target }));
+    setBusy(true);
+    try {
+      await updateOrderStatus(token, orderNo, target, { sendEmails: false });
+      await onChanged();
+      // Clear optimistic once the refetch has landed.
+      setOptimistic((prev) => {
+        const next = { ...prev };
+        delete next[orderNo];
+        return next;
+      });
+    } catch {
+      // Rollback on error.
+      setOptimistic((prev) => {
+        const next = { ...prev };
+        delete next[orderNo];
+        return next;
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="op-kanban-board op-kanban-board--simple">
+    <div className="op-kanban-board op-kanban-board--simple" data-busy={busy ? "true" : undefined}>
       {columns.map((col) => {
-        const rows = orders.filter((o) => {
-          const s = normalizeStatusKey(o.status);
-          return s === col.id;
-        });
+        const rows = orders.filter((o) => effectiveStatus(o) === col.id);
+        const isDropTarget = dropCol === col.id && draggingNo !== null;
         return (
-          <section key={col.id} className="op-kanban-col">
+          <section
+            key={col.id}
+            className={`op-kanban-col${isDropTarget ? " is-drop-target" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (dropCol !== col.id) setDropCol(col.id);
+            }}
+            onDragLeave={() => {
+              setDropCol((prev) => (prev === col.id ? null : prev));
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const orderNo = e.dataTransfer.getData("text/plain") || draggingNo || "";
+              setDropCol(null);
+              setDraggingNo(null);
+              if (orderNo) void applyDrop(orderNo, col.id);
+            }}
+          >
             <header className="op-kanban-col-head">
               <span className="op-kanban-col-title">{col.title}</span>
               <span className="op-kanban-col-count">{rows.length}</span>
@@ -1072,8 +1148,19 @@ function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenD
                 <button
                   key={o.orderNo}
                   type="button"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", o.orderNo);
+                    setDraggingNo(o.orderNo);
+                  }}
+                  onDragEnd={() => {
+                    setDraggingNo(null);
+                    setDropCol(null);
+                  }}
                   onClick={() => onOpenDetail(o.orderNo)}
                   className="op-kanban-card"
+                  data-dragging={draggingNo === o.orderNo ? "true" : undefined}
                 >
                   <div className="op-kanban-card-no">#{o.orderNo}</div>
                   <div className="op-kanban-card-title">
