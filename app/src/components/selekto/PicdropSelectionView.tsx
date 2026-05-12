@@ -366,6 +366,24 @@ export function PicdropSelectionView({
     setChatDraft("");
   }, [currentImg, chatDraft]);
 
+  /**
+   * Kommentar entfernen — wirkt im lokalen Draft. Nach erneutem "Auswahl
+   * aktualisieren" wird die server-seitige Persistenz ohnehin durch den
+   * neuen Stand ersetzt (DELETE + INSERT in submitPicdropSelection), der
+   * Kunde sieht seinen Kommentar also dauerhaft verschwinden.
+   */
+  const deleteMsg = useCallback((msgIndex: number) => {
+    if (!currentImg) return;
+    setById((prev) => {
+      const s = prev[currentImg.key];
+      if (!s) return prev;
+      if (msgIndex < 0 || msgIndex >= s.msgs.length) return prev;
+      const nextMsgs = s.msgs.slice();
+      nextMsgs.splice(msgIndex, 1);
+      return { ...prev, [currentImg.key]: { ...s, msgs: nextMsgs } };
+    });
+  }, [currentImg]);
+
   const onChatKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -679,6 +697,15 @@ export function PicdropSelectionView({
                   ) : (
                     currentState.msgs.map((m, i) => (
                       <div key={i} className="pd-chat-msg pd-own">
+                        <button
+                          type="button"
+                          className="pd-chat-msg-del"
+                          onClick={() => deleteMsg(i)}
+                          aria-label="Kommentar loeschen"
+                          title="Kommentar loeschen"
+                        >
+                          <i className="fa-solid fa-xmark" aria-hidden="true" />
+                        </button>
                         {m.text}
                         <div className="pd-chat-meta">{m.time}</div>
                       </div>

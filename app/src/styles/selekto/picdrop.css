@@ -706,10 +706,11 @@
 }
 
 .pd-chat-msg {
+  position: relative;
   font-size: 12.5px;
   font-weight: 300;
   line-height: 1.55;
-  padding: 8px 12px;
+  padding: 8px 28px 8px 12px;
   border-radius: 10px 10px 10px 2px;
   max-width: 85%;
   align-self: flex-end;
@@ -728,6 +729,43 @@
   letter-spacing: 0.03em;
   margin-top: 3px;
   text-align: right;
+}
+
+/* Loesch-Knopf je Kunden-Kommentar: nur on-hover sichtbar, damit das Layout
+   im Ruhezustand sauber bleibt. Position absolut innerhalb der Bubble. */
+.pd-chat-msg-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(20, 20, 19, 0.06);
+  color: #6b6962;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms, background 140ms, color 140ms;
+}
+
+.pd-chat-msg:hover .pd-chat-msg-del,
+.pd-chat-msg:focus-within .pd-chat-msg-del {
+  opacity: 1;
+}
+
+.pd-chat-msg-del:hover {
+  background: rgba(184, 60, 60, 0.12);
+  color: #b83c3c;
+}
+
+@media (hover: none) {
+  /* Touch-Geraete koennen nicht hovern — Loesch-Knopf immer sichtbar. */
+  .pd-chat-msg-del { opacity: 0.7; }
+  .pd-chat-msg-del:active { opacity: 1; }
 }
 
 .pd-chat-empty {
