@@ -532,8 +532,13 @@ export function OrderStoragePanel({ orderNo, orderAddress }: Props) {
               : folder.status === "failed" ? "Fehler"
               : "Keine Verknüpfung";
 
+            const cardModifier =
+              ft === "raw_material" ? " is-raw"
+              : ft === "selection" ? " is-selection"
+              : " is-customer";
+
             return (
-              <article key={ft} className={`uppv-folder-card${isOpen ? " is-open" : ""}`}>
+              <article key={ft} className={`uppv-folder-card${cardModifier}${isOpen ? " is-open" : ""}`}>
                 <button
                   type="button"
                   className="uppv-folder-head"
