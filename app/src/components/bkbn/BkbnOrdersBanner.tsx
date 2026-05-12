@@ -39,12 +39,15 @@ export function BkbnOrdersBanner({ className = "" }: { className?: string }) {
 
   if (!upcoming || upcoming <= 0) return null;
 
+  const headline = upcoming === 1
+    ? `${upcoming} kommender Backbone-Photo-Auftrag`
+    : `${upcoming} kommende Backbone-Photo-Aufträge`;
   return (
     <Link to="/admin/bkbn-orders" className={`op-banner ${className}`}>
       <div className="op-banner-left">
         <span className="op-banner-icon"><ArrowDown /></span>
         <div className="op-banner-text">
-          <strong>{upcoming} kommende{upcoming === 1 ? "r" : ""} Backbone-Photo-Auftrag{upcoming === 1 ? "" : "e"}</strong>
+          <strong>{headline}</strong>
           <small>Aus den 365-Kalendern · BKBN</small>
         </div>
       </div>
