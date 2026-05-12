@@ -1,6 +1,6 @@
 # FLOWS_ASSISTANT.md — Propus Assistant
 
-Zuletzt aktualisiert: 2026-05-01
+Zuletzt aktualisiert: 2026-05-13
 
 ## Übersicht
 
@@ -64,6 +64,16 @@ Strukturierte Fehler mit `{ error: "...", code: "..." }`:
 | `model_error` | 500/503 | Claude ist gerade nicht erreichbar. Bitte in 30s erneut versuchen. |
 | `tool_error` | 400 | Fehler bei der Tool-Ausführung |
 | `validation_error` | 400/413 | Ungültige Anfrage |
+
+### Chat zeigt „Fehler: Nicht authentifiziert“ (`auth_failed`, HTTP 401)
+
+Die **exakte** UI-Meldung entspricht `errorResponse("Nicht authentifiziert", "auth_failed", 401)` in `app/src/app/api/assistant/route.ts`, sobald **`resolveAssistantUser(req)`** `null` liefert.
+
+**Erkannte Admin-Cookie-Session** (`getAdminSession` + Rolle in `ASSISTANT_COOKIE_SESSION_ROLES` in `app/src/lib/assistant/auth.ts`): `admin`, `super_admin`, `employee`, `photographer`, `tour_manager`. Andere Rollen → kein Assistant-Zugriff (401).
+
+**Alternativ:** `Authorization: Bearer …` mit gültigem Eintrag in `tour_manager.assistant_mobile_tokens` (Mobile-App).
+
+**Typische Ursachen:** Session abgelaufen oder falsche Subdomain/Cookies (Assistant und Login müssen dieselbe Cookie-Domain nutzen); nur im Browser eingeloggt, aber Anfrage ohne Session-Cookie (z. B. anderes Gerät, privates Fenster); Rolle nicht in der Liste oben.
 
 ## Token-Tracking & Tageslimit
 
