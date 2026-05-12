@@ -9,7 +9,8 @@
     "lint:html": "htmlhint -c .htmlhintrc \"*.html\"",
     "analyze-duplicate-customers": "node ../scripts/find-duplicate-customers.js --export",
     "analyze-duplicate-customers:help": "node ../scripts/find-duplicate-customers.js --help",
-    "audit:customer-stammdaten": "node ../scripts/customer-stammdaten-audit.js --export"
+    "audit:customer-stammdaten": "node ../scripts/customer-stammdaten-audit.js --export",
+    "verify:graph-bkbn": "node scripts/verify-graph-bkbn-mailboxes.js"
   },
   "keywords": [],
   "author": "",

@@ -410,6 +410,8 @@ ausführenden Mitarbeiter (Default: `ivan.mijajlovic@propus.ch`, `janez.smirmaul
 
 ENV: `BKBN_CALENDAR_MAILBOXES` (Komma-/Leerzeichen-Liste, Default `ivan.mijajlovic@propus.ch,janez.smirmaul@propus.ch`), `BKBN_MATCH_DOMAINS` (Default `backbonephoto.co`), `BKBN_CACHE_TTL_MS` (Default `300000`), `BKBN_PAST_DAYS` (Default `10`), `BKBN_FUTURE_MONTHS` (Default `6`).
 
+**Betrieb (Azure Admin-Consent, VPS-ENV, Verifikation):** [docs/OPS_M365_GRAPH_BKBN.md](./OPS_M365_GRAPH_BKBN.md) — Script `booking/scripts/verify-graph-bkbn-mailboxes.js` bzw. `npm run verify:graph-bkbn` im Ordner `booking/`.
+
 ---
 
 ## 5. Reschedule-Flow
