@@ -23,9 +23,6 @@ import {
   CheckCircle2,
   RotateCcw,
   Link2,
-  CalendarClock,
-  Camera,
-  SlidersHorizontal,
 } from "lucide-react";
 import type { Order } from "../../api/orders";
 import { SidePanel } from "../handoff/SidePanel";
@@ -129,26 +126,6 @@ function KeyVal({ k, v }: { k: string; v: ReactNode }) {
   );
 }
 
-function ActionLink({
-  href,
-  icon,
-  children,
-}: {
-  href: string;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      className="flex flex-col items-center gap-1 rounded-md border border-[var(--border-soft)] px-2 py-2 text-[11px] font-medium text-[var(--text-subtle)] no-underline transition-colors hover:border-[var(--accent)]/40 hover:bg-[var(--accent)]/8 hover:text-[var(--text-main)]"
-    >
-      <span>{icon}</span>
-      {children}
-    </a>
-  );
-}
-
 function HistoryItem({
   icon,
   label,
@@ -246,41 +223,28 @@ export function OrderSidePanel({
     });
 
   const headerRight = <StatusChip status={order.status} />;
-  const headerBelow = (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-1.5">
-        {order.calendarSyncStatus && order.calendarSyncStatus !== "none" ? (
-          <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
-            {tr(lang, "orders.sidePanel.calendar", "Kalender")}: {order.calendarSyncStatus}
-          </span>
-        ) : null}
-        {order.exxasOrderNumber ? (
-          <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
-            Exxas #{order.exxasOrderNumber}
-          </span>
-        ) : null}
-        {order.bexioOrderNumber ? (
-          <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
-            bexio #{order.bexioOrderNumber}
-          </span>
-        ) : null}
-      </div>
-      <div className="grid grid-cols-4 gap-1.5">
-        <ActionLink href={`${fullOrderHref}#schedule`} icon={<CalendarClock className="h-4 w-4" />}>
-          {tr(lang, "orders.sidePanel.action.schedule", "Termin")}
-        </ActionLink>
-        <ActionLink href={`${fullOrderHref}#photographer`} icon={<Camera className="h-4 w-4" />}>
-          {tr(lang, "orders.sidePanel.action.photographer", "Fotograf")}
-        </ActionLink>
-        <ActionLink href={`${fullOrderHref}#status`} icon={<SlidersHorizontal className="h-4 w-4" />}>
-          {tr(lang, "orders.sidePanel.action.status", "Status")}
-        </ActionLink>
-        <ActionLink href={fullOrderHref} icon={<ExternalLink className="h-4 w-4" />}>
-          {tr(lang, "orders.sidePanel.action.full", "Voll")}
-        </ActionLink>
-      </div>
-    </div>
-  );
+  const badges: ReactNode[] = [];
+  if (order.calendarSyncStatus && order.calendarSyncStatus !== "none")
+    badges.push(
+      <span key="cal" className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
+        {tr(lang, "orders.sidePanel.calendar", "Kalender")}: {order.calendarSyncStatus}
+      </span>,
+    );
+  if (order.exxasOrderNumber)
+    badges.push(
+      <span key="exxas" className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
+        Exxas #{order.exxasOrderNumber}
+      </span>,
+    );
+  if (order.bexioOrderNumber)
+    badges.push(
+      <span key="bexio" className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[11px] text-[var(--text-subtle)]">
+        bexio #{order.bexioOrderNumber}
+      </span>,
+    );
+  const headerBelow = badges.length ? (
+    <div className="flex flex-wrap gap-1.5">{badges}</div>
+  ) : undefined;
 
   return (
     <SidePanel
@@ -290,18 +254,13 @@ export function OrderSidePanel({
       headerRight={headerRight}
       headerBelow={headerBelow}
       footer={
-        <div className="flex w-full flex-wrap items-center justify-end gap-2">
-          <button type="button" className="btn-ghost" onClick={onClose}>
-            {tr(lang, "common.close", "Schliessen")}
-          </button>
-          <a
-            href={fullOrderHref}
-            className="btn-primary inline-flex items-center gap-1.5 no-underline"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            {tr(lang, "orders.sidePanel.fullView", "Volle Ansicht")}
-          </a>
-        </div>
+        <a
+          href={fullOrderHref}
+          className="btn-primary inline-flex w-full items-center justify-center gap-1.5 no-underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          {tr(lang, "orders.sidePanel.fullView", "Volle Ansicht")}
+        </a>
       }
     >
       <div className="mb-3 flex flex-wrap gap-1 border-b border-[var(--border-soft)] pb-2">
@@ -385,9 +344,11 @@ export function OrderSidePanel({
 
           {objHasData ? (
             <Section title={tr(lang, "orders.sidePanel.section.object", "Objekt")}>
-              <Row icon={<ImageIcon className="h-4 w-4" />}>
-                {order.listingTitle || order.listingSlug || "—"}
-              </Row>
+              {order.listingTitle || order.listingSlug ? (
+                <Row icon={<ImageIcon className="h-4 w-4" />}>
+                  {order.listingTitle || order.listingSlug}
+                </Row>
+              ) : null}
               {obj?.type ? <Row icon={<Home className="h-4 w-4" />}>{obj.type}</Row> : null}
               {obj?.area || obj?.rooms || obj?.floors ? (
                 <div className="flex flex-wrap gap-3 text-xs text-[var(--text-subtle)]">
@@ -415,11 +376,13 @@ export function OrderSidePanel({
           ) : null}
 
           <Section title={tr(lang, "orders.sidePanel.section.summary", "Zusammenfassung")}>
-            <Row icon={<Package className="h-4 w-4" />}>
-              <Val placeholder={tr(lang, "orders.sidePanel.noPackage", "Kein Paket gewählt")}>
-                {pkgLabel}
-              </Val>
-            </Row>
+            {pkgLabel || addons.length === 0 ? (
+              <Row icon={<Package className="h-4 w-4" />}>
+                <Val placeholder={tr(lang, "orders.sidePanel.noPackage", "Kein Paket gewählt")}>
+                  {pkgLabel}
+                </Val>
+              </Row>
+            ) : null}
             {addons.length > 0 ? (
               <ul className="m-0 list-none space-y-1 p-0 text-xs text-[var(--text-subtle)]">
                 {addons.map((a) => (
