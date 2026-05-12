@@ -2,10 +2,17 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode }
 import type { Order } from "../../api/orders";
 import { formatCurrency } from "../../lib/utils";
 import { getStatusEntry, getStatusIcon, normalizeStatusKey, type StatusKey } from "../../lib/status";
-import { MessageSquare, FolderUp, FileText, RefreshCw, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Receipt } from "lucide-react";
+import { Clock, MessageSquare, FolderUp, FileText, RefreshCw, ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronUp, Receipt } from "lucide-react";
 import { t } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
-import { avatarColorFor, avatarInitials, getTerminInfo, terminKindClasses } from "../../lib/orderTermin";
+import { avatarColorFor, avatarInitials, getTerminInfo, terminKindClasses, type TerminKind } from "../../lib/orderTermin";
+
+function formatChfParts(n: number): { amount: string } {
+  const fixed = (Math.round(n * 100) / 100).toFixed(2);
+  const [intPart, decPart] = fixed.split(".");
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  return { amount: `${grouped}.${decPart}` };
+}
 
 type Props = {
   orders: Order[];
@@ -116,38 +123,6 @@ function Avatar({ name, keyId }: { name: string; keyId: string }) {
 
 function orderKey(o: Order): string {
   return String(o.orderNo);
-}
-
-function SortHeader({
-  label,
-  keyName,
-  align = "left",
-  sortKey,
-  sortDir,
-  onToggle,
-}: {
-  label: string;
-  keyName: SortKey;
-  align?: "left" | "right";
-  sortKey: SortKey | null;
-  sortDir: SortDir;
-  onToggle: (key: SortKey) => void;
-}) {
-  const isActive = sortKey === keyName;
-  return (
-    <button
-      type="button"
-      onClick={() => onToggle(keyName)}
-      className={`inline-flex w-full items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition-colors hover:text-[var(--text-main)] ${isActive ? "text-[var(--accent)]" : "text-[var(--text-subtle)]"} ${align === "right" ? "justify-end text-right" : "justify-start text-left"}`}
-    >
-      <span>{label}</span>
-      {isActive ? (
-        sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-      ) : (
-        <ArrowUpDown className="h-3 w-3 opacity-40" />
-      )}
-    </button>
-  );
 }
 
 export function OrderTable({
@@ -370,122 +345,159 @@ export function OrderTable({
     const termin = getTerminInfo(o.appointmentDate, lang);
     const photog = photographerDisplay(o);
     const zipcity = zipcityLine(o);
+    const company = o.billing?.company?.trim() || "";
+    const personName = o.customerName?.trim() || "";
+    const isSelected = selectedNos.has(k);
+    const total = Number(o.total) || 0;
+    const totalParts = formatChfParts(total);
+    const terminKind: TerminKind = termin.kind;
+    const showEmail = o.customerEmail && !o.customerEmail.toLowerCase().endsWith("@company.local");
     return (
       <tr
         key={o.orderNo}
-        className="group cursor-pointer border-b border-[var(--border-soft)] transition-colors last:border-b-0 hover:bg-[var(--surface-raised)]"
+        className={`op-row${isSelected ? " is-selected" : ""}`}
         onClick={() => onOpenDetail(o.orderNo)}
       >
-        <td className="w-10 px-3 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
+        <td className="op-th-check" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-[var(--border-soft)]"
-            style={{ accentColor: "var(--accent)" }}
-            checked={selectedNos.has(k)}
+            className="op-check"
+            checked={isSelected}
             onChange={() => onToggleRow(k)}
             aria-label={t(lang, "orders.bulk.selectRow")}
           />
         </td>
-        <td className="w-[90px] px-3 py-3 align-middle">
-          <span className="font-mono text-xs font-semibold text-[var(--text-main)]">#{o.orderNo}</span>
+        <td>
+          <span className="op-cell-num">#{o.orderNo}</span>
         </td>
-        <td className="px-3 py-3 align-middle">
-          <div className="text-sm font-semibold text-[var(--text-main)]">{displayName(o)}</div>
-          {contactSubline(o) && <div className="text-xs text-[var(--text-muted)]">{contactSubline(o)}</div>}
-          {o.customerEmail && !o.customerEmail.toLowerCase().endsWith("@company.local") && (
-            <div className="text-[11px] text-[var(--text-subtle)]">{o.customerEmail}</div>
-          )}
+        <td>
+          <div className="op-customer">
+            <div className="op-customer-company">{company || personName || "–"}</div>
+            {company && personName && personName !== company ? (
+              <div className="op-customer-person">{personName}</div>
+            ) : null}
+            {showEmail ? <div className="op-customer-email">{o.customerEmail}</div> : null}
+          </div>
         </td>
-        <td className="px-3 py-3 align-middle">
-          <div className="text-sm text-[var(--text-main)]">{streetLine(o) || "–"}</div>
-          {zipcity ? <div className="text-[11px] text-[var(--text-subtle)]">{zipcity}</div> : null}
+        <td>
+          <div className="op-address">
+            <div className="op-address-line1">{streetLine(o) || "–"}</div>
+            {zipcity ? <div className="op-address-line2">{zipcity}</div> : null}
+          </div>
         </td>
-        <td className="w-[190px] px-3 py-3 align-middle">
-          {termin.kind !== "none" ? (
-            <div className="flex flex-col gap-0.5">
-              <span className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${terminKindClasses(termin.kind)}`}>
-                {termin.label}
+        <td>
+          {terminKind !== "none" ? (
+            <div className="op-termin">
+              <span className="op-termin-when" data-kind={terminKind}>
+                <Clock />
+                <span>{termin.label}</span>
               </span>
-              <span className="text-[11px] text-[var(--text-subtle)]">{termin.absLabel}</span>
+              {termin.absLabel ? <span className="op-termin-date">{termin.absLabel}</span> : null}
             </div>
           ) : (
-            <span className="text-xs text-[var(--text-subtle)]">—</span>
+            <span className="op-no-termin">—</span>
           )}
         </td>
-        <td className="w-[130px] px-3 py-3 align-middle">
+        <td>
           {photog ? (
-            <span className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            <span className="op-staff">
               <Avatar name={photog.name} keyId={photog.key} />
-              <span className="truncate">{photog.name}</span>
+              <span className="op-staff-name">{photog.name}</span>
             </span>
           ) : (
-            <span className="text-xs text-[var(--text-subtle)]">—</span>
+            <span className="op-staff">
+              <span className="op-staff-avatar is-unassigned">?</span>
+              <span className="op-staff-name is-unassigned">{t(lang, "orders.employee.none")}</span>
+            </span>
           )}
         </td>
-        <td className="w-[110px] px-3 py-3 text-right align-middle tabular-nums">
-          <span className="text-sm font-semibold text-[var(--text-main)]">{formatCurrency(o.total || 0)}</span>
+        <td className={`op-cell-total${total === 0 ? " is-zero" : ""}`}>
+          <span className="op-currency">CHF</span>{totalParts.amount}
         </td>
-        <td className="w-[90px] px-3 py-3 align-middle">
+        <td className={`op-cell-exxas${o.exxasOrderNumber || o.exxasOrderId ? "" : " is-empty"}`}>
           {o.exxasOrderNumber ? (
-            <span
-              className="font-mono text-xs text-[var(--text-muted)]"
-              title={o.exxasOrderId ? `ID ${o.exxasOrderId}` : undefined}
-            >
-              {o.exxasOrderNumber}
-            </span>
+            <span title={o.exxasOrderId ? `ID ${o.exxasOrderId}` : undefined}>{o.exxasOrderNumber}</span>
           ) : o.exxasOrderId ? (
-            <span className="font-mono text-xs text-[var(--text-subtle)]">{o.exxasOrderId}</span>
+            <span>{o.exxasOrderId}</span>
           ) : (
-            <span className="text-xs text-[var(--text-subtle)]">—</span>
+            <span>—</span>
           )}
         </td>
-        <td className="w-[120px] px-3 py-3 align-middle">
-          <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
-            <IconBtn title={tooltipMessage} onClick={() => onOpenMessages(o.orderNo)}>
-              <MessageSquare className="h-3.5 w-3.5" />
-            </IconBtn>
-            <IconBtn title={tooltipUpload} onClick={() => onOpenUpload(o.orderNo)}>
-              <FolderUp className="h-3.5 w-3.5" />
-            </IconBtn>
+        <td onClick={(e) => e.stopPropagation()}>
+          <div className="op-row-actions">
+            <button
+              type="button"
+              className="op-row-action-btn"
+              title={tooltipMessage}
+              aria-label={tooltipMessage}
+              onClick={(e) => { e.stopPropagation(); onOpenMessages(o.orderNo); }}
+            >
+              <MessageSquare />
+            </button>
+            <button
+              type="button"
+              className="op-row-action-btn"
+              title={tooltipUpload}
+              aria-label={tooltipUpload}
+              onClick={(e) => { e.stopPropagation(); onOpenUpload(o.orderNo); }}
+            >
+              <FolderUp />
+            </button>
             {onCreateExxasOrder ? (
               o.exxasOrderId ? (
-                <span className="inline-flex items-center gap-0.5">
+                <>
                   <span
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                    className="op-row-action-btn is-on"
                     title={exxasRowTitle(o)}
                     aria-label={exxasRowTitle(o)}
                   >
-                    <FileText className="h-3.5 w-3.5" />
+                    <FileText />
                   </span>
                   {onSyncExxasOrderLinks ? (
-                    <IconBtn title={t(lang, "orders.tooltip.exxasSync")} onClick={() => onSyncExxasOrderLinks(o.orderNo)}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </IconBtn>
+                    <button
+                      type="button"
+                      className="op-row-action-btn"
+                      title={t(lang, "orders.tooltip.exxasSync")}
+                      aria-label={t(lang, "orders.tooltip.exxasSync")}
+                      onClick={(e) => { e.stopPropagation(); onSyncExxasOrderLinks(o.orderNo); }}
+                    >
+                      <RefreshCw />
+                    </button>
                   ) : null}
-                </span>
+                </>
               ) : (
-                <IconBtn title={exxasRowTitle(o)} onClick={() => onCreateExxasOrder(o.orderNo)}>
-                  <FileText
-                    className={`h-3.5 w-3.5 ${o.exxasStatus === "error" ? "text-red-500 dark:text-red-400" : ""}`}
-                  />
-                </IconBtn>
+                <button
+                  type="button"
+                  className="op-row-action-btn"
+                  title={exxasRowTitle(o)}
+                  aria-label={exxasRowTitle(o)}
+                  onClick={(e) => { e.stopPropagation(); onCreateExxasOrder(o.orderNo); }}
+                  style={o.exxasStatus === "error" ? { color: "#B85C3D" } : undefined}
+                >
+                  <FileText />
+                </button>
               )
             ) : null}
             {onCreateBexioOrder ? (
               o.bexioOrderId ? (
                 <span
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[var(--text-subtle)] opacity-40"
+                  className="op-row-action-btn is-on"
                   title={bexioRowTitle(o)}
                   aria-label={bexioRowTitle(o)}
                 >
-                  <Receipt className="h-3.5 w-3.5" />
+                  <Receipt />
                 </span>
               ) : (
-                <IconBtn title={bexioRowTitle(o)} onClick={() => onCreateBexioOrder(o.orderNo)}>
-                  <Receipt
-                    className={`h-3.5 w-3.5 ${o.bexioStatus === "error" ? "text-red-500 dark:text-red-400" : ""}`}
-                  />
-                </IconBtn>
+                <button
+                  type="button"
+                  className="op-row-action-btn"
+                  title={bexioRowTitle(o)}
+                  aria-label={bexioRowTitle(o)}
+                  onClick={(e) => { e.stopPropagation(); onCreateBexioOrder(o.orderNo); }}
+                  style={o.bexioStatus === "error" ? { color: "#B85C3D" } : undefined}
+                >
+                  <Receipt />
+                </button>
               )
             ) : null}
           </div>
@@ -564,48 +576,50 @@ export function OrderTable({
 
       {/* Desktop table */}
       <div className="hidden md:block">
-        <div className="overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]">
-          <table className="min-w-full text-sm">
+        <div className="op-table-wrap">
+          <table className="op-table">
             <thead>
-              <tr className="border-b border-[var(--border-soft)] bg-[var(--surface-raised)]">
-                <th className="w-10 px-3 py-2.5 text-left">
+              <tr>
+                <th className="op-th-check">
                   <input
                     ref={headerSelectRef}
                     type="checkbox"
-                    className="h-4 w-4 rounded border-[var(--border-soft)]"
-                    style={{ accentColor: "var(--accent)" }}
+                    className="op-check"
                     checked={allVisibleSelected}
                     onChange={(e) => onToggleAllVisible(e.target.checked)}
                     aria-label={t(lang, "orders.bulk.selectAllVisible")}
                   />
                 </th>
-                <th className="w-[90px] px-3 py-2.5"><SortHeader label={t(lang, "orders.table.orderNo")} keyName="orderNo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="px-3 py-2.5"><SortHeader label={t(lang, "orders.table.customer")} keyName="customer" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="px-3 py-2.5"><SortHeader label={t(lang, "orders.table.address")} keyName="address" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="w-[190px] px-3 py-2.5"><SortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="w-[130px] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-subtle)]">{t(lang, "orders.table.employee")}</th>
-                <th className="w-[110px] px-3 py-2.5"><SortHeader label={t(lang, "orders.table.total")} keyName="total" align="right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="w-[90px] px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-subtle)]">{t(lang, "orders.table.exxas")}</th>
-                <th className="w-[120px] px-3 py-2.5" />
+                <th className="op-th-num"><PaperSortHeader label={t(lang, "orders.table.orderNo")} keyName="orderNo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th><PaperSortHeader label={t(lang, "orders.table.customer")} keyName="customer" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th><PaperSortHeader label={t(lang, "orders.table.address")} keyName="address" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="op-th-termin"><PaperSortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="op-th-staff">{t(lang, "orders.table.employee")}</th>
+                <th className="op-th-total"><PaperSortHeader label={t(lang, "orders.table.total")} keyName="total" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
+                <th className="op-th-exxas">{t(lang, "orders.table.exxas")}</th>
+                <th className="op-th-actions" />
               </tr>
             </thead>
             <tbody>
               {sections.map((section) => {
                 const expanded = isSectionExpanded(section.key);
                 const sorted = sortOrders(section.orders);
-                const entry = getStatusEntry(section.key);
                 const i18nKey = `orders.section.${section.key}` as const;
-                const label = t(lang, i18nKey).replace("{{count}}", String(section.orders.length));
+                const baseLabel = t(lang, i18nKey).replace("{{count}}", "").replace(/\(\s*\)/g, "").trim() || section.key;
 
                 const sectionKeysD = sorted.map(orderKey);
                 const sectionAllD = sectionKeysD.length > 0 && sectionKeysD.every((id) => selectedNos.has(id));
                 const sectionSomeD = sectionKeysD.some((id) => selectedNos.has(id));
+                const sectionSum = section.orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+                const sumLabel = `${t(lang, "orders.section.total") || "Total"} CHF ${formatChfParts(sectionSum).amount}`;
 
                 return (
-                  <GroupRows
+                  <PaperGroupRows
                     key={section.key}
-                    label={label}
-                    dotColor={entry.eventColor}
+                    label={baseLabel}
+                    statusKey={section.key}
+                    count={section.orders.length}
+                    sumLabel={sumLabel}
                     expanded={expanded}
                     sectionAll={sectionAllD}
                     sectionSome={sectionSomeD}
@@ -614,7 +628,7 @@ export function OrderTable({
                     selectLabel={t(lang, "orders.bulk.selectSection")}
                   >
                     {expanded ? sorted.map((o) => renderOrderRow(o)) : null}
-                  </GroupRows>
+                  </PaperGroupRows>
                 );
               })}
             </tbody>
@@ -625,9 +639,41 @@ export function OrderTable({
   );
 }
 
-function GroupRows({
+function PaperSortHeader({
   label,
-  dotColor,
+  keyName,
+  sortKey,
+  sortDir,
+  onToggle,
+}: {
+  label: string;
+  keyName: SortKey;
+  sortKey: SortKey | null;
+  sortDir: SortDir;
+  onToggle: (key: SortKey) => void;
+}) {
+  const isActive = sortKey === keyName;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(keyName)}
+      className={`op-th-sort${isActive ? " is-sorted" : ""}`}
+    >
+      <span>{label}</span>
+      {isActive ? (
+        sortDir === "asc" ? <ArrowUp /> : <ArrowDown />
+      ) : (
+        <ArrowUpDown />
+      )}
+    </button>
+  );
+}
+
+function PaperGroupRows({
+  label,
+  statusKey,
+  count,
+  sumLabel,
   expanded,
   sectionAll,
   sectionSome,
@@ -637,7 +683,9 @@ function GroupRows({
   children,
 }: {
   label: string;
-  dotColor: string;
+  statusKey: StatusKey;
+  count: number;
+  sumLabel: string;
   expanded: boolean;
   sectionAll: boolean;
   sectionSome: boolean;
@@ -648,28 +696,33 @@ function GroupRows({
 }) {
   return (
     <>
-      <tr
-        className="cursor-pointer border-b border-[var(--border-soft)] bg-[var(--surface-raised)] transition-colors hover:bg-[color-mix(in_srgb,var(--surface-raised)_70%,var(--border-soft))]"
-        onClick={onToggleExpanded}
-      >
-        <td className="w-10 px-3 py-2" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-[var(--border-soft)]"
-            style={{ accentColor: "var(--accent)" }}
-            checked={sectionAll}
-            ref={(el) => {
-              if (el) el.indeterminate = sectionSome && !sectionAll;
-            }}
-            onChange={(e) => onToggleSection(e.target.checked)}
-            aria-label={selectLabel}
-          />
-        </td>
-        <td colSpan={8} className="px-3 py-2">
-          <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
-            {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5 rotate-180" />}
-            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: dotColor }} />
-            <span>{label}</span>
+      <tr className="op-section-row" onClick={onToggleExpanded}>
+        <td colSpan={9}>
+          <div className="op-section-content">
+            <label className="op-section-check" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                className="op-check"
+                checked={sectionAll}
+                ref={(el) => {
+                  if (el) el.indeterminate = sectionSome && !sectionAll;
+                }}
+                onChange={(e) => onToggleSection(e.target.checked)}
+                aria-label={selectLabel}
+              />
+            </label>
+            <button
+              type="button"
+              className={`op-section-toggle${expanded ? "" : " is-collapsed"}`}
+              onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
+              aria-label={expanded ? "collapse" : "expand"}
+            >
+              {expanded ? <ChevronDown /> : <ChevronUp />}
+            </button>
+            <span className="op-section-dot" data-status={statusKey} />
+            <span className="op-section-label">{label}</span>
+            <span className="op-section-count">{count}</span>
+            <span className="op-section-sum">{sumLabel}</span>
           </div>
         </td>
       </tr>
