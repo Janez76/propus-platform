@@ -131,6 +131,10 @@ export function UploadsPage() {
     });
   }, []);
 
+  // Mount-Status (Root-Health) ist als Accordion eingeklappt; auto-open
+  // sobald ein Root einen Fehler meldet, damit das Office den Hinweis sieht.
+  const [mountsExpanded, setMountsExpanded] = useState(false);
+
   // Upload-Popup: ESC schliesst, Body-Scroll lock waehrend geoeffnet.
   useEffect(() => {
     if (!selectedFolderType) return;
@@ -528,41 +532,74 @@ export function UploadsPage() {
                   <div className="uppv-error-banner" style={{ marginTop: 8 }}>{websiteError}</div>
                 ) : null}
 
-                <div className="uppv-status-cards">
-                  {(summary?.roots || []).filter((r) => r.key !== "stagingRoot").map((root) => {
-                    const rawErr = root.error || "";
-                    const isPermission = /EACCES|permission denied/i.test(rawErr);
-                    const isNotFound = /ENOENT|no such file/i.test(rawErr);
-                    const friendlyError = isPermission
-                      ? "Kein Zugriff – NAS-Mount aktiv?"
-                      : isNotFound
-                        ? "Ordner nicht gefunden – NAS-Mount prüfen"
-                        : rawErr || "Fehler";
-                    return (
-                      <div
-                        key={root.key}
-                        className={`uppv-status-card${root.ok ? "" : " is-err"}`}
+                {(() => {
+                  const roots = (summary?.roots || []).filter((r) => r.key !== "stagingRoot");
+                  if (roots.length === 0) return null;
+                  const okCount = roots.filter((r) => r.ok).length;
+                  const errCount = roots.length - okCount;
+                  const hasError = errCount > 0;
+                  const isOpen = mountsExpanded || hasError;
+                  return (
+                    <div className={`uppv-mounts${isOpen ? " is-open" : ""}`}>
+                      <button
+                        type="button"
+                        className="uppv-mounts-head"
+                        onClick={() => setMountsExpanded((v) => !v)}
+                        aria-expanded={isOpen}
                       >
-                        <div className="uppv-status-card-head">
-                          <span className="uppv-status-card-name">{root.key}</span>
-                          {root.ok ? (
-                            <span className="uppv-status-card-ok">
-                              <i className="fa-solid fa-circle-check" aria-hidden /> OK
-                            </span>
-                          ) : (
-                            <span className="uppv-status-card-err">
-                              <i className="fa-solid fa-circle-xmark" aria-hidden /> Fehler
-                            </span>
-                          )}
+                        <span className="uppv-mounts-title">
+                          <i className="fa-solid fa-server" aria-hidden /> Mount-Status
+                        </span>
+                        <span className="uppv-mounts-head-right">
+                          <span className={`uppv-mounts-badge${hasError ? " is-err" : " is-ok"}`}>
+                            <i className={hasError ? "fa-solid fa-circle-xmark" : "fa-solid fa-circle-check"} aria-hidden />
+                            {hasError
+                              ? `${okCount}/${roots.length} OK · ${errCount} Fehler`
+                              : `${okCount}/${roots.length} OK`}
+                          </span>
+                          <ChevronDown className="uppv-mounts-chev h-4 w-4" aria-hidden />
+                        </span>
+                      </button>
+                      {isOpen ? (
+                        <div className="uppv-status-cards">
+                          {roots.map((root) => {
+                            const rawErr = root.error || "";
+                            const isPermission = /EACCES|permission denied/i.test(rawErr);
+                            const isNotFound = /ENOENT|no such file/i.test(rawErr);
+                            const friendlyError = isPermission
+                              ? "Kein Zugriff – NAS-Mount aktiv?"
+                              : isNotFound
+                                ? "Ordner nicht gefunden – NAS-Mount prüfen"
+                                : rawErr || "Fehler";
+                            return (
+                              <div
+                                key={root.key}
+                                className={`uppv-status-card${root.ok ? "" : " is-err"}`}
+                              >
+                                <div className="uppv-status-card-head">
+                                  <span className="uppv-status-card-name">{root.key}</span>
+                                  {root.ok ? (
+                                    <span className="uppv-status-card-ok">
+                                      <i className="fa-solid fa-circle-check" aria-hidden /> OK
+                                    </span>
+                                  ) : (
+                                    <span className="uppv-status-card-err">
+                                      <i className="fa-solid fa-circle-xmark" aria-hidden /> Fehler
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="uppv-status-card-path">{root.path}</div>
+                                {!root.ok && (
+                                  <div className="uppv-status-card-msg">{friendlyError}</div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="uppv-status-card-path">{root.path}</div>
-                        {!root.ok && (
-                          <div className="uppv-status-card-msg">{friendlyError}</div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </section>
 
               {/* Folder-Karten */}

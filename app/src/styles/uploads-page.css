@@ -364,11 +364,80 @@ html.dark .uploads-page-v2 {
 .uppv-primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .uppv-primary-btn i { font-size: 11px; }
 
-/* Status mini-cards */
+/* Mount-Status Accordion (umschliesst die Status-Cards) */
+.uppv-mounts {
+  margin-top: 22px;
+  border: 1px solid var(--up-line);
+  background: var(--up-paper-soft);
+  overflow: hidden;
+}
+.uppv-mounts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 18px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition: background-color 150ms;
+}
+.uppv-mounts-head:hover { background: var(--up-card); }
+.uppv-mounts.is-open .uppv-mounts-head {
+  background: var(--up-card);
+  border-bottom: 1px solid var(--up-line);
+}
+.uppv-mounts-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  color: var(--up-ink-2);
+  text-transform: uppercase;
+}
+.uppv-mounts-title i { color: var(--up-ink-3); font-size: 11px; }
+.uppv-mounts-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.uppv-mounts-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.uppv-mounts-badge.is-ok {
+  background: var(--up-status-ok-bg);
+  color: var(--up-status-ok-fg);
+}
+.uppv-mounts-badge.is-err {
+  background: var(--up-status-warn-bg);
+  color: var(--up-status-warn-fg);
+}
+.uppv-mounts-badge i { font-size: 10px; }
+.uppv-mounts-chev {
+  color: var(--up-ink-3);
+  transition: transform 220ms ease;
+}
+.uppv-mounts.is-open .uppv-mounts-chev { transform: rotate(180deg); }
+
+/* Status mini-cards (innerhalb des Mount-Accordion) */
 .uppv-status-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  padding: 16px 18px;
+  background: var(--up-card);
 }
 .uppv-status-card {
   background: var(--up-paper);
