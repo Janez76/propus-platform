@@ -1043,57 +1043,25 @@ export function OrdersPage() {
   );
 }
 
-// Workflow-Spalten wie auf der dedizierten Kanban-Seite — Reihenfolge und
-// Status-Mapping spiegeln OrdersKanbanPage. Wenn die Drag&Drop-Persistierung
-// erwuenscht ist, bleibt /orders/kanban die volle Variante.
-const KANBAN_COLUMNS: { id: string; labelKey: string }[] = [
-  { id: "disposition-offen", labelKey: "orders.kanban.col.dispositionOffen" },
-  { id: "neu", labelKey: "orders.kanban.col.neu" },
-  { id: "termin-abmachen", labelKey: "orders.kanban.col.terminAbmachen" },
-  { id: "termin-abgemacht", labelKey: "orders.kanban.col.terminAbgemacht" },
-  { id: "wartet-kunde", labelKey: "orders.kanban.col.wartetKunde" },
-  { id: "material-bearbeitung", labelKey: "orders.kanban.col.materialBearbeitung" },
-  { id: "grundrisse-fehlen", labelKey: "orders.kanban.col.grundrisseFehlen" },
-  { id: "staging-fehlt", labelKey: "orders.kanban.col.stagingFehlt" },
-  { id: "video-fehlt", labelKey: "orders.kanban.col.videoFehlt" },
-  { id: "bereit-versenden", labelKey: "orders.kanban.col.bereitVersenden" },
-  { id: "revision", labelKey: "orders.kanban.col.revision" },
-  { id: "versendet", labelKey: "orders.kanban.col.versendet" },
-  { id: "bereit-verrechnung", labelKey: "orders.kanban.col.bereitVerrechnung" },
-  { id: "abgeschlossen", labelKey: "orders.kanban.col.abgeschlossen" },
-];
-
-function kanbanColumnFor(order: Order): string {
-  const k: StatusKey | null = normalizeStatusKey(order.status);
-  switch (k) {
-    case "disposition_offen": return "disposition-offen";
-    case "pending": return order.appointmentDate ? "termin-abmachen" : "neu";
-    case "provisional":
-    case "confirmed": return "termin-abgemacht";
-    case "paused": return "wartet-kunde";
-    case "completed": return "material-bearbeitung";
-    case "done": return "bereit-verrechnung";
-    case "archived": return "abgeschlossen";
-    default: return "neu";
-  }
-}
-
 function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenDetail: (orderNo: string) => void; lang: "de" | "en" | "fr" | "it" }) {
-  const buckets = new Map<string, Order[]>();
-  for (const c of KANBAN_COLUMNS) buckets.set(c.id, []);
-  for (const o of orders) {
-    if (normalizeStatusKey(o.status) === "cancelled") continue;
-    const colId = kanbanColumnFor(o);
-    buckets.get(colId)?.push(o);
-  }
+  const columns: { id: StatusKey; title: string }[] = [
+    { id: "pending", title: "Ausstehend" },
+    { id: "confirmed", title: "Bestätigt" },
+    { id: "done", title: "Abgeschlossen" },
+    { id: "cancelled", title: "Storniert" },
+  ];
   return (
-    <div className="op-kanban-board">
-      {KANBAN_COLUMNS.map((col) => {
-        const rows = buckets.get(col.id) ?? [];
+    <div className="op-kanban-board op-kanban-board--simple">
+      {columns.map((col) => {
+        const rows = orders.filter((o) => {
+          const s = normalizeStatusKey(o.status);
+          if (col.id === "done") return s === "done" || s === "completed";
+          return s === col.id;
+        });
         return (
           <section key={col.id} className="op-kanban-col">
             <header className="op-kanban-col-head">
-              <span className="op-kanban-col-title">{t(lang, col.labelKey)}</span>
+              <span className="op-kanban-col-title">{col.title}</span>
               <span className="op-kanban-col-count">{rows.length}</span>
             </header>
             <div className="op-kanban-col-body">

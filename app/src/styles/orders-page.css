@@ -803,6 +803,24 @@
   padding-right: 28px;
   scroll-snap-type: x mandatory;
 }
+.op-kanban-board--simple {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  scroll-snap-type: none;
+}
+.op-kanban-board--simple .op-kanban-col {
+  flex: initial;
+  min-width: 0;
+}
+@media (max-width: 1080px) {
+  .op-kanban-board--simple { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 680px) {
+  .op-kanban-board--simple { grid-template-columns: 1fr; }
+}
 .op-kanban-col {
   flex: 0 0 268px;
   background: var(--surface);
