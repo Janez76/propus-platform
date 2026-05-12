@@ -1047,6 +1047,7 @@ function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenD
   const columns: { id: StatusKey; title: string }[] = [
     { id: "pending", title: "Ausstehend" },
     { id: "confirmed", title: "Bestätigt" },
+    { id: "completed", title: "Material in Bearbeitung" },
     { id: "done", title: "Abgeschlossen" },
     { id: "cancelled", title: "Storniert" },
   ];
@@ -1055,7 +1056,6 @@ function OrdersKanban({ orders, onOpenDetail, lang }: { orders: Order[]; onOpenD
       {columns.map((col) => {
         const rows = orders.filter((o) => {
           const s = normalizeStatusKey(o.status);
-          if (col.id === "done") return s === "done" || s === "completed";
           return s === col.id;
         });
         return (
