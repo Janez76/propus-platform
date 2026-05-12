@@ -704,7 +704,7 @@ export function PicdropSelectionView({
                           aria-label="Kommentar loeschen"
                           title="Kommentar loeschen"
                         >
-                          <i className="fa-solid fa-xmark" aria-hidden="true" />
+                          <i className="fa-solid fa-trash-can" aria-hidden="true" />
                         </button>
                         {m.text}
                         <div className="pd-chat-meta">{m.time}</div>
