@@ -1,6 +1,26 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowRight, Calendar, ChevronDown, Columns3, List, Map as MapIcon, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  Calendar,
+  CalendarCheck,
+  Camera,
+  Check,
+  ChevronDown,
+  Coins,
+  Columns3,
+  Folder,
+  List,
+  Map as MapIcon,
+  Plus,
+  Search,
+  Trash2,
+  User,
+  UserMinus,
+  X,
+} from "lucide-react";
 import "../styles/orders-page.css";
 import {
   createBexioSalesOrder,
@@ -114,6 +134,19 @@ export function OrdersPage() {
   const [view, setView] = useState<ViewMode>("list");
   const [statusSelection, setStatusSelection] = useState<Set<string>>(() => new Set());
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("none");
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openDropdown) return;
+    function onDocClick(e: globalThis.MouseEvent) {
+      const root = toolbarRef.current;
+      if (!root) return;
+      if (!root.contains(e.target as Node)) setOpenDropdown(null);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [openDropdown]);
   // BKBN-Auftraege werden in der Auftraege-Liste nicht mehr eingeblendet —
   // sie haben einen eigenen Bereich. Der Banner oben verlinkt darauf.
   const [photographerFilter, setPhotographerFilter] = useState<string>("all");
@@ -554,20 +587,39 @@ export function OrdersPage() {
     maximumFractionDigits: 0,
   }).format(kpiOpenRevenue);
 
-  const quickPills: { id: QuickFilter; label: string; badge?: number }[] = [
-    { id: "none", label: t(lang, "orders.quick.all") },
-    { id: "today", label: t(lang, "orders.quick.today") },
+  const zeitraumItems: { id: QuickFilter; label: string; count?: number }[] = [
+    { id: "none", label: t(lang, "orders.quick.all"), count: allOrders.length },
+    { id: "today", label: t(lang, "orders.quick.today"), count: kpiTodayCount },
     { id: "thisWeek", label: t(lang, "orders.quick.thisWeek") },
     { id: "nextWeek", label: t(lang, "orders.quick.nextWeek") },
-    { id: "overdue", label: t(lang, "orders.quick.overdue"), badge: overdueCount > 0 ? overdueCount : undefined },
-    // "Flex überfällig" nur einblenden, wenn es überhaupt offene Flex-Aufträge
-    // mit verpasster Deadline gibt — sonst belastet der Pill den Filter-Bar
-    // unnötig für Setups ohne Flex-Buchungen.
+    { id: "overdue", label: t(lang, "orders.quick.overdue"), count: overdueCount > 0 ? overdueCount : undefined },
     ...(overdueFlexCount > 0
-      ? [{ id: "overdueFlex" as QuickFilter, label: t(lang, "orders.quick.overdueFlex"), badge: overdueFlexCount }]
+      ? [{ id: "overdueFlex" as QuickFilter, label: t(lang, "orders.quick.overdueFlex"), count: overdueFlexCount }]
       : []),
     { id: "mine", label: t(lang, "orders.quick.mine") },
   ];
+
+  const zeitraumLabel = zeitraumItems.find((i) => i.id === quickFilter)?.label || t(lang, "orders.quick.all");
+
+  const visibleChipGroups = CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id));
+  const selectedStatusGroups = visibleChipGroups.filter((g) => statusSelection.has(g.id));
+  const statusValueLabel = (() => {
+    if (statusSelection.size === 0) return t(lang, "orders.filter.statusAll") || "Alle offenen";
+    if (selectedStatusGroups.length === 1) {
+      return t(lang, selectedStatusGroups[0].labelKey) || selectedStatusGroups[0].fallbackLabel;
+    }
+    return `${selectedStatusGroups.length} ${t(lang, "orders.filter.statusActive") || "aktiv"}`;
+  })();
+
+  const photographerLabel = photographerFilter === "all"
+    ? (t(lang, "orders.filter.allEmployees") || "Alle Mitarbeiter")
+    : (photographers.find((p) => p.key === photographerFilter)?.name || photographerFilter);
+
+  const kindLabel = kindFilter === "all"
+    ? (t(lang, "orders.filter.kind.all") || "Alle")
+    : kindFilter === "fixed"
+      ? (t(lang, "orders.filter.kind.fixed") || "Fix")
+      : (t(lang, "orders.filter.kind.flexible") || "Flexibel");
 
   const viewItems = [
     { key: "list" as const, label: t(lang, "orders.view.list"), icon: <List /> },
@@ -582,15 +634,10 @@ export function OrdersPage() {
         {/* Header */}
         <header className="op-header">
           <div className="op-header-text">
-            <div className="op-eyebrow">
-              <span>{t(lang, "orders.eyebrow") || "Operativ"}</span>
-              <span className="op-eyebrow-sep">·</span>
-              <span className="op-eyebrow-count">
-                {kpiActiveCount} {t(lang, "orders.eyebrowSuffix") || "aktive Bestellungen"}
-              </span>
+            <div className="op-header-meta">
+              {kpiActiveCount} {t(lang, "orders.eyebrowSuffix") || "aktive Bestellungen"}
             </div>
             <h1 className="op-page-title">{t(lang, "orders.title")}</h1>
-            <p className="op-page-sub">{t(lang, "orders.description")}</p>
           </div>
           <div className="op-header-right">
             <div className="op-view-switch" role="tablist">
@@ -616,108 +663,100 @@ export function OrdersPage() {
         {/* KPI row */}
         <section className="op-kpi-row">
           <div className="op-kpi">
-            <span className="op-kpi-label">{t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv"}</span>
+            <div className="op-kpi-label">
+              <span className="op-kpi-icon"><Folder /></span>
+              {t(lang, "orders.kpi.activeTotal") || "Gesamt aktiv"}
+            </div>
             <div className="op-kpi-value">{kpiActiveCount}</div>
             <div className="op-kpi-hint">
               {(t(lang, "orders.kpi.totalSuffix") || "von {{total}} insgesamt").replace("{{total}}", String(allOrders.length))}
             </div>
           </div>
-          <div className="op-kpi is-accent">
-            <span className="op-kpi-label">{t(lang, "orders.kpi.openRevenue") || "Umsatz offen"}</span>
+          <div className="op-kpi is-gold">
+            <div className="op-kpi-label">
+              <span className="op-kpi-icon"><Coins /></span>
+              {t(lang, "orders.kpi.openRevenue") || "Umsatz offen"}
+            </div>
             <div className="op-kpi-value">
               <span className="op-kpi-unit">CHF</span>
               {formattedRevenue}
             </div>
-            <div className="op-kpi-hint">{t(lang, "orders.kpi.unbilled") || "noch nicht abgerechnet"}</div>
+            <div className="op-kpi-hint">{t(lang, "orders.kpi.unbilled") || "Noch nicht abgerechnet"}</div>
           </div>
-          <div className="op-kpi">
-            <span className="op-kpi-label">{t(lang, "orders.kpi.today") || "Heute"}</span>
+          <div className="op-kpi is-green">
+            <div className="op-kpi-label">
+              <span className="op-kpi-icon"><CalendarCheck /></span>
+              {t(lang, "orders.kpi.today") || "Heute"}
+            </div>
             <div className="op-kpi-value">{kpiTodayCount}</div>
-            <div className="op-kpi-hint">{t(lang, "orders.kpi.todayHint") || "fällige Shootings heute"}</div>
+            <div className="op-kpi-hint">{t(lang, "orders.kpi.todayHint") || "Termin geplant"}</div>
           </div>
-          <div className={`op-kpi ${kpiUnassignedCount > 0 ? "is-warning" : ""}`}>
-            <span className="op-kpi-label">{t(lang, "orders.kpi.unassigned") || "Ungeplant"}</span>
+          <div className={`op-kpi ${kpiUnassignedCount > 0 ? "is-orange" : ""}`}>
+            <div className="op-kpi-label">
+              <span className="op-kpi-icon"><UserMinus /></span>
+              {t(lang, "orders.kpi.unassigned") || "Ohne Fotograf"}
+            </div>
             <div className="op-kpi-value">{kpiUnassignedCount}</div>
-            <div className="op-kpi-hint">
-              {kpiUnassignedCount > 0
-                ? (t(lang, "orders.kpi.unassignedHint") || "ohne Fotograf")
-                : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
+            <div className={`op-kpi-hint ${kpiUnassignedCount > 0 ? "is-warn" : ""}`}>
+              {kpiUnassignedCount > 0 ? <AlertCircle /> : null}
+              <span>
+                {kpiUnassignedCount > 0
+                  ? (t(lang, "orders.kpi.unassignedHint") || "Mitarbeiter zuweisen")
+                  : (t(lang, "orders.kpi.allAssigned") || "alle zugewiesen")}
+              </span>
             </div>
           </div>
         </section>
 
         <BkbnOrdersBanner />
 
-        {/* Filter bar */}
-        <section className="op-filter-bar">
-          <div className="op-filter-top">
-            <div className="op-search-wrap">
-              <Search />
-              <input
-                type="search"
-                className="op-search-input"
-                placeholder={t(lang, "orders.placeholder.search")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-            <div className="op-quick-filters">
-              {quickPills.map((pill) => (
-                <button
-                  key={pill.id}
-                  type="button"
-                  className={`op-quick-filter ${quickFilter === pill.id ? "is-active" : ""}`}
-                  onClick={() => setQuickFilter(pill.id)}
-                >
-                  <span>{pill.label}</span>
-                  {pill.badge ? <span className="op-qf-badge">{pill.badge}</span> : null}
-                </button>
-              ))}
-            </div>
-            <div className="op-select-wrap">
-              <select
-                value={photographerFilter}
-                onChange={(e) => setPhotographerFilter(e.target.value)}
-                aria-label={t(lang, "orders.filter.allEmployees")}
-              >
-                <option value="all">{t(lang, "orders.filter.allEmployees")}</option>
-                {photographers.map((p) => (
-                  <option key={p.key} value={p.key}>{p.name || p.key}</option>
-                ))}
-              </select>
-            </div>
-            <div className="op-select-wrap">
-              <select
-                value={kindFilter}
-                onChange={(e) => setKindFilter(e.target.value as "all" | "fixed" | "flexible")}
-                aria-label={t(lang, "orders.filter.kind.label")}
-              >
-                <option value="all">{t(lang, "orders.filter.kind.all")}</option>
-                <option value="fixed">{t(lang, "orders.filter.kind.fixed")}</option>
-                <option value="flexible">{t(lang, "orders.filter.kind.flexible")}</option>
-              </select>
-            </div>
-            {hasAnyActiveFilter ? (
-              <button
-                type="button"
-                className="op-toggle-link"
-                onClick={() => {
-                  setStatusSelection(new Set());
-                  setQuickFilter("none");
-                  setPhotographerFilter("all");
-                  setKindFilter("all");
-                  setQuery("");
-                }}
-              >
-                <X />
-                <span>{t(lang, "orders.filter.reset")}</span>
-              </button>
-            ) : null}
+        {/* Toolbar */}
+        <div className="op-toolbar" ref={toolbarRef}>
+          <div className="op-search-wrap">
+            <Search />
+            <input
+              type="search"
+              className="op-search-input"
+              placeholder={t(lang, "orders.placeholder.search")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
 
-          {/* Status filter row */}
-          <div className="op-status-filters">
-            {CHIP_GROUPS.filter((g) => !g.hiddenByDefault || showArchivedChip || statusSelection.has(g.id)).map((group) => {
+          {/* Zeitraum (single-select) */}
+          <Dropdown
+            isOpen={openDropdown === "zeitraum"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "zeitraum" ? null : "zeitraum"))}
+            leadIcon={<Calendar />}
+            label={t(lang, "orders.filter.zeitraum") || "Zeitraum"}
+            value={zeitraumLabel}
+          >
+            {zeitraumItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`op-dd-item ${quickFilter === item.id ? "is-selected" : ""}`}
+                onClick={() => {
+                  setQuickFilter(item.id);
+                  setOpenDropdown(null);
+                }}
+              >
+                <Check className="op-dd-check" />
+                <span>{item.label}</span>
+                {item.count != null ? <span className="op-dd-count">{item.count}</span> : null}
+              </button>
+            ))}
+          </Dropdown>
+
+          {/* Status (multi-select) */}
+          <Dropdown
+            isOpen={openDropdown === "status"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "status" ? null : "status"))}
+            dots={selectedStatusGroups.slice(0, 3).map((g) => g.members[0])}
+            label={t(lang, "orders.filter.status") || "Status"}
+            value={statusValueLabel}
+          >
+            {visibleChipGroups.map((group) => {
               const n = group.members.reduce((acc, k) => acc + (statusCounts[k] || 0), 0);
               const active = statusSelection.has(group.id);
               const label = t(lang, group.labelKey) || group.fallbackLabel;
@@ -726,28 +765,110 @@ export function OrdersPage() {
                   key={group.id}
                   type="button"
                   data-testid={`orders-chip-${group.id}`}
-                  data-status={group.members[0]}
-                  className={`op-status-filter ${active ? "is-active" : ""}`}
+                  className={`op-dd-item ${active ? "is-selected" : ""}`}
                   onClick={() => toggleStatusChip(group.id)}
                 >
-                  <span className="op-dot" />
+                  <Check className="op-dd-check" />
+                  <span className="op-dd-dot" data-st={group.members[0]} />
                   <span>{label}</span>
-                  <span className="op-count">{n}</span>
+                  <span className="op-dd-count">{n}</span>
                 </button>
               );
             })}
             {!showArchivedChip ? (
               <button
                 type="button"
-                className="op-toggle-link"
+                className="op-dd-item"
                 onClick={() => setShowArchivedChip(true)}
               >
-                <ChevronDown />
+                <Check className="op-dd-check" />
                 <span>{t(lang, "orders.chip.showArchived") || "Archivierte zeigen"}</span>
               </button>
             ) : null}
-          </div>
-        </section>
+          </Dropdown>
+
+          {/* Mitarbeiter */}
+          <Dropdown
+            isOpen={openDropdown === "mitarbeiter"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "mitarbeiter" ? null : "mitarbeiter"))}
+            leadIcon={<User />}
+            label={t(lang, "orders.filter.mitarbeiter") || "Mitarbeiter"}
+            value={photographerLabel}
+          >
+            <button
+              type="button"
+              className={`op-dd-item ${photographerFilter === "all" ? "is-selected" : ""}`}
+              onClick={() => {
+                setPhotographerFilter("all");
+                setOpenDropdown(null);
+              }}
+            >
+              <Check className="op-dd-check" />
+              <span>{t(lang, "orders.filter.allEmployees") || "Alle Mitarbeiter"}</span>
+            </button>
+            {photographers.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`op-dd-item ${photographerFilter === p.key ? "is-selected" : ""}`}
+                onClick={() => {
+                  setPhotographerFilter(p.key);
+                  setOpenDropdown(null);
+                }}
+              >
+                <Check className="op-dd-check" />
+                <span>{p.name || p.key}</span>
+              </button>
+            ))}
+          </Dropdown>
+
+          {/* Buchungsart */}
+          <Dropdown
+            isOpen={openDropdown === "buchung"}
+            onToggle={() => setOpenDropdown((prev) => (prev === "buchung" ? null : "buchung"))}
+            leadIcon={<Camera />}
+            label={t(lang, "orders.filter.kind.label") || "Buchungsart"}
+            value={kindLabel}
+          >
+            {(["all", "fixed", "flexible"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`op-dd-item ${kindFilter === k ? "is-selected" : ""}`}
+                onClick={() => {
+                  setKindFilter(k);
+                  setOpenDropdown(null);
+                }}
+              >
+                <Check className="op-dd-check" />
+                <span>
+                  {k === "all"
+                    ? t(lang, "orders.filter.kind.all")
+                    : k === "fixed"
+                      ? t(lang, "orders.filter.kind.fixed")
+                      : t(lang, "orders.filter.kind.flexible")}
+                </span>
+              </button>
+            ))}
+          </Dropdown>
+
+          {hasAnyActiveFilter ? (
+            <button
+              type="button"
+              className="op-filter-reset"
+              onClick={() => {
+                setStatusSelection(new Set());
+                setQuickFilter("none");
+                setPhotographerFilter("all");
+                setKindFilter("all");
+                setQuery("");
+              }}
+            >
+              <X />
+              <span>{t(lang, "orders.filter.reset")}</span>
+            </button>
+          ) : null}
+        </div>
 
         {bulkFeedback ? (
           <div className="cust-alert cust-alert--info rounded-xl px-4 py-3 text-sm">{bulkFeedback}</div>
@@ -971,6 +1092,45 @@ function EmptyState({ lang }: { lang: "de" | "en" | "fr" | "it" }) {
     <div className="rounded-xl border border-dashed border-[var(--border-soft)] bg-[var(--surface)] p-10 text-center">
       <p className="text-sm font-medium text-[var(--text-main)]">{t(lang, "orders.empty.title")}</p>
       <p className="mt-1 text-xs text-[var(--text-muted)]">{t(lang, "orders.empty.description")}</p>
+    </div>
+  );
+}
+
+function Dropdown({
+  isOpen,
+  onToggle,
+  leadIcon,
+  dots,
+  label,
+  value,
+  children,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  leadIcon?: React.ReactNode;
+  dots?: string[];
+  label: string;
+  value: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`op-dropdown ${isOpen ? "is-open" : ""}`}>
+      <button type="button" className="op-dd-trigger" onClick={onToggle}>
+        {leadIcon ? <span className="op-dd-lead-wrap">{leadIcon}</span> : null}
+        {dots && dots.length > 0 ? (
+          <span className="op-dd-dots">
+            {dots.map((st, i) => (
+              <span key={`${st}-${i}`} className="op-dd-dot" data-st={st} />
+            ))}
+          </span>
+        ) : null}
+        <span className="op-dd-label">{label}:</span>
+        <span className="op-dd-value">{value}</span>
+        <ChevronDown className="op-dd-chev" />
+      </button>
+      <div className="op-dd-menu" role="menu">
+        {children}
+      </div>
     </div>
   );
 }

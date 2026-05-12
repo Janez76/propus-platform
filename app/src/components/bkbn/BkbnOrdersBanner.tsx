@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, ArrowRight } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import { getBkbnOrders } from "../../api/bkbnOrders";
 import { useAuthStore } from "../../store/authStore";
 
@@ -40,18 +40,15 @@ export function BkbnOrdersBanner({ className = "" }: { className?: string }) {
   if (!upcoming || upcoming <= 0) return null;
 
   return (
-    <Link
-      to="/admin/bkbn-orders"
-      className={`flex items-center gap-2 rounded-xl border border-[#ea580c]/30 bg-[#ea580c]/10 px-4 py-2.5 text-sm text-[var(--text-main)] transition hover:bg-[#ea580c]/15 ${className}`}
-    >
-      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#ea580c] text-white">
-        <CalendarClock className="h-3.5 w-3.5" />
-      </span>
-      <span className="rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white">BKBN</span>
-      <span>
-        <strong>{upcoming}</strong> kommende{upcoming === 1 ? "r" : ""} Backbone-Photo-Auftrag{upcoming === 1 ? "" : "e"} aus den 365-Kalendern
-      </span>
-      <ArrowRight className="ml-auto h-4 w-4 text-[#ea580c]" />
+    <Link to="/admin/bkbn-orders" className={`op-banner ${className}`}>
+      <div className="op-banner-left">
+        <span className="op-banner-icon"><ArrowDown /></span>
+        <div className="op-banner-text">
+          <strong>{upcoming} kommende{upcoming === 1 ? "r" : ""} Backbone-Photo-Auftrag{upcoming === 1 ? "" : "e"}</strong>
+          <small>Aus den 365-Kalendern · BKBN</small>
+        </div>
+      </div>
+      <ChevronRight className="op-banner-arrow" />
     </Link>
   );
 }

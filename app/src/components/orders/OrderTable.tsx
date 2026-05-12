@@ -112,7 +112,7 @@ function Avatar({ name, keyId }: { name: string; keyId: string }) {
   const color = avatarColorFor(keyId);
   return (
     <span
-      className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold"
+      className="op-avatar"
       style={{ background: color.bg, color: color.fg }}
       aria-hidden
     >
@@ -353,12 +353,15 @@ export function OrderTable({
     const terminKind: TerminKind = termin.kind;
     const showEmail = o.customerEmail && !o.customerEmail.toLowerCase().endsWith("@company.local");
     return (
-      <tr
+      <div
         key={o.orderNo}
         className={`op-row${isSelected ? " is-selected" : ""}`}
         onClick={() => onOpenDetail(o.orderNo)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter") onOpenDetail(o.orderNo); }}
       >
-        <td className="op-th-check" onClick={(e) => e.stopPropagation()}>
+        <div className="op-cell-check" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             className="op-check"
@@ -366,29 +369,23 @@ export function OrderTable({
             onChange={() => onToggleRow(k)}
             aria-label={t(lang, "orders.bulk.selectRow")}
           />
-        </td>
-        <td>
-          <span className="op-cell-num">#{o.orderNo}</span>
-        </td>
-        <td>
-          <div className="op-customer">
-            <div className="op-customer-company">{company || personName || "–"}</div>
-            {company && personName && personName !== company ? (
-              <div className="op-customer-person">{personName}</div>
-            ) : null}
-            {showEmail ? <div className="op-customer-email">{o.customerEmail}</div> : null}
-          </div>
-        </td>
-        <td>
-          <div className="op-address">
-            <div className="op-address-line1">{streetLine(o) || "–"}</div>
-            {zipcity ? <div className="op-address-line2">{zipcity}</div> : null}
-          </div>
-        </td>
-        <td>
+        </div>
+        <div className="op-cell-num">#{o.orderNo}</div>
+        <div className="op-cell-customer">
+          <div className="op-cust-company">{company || personName || "–"}</div>
+          {company && personName && personName !== company ? (
+            <div className="op-cust-person">{personName}</div>
+          ) : null}
+          {showEmail ? <div className="op-cust-email">{o.customerEmail}</div> : null}
+        </div>
+        <div className="op-cell-address">
+          <div className="op-addr-line1">{streetLine(o) || "–"}</div>
+          {zipcity ? <div className="op-addr-line2">{zipcity}</div> : null}
+        </div>
+        <div className="op-cell-termin">
           {terminKind !== "none" ? (
             <div className="op-termin">
-              <span className="op-termin-when" data-kind={terminKind}>
+              <span className="op-termin-pill" data-kind={terminKind}>
                 <Clock />
                 <span>{termin.label}</span>
               </span>
@@ -397,8 +394,8 @@ export function OrderTable({
           ) : (
             <span className="op-no-termin">—</span>
           )}
-        </td>
-        <td>
+        </div>
+        <div className="op-cell-mitarbeiter">
           {photog ? (
             <span className="op-staff">
               <Avatar name={photog.name} keyId={photog.key} />
@@ -406,15 +403,15 @@ export function OrderTable({
             </span>
           ) : (
             <span className="op-staff">
-              <span className="op-staff-avatar is-unassigned">?</span>
-              <span className="op-staff-name is-unassigned">{t(lang, "orders.employee.none")}</span>
+              <span className="op-avatar is-unassigned">?</span>
+              <span className="op-staff-name is-muted">{t(lang, "orders.employee.none")}</span>
             </span>
           )}
-        </td>
-        <td className={`op-cell-total${total === 0 ? " is-zero" : ""}`}>
+        </div>
+        <div className={`op-cell-total${total === 0 ? " is-zero" : ""}`}>
           <span className="op-currency">CHF</span>{totalParts.amount}
-        </td>
-        <td className={`op-cell-exxas${o.exxasOrderNumber || o.exxasOrderId ? "" : " is-empty"}`}>
+        </div>
+        <div className={`op-cell-exxas${o.exxasOrderNumber || o.exxasOrderId ? "" : " is-empty"}`}>
           {o.exxasOrderNumber ? (
             <span title={o.exxasOrderId ? `ID ${o.exxasOrderId}` : undefined}>{o.exxasOrderNumber}</span>
           ) : o.exxasOrderId ? (
@@ -422,8 +419,8 @@ export function OrderTable({
           ) : (
             <span>—</span>
           )}
-        </td>
-        <td onClick={(e) => e.stopPropagation()}>
+        </div>
+        <div className="op-cell-actions" onClick={(e) => e.stopPropagation()}>
           <div className="op-row-actions">
             <button
               type="button"
@@ -472,7 +469,7 @@ export function OrderTable({
                   title={exxasRowTitle(o)}
                   aria-label={exxasRowTitle(o)}
                   onClick={(e) => { e.stopPropagation(); onCreateExxasOrder(o.orderNo); }}
-                  style={o.exxasStatus === "error" ? { color: "#B85C3D" } : undefined}
+                  style={o.exxasStatus === "error" ? { color: "#ff3b30" } : undefined}
                 >
                   <FileText />
                 </button>
@@ -494,15 +491,15 @@ export function OrderTable({
                   title={bexioRowTitle(o)}
                   aria-label={bexioRowTitle(o)}
                   onClick={(e) => { e.stopPropagation(); onCreateBexioOrder(o.orderNo); }}
-                  style={o.bexioStatus === "error" ? { color: "#B85C3D" } : undefined}
+                  style={o.bexioStatus === "error" ? { color: "#ff3b30" } : undefined}
                 >
                   <Receipt />
                 </button>
               )
             ) : null}
           </div>
-        </td>
-      </tr>
+        </div>
+      </div>
     );
   }
 
@@ -576,63 +573,57 @@ export function OrderTable({
 
       {/* Desktop table */}
       <div className="hidden md:block">
-        <div className="op-table-wrap">
-          <table className="op-table">
-            <thead>
-              <tr>
-                <th className="op-th-check">
-                  <input
-                    ref={headerSelectRef}
-                    type="checkbox"
-                    className="op-check"
-                    checked={allVisibleSelected}
-                    onChange={(e) => onToggleAllVisible(e.target.checked)}
-                    aria-label={t(lang, "orders.bulk.selectAllVisible")}
-                  />
-                </th>
-                <th className="op-th-num"><PaperSortHeader label={t(lang, "orders.table.orderNo")} keyName="orderNo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th><PaperSortHeader label={t(lang, "orders.table.customer")} keyName="customer" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th><PaperSortHeader label={t(lang, "orders.table.address")} keyName="address" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="op-th-termin"><PaperSortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="op-th-staff">{t(lang, "orders.table.employee")}</th>
-                <th className="op-th-total"><PaperSortHeader label={t(lang, "orders.table.total")} keyName="total" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} /></th>
-                <th className="op-th-exxas">{t(lang, "orders.table.exxas")}</th>
-                <th className="op-th-actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {sections.map((section) => {
-                const expanded = isSectionExpanded(section.key);
-                const sorted = sortOrders(section.orders);
-                const i18nKey = `orders.section.${section.key}` as const;
-                const baseLabel = t(lang, i18nKey).replace("{{count}}", "").replace(/\(\s*\)/g, "").trim() || section.key;
+        <div className="op-list">
+          <div className="op-list-head">
+            <div className="op-col">
+              <input
+                ref={headerSelectRef}
+                type="checkbox"
+                className="op-check"
+                checked={allVisibleSelected}
+                onChange={(e) => onToggleAllVisible(e.target.checked)}
+                aria-label={t(lang, "orders.bulk.selectAllVisible")}
+              />
+            </div>
+            <PaperSortHeader label={t(lang, "orders.table.orderNo")} keyName="orderNo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+            <PaperSortHeader label={t(lang, "orders.table.customer")} keyName="customer" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+            <PaperSortHeader label={t(lang, "orders.table.address")} keyName="address" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} extraClass="op-col-address" />
+            <PaperSortHeader label={t(lang, "orders.table.appointment")} keyName="appointment" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+            <div className="op-col op-col-mitarbeiter">{t(lang, "orders.table.employee")}</div>
+            <PaperSortHeader label={t(lang, "orders.table.total")} keyName="total" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} extraClass="is-right" />
+            <div className="op-col op-col-exxas">{t(lang, "orders.table.exxas")}</div>
+            <div className="op-col" />
+          </div>
+          {sections.map((section) => {
+            const expanded = isSectionExpanded(section.key);
+            const sorted = sortOrders(section.orders);
+            const i18nKey = `orders.section.${section.key}` as const;
+            const baseLabel = t(lang, i18nKey).replace("{{count}}", "").replace(/\(\s*\)/g, "").trim() || section.key;
 
-                const sectionKeysD = sorted.map(orderKey);
-                const sectionAllD = sectionKeysD.length > 0 && sectionKeysD.every((id) => selectedNos.has(id));
-                const sectionSomeD = sectionKeysD.some((id) => selectedNos.has(id));
-                const sectionSum = section.orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
-                const sumLabel = `${t(lang, "orders.section.total") || "Total"} CHF ${formatChfParts(sectionSum).amount}`;
+            const sectionKeysD = sorted.map(orderKey);
+            const sectionAllD = sectionKeysD.length > 0 && sectionKeysD.every((id) => selectedNos.has(id));
+            const sectionSomeD = sectionKeysD.some((id) => selectedNos.has(id));
+            const sectionSum = section.orders.reduce((acc, o) => acc + (Number(o.total) || 0), 0);
+            const sumLabel = `CHF ${formatChfParts(sectionSum).amount}`;
 
-                return (
-                  <PaperGroupRows
-                    key={section.key}
-                    label={baseLabel}
-                    statusKey={section.key}
-                    count={section.orders.length}
-                    sumLabel={sumLabel}
-                    expanded={expanded}
-                    sectionAll={sectionAllD}
-                    sectionSome={sectionSomeD}
-                    onToggleExpanded={() => toggleSection(section.key)}
-                    onToggleSection={(sel) => onToggleSection(sectionKeysD, sel)}
-                    selectLabel={t(lang, "orders.bulk.selectSection")}
-                  >
-                    {expanded ? sorted.map((o) => renderOrderRow(o)) : null}
-                  </PaperGroupRows>
-                );
-              })}
-            </tbody>
-          </table>
+            return (
+              <PaperGroupRows
+                key={section.key}
+                label={baseLabel}
+                statusKey={section.key}
+                count={section.orders.length}
+                sumLabel={sumLabel}
+                expanded={expanded}
+                sectionAll={sectionAllD}
+                sectionSome={sectionSomeD}
+                onToggleExpanded={() => toggleSection(section.key)}
+                onToggleSection={(sel) => onToggleSection(sectionKeysD, sel)}
+                selectLabel={t(lang, "orders.bulk.selectSection")}
+              >
+                {expanded ? sorted.map((o) => renderOrderRow(o)) : null}
+              </PaperGroupRows>
+            );
+          })}
         </div>
       </div>
     </>
@@ -645,19 +636,23 @@ function PaperSortHeader({
   sortKey,
   sortDir,
   onToggle,
+  extraClass,
 }: {
   label: string;
   keyName: SortKey;
   sortKey: SortKey | null;
   sortDir: SortDir;
   onToggle: (key: SortKey) => void;
+  extraClass?: string;
 }) {
   const isActive = sortKey === keyName;
   return (
-    <button
-      type="button"
+    <div
+      className={`op-col is-sortable${isActive ? " is-sorted" : ""}${extraClass ? ` ${extraClass}` : ""}`}
       onClick={() => onToggle(keyName)}
-      className={`op-th-sort${isActive ? " is-sorted" : ""}`}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onToggle(keyName); }}
     >
       <span>{label}</span>
       {isActive ? (
@@ -665,7 +660,7 @@ function PaperSortHeader({
       ) : (
         <ArrowUpDown />
       )}
-    </button>
+    </div>
   );
 }
 
@@ -696,36 +691,31 @@ function PaperGroupRows({
 }) {
   return (
     <>
-      <tr className="op-section-row" onClick={onToggleExpanded}>
-        <td colSpan={9}>
-          <div className="op-section-content">
-            <label className="op-section-check" onClick={(e) => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                className="op-check"
-                checked={sectionAll}
-                ref={(el) => {
-                  if (el) el.indeterminate = sectionSome && !sectionAll;
-                }}
-                onChange={(e) => onToggleSection(e.target.checked)}
-                aria-label={selectLabel}
-              />
-            </label>
-            <button
-              type="button"
-              className={`op-section-toggle${expanded ? "" : " is-collapsed"}`}
-              onClick={(e) => { e.stopPropagation(); onToggleExpanded(); }}
-              aria-label={expanded ? "collapse" : "expand"}
-            >
-              {expanded ? <ChevronDown /> : <ChevronUp />}
-            </button>
-            <span className="op-section-dot" data-status={statusKey} />
-            <span className="op-section-label">{label}</span>
-            <span className="op-section-count">{count}</span>
-            <span className="op-section-sum">{sumLabel}</span>
-          </div>
-        </td>
-      </tr>
+      <div
+        className={`op-section${expanded ? "" : " is-collapsed"}`}
+        onClick={onToggleExpanded}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter") onToggleExpanded(); }}
+      >
+        <label className="op-section-check" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            className="op-check"
+            checked={sectionAll}
+            ref={(el) => {
+              if (el) el.indeterminate = sectionSome && !sectionAll;
+            }}
+            onChange={(e) => onToggleSection(e.target.checked)}
+            aria-label={selectLabel}
+          />
+        </label>
+        <ChevronDown className="op-section-chev" />
+        <span className="op-section-dot" data-st={statusKey} />
+        <span className="op-section-name">{label}</span>
+        <span className="op-section-count">{count}</span>
+        <span className="op-section-sum"><strong>{sumLabel}</strong></span>
+      </div>
       {children}
     </>
   );
