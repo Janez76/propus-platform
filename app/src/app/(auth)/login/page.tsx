@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 import { LoginForm } from "./_components/login-form";
 import { InteractiveBackground } from "./_components/interactive-background";
@@ -10,8 +9,7 @@ import { StatCounter } from "./_components/stat-counter";
 import { LogoMark } from "./_components/logo-mark";
 
 import ClientShellLoader from "@/components/ClientShellLoader";
-import { getAdminSession } from "@/lib/auth.server";
-import { getPortalHostname, resolvePostLoginTarget } from "@/lib/postLoginRedirect";
+import { getPortalHostname } from "@/lib/postLoginRedirect";
 
 import "./login.css";
 
@@ -95,23 +93,15 @@ export default async function LoginPage({
     return <ClientShellLoader />;
   }
 
-  // Bereits angemeldet? -> Weiterleitung (Portal-Rollen → Portal-URL).
-  // Ein DB-/Session-Hänger darf die Login-Seite nicht 500en — im Zweifel
-  // wird das Formular gezeigt.
-  let session: Awaited<ReturnType<typeof getAdminSession>> = null;
-  try {
-    session = await getAdminSession();
-  } catch (err) {
-    console.error("[LoginPage] getAdminSession fehlgeschlagen:", err);
-  }
-  if (session) {
-    redirect(
-      resolvePostLoginTarget(
-        session.role,
-        isSafeInternalPath(returnTo) ? returnTo : undefined,
-      ),
-    );
-  }
+  // KEINE serverseitige "schon eingeloggt → /dashboard"-Weiterleitung mehr:
+  // Das `admin_session`-Cookie und der SPA-Auth-State (zustand-Token aus
+  // localStorage/`admin_token_v2`) sind getrennt. Wenn das Cookie noch lebt,
+  // der SPA-Token aber fehlt (z. B. ohne "Angemeldet bleiben" → sessionStorage
+  // weg, Cookie nicht), würde gelten:
+  //   /login (Cookie ⇒ redirect /dashboard) → SPA /dashboard (kein Token ⇒
+  //   harte Navigation /login) → /login → …  =  Endlos-Reload-Loop.
+  // Darum hier immer das Formular zeigen; den Cookie-Login kann nur die SPA
+  // selbst (mit Token) verwerten.
 
   const initialError = params.forbidden
     ? "Keine Berechtigung für diesen Bereich."
