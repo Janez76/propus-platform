@@ -19,7 +19,7 @@ import {
   type StorageBrowseEntry,
 } from "../api/orders";
 import { UploadModalForm } from "../components/orders/UploadModalForm";
-import { normalizeStatusKey } from "../lib/status";
+import { normalizeStatusKey, getStatusLabel } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 
@@ -438,7 +438,7 @@ export function UploadsPage() {
                     <div className="uppv-order-item-head">
                       <span className="uppv-order-num">#{order.orderNo}</span>
                       <span className={`uppv-order-status ${statusCls}`}>
-                        {order.status || "-"}
+                        {getStatusLabel(order.status)}
                       </span>
                     </div>
                     <div className="uppv-order-addr">{order.address || "-"}</div>
@@ -470,19 +470,48 @@ export function UploadsPage() {
                       {selectedOrder.customerName || selectedOrder.customerEmail || "Ohne Kunde"}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleProvision}
-                    disabled={loadingSummary}
-                    className="uppv-primary-btn"
-                  >
-                    <HardDrive className="h-4 w-4" aria-hidden />
-                    Ordner automatisch erstellen
-                  </button>
+                  <div className="uppv-summary-actions">
+                    <button
+                      type="button"
+                      onClick={handleProvision}
+                      disabled={loadingSummary}
+                      className="uppv-primary-btn"
+                    >
+                      <HardDrive className="h-4 w-4" aria-hidden />
+                      Ordner automatisch erstellen
+                    </button>
+                    {(() => {
+                      const customerFolder = (summary?.folders || []).find(
+                        (f) => f.folderType === "customer_folder",
+                      );
+                      const canGenerate = customerFolder?.exists === true;
+                      if (!canGenerate) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => void handleGenerateWebsite()}
+                          disabled={generatingWebsite}
+                          className="uppv-secondary-btn"
+                        >
+                          {generatingWebsite ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                          ) : websiteSuccess ? (
+                            <Check className="h-3.5 w-3.5" aria-hidden />
+                          ) : (
+                            <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                          )}
+                          {websiteSuccess ? "Webseite gestartet!" : "Webseite generieren"}
+                        </button>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 {error ? (
                   <div className="uppv-error-banner">{error}</div>
+                ) : null}
+                {websiteError ? (
+                  <div className="uppv-error-banner" style={{ marginTop: 8 }}>{websiteError}</div>
                 ) : null}
 
                 <div className="uppv-status-cards">
@@ -589,27 +618,6 @@ export function UploadsPage() {
                           Archiviert löschen
                         </button>
                       </div>
-
-                      {ft === "customer_folder" && folder.exists && (
-                        <button
-                          type="button"
-                          onClick={() => void handleGenerateWebsite()}
-                          disabled={generatingWebsite}
-                          className="uppv-feature-pill"
-                        >
-                          {generatingWebsite ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                          ) : websiteSuccess ? (
-                            <Check className="h-3.5 w-3.5" aria-hidden />
-                          ) : (
-                            <ImageIcon className="h-3.5 w-3.5" aria-hidden />
-                          )}
-                          {websiteSuccess ? "Gestartet!" : "Websize generieren"}
-                        </button>
-                      )}
-                      {ft === "customer_folder" && websiteError && (
-                        <div className="uppv-folder-err">{websiteError}</div>
-                      )}
 
                       <div className="uppv-folder-addr-block">
                         <div className="uppv-folder-addr">{folder.displayName}</div>

@@ -262,9 +262,17 @@
   color: var(--up-ink-3);
   margin-top: 4px;
 }
+.uppv-summary-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .uppv-primary-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 11px;
   padding: 13px 22px;
   background: var(--up-gold);
@@ -278,6 +286,31 @@
   transition: background-color 180ms, box-shadow 180ms;
   white-space: nowrap;
 }
+.uppv-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 11px 18px;
+  background: var(--up-gold-tint);
+  color: var(--up-gold-deep);
+  border: 1px solid var(--up-gold-line);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms, border-color 150ms;
+  white-space: nowrap;
+}
+.uppv-secondary-btn:hover:not(:disabled) {
+  background: var(--up-gold);
+  color: var(--up-ink);
+  border-color: var(--up-gold);
+}
+.uppv-secondary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.uppv-secondary-btn i,
+.uppv-secondary-btn svg { font-size: 11px; }
 .uppv-primary-btn:hover:not(:disabled) {
   background: #c79b25;
   box-shadow: 0 4px 14px rgba(182, 142, 32, 0.28);
