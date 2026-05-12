@@ -31,6 +31,7 @@ export function InteractiveBackground({
 
   // Tastatur-Navigation (Pfeile)
   useEffect(() => {
+    if (images.length === 0) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight")
         setSlideIdx((i) => (i + 1) % images.length);
@@ -40,6 +41,20 @@ export function InteractiveBackground({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [images.length]);
+
+  // Ohne Bilder (z. B. solange app/public/login/ leer ist): nur die statischen
+  // Hintergrund-Layer rendern, kein Slide/Index/Modulo.
+  if (images.length === 0) {
+    return (
+      <>
+        <div className="bg-stage" aria-hidden="true" />
+        <div className="bg-veil" aria-hidden="true" />
+        <div className="bg-grid" aria-hidden="true" />
+        {!reducedMotion && <CursorAndSpotlight />}
+        {!reducedMotion && <ParticleConstellation />}
+      </>
+    );
+  }
 
   const current = images[slideIdx];
 

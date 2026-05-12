@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 
 import { resolvePostLoginTarget } from "@/lib/postLoginRedirect";
 
@@ -41,6 +41,73 @@ function isSafeInternalPath(path: string | null | undefined): path is string {
   return true;
 }
 
+type ParsedCookie = {
+  name: string;
+  value: string;
+  options: {
+    domain?: string;
+    path?: string;
+    expires?: Date;
+    maxAge?: number;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: "lax" | "strict" | "none";
+  };
+};
+
+/**
+ * Parst einen `Set-Cookie`-Header und übernimmt die Original-Attribute des
+ * Backends (Domain/Path/Lifetime/SameSite/Secure/HttpOnly) — sonst weicht das
+ * Session-Verhalten von der Auth-Policy des Backends ab (z. B. Cross-Subdomain).
+ */
+function parseSetCookie(raw: string): ParsedCookie | null {
+  const parts = raw.split(";");
+  const first = parts.shift();
+  if (!first) return null;
+  const eq = first.indexOf("=");
+  if (eq < 0) return null;
+  const name = first.slice(0, eq).trim();
+  const value = first.slice(eq + 1).trim();
+  if (!name) return null;
+
+  const options: ParsedCookie["options"] = {};
+  for (const part of parts) {
+    const idx = part.indexOf("=");
+    const key = (idx < 0 ? part : part.slice(0, idx)).trim().toLowerCase();
+    const val = idx < 0 ? "" : part.slice(idx + 1).trim();
+    switch (key) {
+      case "domain":
+        if (val) options.domain = val;
+        break;
+      case "path":
+        options.path = val || "/";
+        break;
+      case "max-age": {
+        const n = Number(val);
+        if (Number.isFinite(n)) options.maxAge = n;
+        break;
+      }
+      case "expires": {
+        const d = new Date(val);
+        if (!Number.isNaN(d.getTime())) options.expires = d;
+        break;
+      }
+      case "secure":
+        options.secure = true;
+        break;
+      case "httponly":
+        options.httpOnly = true;
+        break;
+      case "samesite": {
+        const s = val.toLowerCase();
+        if (s === "lax" || s === "strict" || s === "none") options.sameSite = s;
+        break;
+      }
+    }
+  }
+  return { name, value, options };
+}
+
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData,
@@ -67,15 +134,19 @@ export async function loginAction(
     };
   }
 
+  // Trusted Backend-Origin aus der Server-Konfiguration — niemals aus dem
+  // Host-/X-Forwarded-Proto-Header (SSRF/Credential-Leak-Risiko). Express
+  // serviert die Auth-Routen unter `/auth/*` (der Next-Proxy `/api/auth/*`
+  // leitet ebenfalls dorthin).
+  const backendOrigin = process.env.PLATFORM_INTERNAL_URL;
+  if (!backendOrigin) {
+    console.error("[loginAction] PLATFORM_INTERNAL_URL ist nicht gesetzt.");
+    return { ok: false, field: "form", error: "Anmeldedienst nicht erreichbar. Bitte später erneut versuchen." };
+  }
+
   let res: Response;
   try {
-    const h = await headers();
-    const host = h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "https";
-    if (!host) {
-      return { ok: false, field: "form", error: "Unerwarteter Fehler. Bitte erneut versuchen." };
-    }
-    res = await fetch(`${proto}://${host}/api/auth/login`, {
+    res = await fetch(new URL("/auth/login", backendOrigin), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -106,25 +177,15 @@ export async function loginAction(
     };
   }
 
-  // Set-Cookie aus der Backend-Antwort an die Browser-Response weiterreichen.
-  const proto = (await headers()).get("x-forwarded-proto") ?? "https";
+  // Set-Cookie aus der Backend-Antwort 1:1 (inkl. Original-Attribute) an die
+  // Browser-Response weiterreichen.
   const cookieStore = await cookies();
   const setCookies =
     typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
   for (const raw of setCookies) {
-    const [pair] = raw.split(";");
-    const eq = pair.indexOf("=");
-    if (eq < 0) continue;
-    const name = pair.slice(0, eq).trim();
-    const value = pair.slice(eq + 1).trim();
-    if (!name) continue;
-    cookieStore.set(name, value, {
-      httpOnly: true,
-      secure: proto === "https",
-      sameSite: "lax",
-      path: "/",
-      maxAge: remember ? 60 * 60 * 24 * 30 : 60 * 60 * 8,
-    });
+    const parsed = parseSetCookie(raw);
+    if (!parsed) continue;
+    cookieStore.set(parsed.name, parsed.value, parsed.options);
   }
 
   const role = String(data.role || "admin");

@@ -136,10 +136,11 @@ function AssistantAppRouterRedirect() {
  * SPA-Login mit Magic-Link-Flow erhalten.
  */
 function LoginRoute() {
-  if (typeof window !== "undefined" && !isPortalHost()) {
-    window.location.assign("/login" + window.location.search);
-    return <PageSkeleton />;
-  }
+  const portalHost = typeof window !== "undefined" && isPortalHost();
+  useEffect(() => {
+    if (!portalHost) window.location.assign("/login" + window.location.search);
+  }, [portalHost]);
+  if (!portalHost) return <PageSkeleton />;
   return <LoginPage />;
 }
 

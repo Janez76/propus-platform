@@ -12,6 +12,19 @@ type Props = {
   initialError: string | null;
 };
 
+/**
+ * Zulässige Redirect-Ziele: interner Pfad (kein protokoll-relativer `//`-Trick)
+ * oder absolute `https://`-URL (Kunden-Portal). Sonst Fallback `/dashboard`.
+ */
+function safeRedirectTarget(target: string | undefined): string {
+  if (!target) return "/dashboard";
+  if (target.startsWith("/") && !target.startsWith("//") && !target.startsWith("/\\")) {
+    return target;
+  }
+  if (/^https:\/\/[^/]/i.test(target)) return target;
+  return "/dashboard";
+}
+
 export function LoginForm({ nextUrl, initialError }: Props) {
   const [state, formAction] = useActionState(loginAction, {
     ...INITIAL_STATE,
@@ -31,7 +44,7 @@ export function LoginForm({ nextUrl, initialError }: Props) {
         Boolean(state.remember),
         Array.isArray(state.permissions) ? state.permissions : [],
       );
-    window.location.assign(state.target ?? "/dashboard");
+    window.location.assign(safeRedirectTarget(state.target));
   }, [state]);
 
   return (

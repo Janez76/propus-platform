@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "./_components/login-form";
@@ -8,8 +9,9 @@ import { LiveClock } from "./_components/live-clock";
 import { StatCounter } from "./_components/stat-counter";
 import { LogoMark } from "./_components/logo-mark";
 
+import ClientShellLoader from "@/components/ClientShellLoader";
 import { getAdminSession } from "@/lib/auth.server";
-import { resolvePostLoginTarget } from "@/lib/postLoginRedirect";
+import { getPortalHostname, resolvePostLoginTarget } from "@/lib/postLoginRedirect";
 
 import "./login.css";
 
@@ -77,6 +79,16 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const returnTo = params.returnTo ?? params.next;
+
+  // Auf dem Kunden-Portal-Host gehört /login weiterhin dem SPA-Login (Magic-Link
+  // + customer_session-Bootstrap). Diese App-Router-Route hätte sonst Vorrang vor
+  // dem Catch-all und würde Portal-Nutzern das falsche (Admin-Passwort-)Formular
+  // zeigen. Darum dort den SPA-Shell rendern statt der neuen Seite.
+  const hostHeader = (await headers()).get("host") ?? "";
+  const host = hostHeader.split(":")[0].toLowerCase();
+  if (host && host === getPortalHostname()) {
+    return <ClientShellLoader />;
+  }
 
   // Bereits angemeldet? -> Weiterleitung (Portal-Rollen → Portal-URL).
   const session = await getAdminSession();
