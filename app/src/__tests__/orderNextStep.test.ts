@@ -16,9 +16,10 @@ describe("orderNextStep", () => {
     expect(orderNextStep(undefined).action).toBe("none");
   });
 
-  it("returns none for cancelled / archived", () => {
+  it("returns none for cancelled / archived / paused", () => {
     expect(orderNextStep(mk({ status: "cancelled" })).action).toBe("none");
     expect(orderNextStep(mk({ status: "archived" })).action).toBe("none");
+    expect(orderNextStep(mk({ status: "paused", appointmentDate: null })).action).toBe("none");
   });
 
   it("done without bexio order → invoice", () => {

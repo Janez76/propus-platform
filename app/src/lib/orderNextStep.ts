@@ -45,7 +45,9 @@ export function orderNextStep(o: Order | null | undefined): OrderNextStep {
   if (!o) return NONE;
   const key = normalizeStatusKey(o.status);
 
-  if (key === "cancelled" || key === "archived") return NONE;
+  // Paused/cancelled/archived orders have no actionable next step here — the
+  // detailed form disables scheduling/photographer edits in those states.
+  if (key === "cancelled" || key === "archived" || key === "paused") return NONE;
 
   if (key === "done" || key === "completed") {
     if (!o.bexioOrderNumber && !o.bexioOrderId) {
