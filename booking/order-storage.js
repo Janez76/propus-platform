@@ -6,7 +6,14 @@ const ncShare = require("./nextcloud-share");
 
 const CUSTOMER_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_CUSTOMER_ROOT || process.env.BOOKING_UPLOAD_ROOT || path.join(__dirname, "uploads");
 const RAW_MATERIAL_ROOT = process.env.BOOKING_UPLOAD_RAW_ROOT || path.join(__dirname, "uploads-raw");
-const SELECTION_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_SELECTION_ROOT || path.join(__dirname, "uploads-selection");
+/**
+ * Selection-Root: standardmaessig ein Unterordner des Customer-Mounts
+ * (`_zur_auswahl_root/<Firma>/<Display>`) damit kein zusaetzlicher VPS-Mount
+ * eingerichtet werden muss. Wer einen separaten Top-Level-Mount will, setzt
+ * `BOOKING_UPLOAD_SELECTION_ROOT` explizit auf z.B. /booking_upload_selection.
+ */
+const SELECTION_UPLOAD_ROOT = process.env.BOOKING_UPLOAD_SELECTION_ROOT
+  || path.join(CUSTOMER_UPLOAD_ROOT, "_zur_auswahl_root");
 const DEFAULT_LOCAL_STAGING_ROOT = path.join(os.tmpdir(), "buchungstool-upload-staging");
 const CONFIGURED_LOCAL_STAGING_ROOT = String(process.env.BOOKING_UPLOAD_STAGING_ROOT || "").trim();
 const LOCAL_STAGING_ROOT = CONFIGURED_LOCAL_STAGING_ROOT || DEFAULT_LOCAL_STAGING_ROOT;
@@ -788,7 +795,9 @@ function getStorageHealth() {
   const checks = [
     { key: "customerRoot", path: CUSTOMER_UPLOAD_ROOT, label: "Kunden-Root", allowCreate: false },
     { key: "rawRoot", path: RAW_MATERIAL_ROOT, label: "Raw-Root", allowCreate: false },
-    { key: "selectionRoot", path: SELECTION_UPLOAD_ROOT, label: "Selection-Root", allowCreate: false },
+    // Selection-Root darf bei Bedarf angelegt werden — der Default liegt als
+    // Subdir im Customer-Mount, fuer den die VPS Schreibrechte hat.
+    { key: "selectionRoot", path: SELECTION_UPLOAD_ROOT, label: "Selection-Root", allowCreate: true },
     { key: "stagingRoot", path: getSafeStagingRootForDisplay(), label: "Staging-Root", allowCreate: true },
   ];
   return checks.map((entry) => {
@@ -928,14 +937,20 @@ async function provisionOrderFolders(order, db, { folderTypes = ALL_FOLDER_TYPES
     const def = defs[folderType];
     if (!def) continue;
     try {
-      assertRootReady(def.rootPath, { label: getRootLabel(folderType) });
+      assertRootReady(def.rootPath, {
+        label: getRootLabel(folderType),
+        // Selection-Root liegt standardmaessig im Customer-Mount und darf
+        // bei Bedarf erzeugt werden. Wer einen separaten Mount konfiguriert,
+        // erstellt den Pfad ohnehin per VPS-Mount.
+        allowCreate: folderType === "selection",
+      });
     } catch (err) {
       /**
-       * Selection-Root ist optional: wenn der Mount auf der VPS noch fehlt,
-       * ueberspringen wir den Selection-Ordner und legen Raw + Customer
-       * trotzdem an. Health-Check zeigt den Fehler weiterhin im UI an.
-       * Raw + Customer bleiben hart erforderlich — Provisionierung ohne
-       * diese Roots ist nicht sinnvoll.
+       * Selection-Root ist optional: wenn der Mount auf der VPS noch fehlt
+       * (z.B. read-only Filesystem ueber dem Standard), ueberspringen wir
+       * den Selection-Ordner und legen Raw + Customer trotzdem an. Raw +
+       * Customer bleiben hart erforderlich — Provisionierung ohne diese
+       * Roots ist nicht sinnvoll.
        */
       if (folderType === "selection") {
         console.warn(
