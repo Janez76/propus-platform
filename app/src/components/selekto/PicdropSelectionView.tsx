@@ -280,6 +280,11 @@ export function PicdropSelectionView({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [chatDraft, setChatDraft] = useState("");
+  /**
+   * Grid-Filter — entspricht den Tab-Pillen im neuen Paper-Header.
+   * "none" zeigt nur Bilder ohne Markierung.
+   */
+  const [filter, setFilter] = useState<"all" | Flag | "none">("all");
 
   const touchStartX = useRef<number | null>(null);
   const deepLinkConsumedRef = useRef(false);
@@ -351,18 +356,28 @@ export function PicdropSelectionView({
   const currentImg = lightboxIndex !== null && images.length ? images[lightboxIndex] : null;
   const currentState = currentImg ? byId[currentImg.key] : null;
 
+  /**
+   * Setzt die Flagge fuer ein Bild radio-style:
+   *   aktiv klicken  → abwaehlen (keine Markierung)
+   *   inaktiv klicken → ersetzt aktuelle Markierung mit f
+   * Ein Bild traegt damit immer genau 0 oder 1 Flag — passt zu Chip und
+   * Side-Stripe pro Karte.
+   */
+  const setImageFlag = useCallback((key: string, f: Flag) => {
+    setById((prev) => {
+      const s = prev[key];
+      if (!s) return prev;
+      const isActive = s.flags.includes(f);
+      return { ...prev, [key]: { ...s, flags: isActive ? [] : [f] } };
+    });
+  }, []);
+
   const toggleFlag = useCallback(
     (f: Flag) => {
       if (!currentImg) return;
-      setById((prev) => {
-        const s = prev[currentImg.key];
-        if (!s) return prev;
-        const i = s.flags.indexOf(f);
-        const nextFlags = i === -1 ? [...s.flags, f] : s.flags.filter((x) => x !== f);
-        return { ...prev, [currentImg.key]: { ...s, flags: nextFlags } };
-      });
+      setImageFlag(currentImg.key, f);
     },
-    [currentImg],
+    [currentImg, setImageFlag],
   );
 
   const sendMsg = useCallback(() => {
@@ -503,58 +518,121 @@ export function PicdropSelectionView({
     <div className={`pd-root-wrap${customerMode ? " pd-customer-mode" : ""}${lightboxOpen ? " pd-lb-open" : ""}`}>
       {!lightboxOpen ? (
         <div className="pd-page">
-          <header className="pd-header pd-page-head">
-            <div>
-              <div className="pd-project-label">{customerMode ? "Ihre Bildauswahl · Propus" : "Bildauswahl · Propus"}</div>
-              <div className="pd-project-title">{projectTitle}</div>
-              {!customerMode && staffGalerieId ? (
-                <div className="pd-mode-line">
-                  <span className="pd-mode-badge">Vorschau</span>
-                  <span className="pd-mode-id" title="Auswahl-ID">
-                    {staffGalerieId.slice(0, 8)}…
-                  </span>
-                  <Link to="/" className="pd-mode-leave">
-                    Demo-Modus
-                  </Link>
-                </div>
-              ) : null}
-            </div>
+          {/* Brand-Strip */}
+          <div className="pd-brand-strip">
+            <span className="pd-brand-mark2">PROPUS</span>
+            {orderNo || customerName ? (
+              <span className="pd-brand-context2">
+                {orderNo ? (
+                  <>
+                    Auftrag #<strong>{orderNo}</strong>
+                  </>
+                ) : null}
+                {orderNo && customerName ? " · " : null}
+                {customerName ? <strong>{customerName}</strong> : null}
+              </span>
+            ) : (
+              <span className="pd-brand-context2">
+                {customerMode ? "Ihre Bildauswahl" : "Bildauswahl"}
+              </span>
+            )}
+          </div>
+
+          {/* Hero */}
+          <section className="pd-hero">
+            <div className="pd-hero-eyebrow">{customerMode ? "Ihre Bildauswahl" : "Bildauswahl"}</div>
+            <h1 className="pd-hero-title">{projectTitle}</h1>
+            <p className="pd-hero-sub">
+              {customerMode
+                ? "Markieren Sie die Bilder, die wir bearbeiten, stagen oder retuschieren sollen. Klicken Sie ein Bild fuer Details und Kommentare an unser Team."
+                : "Markieren Sie die Bilder, die bearbeitet, gestagt oder retuschiert werden sollen."}
+            </p>
+            <div className="pd-hero-tick" aria-hidden />
+            {!customerMode && staffGalerieId ? (
+              <div className="pd-mode-line" style={{ marginTop: 18 }}>
+                <span className="pd-mode-badge">Vorschau</span>
+                <span className="pd-mode-id" title="Auswahl-ID">
+                  {staffGalerieId.slice(0, 8)}…
+                </span>
+                <Link to="/" className="pd-mode-leave">
+                  Demo-Modus
+                </Link>
+              </div>
+            ) : null}
             {!customerMode ? (
-              <div className="pd-header-right">
-                <div className="pd-stats">
-                  <span className="pd-pill pd-pill-total">{nImg} Bilder</span>
-                  {stats.bearbeiten > 0 ? (
-                    <span className="pd-pill pd-pill-b">{stats.bearbeiten} Bearbeiten</span>
-                  ) : null}
-                  {stats.staging > 0 ? (
-                    <span className="pd-pill pd-pill-s">{stats.staging} Staging</span>
-                  ) : null}
-                  {stats.retusche > 0 ? (
-                    <span className="pd-pill pd-pill-r">{stats.retusche} Retusche</span>
-                  ) : null}
-                </div>
+              <div style={{ marginTop: 24 }}>
                 <Link to={PATH_BILDAUSWAHL_ADMIN} className="pd-backpanel-link">
-                  <i className="fa-solid fa-table-columns" aria-hidden={true} />
+                  <i className="fa-solid fa-table-columns" aria-hidden />
                   Backpanel
                 </Link>
               </div>
-            ) : (
-              <div className="pd-header-right">
-                <div className="pd-stats">
-                  <span className="pd-pill pd-pill-total">{nImg} Bilder</span>
-                  {stats.bearbeiten > 0 ? (
-                    <span className="pd-pill pd-pill-b">{stats.bearbeiten} Bearbeiten</span>
-                  ) : null}
-                  {stats.staging > 0 ? (
-                    <span className="pd-pill pd-pill-s">{stats.staging} Staging</span>
-                  ) : null}
-                  {stats.retusche > 0 ? (
-                    <span className="pd-pill pd-pill-r">{stats.retusche} Retusche</span>
-                  ) : null}
-                </div>
+            ) : null}
+          </section>
+
+          {/* Metrics */}
+          {nImg > 0 ? (
+            <section className="pd-metrics">
+              <div className="pd-metric">
+                <span className="pd-metric-num">{String(nImg).padStart(2, "0")}</span>
+                <span className="pd-metric-label">
+                  <i className="fa-solid fa-images" aria-hidden /> Bilder gesamt
+                </span>
               </div>
-            )}
-          </header>
+              <div className="pd-metric is-bearbeiten">
+                <span className="pd-metric-num">{String(stats.bearbeiten).padStart(2, "0")}</span>
+                <span className="pd-metric-label">
+                  <i className="fa-solid fa-pen" aria-hidden /> Bearbeiten
+                </span>
+              </div>
+              <div className="pd-metric is-staging">
+                <span className="pd-metric-num">{String(stats.staging).padStart(2, "0")}</span>
+                <span className="pd-metric-label">
+                  <i className="fa-solid fa-couch" aria-hidden /> Staging
+                </span>
+              </div>
+              <div className="pd-metric is-retusche">
+                <span className="pd-metric-num">{String(stats.retusche).padStart(2, "0")}</span>
+                <span className="pd-metric-label">
+                  <i className="fa-solid fa-wand-magic-sparkles" aria-hidden /> Retusche
+                </span>
+              </div>
+              <div className="pd-metric">
+                <span className="pd-metric-num">{String(nImg - stats.marked).padStart(2, "0")}</span>
+                <span className="pd-metric-label">
+                  <i className="fa-regular fa-circle" aria-hidden /> Ohne Markierung
+                </span>
+              </div>
+            </section>
+          ) : null}
+
+          {/* Filter-Tabs */}
+          {nImg > 0 ? (
+            <div className="pd-filter-bar" role="tablist" aria-label="Filter">
+              {(
+                [
+                  ["all", "Alle Bilder", null, nImg],
+                  ["bearbeiten", "Bearbeiten", "fa-pen", stats.bearbeiten],
+                  ["staging", "Staging", "fa-couch", stats.staging],
+                  ["retusche", "Retusche", "fa-wand-magic-sparkles", stats.retusche],
+                  ["none", "Ohne Markierung", "fa-regular fa-circle", nImg - stats.marked],
+                ] as const
+              ).map(([key, label, icon, count]) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === key}
+                  className={`pd-filter-tab${filter === key ? " is-active" : ""}`}
+                  data-filter={key}
+                  onClick={() => setFilter(key as typeof filter)}
+                >
+                  {icon ? <i className={icon.startsWith("fa-regular") ? icon : `fa-solid ${icon}`} aria-hidden /> : null}
+                  {label}
+                  <span className="pd-filter-count">{count}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {loading ? (
             <p className="pd-banner pd-banner--muted">
@@ -563,6 +641,7 @@ export function PicdropSelectionView({
           ) : null}
           {banner && !loading ? <p className="pd-banner pd-banner--warn">{banner}</p> : null}
 
+          {/* Grid */}
           <div className="pd-page-main">
             {nImg === 0 && !loading ? (
               <p className="pd-empty-gallery">
@@ -576,10 +655,14 @@ export function PicdropSelectionView({
                   const s = byId[img.key];
                   if (!s) return null;
                   const top = s.flags[0];
+                  // Filter: aktiv-flag muss zur Filter-Wahl passen.
+                  if (filter !== "all") {
+                    if (filter === "none" && top) return null;
+                    if (filter !== "none" && top !== filter) return null;
+                  }
                   return (
-                    <button
+                    <article
                       key={img.key}
-                      type="button"
                       className={`pd-img-card${top ? ` ${CARD_FLAG_CLASS[top]}` : ""}${
                         s.msgs.length ? " pd-has-cmt" : ""
                       }`}
@@ -587,20 +670,53 @@ export function PicdropSelectionView({
                     >
                       <div className={`pd-thumb${watermarkEnabled ? " pd-thumb--watermark" : ""}`}>
                         <ThumbVisual img={img} index={idx} restrictDownloadGestures={customerMode} />
-                        <div className="pd-flag-chips">
-                          {s.flags.map((f) => (
-                            <span key={f} className={CHIP_CLASS[f]}>
-                              <i className={CHIP_ICON[f]} aria-hidden="true" />
-                              {FLAG_LABEL[f]}
+                        {top ? (
+                          <div className="pd-flag-chips">
+                            <span className={CHIP_CLASS[top]}>
+                              <i className={CHIP_ICON[top]} aria-hidden="true" />
+                              {FLAG_LABEL[top]}
                             </span>
+                          </div>
+                        ) : null}
+                        {s.msgs.length > 0 ? (
+                          <div className="pd-cmt-dot" title={`${s.msgs.length} Kommentar${s.msgs.length === 1 ? "" : "e"}`}>
+                            <i className="fa-solid fa-comment" />
+                          </div>
+                        ) : null}
+                        {/* Quick-Flag-Overlay (Hover) */}
+                        <div
+                          className="pd-card-actions"
+                          onClick={(e) => e.stopPropagation()}
+                          role="group"
+                          aria-label="Schnellmarkierung"
+                        >
+                          {(["bearbeiten", "staging", "retusche"] as const).map((f) => (
+                            <button
+                              key={f}
+                              type="button"
+                              className={`pd-quick-flag${top === f ? " is-active" : ""}`}
+                              data-flag={f}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImageFlag(img.key, f);
+                              }}
+                              title={FLAG_LABEL[f]}
+                              aria-label={`${FLAG_LABEL[f]} markieren`}
+                              aria-pressed={top === f}
+                            >
+                              <i className={CHIP_ICON[f]} aria-hidden />
+                            </button>
                           ))}
                         </div>
-                        <div className="pd-cmt-dot">
-                          <i className="fa-solid fa-comment" />
-                        </div>
                       </div>
-                      <div className="pd-img-name">{img.name}</div>
-                    </button>
+                      <div className="pd-img-name">
+                        <span className="pd-card-num">
+                          {String(idx + 1).padStart(2, "0")}
+                          <span className="pd-card-num-tot">/{String(nImg).padStart(2, "0")}</span>
+                        </span>
+                        <span className="pd-card-filename" title={img.name}>{img.name}</span>
+                      </div>
+                    </article>
                   );
                 })}
               </div>
@@ -609,28 +725,54 @@ export function PicdropSelectionView({
 
           {submitError ? <p className="pd-banner pd-banner--warn pd-banner--above-submit">{submitError}</p> : null}
 
-          <div className="pd-submit-bar">
-            {submitted ? (
-              <span className="pd-submit-hint">
-                <span className="pd-adot pd-adot--show" aria-hidden="true" />
-                Auswahl gesendet. Sie können sie weiter bearbeiten und erneut absenden.
-              </span>
-            ) : null}
-            <button
-              type="button"
-              className="pd-submit-btn"
-              disabled={stats.withSendableContent === 0 || nImg === 0 || submitting}
-              onClick={() => void submitAll()}
-            >
-              {submitting
-                ? "Senden …"
-                : submitted
-                  ? "Auswahl aktualisieren"
-                  : customerMode
-                    ? "Auswahl an Propus senden"
-                    : "Auswahl absenden"}
-            </button>
-          </div>
+          {/* Sticky Submit-Bar */}
+          {nImg > 0 ? (
+            <div className="pd-submit-bar">
+              <div className="pd-submit-bar-inner">
+                <div className="pd-submit-status">
+                  <div className="pd-submit-status-item">
+                    <span className="pd-submit-status-num">{stats.marked}</span>
+                    <span>von {nImg} {nImg === 1 ? "Bild" : "Bildern"} markiert</span>
+                  </div>
+                  <span className="pd-submit-divider" aria-hidden />
+                  {submitted ? (
+                    <span className="pd-submit-hint">
+                      <span className="pd-adot" aria-hidden />
+                      Auswahl gesendet. Sie koennen sie weiter bearbeiten und erneut absenden.
+                    </span>
+                  ) : nImg - stats.marked > 0 ? (
+                    <span className="pd-submit-warning">
+                      <i className="fa-solid fa-circle-info" aria-hidden />
+                      <span>
+                        {nImg - stats.marked}{" "}
+                        {nImg - stats.marked === 1 ? "Bild noch ohne Markierung" : "Bilder noch ohne Markierung"}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="pd-submit-warning is-ok">
+                      <i className="fa-solid fa-circle-check" aria-hidden />
+                      <span>Alle Bilder markiert — bereit zum Senden</span>
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className={`pd-submit-btn${submitted ? " pd-submit-btn--sent" : ""}`}
+                  disabled={stats.withSendableContent === 0 || nImg === 0 || submitting}
+                  onClick={() => void submitAll()}
+                >
+                  {submitting
+                    ? "Senden …"
+                    : submitted
+                      ? "Auswahl aktualisieren"
+                      : customerMode
+                        ? "Auswahl an Propus senden"
+                        : "Auswahl absenden"}
+                  <span className="pd-submit-btn-arrow" aria-hidden />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
