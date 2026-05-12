@@ -356,19 +356,22 @@ export function UploadsPage() {
   const visibleOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     /**
-     * Sortierung nach Shooting-Datum absteigend (neueste oben). Auftraege
-     * ohne appointmentDate (z. B. noch nicht disponiert) wandern ans Ende
-     * — Tiebreaker ist die Auftragsnummer absteigend.
+     * Sortierung nach Naehe zum heutigen Tag: Auftraege deren Shooting-Datum
+     * am wenigsten Zeit von "jetzt" entfernt ist, kommen oben (gerade gerade
+     * geshootet ODER bald anstehend). Aeltere bzw. weit entfernte Shoots
+     * sinken nach unten, Auftraege ohne Datum landen ganz unten.
+     * Tiebreaker bei gleichem Datum: Auftragsnummer absteigend.
      */
+    const now = Date.now();
+    const distance = (iso: string | undefined | null): number => {
+      if (!iso) return Number.POSITIVE_INFINITY;
+      const t = new Date(iso).getTime();
+      if (!Number.isFinite(t)) return Number.POSITIVE_INFINITY;
+      return Math.abs(t - now);
+    };
     const sortedOrders = [...orders].sort((a, b) => {
-      const da = a.appointmentDate ? new Date(a.appointmentDate).getTime() : 0;
-      const db = b.appointmentDate ? new Date(b.appointmentDate).getTime() : 0;
-      if (Number.isFinite(da) && Number.isFinite(db) && da !== db) {
-        // Beide haben gueltige Daten → das groessere (neuere) zuerst.
-        if (da === 0) return 1;
-        if (db === 0) return -1;
-        return db - da;
-      }
+      const diff = distance(a.appointmentDate) - distance(b.appointmentDate);
+      if (diff !== 0) return diff;
       return Number(b.orderNo || 0) - Number(a.orderNo || 0);
     });
     if (!normalized) {
