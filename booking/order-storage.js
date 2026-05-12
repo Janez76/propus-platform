@@ -752,7 +752,29 @@ function isMountedPath(targetPath) {
   });
 }
 
-function assertRootReady(rootPath, { label, allowCreate = false } = {}) {
+/**
+ * True wenn `targetPath` selbst ein Mount ist ODER unter einem gemounteten
+ * Verzeichnis liegt. Wichtig fuer Roots, die als Subdir eines bestehenden
+ * Mounts angelegt werden (z.B. Selection-Root unter Customer-Mount).
+ */
+function isPathOnMountedFilesystem(targetPath) {
+  const resolved = path.resolve(targetPath);
+  const mounts = new Set(
+    readMountInfo()
+      .map((line) => line.split(" ")[4])
+      .filter(Boolean),
+  );
+  let current = resolved;
+  while (current) {
+    if (mounts.has(current)) return true;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return false;
+}
+
+function assertRootReady(rootPath, { label, allowCreate = false, allowParentMount = false } = {}) {
   const resolved = path.resolve(rootPath);
   if (!fs.existsSync(resolved)) {
     if (allowCreate) {
@@ -764,8 +786,11 @@ function assertRootReady(rootPath, { label, allowCreate = false } = {}) {
   if (!fs.statSync(resolved).isDirectory()) {
     throw new Error(`${label || "Pfad"} ist kein Verzeichnis: ${resolved}`);
   }
-  if (REQUIRE_MOUNT && !isMountedPath(resolved)) {
-    throw new Error(`${label || "Pfad"} ist nicht als Mount verfügbar: ${resolved}`);
+  if (REQUIRE_MOUNT) {
+    const mountOk = allowParentMount ? isPathOnMountedFilesystem(resolved) : isMountedPath(resolved);
+    if (!mountOk) {
+      throw new Error(`${label || "Pfad"} ist nicht als Mount verfügbar: ${resolved}`);
+    }
   }
   fs.accessSync(resolved, fs.constants.R_OK | fs.constants.W_OK);
   return resolved;
@@ -793,16 +818,21 @@ function getStorageRoots() {
 
 function getStorageHealth() {
   const checks = [
-    { key: "customerRoot", path: CUSTOMER_UPLOAD_ROOT, label: "Kunden-Root", allowCreate: false },
-    { key: "rawRoot", path: RAW_MATERIAL_ROOT, label: "Raw-Root", allowCreate: false },
-    // Selection-Root darf bei Bedarf angelegt werden — der Default liegt als
-    // Subdir im Customer-Mount, fuer den die VPS Schreibrechte hat.
-    { key: "selectionRoot", path: SELECTION_UPLOAD_ROOT, label: "Selection-Root", allowCreate: true },
-    { key: "stagingRoot", path: getSafeStagingRootForDisplay(), label: "Staging-Root", allowCreate: true },
+    { key: "customerRoot", path: CUSTOMER_UPLOAD_ROOT, label: "Kunden-Root", allowCreate: false, allowParentMount: false },
+    { key: "rawRoot", path: RAW_MATERIAL_ROOT, label: "Raw-Root", allowCreate: false, allowParentMount: false },
+    // Selection-Root darf bei Bedarf angelegt werden und liegt typischerweise
+    // als Subdir im Customer-Mount; deshalb akzeptiert die Mount-Pruefung den
+    // Vorfahren-Mount, statt einen eigenen Top-Level-Mount zu erzwingen.
+    { key: "selectionRoot", path: SELECTION_UPLOAD_ROOT, label: "Selection-Root", allowCreate: true, allowParentMount: true },
+    { key: "stagingRoot", path: getSafeStagingRootForDisplay(), label: "Staging-Root", allowCreate: true, allowParentMount: true },
   ];
   return checks.map((entry) => {
     try {
-      const resolved = assertRootReady(entry.path, { label: entry.label, allowCreate: entry.allowCreate });
+      const resolved = assertRootReady(entry.path, {
+        label: entry.label,
+        allowCreate: entry.allowCreate,
+        allowParentMount: entry.allowParentMount,
+      });
       return {
         key: entry.key,
         path: resolved,
@@ -943,6 +973,7 @@ async function provisionOrderFolders(order, db, { folderTypes = ALL_FOLDER_TYPES
         // bei Bedarf erzeugt werden. Wer einen separaten Mount konfiguriert,
         // erstellt den Pfad ohnehin per VPS-Mount.
         allowCreate: folderType === "selection",
+        allowParentMount: folderType === "selection",
       });
     } catch (err) {
       /**
