@@ -49,7 +49,7 @@ describe("orderNextStep", () => {
   });
 
   it("appointment set but no photographer → photographer", () => {
-    const s = orderNextStep(mk({ status: "pending", appointmentDate: "2026-06-01T10:00:00Z", photographer: {} }));
+    const s = orderNextStep(mk({ status: "pending", appointmentDate: "2026-06-01T10:00:00Z", photographer: null }));
     expect(s.action).toBe("photographer");
     expect(s.anchor).toBe("#photographer");
   });
