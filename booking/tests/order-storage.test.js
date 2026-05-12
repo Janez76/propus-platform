@@ -425,3 +425,53 @@ test("moveRawMaterialToCustomerFolder: sichert abweichende Teil-Zieldatei und er
     fs.rmSync(customerRoot, { recursive: true, force: true });
   }
 });
+
+test("buildStoredUploadName: addOrderSuffix haengt #orderNo an wenn nicht vorhanden", () => {
+  const { mod, restore } = loadOrderStorage();
+  try {
+    const order = { orderNo: 100114 };
+    assert.equal(
+      mod.buildStoredUploadName(order, "raw_bilder", "IMG_2952.jpg", true),
+      "IMG_2952_#100114.jpg",
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("buildStoredUploadName: addOrderSuffix idempotent wenn Auftragsnummer bereits im Stem", () => {
+  const { mod, restore } = loadOrderStorage();
+  try {
+    const order = { orderNo: 100114 };
+    // Bare Zahl im Stem
+    assert.equal(
+      mod.buildStoredUploadName(order, "raw_bilder", "Z62_2952_100114.jpg", true),
+      "Z62_2952_100114.jpg",
+    );
+    // Mit `#`-Praefix
+    assert.equal(
+      mod.buildStoredUploadName(order, "raw_bilder", "IMG_#100114.jpg", true),
+      "IMG_#100114.jpg",
+    );
+    // Ziffer-gebundene Pruefung: 1001140 ist kein Treffer fuer 100114.
+    assert.equal(
+      mod.buildStoredUploadName(order, "raw_bilder", "IMG_1001140.jpg", true),
+      "IMG_1001140_#100114.jpg",
+    );
+  } finally {
+    restore();
+  }
+});
+
+test("buildStoredUploadName: addOrderSuffix=false haengt nicht an", () => {
+  const { mod, restore } = loadOrderStorage();
+  try {
+    const order = { orderNo: 100114 };
+    assert.equal(
+      mod.buildStoredUploadName(order, "raw_bilder", "IMG_2952.jpg", false),
+      "IMG_2952.jpg",
+    );
+  } finally {
+    restore();
+  }
+});

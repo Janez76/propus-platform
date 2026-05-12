@@ -324,7 +324,18 @@ function buildStoredUploadName(order, categoryKey, originalName, addOrderSuffix)
   if (addOrderSuffix && order && order.orderNo != null) {
     const ext = path.extname(name);
     const stem = ext ? name.slice(0, -ext.length) : name;
-    name = `${stem}_#${order.orderNo}${ext}`;
+    /**
+     * Idempotent: nur anhaengen, wenn die Auftragsnummer noch nicht im
+     * Stem steht. Das verhindert Dateinamen wie `IMG_100114_#100114.jpg`,
+     * wenn der Fotograf das Suffix schon manuell drin hatte. Wir matchen
+     * auf die nackte Zahl mit oder ohne `#`-Praefix, ziffer-gebunden,
+     * damit `100114` nicht in `1001140` faelschlich erkannt wird.
+     */
+    const orderNoStr = String(order.orderNo);
+    const alreadyPresent = new RegExp(`(^|[^0-9])#?${orderNoStr}([^0-9]|$)`).test(stem);
+    if (!alreadyPresent) {
+      name = `${stem}_#${orderNoStr}${ext}`;
+    }
   }
   return name;
 }
