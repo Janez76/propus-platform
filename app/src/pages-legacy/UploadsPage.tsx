@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Archive, ChevronRight, Check, Copy, ExternalLink, File, Folder, FolderOpen, HardDrive, House, ImageIcon, Link2, Loader2, RefreshCw, Search, X } from "lucide-react";
+import "../styles/uploads-page.css";
 import {
   archiveOrderStorageFolder,
   browseAdminStorage,
@@ -345,115 +346,131 @@ export function UploadsPage() {
     [orders, selectedOrderNo],
   );
 
-  return (
-    <div className="padmin-shell">
-      <header className="pad-page-header">
-        <div className="pad-ph-top">
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="pad-eyebrow">Lieferung</div>
-            <h1 className="pad-h1">Upload</h1>
-            <div className="pad-ph-sub">
-              Auftrag suchen, NAS-Ordner verwalten und Uploads zuerst lokal auf der VPS stagen.
-            </div>
-          </div>
-          <div className="pad-ph-actions">
-        <button
-          type="button"
-          onClick={() => loadSummary(selectedOrderNo)}
-          disabled={!selectedOrderNo || loadingSummary}
-          className="pad-btn-outline-dark"
-        >
-          <RefreshCw className={`h-4 w-4 ${loadingSummary ? "animate-spin" : ""}`} />
-          Aktualisieren
-        </button>
-          </div>
-        </div>
-      </header>
+  const folderTypeChipLabel = (ft: AllFolderType): { label: string; cls: string } => {
+    if (ft === "selection") return { label: "Zur Auswahl", cls: "is-selection" };
+    if (ft === "raw_material") return { label: "Rohmaterial", cls: "is-raw" };
+    return { label: "Kundenordner", cls: "is-customer" };
+  };
 
-      <div className="pad-content grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        {/* Auftragssuche */}
-        <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-4 shadow-sm">
-          <label className="mb-2 block text-sm font-semibold text-[var(--text-muted)]">Auftrag suchen</label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-subtle)]" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Auftragsnummer, Kunde oder Strasse"
-              className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] py-2.5 pl-10 pr-3 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
-            />
+  const folderTypeIcon: Record<AllFolderType, string> = {
+    raw_material: "fa-solid fa-box-archive",
+    selection: "fa-solid fa-images",
+    customer_folder: "fa-solid fa-folder-tree",
+  };
+
+  return (
+    <div className="uploads-page-v2">
+      <div className="uppv-page">
+
+        <header className="uppv-page-header">
+          <div className="uppv-page-header-text">
+            <div className="uppv-eyebrow">Lieferung</div>
+            <h1 className="uppv-page-title">Upload</h1>
+            <p className="uppv-page-sub">
+              Auftrag suchen, NAS-Ordner verwalten und Uploads zuerst lokal auf der VPS stagen.
+            </p>
           </div>
-          <p className="mt-2 text-xs text-[var(--text-subtle)]">
-            {query.trim() ? "Suchtreffer" : "Ohne Suche werden die letzten 5 Aufträge in Bearbeitung angezeigt."}
-          </p>
-          <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto">
+          <button
+            type="button"
+            className="uppv-ghost-btn"
+            onClick={() => loadSummary(selectedOrderNo)}
+            disabled={!selectedOrderNo || loadingSummary}
+          >
+            <RefreshCw className={`h-4 w-4 ${loadingSummary ? "animate-spin" : ""}`} aria-hidden />
+            Aktualisieren
+          </button>
+        </header>
+
+        <div className="uppv-layout">
+        {/* Auftragssuche (Rail) */}
+        <aside className="uppv-rail">
+          <div className="uppv-rail-head">
+            <label className="uppv-rail-label" htmlFor="uppv-search">Auftrag suchen</label>
+            <div className="uppv-search-wrap">
+              <Search aria-hidden />
+              <input
+                id="uppv-search"
+                type="text"
+                className="uppv-search-input"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Nummer, Kunde oder Strasse"
+              />
+            </div>
+            <p className="uppv-search-hint">
+              {query.trim() ? "Suchtreffer" : "Ohne Suche werden die letzten 6 Auftraege in Bearbeitung angezeigt."}
+            </p>
+          </div>
+          <div className="uppv-order-list">
             {loadingOrders ? (
-              <p className="text-sm text-[var(--text-subtle)]">Aufträge laden...</p>
+              <div className="uppv-order-empty">Auftraege laden …</div>
             ) : visibleOrders.length > 0 ? (
               visibleOrders.map((order) => {
                 const isActive = String(order.orderNo) === selectedOrderNo;
+                const statusRaw = String(order.status || "").toLowerCase();
+                const statusCls = /(pending|prov|warten)/.test(statusRaw)
+                  ? "is-pending"
+                  : /(confirmed|aktiv|booked|done|complete)/.test(statusRaw)
+                  ? "is-ok"
+                  : "is-warn";
                 return (
                   <button
                     key={order.orderNo}
                     type="button"
                     onClick={() => { setSelectedOrderNo(String(order.orderNo)); setSelectedFolderType(null); }}
-                    className={`w-full rounded-xl border p-3 text-left transition ${
-                      isActive
-                        ? "border-[var(--accent)] bg-amber-50/80 dark:bg-amber-950/20"
-                        : "border-[var(--border-soft)] bg-[var(--surface)] hover:bg-[var(--surface-raised)]"
-                    }`}
+                    className={`uppv-order-item${isActive ? " is-active" : ""}`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-sm font-semibold text-[var(--text-main)]">#{order.orderNo}</span>
-                      <span className="rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+                    <div className="uppv-order-item-head">
+                      <span className="uppv-order-num">#{order.orderNo}</span>
+                      <span className={`uppv-order-status ${statusCls}`}>
                         {order.status || "-"}
                       </span>
                     </div>
-                    <div className="mt-1 text-sm text-[var(--text-muted)]">{order.address || "-"}</div>
-                    <div className="mt-1 text-xs text-[var(--text-subtle)]">
+                    <div className="uppv-order-addr">{order.address || "-"}</div>
+                    <div className="uppv-order-customer">
                       {order.customerName || order.customerEmail || "Ohne Kunde"}
                     </div>
                   </button>
                 );
               })
             ) : (
-              <p className="text-sm text-[var(--text-subtle)]">
-                {query.trim() ? "Keine passenden Aufträge gefunden." : "Keine Aufträge in Bearbeitung gefunden."}
-              </p>
+              <div className="uppv-order-empty">
+                {query.trim() ? "Keine passenden Auftraege gefunden." : "Keine Auftraege in Bearbeitung gefunden."}
+              </div>
             )}
           </div>
-        </section>
+        </aside>
 
-        <section className="space-y-6">
+        <main className="uppv-main">
           {selectedOrder ? (
             <>
               {/* Auftrag-Header + Storage-Health */}
-              <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--text-subtle)]">Ausgewählter Auftrag</p>
-                    <h2 className="mt-1 text-2xl font-semibold text-[var(--text-main)]">#{selectedOrder.orderNo}</h2>
-                    <p className="mt-1 text-sm text-[var(--text-muted)]">{selectedOrder.address || "-"}</p>
-                    <p className="text-sm text-[var(--text-subtle)]">{selectedOrder.customerName || selectedOrder.customerEmail || "Ohne Kunde"}</p>
+              <section className="uppv-summary">
+                <div className="uppv-summary-row">
+                  <div className="uppv-summary-left">
+                    <span className="uppv-summary-label">Ausgewählter Auftrag</span>
+                    <div className="uppv-summary-num">#{selectedOrder.orderNo}</div>
+                    <div className="uppv-summary-addr">{selectedOrder.address || "-"}</div>
+                    <div className="uppv-summary-customer">
+                      {selectedOrder.customerName || selectedOrder.customerEmail || "Ohne Kunde"}
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleProvision}
                     disabled={loadingSummary}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                    className="uppv-primary-btn"
                   >
-                    <HardDrive className="h-4 w-4" />
+                    <HardDrive className="h-4 w-4" aria-hidden />
                     Ordner automatisch erstellen
                   </button>
                 </div>
 
                 {error ? (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-                    {error}
-                  </div>
+                  <div className="uppv-error-banner">{error}</div>
                 ) : null}
 
-                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="uppv-status-cards">
                   {(summary?.roots || []).filter((r) => r.key !== "stagingRoot").map((root) => {
                     const rawErr = root.error || "";
                     const isPermission = /EACCES|permission denied/i.test(rawErr);
@@ -466,26 +483,32 @@ export function UploadsPage() {
                     return (
                       <div
                         key={root.key}
-                        className={`rounded-xl border p-3 border-[var(--border-soft)] ${root.ok ? "bg-[var(--surface)]" : "bg-red-50/60 dark:bg-red-950/20"}`}
+                        className={`uppv-status-card${root.ok ? "" : " is-err"}`}
                       >
-                        <div className="text-sm font-semibold text-[var(--text-main)]">{root.key}</div>
-                        <div className="mt-1 text-xs text-[var(--text-subtle)] break-all">{root.path}</div>
-                        <div className={`mt-1.5 text-xs font-semibold ${root.ok ? "text-emerald-600" : "text-red-500"}`}>
-                          {root.ok ? "✓ OK" : `✗ ${friendlyError}`}
+                        <div className="uppv-status-card-head">
+                          <span className="uppv-status-card-name">{root.key}</span>
+                          {root.ok ? (
+                            <span className="uppv-status-card-ok">
+                              <i className="fa-solid fa-circle-check" aria-hidden /> OK
+                            </span>
+                          ) : (
+                            <span className="uppv-status-card-err">
+                              <i className="fa-solid fa-circle-xmark" aria-hidden /> Fehler
+                            </span>
+                          )}
                         </div>
-                        {!root.ok && (isPermission || isNotFound) && (
-                          <div className="mt-1 text-[10px] text-[var(--text-subtle)]">
-                            Umgebungsvariable und NAS-Mount auf der VPS prüfen
-                          </div>
+                        <div className="uppv-status-card-path">{root.path}</div>
+                        {!root.ok && (
+                          <div className="uppv-status-card-msg">{friendlyError}</div>
                         )}
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </section>
 
-              {/* Ordner-Karten */}
-              <div className="grid gap-4 xl:grid-cols-2">
+              {/* Folder-Karten */}
+              <section className="uppv-folder-grid">
                 {(summary?.folders || []).map((folder) => {
                   const ft = folder.folderType as AllFolderType;
                   const browser = browsers[ft] ?? defaultBrowserState();
@@ -498,68 +521,86 @@ export function UploadsPage() {
                     ? browser.relativePath.split("/").filter(Boolean)
                     : [];
 
-                  const statusMeta = getFolderStatusMeta(folder.status, folder.exists);
+                  const chip = folderTypeChipLabel(ft);
+                  const badgeCls =
+                    folder.status === "ready" && folder.exists ? "is-ok"
+                    : folder.status === "linked" ? "is-linked"
+                    : folder.status === "archived" ? "is-archived"
+                    : folder.status === "failed" ? "is-err"
+                    : "is-pending";
+                  const badgeLabel =
+                    folder.status === "ready" && folder.exists ? "Automatisch erstellt"
+                    : folder.status === "ready" && !folder.exists ? "Ordner fehlt"
+                    : folder.status === "linked" ? "Manuell verknüpft"
+                    : folder.status === "archived" ? "Archiviert"
+                    : folder.status === "failed" ? "Fehler"
+                    : "Keine Verknüpfung";
+                  const cardCls = `uppv-folder-card ${chip.cls}`;
 
                   return (
-                    <div key={ft} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-5 shadow-sm">
-                      {/* Header: Titel + Status — Aktions-Buttons stehen darunter,
-                          damit drei Buttons (Inhalt / Archiv / Websize) bei schmaler
-                          Spalte sauber umbrechen statt aus der Karte zu schiessen. */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-lg font-semibold text-[var(--text-main)]">{formatFolderLabel(ft)}</h3>
-                          <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusMeta.className}`}>
-                            {statusMeta.label}
-                          </span>
-                        </div>
+                    <article key={ft} className={cardCls}>
+                      <div className="uppv-folder-head">
+                        <span className="uppv-folder-name">
+                          <i className={folderTypeIcon[ft]} aria-hidden />
+                          {formatFolderLabel(ft)}
+                        </span>
+                        <span className={`uppv-folder-badge ${badgeCls}`}>
+                          <i className={
+                            badgeCls === "is-ok" ? "fa-solid fa-circle-check"
+                            : badgeCls === "is-err" ? "fa-solid fa-circle-xmark"
+                            : "fa-solid fa-clock"
+                          } aria-hidden />
+                          {badgeLabel}
+                        </span>
                       </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                      <div className="uppv-folder-actions">
                         {folder.exists && (
                           <button
                             type="button"
                             onClick={() => void openContentModal(ft, folder.displayName)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+                            className="uppv-action-btn"
                           >
-                            <FolderOpen className="h-3.5 w-3.5" />
+                            <FolderOpen className="h-3.5 w-3.5" aria-hidden />
                             Inhalt anzeigen
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => handleArchive(ft)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)]"
+                          className="uppv-action-btn is-danger"
                         >
-                          <Archive className="h-3.5 w-3.5" />
+                          <Archive className="h-3.5 w-3.5" aria-hidden />
                           Archiviert löschen
                         </button>
-                        {ft === "customer_folder" && folder.exists && (
-                          <button
-                            type="button"
-                            onClick={() => void handleGenerateWebsite()}
-                            disabled={generatingWebsite}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-2 text-xs font-semibold transition disabled:opacity-60 text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-700 dark:bg-amber-950/30 dark:hover:bg-amber-900/40"
-                          >
-                            {generatingWebsite
-                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              : websiteSuccess
-                                ? <Check className="h-3.5 w-3.5 text-emerald-600" />
-                                : <ImageIcon className="h-3.5 w-3.5" />
-                            }
-                            {websiteSuccess ? "Gestartet!" : "Websize generieren"}
-                          </button>
-                        )}
                       </div>
+
+                      {ft === "customer_folder" && folder.exists && (
+                        <button
+                          type="button"
+                          onClick={() => void handleGenerateWebsite()}
+                          disabled={generatingWebsite}
+                          className="uppv-feature-pill"
+                        >
+                          {generatingWebsite ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                          ) : websiteSuccess ? (
+                            <Check className="h-3.5 w-3.5" aria-hidden />
+                          ) : (
+                            <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+                          )}
+                          {websiteSuccess ? "Gestartet!" : "Websize generieren"}
+                        </button>
+                      )}
                       {ft === "customer_folder" && websiteError && (
-                        <div className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-950/30 dark:text-red-400">
-                          {websiteError}
-                        </div>
+                        <div className="uppv-folder-err">{websiteError}</div>
                       )}
 
-                      <div className="mt-3 space-y-1 text-sm">
-                        <div className="text-[var(--text-muted)]">{folder.displayName}</div>
-                        <div className="text-xs text-[var(--text-subtle)] break-all">{folder.relativePath}</div>
+                      <div className="uppv-folder-addr-block">
+                        <div className="uppv-folder-addr">{folder.displayName}</div>
+                        <div className="uppv-folder-addr-sub">{folder.relativePath}</div>
                         {folder.lastError ? (
-                          <div className="text-xs text-red-500">
+                          <div className="uppv-folder-err">
                             {/EACCES|permission denied/i.test(folder.lastError)
                               ? "Kein Zugriff auf den NAS-Ordner – Mount prüfen"
                               : /ENOENT|no such file/i.test(folder.lastError)
@@ -571,27 +612,30 @@ export function UploadsPage() {
 
                       {/* Nextcloud-Freigabelink (nur für Kundenordner) */}
                       {ft === "customer_folder" && (
-                        <div className="mt-4 rounded-xl border border-[var(--border-soft)] p-3">
-                          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                            <Link2 className="h-3.5 w-3.5" />
+                        <div className="uppv-cloud-block">
+                          <span className="uppv-cloud-label">
+                            <Link2 className="h-3.5 w-3.5" aria-hidden />
                             Nextcloud-Freigabelink
-                          </p>
+                          </span>
                           {folder.nextcloudShareUrl ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
-                                <span className="min-w-0 flex-1 truncate text-xs text-[var(--text-muted)] font-mono">
-                                  {folder.nextcloudShareUrl}
-                                </span>
+                            <>
+                              <div className="uppv-cloud-row">
+                                <input
+                                  className="uppv-cloud-input"
+                                  value={folder.nextcloudShareUrl}
+                                  readOnly
+                                />
                                 <button
                                   type="button"
+                                  className="uppv-cloud-icon-btn"
                                   onClick={() => handleCopyShare(folder.nextcloudShareUrl!)}
                                   title="Link kopieren"
-                                  className="shrink-0 rounded p-1 text-[var(--text-subtle)] transition hover:text-[var(--text-main)]"
+                                  aria-label="Link kopieren"
                                 >
                                   {copiedShare ? (
-                                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                                    <Check className="h-3.5 w-3.5" aria-hidden />
                                   ) : (
-                                    <Copy className="h-3.5 w-3.5" />
+                                    <Copy className="h-3.5 w-3.5" aria-hidden />
                                   )}
                                 </button>
                                 <a
@@ -599,96 +643,72 @@ export function UploadsPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title="Link öffnen"
-                                  className="shrink-0 rounded p-1 text-[var(--text-subtle)] transition hover:text-[var(--text-main)]"
+                                  aria-label="Link öffnen"
+                                  className="uppv-cloud-icon-btn"
                                 >
-                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                                 </a>
                               </div>
-                              {shareError && (
-                                <p className="text-xs text-red-500">{shareError}</p>
-                              )}
+                              {shareError && <div className="uppv-cloud-err">{shareError}</div>}
                               <button
                                 type="button"
                                 onClick={() => void handleGenerateShare()}
                                 disabled={generatingShare}
-                                className="text-xs text-[var(--text-subtle)] underline-offset-2 hover:underline disabled:opacity-50"
+                                className="uppv-cloud-renew"
                               >
-                                {generatingShare ? "Erneuern..." : "Link erneuern"}
+                                {generatingShare ? "Erneuern …" : "Link erneuern"}
                               </button>
-                            </div>
+                            </>
                           ) : (
-                            <div className="space-y-2">
-                              <p className="text-xs text-[var(--text-subtle)]">
-                                Noch kein Freigabelink vorhanden.
-                              </p>
-                              {shareError && (
-                                <p className="text-xs text-red-500">{shareError}</p>
-                              )}
-                              {!folder.exists && (
-                                <p className="text-xs text-[var(--text-muted)]">
-                                  Ordner wird bei Bedarf automatisch erstellt.
-                                </p>
-                              )}
+                            <>
+                              <p className="uppv-cloud-empty">Noch kein Freigabelink vorhanden.</p>
+                              {shareError && <div className="uppv-cloud-err">{shareError}</div>}
                               <button
                                 type="button"
                                 onClick={() => void handleGenerateShare()}
                                 disabled={generatingShare}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-semibold text-[var(--text-main)] transition hover:bg-[var(--surface-raised)] disabled:opacity-50"
+                                className="uppv-cloud-generate"
                               >
-                                <Link2 className="h-3.5 w-3.5" />
-                                {generatingShare ? "Wird erstellt..." : "Nextcloud-Link generieren"}
+                                <Link2 className="h-3.5 w-3.5" aria-hidden />
+                                {generatingShare ? "Wird erstellt …" : "Nextcloud-Link generieren"}
                               </button>
-                            </div>
+                            </>
                           )}
                         </div>
                       )}
 
                       {/* Ordner verknüpfen */}
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-subtle)]">
-                            Bestehenden Ordner verknüpfen
-                          </p>
-                          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                      <div className="uppv-link-section">
+                        <div className="uppv-link-head">
+                          <span className="uppv-link-label">Bestehenden Ordner verknüpfen</span>
+                          <label className="uppv-rename-check">
                             <input
                               type="checkbox"
                               checked={renameOn[ft] ?? false}
                               onChange={(e) =>
                                 setRenameOn((cur) => ({ ...cur, [ft]: e.target.checked }))
                               }
-                              className="h-3.5 w-3.5 accent-[var(--accent)]"
                             />
                             Ordner umbenennen
                           </label>
                         </div>
 
-                        {/* Vorschau Zielname wenn Umbenennung aktiv */}
                         {renameOn[ft] && (
-                          <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent)]/5 px-3 py-2 text-xs text-[var(--text-muted)]">
-                            Ordner wird umbenannt zu:{" "}
-                            <span className="font-mono font-semibold text-[var(--text-main)]">
-                              {folder.displayName}
-                            </span>
+                          <div className="uppv-rename-warn" style={{ background: "var(--up-gold-tint)", borderColor: "var(--up-gold-line)", color: "var(--up-gold-deep)" }}>
+                            Ordner wird umbenannt zu: <strong style={{ fontFamily: "'JetBrains Mono', monospace" }}>{folder.displayName}</strong>
                           </div>
                         )}
-
-                        {/* Warnung nach Umbenennung (z.B. Ziel existiert bereits) */}
                         {renameWarnings[ft] && (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-400">
-                            ⚠ {renameWarnings[ft]}
-                          </div>
+                          <div className="uppv-rename-warn">⚠ {renameWarnings[ft]}</div>
                         )}
 
-                        {/* Option A: NAS-File-Browser (nur wenn Root erreichbar) */}
+                        {/* NAS-File-Browser (nur wenn Root erreichbar) */}
                         {rootOk ? (
-                          <div className="rounded-xl border border-[var(--border-soft)]">
-                            <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-3 py-2">
-                              <span className="text-xs font-medium text-[var(--text-muted)]">
-                                <FolderOpen className="mr-1 inline h-3.5 w-3.5" />
-                                NAS durchsuchen
-                              </span>
+                          <>
+                            <div className="uppv-browse-row">
                               <button
                                 type="button"
+                                className="uppv-browse-btn"
                                 onClick={() => {
                                   const nextOpen = !browser.open;
                                   setBrowserState(ft, { open: nextOpen, error: "" });
@@ -696,38 +716,38 @@ export function UploadsPage() {
                                     void browseFolder(ft, "");
                                   }
                                 }}
-                                className={`text-xs font-semibold transition ${
-                                  browser.open ? "text-[var(--accent)]" : "text-[var(--text-subtle)] hover:text-[var(--text-main)]"
-                                }`}
                               >
-                                {browser.open ? "Schließen" : "Öffnen"}
+                                <span className="uppv-browse-icon">
+                                  <Folder className="h-4 w-4" aria-hidden />
+                                  NAS durchsuchen
+                                </span>
+                                <span className="uppv-browse-right">{browser.open ? "Schließen" : "Öffnen"}</span>
                               </button>
                             </div>
 
                             {browser.open && (
-                              <>
-                                {/* Breadcrumb */}
-                                <div className="flex items-center gap-0 overflow-x-auto border-b border-[var(--border-soft)] bg-[var(--surface-raised)] px-3 py-2">
+                              <div className="uppv-browse-panel">
+                                <div className="uppv-browse-panel-bread">
                                   <button
                                     type="button"
                                     onClick={() => void browseFolder(ft, "")}
-                                    className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
+                                    className="uppv-browse-bread-btn"
                                   >
-                                    <House className="h-3 w-3" />
-                                    {ft === "raw_material" ? "Raw-Root" : "Kunden-Root"}
+                                    <House className="inline h-3 w-3" aria-hidden />{" "}
+                                    {ft === "raw_material" ? "Raw-Root" : ft === "selection" ? "Selection-Root" : "Kunden-Root"}
                                   </button>
                                   {pathSegments.map((seg, idx) => {
                                     const segPath = pathSegments.slice(0, idx + 1).join("/");
                                     const isLast = idx === pathSegments.length - 1;
                                     return (
-                                      <span key={segPath} className="flex shrink-0 items-center">
-                                        <ChevronRight className="h-3 w-3 text-[var(--text-subtle)]" />
+                                      <span key={segPath} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                        <ChevronRight className="uppv-browse-bread-sep h-3 w-3" aria-hidden />
                                         {isLast ? (
-                                          <span className="rounded px-2 py-1 text-xs font-semibold text-[var(--text-main)]">{seg}</span>
+                                          <span style={{ color: "var(--up-ink)" }}>{seg}</span>
                                         ) : (
                                           <button
                                             type="button"
-                                            className="rounded px-2 py-1 text-xs font-semibold text-[var(--accent)] hover:bg-[var(--line)]"
+                                            className="uppv-browse-bread-btn"
                                             onClick={() => void browseFolder(ft, segPath)}
                                           >
                                             {seg}
@@ -737,119 +757,118 @@ export function UploadsPage() {
                                     );
                                   })}
                                 </div>
-
-                                {/* Ordner-Liste */}
-                                <div className="max-h-56 overflow-y-auto">
+                                <div className="uppv-browse-list">
                                   {browser.parentPath != null && (
                                     <button
                                       type="button"
-                                      className="flex w-full items-center gap-3 border-b border-[var(--border-soft)] px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition"
+                                      className="uppv-browse-entry is-up"
                                       onClick={() => void browseFolder(ft, browser.parentPath ?? "")}
                                     >
-                                      <span className="text-[var(--text-subtle)]">↩</span>
-                                      <span className="italic text-[var(--text-subtle)]">..</span>
+                                      ↩ ..
                                     </button>
                                   )}
                                   {browser.loading ? (
-                                    <div className="flex items-center gap-2 px-4 py-5 text-sm text-[var(--text-subtle)]">
-                                      <Loader2 className="h-4 w-4 animate-spin" /> Lädt …
+                                    <div className="uppv-browse-loading">
+                                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Lädt …
                                     </div>
                                   ) : browser.error ? (
-                                    <div className="px-4 py-4 text-xs text-red-500">{browser.error}</div>
+                                    <div className="uppv-browse-empty" style={{ color: "var(--up-rust)" }}>{browser.error}</div>
                                   ) : browser.entries.length === 0 ? (
-                                    <div className="px-4 py-5 text-sm text-[var(--text-subtle)]">
+                                    <div className="uppv-browse-empty">
                                       Keine Unterordner – dieser Ordner kann direkt verknüpft werden.
                                     </div>
                                   ) : (
-                                    browser.entries.map((entry, idx) => (
+                                    browser.entries.map((entry) => (
                                       <button
                                         key={entry.relativePath}
                                         type="button"
-                                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-[var(--surface-raised)] transition ${
-                                          idx < browser.entries.length - 1 ? "border-b border-[var(--border-soft)]" : ""
-                                        }`}
+                                        className="uppv-browse-entry"
                                         onClick={() => void browseFolder(ft, entry.relativePath)}
                                       >
-                                        <FolderOpen className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-                                        <span className="flex-1 truncate font-medium text-[var(--text-main)]">{entry.name}</span>
-                                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-subtle)]" />
+                                        <FolderOpen className="h-4 w-4" aria-hidden />
+                                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                          {entry.name}
+                                        </span>
+                                        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                                       </button>
                                     ))
                                   )}
                                 </div>
-
-                                {/* Footer: aktuellen Ordner verknüpfen */}
-                                <div className="flex items-center justify-between border-t border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-2.5">
-                                  <span className="truncate text-xs text-[var(--text-subtle)]">
-                                    {browser.relativePath || (ft === "raw_material" ? "Raw-Root" : "Kunden-Root")}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderTop: "1px solid var(--up-line-soft)", background: "var(--up-card)" }}>
+                                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, color: "var(--up-ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {browser.relativePath || (ft === "raw_material" ? "Raw-Root" : ft === "selection" ? "Selection-Root" : "Kunden-Root")}
                                   </span>
                                   <button
                                     type="button"
                                     disabled={loadingSummary}
                                     onClick={() => void handleLink(ft, browser.relativePath)}
-                                    className="ml-3 shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                                    className="uppv-manual-submit"
+                                    style={{ padding: "6px 14px" }}
                                   >
-                                    <HardDrive className="h-3.5 w-3.5" />
                                     Diesen Ordner verknüpfen
                                   </button>
                                 </div>
-                              </>
+                              </div>
                             )}
-                          </div>
+                          </>
                         ) : (
-                          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-400">
-                            <span className="mt-px shrink-0">⚠</span>
-                            <span>NAS nicht erreichbar – Ordner nur manuell per Pfad verknüpfbar (siehe unten).</span>
+                          <div className="uppv-rename-warn">
+                            ⚠ NAS nicht erreichbar – Ordner nur manuell per Pfad verknüpfbar (siehe unten).
                           </div>
                         )}
 
-                        {/* Option B: Manuell per Pfad (immer sichtbar) */}
-                        <div className="rounded-xl border border-[var(--border-soft)] p-3">
-                          <p className="mb-2 text-xs font-medium text-[var(--text-muted)]">
-                            <HardDrive className="mr-1 inline h-3.5 w-3.5" />
-                            Pfad manuell eingeben
-                          </p>
-                          <p className="mb-2 text-[10px] text-[var(--text-subtle)]">
-                            Relativer Pfad ab {ft === "raw_material" ? "Raw-Root" : "Kunden-Root"}, z.B.{" "}
-                            <span className="font-mono">{ft === "raw_material" ? "8000 Zürich, Musterstrasse 1 #1234" : "Musterfirma/8000 Zürich, Musterstrasse 1 #1234"}</span>
-                          </p>
-                          <div className="flex gap-2">
-                            <input
-                              value={linkInputs[ft] || ""}
-                              onChange={(event) =>
-                                setLinkInputs((current) => ({ ...current, [ft]: event.target.value }))
-                              }
-                              placeholder={ft === "raw_material" ? "PLZ Ort, Strasse Nr #Auftragsnummer" : "Firma/PLZ Ort, Strasse Nr #Auftragsnummer"}
-                              className="min-w-0 flex-1 rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-main)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent)]/20"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void handleLink(ft)}
-                              disabled={loadingSummary || !linkInputs[ft]?.trim()}
-                              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-40"
-                            >
-                              Verknüpfen
-                            </button>
-                          </div>
+                        {/* Manueller Pfad */}
+                        <div className="uppv-manual-row">
+                          <input
+                            type="text"
+                            className="uppv-manual-input"
+                            value={linkInputs[ft] || ""}
+                            onChange={(event) =>
+                              setLinkInputs((current) => ({ ...current, [ft]: event.target.value }))
+                            }
+                            placeholder={
+                              ft === "raw_material" ? "PLZ Ort, Strasse Nr #Auftrag"
+                              : ft === "selection" ? "Firma/PLZ Ort, Strasse Nr #Auftrag"
+                              : "Firma/PLZ Ort, Strasse Nr #Auftrag"
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void handleLink(ft)}
+                            disabled={loadingSummary || !linkInputs[ft]?.trim()}
+                            className="uppv-manual-submit"
+                          >
+                            Verknüpfen
+                          </button>
                         </div>
+                        <p className="uppv-manual-hint">
+                          <i className="fa-solid fa-info-circle" aria-hidden />
+                          <span>
+                            Pfad manuell eingeben — relativ ab{" "}
+                            {ft === "raw_material" ? "/booking_upload_raw"
+                              : ft === "selection" ? "Selection-Root"
+                              : "/booking_upload_customer"}
+                            , z.B. {ft === "raw_material"
+                              ? "8000 Zürich, Musterstrasse 1 #220"
+                              : "Musterfirma/8000 Zürich, Musterstrasse 1 #220"}
+                          </span>
+                        </p>
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
-              </div>
+              </section>
 
-              {/* Upload-Tool */}
+              {/* Upload-Tool / Chooser */}
               {selectedFolderType ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFolderType(null)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-raised)]"
-                    >
-                      ← {t(lang, "upload.folderType.chooseTitle")}
-                    </button>
-                  </div>
+                <div className="uppv-upload-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderType(null)}
+                    className="uppv-upload-back"
+                  >
+                    ← {t(lang, "upload.folderType.chooseTitle")}
+                  </button>
                   <UploadTool
                     key={`${selectedOrderNo}-${selectedFolderType}`}
                     token={token}
@@ -860,48 +879,58 @@ export function UploadsPage() {
                   />
                 </div>
               ) : (
-                <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface)] p-8 shadow-sm">
-                  <h3 className="mb-6 text-center text-xl font-bold text-[var(--text-main)]">
+                <div className="uppv-summary" style={{ textAlign: "center" }}>
+                  <h3 className="uppv-summary-label" style={{ marginBottom: 18 }}>
                     {t(lang, "upload.folderType.chooseTitle")}
                   </h3>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="uppv-folder-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                     <button
                       type="button"
                       onClick={() => setSelectedFolderType("raw_material")}
-                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                      className="uppv-folder-card is-raw"
+                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
                     >
-                      <ImageIcon className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
-                      <span className="text-lg font-semibold text-[var(--text-main)]">Rohmaterial</span>
-                      <span className="text-xs text-[var(--text-subtle)]">Unbearbeitete Bilder &amp; Videos</span>
+                      <i className={`${folderTypeIcon.raw_material} text-2xl`} style={{ fontSize: 28, color: "#9a8456", marginBottom: 10 }} aria-hidden />
+                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Rohmaterial</div>
+                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                        Unbearbeitete Bilder &amp; Videos
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedFolderType("selection")}
-                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                      className="uppv-folder-card is-selection"
+                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
                     >
-                      <HardDrive className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
-                      <span className="text-lg font-semibold text-[var(--text-main)]">Zur Auswahl</span>
-                      <span className="text-xs text-[var(--text-subtle)]">Bilder, die dem Kunden zur Auswahl gehen</span>
+                      <i className={`${folderTypeIcon.selection} text-2xl`} style={{ fontSize: 28, color: "#8a6ba0", marginBottom: 10 }} aria-hidden />
+                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Zur Auswahl</div>
+                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                        Bilder, die dem Kunden zur Auswahl gehen
+                      </div>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedFolderType("customer_folder")}
-                      className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-[var(--border-soft)] bg-[var(--surface)] px-6 py-8 transition hover:border-[var(--accent)] hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
+                      className="uppv-folder-card is-customer"
+                      style={{ textAlign: "center", alignItems: "center", cursor: "pointer" }}
                     >
-                      <FolderOpen className="h-10 w-10 text-[var(--text-subtle)] transition group-hover:text-[var(--accent)]" />
-                      <span className="text-lg font-semibold text-[var(--text-main)]">Kundenordner</span>
-                      <span className="text-xs text-[var(--text-subtle)]">Finale Lieferung an den Kunden</span>
+                      <i className={`${folderTypeIcon.customer_folder} text-2xl`} style={{ fontSize: 28, color: "var(--up-gold)", marginBottom: 10 }} aria-hidden />
+                      <div className="uppv-folder-name" style={{ justifyContent: "center" }}>Kundenordner</div>
+                      <div className="uppv-folder-addr-sub" style={{ marginTop: 6 }}>
+                        Finale Lieferung an den Kunden
+                      </div>
                     </button>
                   </div>
                 </div>
               )}
             </>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface)]/80 p-10 text-center text-sm text-[var(--text-subtle)] shadow-sm">
+            <div className="uppv-empty">
               Auftrag links auswählen, um Upload und NAS-Verwaltung zu öffnen.
             </div>
           )}
-        </section>
+        </main>
+      </div>
       </div>
 
       {/* Ordner-Inhalt Modal */}
