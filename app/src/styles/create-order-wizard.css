@@ -481,10 +481,79 @@
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   border-radius: var(--r-md);
-  padding: 14px;
+  padding: 12px;
   box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
   animation: cowFade 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  width: 280px;
 }
+.cow-v2 .cow-cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cow-v2 .cow-cal-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.015em;
+}
+.cow-v2 .cow-cal-nav {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s, color 0.12s;
+}
+.cow-v2 .cow-cal-nav:hover { background: var(--gray-bg); color: var(--text); }
+.cow-v2 .cow-cal-nav > svg { width: 12px; height: 12px; }
+.cow-v2 .cow-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.cow-v2 .cow-cal-dow {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: center;
+  padding: 4px 0 2px;
+  letter-spacing: 0.04em;
+}
+.cow-v2 .cow-cal-day {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+  font-feature-settings: 'tnum';
+  transition: background-color 0.1s, color 0.1s;
+}
+.cow-v2 .cow-cal-day:hover { background: var(--gray-bg); }
+.cow-v2 .cow-cal-day.is-muted { color: var(--text-4); }
+.cow-v2 .cow-cal-day.is-today {
+  color: var(--blue);
+  font-weight: 700;
+}
+.cow-v2 .cow-cal-day.is-selected {
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+}
+.cow-v2 .cow-cal-day.is-selected:hover { background: var(--blue); }
+
 .cow-v2 .cow-date-popover-actions {
   display: flex;
   justify-content: space-between;
@@ -504,12 +573,6 @@
   border-radius: 5px;
 }
 .cow-v2 .cow-date-popover-link:hover { background: var(--blue-bg); }
-
-/* Make sure the embedded CalMiniMonth picks up the macOS look */
-.cow-v2 .cow-date-popover .cmm-day,
-.cow-v2 .cow-date-popover [class*="mini"] button {
-  font-feature-settings: 'tnum';
-}
 
 .cow-v2 .cow-time-popover {
   position: absolute;

@@ -76,7 +76,6 @@ import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
 import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
 import { AddressAutocompleteInput, type ParsedAddress } from "../ui/AddressAutocompleteInput";
-import { CalMiniMonth } from "../calendar/CalMiniMonth";
 import { StructuredAddressForm } from "../address/StructuredAddressForm";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { DbFieldHint } from "../ui/DbFieldHint";
@@ -1146,14 +1145,46 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   </button>
                   {dateOpen ? (
                     <div className="cow-date-popover">
-                      <CalMiniMonth
-                        anchor={miniMonthAnchor}
-                        onChangeAnchor={setMiniMonthAnchor}
-                        onPickDay={(iso) => { updateField("date", iso); setDateOpen(false); }}
-                        eventCounts={new Map()}
-                        forecastByDate={null}
-                        selectedDateIso={formData.date || null}
-                      />
+                      {(() => {
+                        const MONTHS = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+                        const DOW = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+                        const today = new Date();
+                        const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                        const first = new Date(miniMonthAnchor.getFullYear(), miniMonthAnchor.getMonth(), 1);
+                        const startDow = (first.getDay() + 6) % 7; // Mon=0
+                        const gridStart = new Date(first); gridStart.setDate(first.getDate() - startDow);
+                        const cells = Array.from({ length: 42 }, (_, i) => {
+                          const d = new Date(gridStart); d.setDate(gridStart.getDate() + i); return d;
+                        });
+                        return (
+                          <>
+                            <div className="cow-cal-head">
+                              <button type="button" className="cow-cal-nav" onClick={() => setMiniMonthAnchor(new Date(miniMonthAnchor.getFullYear(), miniMonthAnchor.getMonth() - 1, 1))}><ChevronLeft /></button>
+                              <span className="cow-cal-title">{MONTHS[miniMonthAnchor.getMonth()]} {miniMonthAnchor.getFullYear()}</span>
+                              <button type="button" className="cow-cal-nav" onClick={() => setMiniMonthAnchor(new Date(miniMonthAnchor.getFullYear(), miniMonthAnchor.getMonth() + 1, 1))}><ChevronRight /></button>
+                            </div>
+                            <div className="cow-cal-grid">
+                              {DOW.map((d) => <div key={d} className="cow-cal-dow">{d}</div>)}
+                              {cells.map((d) => {
+                                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                                const outside = d.getMonth() !== miniMonthAnchor.getMonth();
+                                const isToday = iso === todayIso;
+                                const isSelected = iso === formData.date;
+                                return (
+                                  <button
+                                    key={iso}
+                                    type="button"
+                                    className={`cow-cal-day${outside ? " is-muted" : ""}${isToday ? " is-today" : ""}${isSelected ? " is-selected" : ""}`}
+                                    onClick={() => { updateField("date", iso); setDateOpen(false); }}
+                                  >
+                                    {d.getDate()}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        );
+                      })()}
                       <div className="cow-date-popover-actions">
                         <button type="button" className="cow-date-popover-link" onClick={() => { updateField("date", ""); setDateOpen(false); }}>Löschen</button>
                         <button
