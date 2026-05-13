@@ -138,6 +138,7 @@ const {
 } = require("./order-storage");
 const { startRawToCustomerJob } = require("./raw-to-customer-job");
 const {
+  buildBatchId,
   stageUploadBatch,
   stageUploadBatchFromPaths,
   getBatchWithFiles,
@@ -152,6 +153,7 @@ const {
   getChunkedUploadStatus,
   completeChunkedUpload,
   finalizeChunkedSession,
+  listCompletedSessionFiles,
 } = require("./chunked-upload-service");
 const { syncWebsizeForAllCustomerFolders, syncWebsizeForOrderFolder } = require("./websize-sync-service");
 const customerAuth = require("./customer-auth");
@@ -6947,31 +6949,88 @@ app.post("/api/admin/orders/:orderNo/upload-chunked/finalize", requirePhotograph
     const orderAccess = await getOrderForUploadAccess(req.params.orderNo, req);
     if (orderAccess.error) return res.status(orderAccess.error.status).json({ error: orderAccess.error.message });
     const payload = req.body || {};
-    const batch = await finalizeChunkedSession({
-      db,
-      order: orderAccess.order,
+
+    // Schneller Pre-Check: liefert die Session ueberhaupt fertiggestellte
+    // Dateien? Falls nicht und auch kein Kommentar, sofort 400 zurueck.
+    const sessionFilesPreview = listCompletedSessionFiles({
       orderNo: orderAccess.orderNo,
       sessionId: payload.sessionId,
-      category: payload.category,
-      uploadMode: payload.uploadMode,
-      folderType: payload.folderType,
-      batchFolderName: payload.batchFolderName || payload.newFolderName,
-      comment: payload.comment,
-      uploadedBy: req.user?.name || req.user?.email || req.photographerName || req.photographerKey || "Unbekannt",
-      conflictMode: payload.conflictMode,
-      customFolderName: payload.customFolderName,
-      uploadGroupId: payload.uploadGroupId,
-      uploadGroupTotalParts: payload.uploadGroupTotalParts,
-      uploadGroupPartIndex: payload.uploadGroupPartIndex,
-      addOrderSuffix: payload.addOrderSuffix === true,
-    }, {
-      stageUploadBatchFromPaths,
-      enqueueBatchTransfer,
-      loadOrder: async (orderNo) => db.getOrderByNo(orderNo),
     });
-    return res.json({ ok: true, batch });
+    if (!sessionFilesPreview.length && !String(payload.comment || "").trim()) {
+      return res.status(400).json({ error: "Keine fertiggestellten Dateien in dieser Session gefunden" });
+    }
+
+    // Reserviere die batchId vorab — die schwere Arbeit (rename in
+    // Staging-Dir, sha256 pro Datei, DB-Inserts, NAS-Transfer) laeuft im
+    // Hintergrund. Wir antworten optimistisch innerhalb von Millisekunden,
+    // damit der Next.js-Proxy / Cloudflare die Verbindung nicht wegen
+    // headers-Timeout abbrechen (bisher: ECONNRESET nach ~60s und der
+    // Browser dachte, der Upload sei gescheitert, obwohl Express noch dran
+    // war — daher der Datenverlust bei #100113).
+    const reservedBatchId = buildBatchId(orderAccess.orderNo);
+    const sessionFileCount = sessionFilesPreview.length;
+    const sessionTotalBytes = sessionFilesPreview.reduce(
+      (sum, f) => sum + Number(f.size || 0),
+      0,
+    );
+    const uploadedByLabel = req.user?.name || req.user?.email || req.photographerName || req.photographerKey || "Unbekannt";
+
+    res.json({
+      ok: true,
+      batch: {
+        id: reservedBatchId,
+        orderNo: Number(orderAccess.orderNo),
+        folderType: String(payload.folderType || "raw_material"),
+        category: String(payload.category || ""),
+        uploadMode: String(payload.uploadMode || "existing"),
+        status: "staged",
+        fileCount: sessionFileCount,
+        totalBytes: sessionTotalBytes,
+        comment: String(payload.comment || ""),
+        uploadedBy: uploadedByLabel,
+        files: [],
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    setImmediate(async () => {
+      try {
+        await finalizeChunkedSession({
+          db,
+          order: orderAccess.order,
+          orderNo: orderAccess.orderNo,
+          sessionId: payload.sessionId,
+          category: payload.category,
+          uploadMode: payload.uploadMode,
+          folderType: payload.folderType,
+          batchFolderName: payload.batchFolderName || payload.newFolderName,
+          comment: payload.comment,
+          uploadedBy: uploadedByLabel,
+          conflictMode: payload.conflictMode,
+          customFolderName: payload.customFolderName,
+          uploadGroupId: payload.uploadGroupId,
+          uploadGroupTotalParts: payload.uploadGroupTotalParts,
+          uploadGroupPartIndex: payload.uploadGroupPartIndex,
+          addOrderSuffix: payload.addOrderSuffix === true,
+          presetBatchId: reservedBatchId,
+        }, {
+          stageUploadBatchFromPaths,
+          enqueueBatchTransfer,
+          loadOrder: async (orderNo) => db.getOrderByNo(orderNo),
+        });
+      } catch (err) {
+        console.error(
+          "[finalize-bg]",
+          { orderNo: orderAccess.orderNo, batchId: reservedBatchId, sessionId: payload.sessionId },
+          err?.message || err,
+        );
+      }
+    });
   } catch (err) {
-    return res.status(400).json({ error: err.message || "Chunked-Session konnte nicht finalisiert werden" });
+    if (!res.headersSent) {
+      return res.status(400).json({ error: err.message || "Chunked-Session konnte nicht finalisiert werden" });
+    }
+    console.error("[finalize-sync-error-after-response]", err?.message || err);
   }
 });
 app.post("/api/admin/orders/:orderNo/upload", requirePhotographerOrAdmin, async (req, res) => {

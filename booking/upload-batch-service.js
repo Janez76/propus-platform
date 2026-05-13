@@ -507,6 +507,7 @@ async function stageUploadBatchFromPaths({
   uploadGroupTotalParts,
   uploadGroupPartIndex,
   addOrderSuffix,
+  presetBatchId,
 }) {
   const normalized = normalizeBatchInput({
     category,
@@ -525,7 +526,7 @@ async function stageUploadBatchFromPaths({
     throw new Error("Bitte mindestens eine Datei oder einen Kommentar angeben");
   }
 
-  const batchId = buildBatchId(order.orderNo);
+  const batchId = (typeof presetBatchId === "string" && presetBatchId.trim()) || buildBatchId(order.orderNo);
   const batchDir = createStagingBatchDir(batchId);
   const stagedFiles = [];
   let totalBytes = 0;
@@ -925,6 +926,7 @@ async function resumePendingTransfers(db, deps) {
 }
 
 module.exports = {
+  buildBatchId,
   stageUploadBatch,
   stageUploadBatchFromPaths,
   getBatchWithFiles,

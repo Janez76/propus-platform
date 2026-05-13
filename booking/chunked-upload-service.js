@@ -270,6 +270,7 @@ async function finalizeChunkedSession({
   uploadGroupTotalParts,
   uploadGroupPartIndex,
   addOrderSuffix,
+  presetBatchId,
 }, deps) {
   const files = listCompletedSessionFiles({ orderNo, sessionId });
   if (!files.length && !String(comment || "").trim()) {
@@ -291,6 +292,7 @@ async function finalizeChunkedSession({
     uploadGroupTotalParts,
     uploadGroupPartIndex,
     addOrderSuffix,
+    presetBatchId,
   });
   deps.enqueueBatchTransfer(db, batch.id, {
     loadOrder: async (targetOrderNo) => deps.loadOrder(targetOrderNo),
