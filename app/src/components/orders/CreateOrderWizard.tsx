@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   User,
@@ -13,7 +13,19 @@ import {
   Users,
   Plus,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
+import "../../styles/create-order-wizard.css";
+
+const COW_STEPS: { id: number; label: string }[] = [
+  { id: 1, label: "Kunde" },
+  { id: 2, label: "Objekt" },
+  { id: 3, label: "Paket" },
+  { id: 4, label: "Termin" },
+  { id: 5, label: "Bestätigen" },
+];
 import { createOrder, updateOrderStatus, resendEmail } from "../../api/orders";
 import { getProducts, type Product } from "../../api/products";
 import { getPhotographers, type Photographer } from "../../api/photographers";
@@ -257,6 +269,22 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   const abortRef = useRef<AbortController | null>(null);
   const billingAddressSessionRef = useRef(randomUUID());
   const altAddressSessionRef = useRef(randomUUID());
+
+  // Wizard step state — 1..5. Visible section toggle is driven by the
+  // `data-cow-step` attribute on the .cow-v2 wrapper + CSS in
+  // create-order-wizard.css.
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  function goToStep(n: number) {
+    if (n < 1 || n > 5) return;
+    setCurrentStep(n);
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+  }
+  // Reset to step 1 every time the dialog opens.
+  useEffect(() => {
+    if (open) setCurrentStep(1);
+  }, [open]);
 
   const inputClass = cn(
     "w-full rounded-lg border px-3 py-2 text-sm transition-colors",
@@ -774,16 +802,52 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+      <DialogContent className="cow-v2-dialog max-w-3xl max-h-[92vh] p-0 overflow-hidden">
         <DialogClose onClose={() => onOpenChange(false)} />
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>{t(lang, "wizard.title")}</DialogTitle>
         </DialogHeader>
+        <div className="cow-v2 flex flex-col" data-cow-step={String(currentStep)} style={{ maxHeight: "92vh" }}>
+          {/* Header + Stepper */}
+          <header className="cow-header">
+            <div className="cow-header-top">
+              <div className="cow-title-block">
+                <span className="cow-header-icon"><Plus /></span>
+                <div>
+                  <div className="cow-title">{t(lang, "wizard.title") || "Neue Bestellung"}</div>
+                  <div className="cow-sub">Schritt {currentStep} von 5 · {COW_STEPS[currentStep - 1]?.label}</div>
+                </div>
+              </div>
+              <button type="button" className="cow-close-btn" title="Schliessen" aria-label="Schliessen" onClick={() => onOpenChange(false)}>
+                <X />
+              </button>
+            </div>
+            <nav className="cow-stepper" aria-label="Wizard Schritte">
+              {COW_STEPS.map((s, idx) => (
+                <Fragment key={s.id}>
+                  <button
+                    type="button"
+                    className={`cow-step${currentStep === s.id ? " is-active" : currentStep > s.id ? " is-done" : ""}`}
+                    onClick={() => goToStep(s.id)}
+                  >
+                    <span className="cow-step-bubble">{currentStep > s.id ? <Check size={11} /> : s.id}</span>
+                    <span className="cow-step-label">{s.label}</span>
+                  </button>
+                  {idx < COW_STEPS.length - 1 ? (
+                    <span className={`cow-step-connector${currentStep > s.id ? " is-done" : ""}`} />
+                  ) : null}
+                </Fragment>
+              ))}
+            </nav>
+          </header>
 
-        <form onSubmit={handleSubmit} className="space-y-5 mt-2">
+          {/* Body */}
+          <div className="cow-body" ref={bodyRef}>
+
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
 
           {/* ── Anfangsstatus + E-Mail-Zielgruppen ───────────────────────── */}
-          <div className={sectionClass}>
+          <div className={sectionClass} data-cow-step="5">
             <div className={sectionTitleClass}>
               <Check className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.label.initialStatus")}
@@ -857,10 +921,10 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           </div>
 
           {/* ── Kunde & Objekt ───────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="cow-pane-grid grid grid-cols-1 gap-5">
 
             {/* Kunde & Kontakt */}
-            <div className={sectionClass}>
+            <div className={sectionClass} data-cow-step="1">
               <div className={sectionTitleClass}>
                 <User className="h-4 w-4 text-[var(--accent)]" />
                 {t(lang, "wizard.section.customerData")}
@@ -1171,7 +1235,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             </div>
 
             {/* Objekt */}
-            <div className={sectionClass}>
+            <div className={sectionClass} data-cow-step="2">
               <div className={sectionTitleClass}>
                 <Building2 className="h-4 w-4 text-[var(--accent)]" />
                 {t(lang, "wizard.section.objectData")}
@@ -1487,7 +1551,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           </div>
 
           {/* ── Dienstleistungen ─────────────────────────────────────────── */}
-          <div className={sectionClass}>
+          <div className={sectionClass} data-cow-step="3">
             <div className={sectionTitleClass}>
               <Package className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.servicePackage")}
@@ -1701,7 +1765,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           </div>
 
           {/* ── Termin mit Slot-Picker ───────────────────────────────────── */}
-          <div className={sectionClass}>
+          <div className={sectionClass} data-cow-step="4">
             <div className={sectionTitleClass}>
               <CalendarIcon className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.scheduling")}
@@ -1884,7 +1948,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           </div>
 
           {/* ── Preis & Zusammenfassung ──────────────────────────────────── */}
-          <div className={sectionClass}>
+          <div className={sectionClass} data-cow-step="5">
             <div className={sectionTitleClass}>
               <CreditCard className="h-4 w-4 text-[var(--accent)]" />
               {t(lang, "wizard.section.priceSummary")}
@@ -2070,12 +2134,12 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             </div>
           )}
 
-          {/* ── Submit ───────────────────────────────────────────────────── */}
-          <div className="flex justify-end pt-2">
+          {/* ── Submit (legacy; hidden — footer drives submit) ───────────── */}
+          <div className="cow-legacy-submit">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-8 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-8 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold"
             >
               {isSubmitting ? (
                 <>
@@ -2091,6 +2155,51 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             </button>
           </div>
         </form>
+          </div>{/* /cow-body */}
+
+          {/* Footer */}
+          <footer className="cow-footer">
+            <div className="cow-footer-left">
+              <button
+                type="button"
+                className="cow-btn"
+                disabled={currentStep === 1}
+                onClick={() => goToStep(currentStep - 1)}
+              >
+                <ChevronLeft /> Zurück
+              </button>
+              <span className="cow-live-total" aria-live="polite">
+                <span className="cow-lt-label">Total</span>
+                <span className="cow-lt-value">CHF {Number(formData.total || 0).toFixed(2)}</span>
+              </span>
+            </div>
+            <div className="cow-footer-actions">
+              {currentStep < 5 ? (
+                <button type="button" className="cow-btn cow-btn-primary" onClick={() => goToStep(currentStep + 1)}>
+                  Weiter <ChevronRight />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="cow-btn cow-btn-success"
+                  disabled={isSubmitting}
+                  onClick={() => formRef.current?.requestSubmit()}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      {t(lang, "common.creating")}
+                    </>
+                  ) : (
+                    <>
+                      <Check /> {t(lang, "wizard.button.createOrder") || "Bestellung erstellen"}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </footer>
+        </div>{/* /cow-v2 */}
       </DialogContent>
     </Dialog>
   );

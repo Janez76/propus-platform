@@ -1,0 +1,396 @@
+/* =====================================================================
+   Create Order Wizard — macOS Look v2026.05
+   Scoped under .cow-v2. The wizard React component (CreateOrderWizard)
+   keeps its existing form state + logic — this file just reskins the
+   markup and adds a step-pane visibility layer driven by the wrapper's
+   `data-cow-step` attribute (1..5).
+===================================================================== */
+.cow-v2 {
+  --bg: #F4F1EA;
+  --surface: #ffffff;
+  --surface-2: #FAF7F0;
+  --border: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.10);
+  --divider: rgba(0, 0, 0, 0.05);
+  --text: #1d1d1f;
+  --text-2: #515154;
+  --text-3: #86868b;
+  --text-4: #b0b0b5;
+  --blue: #007aff;
+  --blue-bg: rgba(0, 122, 255, 0.10);
+  --orange: #ff9500;
+  --orange-bg: rgba(255, 149, 0, 0.12);
+  --red: #ff3b30;
+  --red-bg: rgba(255, 59, 48, 0.10);
+  --green: #34c759;
+  --green-bg: rgba(52, 199, 89, 0.14);
+  --gray-bg: rgba(120, 120, 128, 0.10);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-full: 9999px;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+.cow-v2 *, .cow-v2 *::before, .cow-v2 *::after { box-sizing: border-box; }
+
+/* ── Header / Stepper ────────────────────────────────── */
+.cow-v2 .cow-header {
+  padding: 18px 28px 0 28px;
+  flex-shrink: 0;
+}
+.cow-v2 .cow-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.cow-v2 .cow-title-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cow-v2 .cow-header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cow-v2 .cow-header-icon > svg { width: 16px; height: 16px; }
+.cow-v2 .cow-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.cow-v2 .cow-sub {
+  font-size: 12.5px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+/* Stepper */
+.cow-v2 .cow-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 18px;
+  border-bottom: 0.5px solid var(--border);
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+.cow-v2 .cow-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 4px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+.cow-v2 .cow-step:hover { opacity: 0.75; }
+.cow-v2 .cow-step-bubble {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gray-bg);
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+  font-feature-settings: 'tnum';
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+.cow-v2 .cow-step-label {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.cow-v2 .cow-step.is-done .cow-step-bubble {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+.cow-v2 .cow-step.is-done .cow-step-label { color: var(--text-2); }
+.cow-v2 .cow-step.is-active .cow-step-bubble {
+  background: var(--text);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.04);
+}
+.cow-v2 .cow-step.is-active .cow-step-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.cow-v2 .cow-step-connector {
+  flex: 1;
+  height: 0.5px;
+  background: var(--border-strong);
+  min-width: 12px;
+  margin: 0 4px;
+}
+.cow-v2 .cow-step-connector.is-done { background: rgba(0, 122, 255, 0.30); }
+
+/* ── Step-pane visibility ───────────────────────────── */
+.cow-v2[data-cow-step="1"] [data-cow-step]:not([data-cow-step="1"]) { display: none !important; }
+.cow-v2[data-cow-step="2"] [data-cow-step]:not([data-cow-step="2"]) { display: none !important; }
+.cow-v2[data-cow-step="3"] [data-cow-step]:not([data-cow-step="3"]) { display: none !important; }
+.cow-v2[data-cow-step="4"] [data-cow-step]:not([data-cow-step="4"]) { display: none !important; }
+.cow-v2[data-cow-step="5"] [data-cow-step]:not([data-cow-step="5"]) { display: none !important; }
+.cow-v2 [data-cow-step] { animation: cowFade 0.22s ease; }
+@keyframes cowFade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* The existing inline submit button is hidden — the footer Submit fires
+   the same form via form-association. */
+.cow-v2 .cow-legacy-submit { display: none !important; }
+
+/* ── Footer ──────────────────────────────────────────── */
+.cow-v2 .cow-footer {
+  padding: 14px 28px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.cow-v2 .cow-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cow-v2 .cow-live-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--gray-bg);
+  border-radius: var(--r-full);
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-feature-settings: 'tnum';
+}
+.cow-v2 .cow-live-total .cow-lt-label { color: var(--text-3); }
+.cow-v2 .cow-live-total .cow-lt-value {
+  color: var(--text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.cow-v2 .cow-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+.cow-v2 .cow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--gray-bg);
+  color: var(--text);
+  border: 0;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  letter-spacing: -0.01em;
+}
+.cow-v2 .cow-btn:hover:not(:disabled) { background: rgba(120,120,128,0.18); }
+.cow-v2 .cow-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cow-v2 .cow-btn-primary {
+  background: var(--text);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 20px;
+}
+.cow-v2 .cow-btn-primary:hover:not(:disabled) {
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.cow-v2 .cow-btn-success {
+  background: var(--green);
+  color: #fff;
+  font-weight: 600;
+  padding: 10px 22px;
+}
+.cow-v2 .cow-btn-success:hover:not(:disabled) {
+  background: #2ba84a;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.cow-v2 .cow-btn > svg { width: 13px; height: 13px; }
+
+/* ── Reskin existing sections / inputs ──────────────── */
+/* Drop the existing section "card" frame — the new modal IS the card. */
+.cow-v2 form > [data-cow-step] {
+  padding: 0;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+/* But the kunde + onsite sub-cards inside step 1 keep their visible
+   surface. Re-apply a softer macOS card around individual sub-sections. */
+.cow-v2 form > [data-cow-step="1"] > .cow-pane-grid > div,
+.cow-v2 form > [data-cow-step] > .cow-section-card {
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+}
+/* Inputs, selects, textareas */
+.cow-v2 input[type="text"],
+.cow-v2 input[type="email"],
+.cow-v2 input[type="tel"],
+.cow-v2 input[type="number"],
+.cow-v2 input[type="date"],
+.cow-v2 input[type="time"],
+.cow-v2 input[type="datetime-local"],
+.cow-v2 input[type="search"],
+.cow-v2 select,
+.cow-v2 textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm);
+  letter-spacing: -0.01em;
+  transition: box-shadow 0.15s;
+}
+.cow-v2 input::placeholder,
+.cow-v2 textarea::placeholder { color: var(--text-4); }
+.cow-v2 input:focus,
+.cow-v2 select:focus,
+.cow-v2 textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--blue), var(--shadow-sm);
+}
+.cow-v2 select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12'%3E%3Cpath fill='%2386868b' d='M6 8.5L1.5 4h9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  cursor: pointer;
+}
+.cow-v2 textarea { min-height: 80px; resize: vertical; }
+
+/* Section-title labels (the uppercase "Kunde / Objekt / …" markers) */
+.cow-v2 form > [data-cow-step] .flex.items-center.gap-2.text-sm.font-bold.uppercase {
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+.cow-v2 form > [data-cow-step] .flex.items-center.gap-2.text-sm.font-bold.uppercase > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--blue);
+}
+
+/* Pure macOS look for radio/checkbox using the system tint */
+.cow-v2 input[type="checkbox"],
+.cow-v2 input[type="radio"] { accent-color: var(--blue); }
+
+/* Action buttons that already exist (Add address, Add line item, etc.) —
+   give them a subtle macOS surface look. */
+.cow-v2 button[type="button"]:not(.cow-step):not(.cow-btn):not(.cow-close-btn) {
+  font-family: inherit;
+}
+
+/* The original "Bestellung erstellen" submit button is hidden by the
+   .cow-legacy-submit marker class on the wrapper around it. The custom
+   cow-btn-success in the footer takes over the click → submit. */
+
+/* Close (X) button replicating macOS small icon button */
+.cow-v2 .cow-close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--gray-bg);
+  border: 0;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, color 0.15s;
+}
+.cow-v2 .cow-close-btn:hover { background: rgba(120,120,128,0.18); color: var(--text); }
+.cow-v2 .cow-close-btn > svg { width: 14px; height: 14px; }
+
+/* DialogContent the wizard renders into: make it the macOS modal frame.
+   The wizard nests .cow-v2 inside a Dialog; this targets the *content*
+   wrapper rendered by ../ui/dialog.tsx so the user sees one rounded
+   beige-paper sheet instead of two stacked frames. */
+.cow-v2 {
+  background: var(--surface);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+/* Hide the default DialogTitle / DialogClose — the new cow-header renders
+   its own title block and X button. */
+.cow-v2 > div:first-child > [class*="text-lg"]:first-child,
+.cow-v2 .legacy-dialog-title { display: none; }
+
+/* Scrollable body — make sure inputs/selects don't blow out the layout */
+.cow-v2 .cow-body {
+  padding: 22px 28px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.cow-v2 .cow-body::-webkit-scrollbar { width: 10px; }
+.cow-v2 .cow-body::-webkit-scrollbar-track { background: transparent; }
+.cow-v2 .cow-body::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 10px;
+  border: 3px solid var(--surface);
+}
+
+/* Page heading per step */
+.cow-v2 .cow-pane-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin-bottom: 4px;
+}
+.cow-v2 .cow-pane-desc {
+  font-size: 13.5px;
+  color: var(--text-3);
+  letter-spacing: -0.01em;
+  margin-bottom: 18px;
+}
