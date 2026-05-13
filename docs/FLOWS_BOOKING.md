@@ -2,7 +2,7 @@
 
 > **Automatisch mitpflegen:** Bei jeder Änderung an Buchungslogik, Status-Übergängen, Kalender-Sync oder Provisional-Flow dieses Dokument aktualisieren. Cursor-Regel `.cursor/rules/data-fields.mdc` erinnert daran.
 
-*Zuletzt aktualisiert: Mai 2026 — Flexible Buchung mit Deadline (PR #424): zweiter Discriminator-Branch in `POST /api/booking`, neuer Status `disposition_offen`, Kanban-Spalte mit Deadline-Sortierung, zwei neue de-CH Mail-Templates.*
+*Zuletzt aktualisiert: Mai 2026 — Flexible Buchung mit Deadline (PR #424): zweiter Discriminator-Branch in `POST /api/booking`, neuer Status `disposition_offen`, Kanban-Spalte mit Deadline-Sortierung, zwei neue de-CH Mail-Templates. — PR #490: Radius-Default-Bug behoben (`null` = unbegrenzt), Travel-Zone-Backfill nutzt jetzt Liegenschafts-PLZ aus `order.address` statt `billing.zipcity`, Fotografen-Kalender zeigt nur Objekt-Adresse wenn diese eine PLZ enthält.*
 
 ---
 
@@ -641,6 +641,7 @@ Pro Stage wird `selectStageCandidates()` aufgerufen:
    - `absoluteSkillMinimums` setzt eine Untergrenze die nicht relaxiert werden kann
 2. **Radius-Check:** `estimatedKm <= max_radius_km` (pro Mitarbeiter konfiguriert)
    - Überschreitung → `radius_employee`
+   - **`max_radius_km = NULL`** (oder `0` / negativ) **= Radius-Check inaktiv** (unbegrenzt). Quelle der Wahrheit: `isWithinRadiusLimit` in `photographer-resolver.js`. Das `EmployeeModal` und der PUT-Endpoint `/api/admin/photographers/:key/settings` normalisieren leer / 0 / negativ / NaN → `NULL`. Default für neue Fotografen ist leer (unbegrenzt) — nicht 30 km, wie es früher fälschlich war (siehe PR #490)
 
 Sobald eine Stage Kandidaten liefert, wird nicht weiter relaxiert.
 
