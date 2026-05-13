@@ -654,17 +654,16 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   const slotNeedsSchedule = initialStatus === "confirmed" || initialStatus === "provisional";
 
   function validateAll(): string | null {
-    if (!formData.customerName.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!formData.customerEmail.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!formData.billingStreet.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!formData.billingHouseNumber.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!formData.billingZip.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!formData.billingCity.trim()) return t(lang, "wizard.error.requiredFields");
-    if (!isObjectAddressComplete()) return t(lang, "wizard.error.requiredFields");
+    if (!formData.customerName.trim()) return "Name fehlt — bitte den Kunden-Nachnamen ausfüllen.";
+    if (!formData.customerEmail.trim()) return "E-Mail fehlt — bitte eine gültige E-Mail-Adresse eintragen.";
+    if (!isObjectAddressComplete()) return "Objekt-Adresse unvollständig — bitte eine Adresse mit Hausnummer und PLZ angeben.";
+    // Billing fields are now optional; when empty, the backend reuses
+    // customer + object data for invoicing. Only validate explicit
+    // values if the user partially filled them.
     if (slotNeedsSchedule) {
-      if (!formData.photographerKey.trim()) return t(lang, "wizard.hint.statusRequiresSlot");
-      if (!formData.date) return t(lang, "wizard.hint.statusRequiresSlot");
-      if (!formData.time) return t(lang, "wizard.hint.statusRequiresSlot");
+      if (!formData.photographerKey.trim()) return "Bei diesem Status muss ein Fotograf zugewiesen werden.";
+      if (!formData.date) return "Bei diesem Status muss ein Datum gesetzt werden.";
+      if (!formData.time) return "Bei diesem Status muss eine Uhrzeit gesetzt werden.";
     }
     return null;
   }
@@ -1048,6 +1047,34 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 <input type="text" value={formData.specials} onChange={(e) => updateField("specials", e.target.value)} placeholder="z.B. Pool, Garten, Dachterrasse" />
               </div>
             </div>
+
+            <details className="cow-details" style={{ marginTop: 16 }}>
+              <summary><ChevronRight /> Kontakt vor Ort hinzufügen</summary>
+              <div className="cow-grid-2">
+                <div className="cow-field">
+                  <label className="cow-field-label">Name</label>
+                  <input type="text" value={formData.onsiteName} onChange={(e) => updateField("onsiteName", e.target.value)} placeholder="Vor-Ort-Name" />
+                </div>
+                <div className="cow-field">
+                  <label className="cow-field-label">Telefon</label>
+                  <input type="tel" value={formData.onsitePhone} onChange={(e) => updateField("onsitePhone", e.target.value)} placeholder="+41 79 ..." />
+                </div>
+                <div className="cow-field is-full">
+                  <label className="cow-field-label">E-Mail <span className="cow-opt">optional</span></label>
+                  <input type="email" value={formData.onsiteEmail} onChange={(e) => updateField("onsiteEmail", e.target.value)} placeholder="vorort@beispiel.ch" />
+                </div>
+                <div className="cow-field is-full">
+                  <label className="cow-check">
+                    <input
+                      type="checkbox"
+                      checked={formData.onsiteCalendarInvite}
+                      onChange={(e) => updateField("onsiteCalendarInvite", e.target.checked)}
+                    />
+                    <span>Kalender-Einladung (ICS) an Kontakt senden</span>
+                  </label>
+                </div>
+              </div>
+            </details>
           </section>
         ) : null}
 
@@ -2734,7 +2761,13 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                   type="button"
                   className="cow-btn cow-btn-success"
                   disabled={isSubmitting}
-                  onClick={() => formRef.current?.requestSubmit()}
+                  onClick={() => {
+                    // Bypass form.requestSubmit() because the legacy form
+                    // is display:none and some browsers refuse to submit
+                    // hidden forms. Call the handler directly with a fake
+                    // event — it does its own preventDefault().
+                    void handleSubmit({ preventDefault: () => {} } as FormEvent);
+                  }}
                 >
                   {isSubmitting ? (
                     <>
