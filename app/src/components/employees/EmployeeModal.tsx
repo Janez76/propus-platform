@@ -363,7 +363,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
   const [portraitLibraryLoading, setPortraitLibraryLoading] = useState(false);
   const [portraitLibraryItems, setPortraitLibraryItems] = useState<PortraitLibraryItem[]>([]);
   const [homeAddress, setHomeAddress] = useState("");
-  const [radiusKm, setRadiusKm] = useState("30");
+  const [radiusKm, setRadiusKm] = useState("");
   const [departTimes, setDepartTimes] = useState<Record<WeekdayKey, string>>(() => normalizeDepartTimes({}));
   const [skillFoto, setSkillFoto] = useState("10");
   const [skillMatterport, setSkillMatterport] = useState("0");
@@ -420,7 +420,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
     getPhotographerSettings(token, employeeKey)
       .then((s) => {
         setHomeAddress(s.home_address || "");
-        setRadiusKm(String(s.radius_km ?? s.max_radius_km ?? 30));
+        setRadiusKm(s.radius_km != null ? String(s.radius_km) : s.max_radius_km != null ? String(s.max_radius_km) : "");
         setDepartTimes(normalizeDepartTimes(s.depart_times));
         if (s.name) setName(s.name);
         if (s.email) setEmail(s.email);
@@ -538,7 +538,12 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
         bookable: isBookableWizard,
         photo_url: photoUrl.trim(),
         home_address: homeAddress,
-        radius_km: Number(radiusKm),
+        radius_km: (function () {
+          const s = radiusKm.trim();
+          if (s === "") return null;
+          const n = Number(s);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        })(),
         native_language: nativeLanguage,
         event_color: eventColor,
         languages: languages.split(",").map((x) => x.trim()).filter(Boolean),
@@ -869,7 +874,7 @@ export function EmployeeModal({ token, employeeKey, onClose, onSaved, isActive =
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--text-main)]">{t(lang, "employeeModal.label.radiusKm")}</label>
-                <input type="number" className="ui-input" value={radiusKm} onChange={(e) => setRadiusKm(e.target.value)} />
+                <input type="number" min="1" max="999" className="ui-input" value={radiusKm} placeholder={t(lang, "employeeModal.hint.radiusUnlimited")} onChange={(e) => setRadiusKm(e.target.value)} />
               </div>
             </div>
           </AccordionSection>

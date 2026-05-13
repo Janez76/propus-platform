@@ -169,7 +169,12 @@ function buildCalendarVars(order, extra = {}) {
   return {
     ...base,
     address,
-    addressLine: base.addressLine || [billing.zipcity, order.address].filter(Boolean).join(", ") || "",
+    addressLine: base.addressLine || (function () {
+      const objAddr = String(order.address || "").trim();
+      const zipCity = String(billing.zipcity || "").trim();
+      if (objAddr && /\b\d{4}\b/.test(objAddr)) return objAddr;
+      return [zipCity, objAddr].filter(Boolean).join(", ");
+    })(),
     objectSummary,
     servicesSummary,
     customerBlock,
