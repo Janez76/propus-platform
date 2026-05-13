@@ -97,5 +97,5 @@ if ($backupFull) {
 Write-Host ""
 Write-Host "Naechste Schritte:" -ForegroundColor Cyan
 Write-Host "  1) Obsidian oeffnen — Vault-Ordner auf $VaultPath setzen."
-Write-Host ('  2) Auto-Push: In 90_Meta/auto-push-vault.ps1 Variable $vault auf ''' + $VaultPath + ''' setzen (falls Task Scheduler).')
+Write-Host ('  2) Auto-Push (Task Scheduler): Umgebungsvariable OBSIDIAN_VAULT=''' + $VaultPath + ''' setzen (siehe 90_Meta/auto-push-vault.ps1).')
 exit 0
