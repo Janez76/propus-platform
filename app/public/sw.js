@@ -1,7 +1,13 @@
 // Propus Mobile SW – minimaler Service Worker fuer PWA-Install + leichten Cache.
 // Scope: '/' (Datei liegt im public-Root). Admin-/Next-Seiten duerfen nicht
 // cache-first laufen, sonst bleiben neue Deploys bis Ctrl+Shift+R unsichtbar.
-const CACHE = "propus-shell-v4";
+//
+// Bei breaking changes am SW-Verhalten oder am Shell-Set die CACHE-Konstante
+// bumpen (v4 → v5 …). Beim Activate werden alle alten Caches geleert und der
+// neue SW uebernimmt sofort die Kontrolle (clients.claim + harter Reload
+// laufender Tabs), damit Bundles nicht mehr durch eine zwischengespeicherte
+// Page-Shell auf veralteten Code zeigen.
+const CACHE = "propus-shell-v5";
 const SHELL = [
   "/mobile", "/manifest.webmanifest",
   "/assistant", "/manifest-ki.webmanifest",
@@ -17,12 +23,26 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // Wenn der neue SW unterschiedliche Version hat, laufende Tabs zwingend
+    // neu laden — sonst hängen sie auf gecachten HTML/JS-Chunks (z.B. Upload
+    // Modal ohne neuen Finalize-Mismatch-Check).
+    const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const client of clientList) {
+      try { client.navigate(client.url); } catch (_) {}
+    }
+  })());
+});
+
+// Manueller Trigger aus der App: postMessage({type: "SKIP_WAITING"}) erzwingt
+// dass ein wartender neuer SW sofort aktiviert wird, ohne Tab-Neustart.
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("fetch", (event) => {
