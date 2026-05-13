@@ -1046,6 +1046,8 @@ export function OrdersPage() {
           order={sidePanelOrder}
           onClose={() => setSidePanelNo(null)}
           lang={lang}
+          token={token}
+          onChanged={async () => { await refetch({ force: true }); }}
         />
       </div>
     </div>

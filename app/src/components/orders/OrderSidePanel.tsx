@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  Ban,
   Calendar,
   CalendarCheck,
   CalendarClock,
@@ -18,11 +19,13 @@ import {
   PauseCircle,
   Phone,
   Ruler,
+  SlidersHorizontal,
   Star,
+  Trash2,
   UserPlus,
   X,
 } from "lucide-react";
-import type { Order } from "../../api/orders";
+import { deleteOrder, updateOrderStatus, type Order } from "../../api/orders";
 import { t, type Lang } from "../../i18n";
 import { formatDateTime, formatCurrency } from "../../lib/utils";
 import { normalizeStatusKey, type StatusKey } from "../../lib/status";
@@ -154,20 +157,93 @@ export function OrderSidePanel({
   order,
   onClose,
   lang,
+  token,
+  onChanged,
 }: {
   open: boolean;
   order: Order | null;
   onClose: () => void;
   lang: Lang;
+  token?: string | null;
+  onChanged?: () => void | Promise<void>;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmType, setConfirmType] = useState<"delete" | "cancel" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (confirmType) setConfirmType(null);
+        else if (menuOpen) setMenuOpen(false);
+        else onClose();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, confirmType, menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDoc(e: globalThis.MouseEvent) {
+      if (menuRef.current && menuRef.current.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  // Reset transient state when the panel re-opens for a different order.
+  useEffect(() => {
+    setMenuOpen(false);
+    setConfirmType(null);
+    setBusy(false);
+  }, [order?.orderNo]);
+
+  async function handleDelete() {
+    if (!token || !order || busy) return;
+    setBusy(true);
+    try {
+      await deleteOrder(token, order.orderNo);
+      await onChanged?.();
+      setConfirmType(null);
+      onClose();
+    } catch {
+      // Error stays visible until the user retries / closes.
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function handleCancel() {
+    if (!token || !order || busy) return;
+    setBusy(true);
+    try {
+      await updateOrderStatus(token, order.orderNo, "cancelled", {
+        sendEmails: true,
+        sendEmailTargets: { customer: true, office: false, photographer: true, cc: false },
+      });
+      await onChanged?.();
+      setConfirmType(null);
+    } catch {
+      /* leave dialog open */
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function handleSetStatus(next: StatusKey) {
+    if (!token || !order || busy) return;
+    const current = normalizeStatusKey(order.status);
+    if (current === next) return;
+    setBusy(true);
+    try {
+      await updateOrderStatus(token, order.orderNo, next, { sendEmails: false });
+      await onChanged?.();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (!open || !order) return null;
 
@@ -231,9 +307,41 @@ export function OrderSidePanel({
               <span className="osp-title">#{orderNo}</span>
             </div>
             <div className="osp-header-actions">
-              <button type="button" className="osp-icon-btn" title="Mehr" aria-label="Mehr">
-                <MoreHorizontal />
-              </button>
+              <div className="osp-menu-wrap" ref={menuRef}>
+                <button
+                  type="button"
+                  className="osp-icon-btn"
+                  title="Mehr"
+                  aria-label="Mehr"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((v) => !v)}
+                >
+                  <MoreHorizontal />
+                </button>
+                {menuOpen ? (
+                  <div className="osp-menu" role="menu">
+                    {statusKey !== "cancelled" ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="osp-menu-item is-warn"
+                        onClick={() => { setMenuOpen(false); setConfirmType("cancel"); }}
+                      >
+                        <Ban /> <span>Stornieren</span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="osp-menu-item is-danger"
+                      onClick={() => { setMenuOpen(false); setConfirmType("delete"); }}
+                    >
+                      <Trash2 /> <span>Löschen</span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
               <button type="button" className="osp-icon-btn" title="Schliessen" aria-label="Schliessen" onClick={onClose}>
                 <X />
               </button>
@@ -352,6 +460,37 @@ export function OrderSidePanel({
                   </a>
                 </div>
               ) : null}
+            </div>
+          </div>
+
+          {/* Status setter */}
+          <div className="osp-card">
+            <div className="osp-card-header">
+              <span className="osp-card-title">
+                <SlidersHorizontal style={{ width: 11, height: 11, display: "inline-block", marginRight: 6, verticalAlign: "-1px" }} />
+                Status
+              </span>
+            </div>
+            <div className="osp-status-grid">
+              {([
+                { id: "pending" as StatusKey, label: "Ausstehend", tone: "open" as const },
+                { id: "confirmed" as StatusKey, label: "Bestätigt", tone: "confirmed" as const },
+                { id: "paused" as StatusKey, label: "Wartet auf Kunde", tone: "paused" as const },
+                { id: "completed" as StatusKey, label: "Material in Bearbeitung", tone: "confirmed" as const },
+                { id: "done" as StatusKey, label: "Abgeschlossen", tone: "done" as const },
+              ]).map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={`osp-status-btn${statusKey === s.id ? " is-active" : ""}`}
+                  data-tone={s.tone}
+                  disabled={busy || !token}
+                  onClick={() => void handleSetStatus(s.id)}
+                >
+                  <span className="osp-dot" />
+                  <span>{s.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
@@ -482,6 +621,50 @@ export function OrderSidePanel({
           </a>
         </div>
       </aside>
+
+      {confirmType ? (
+        <div className="osp-confirm-backdrop" onClick={() => !busy && setConfirmType(null)}>
+          <div className="osp-confirm-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className={`osp-confirm-icon${confirmType === "delete" ? " is-danger" : " is-warn"}`}>
+              {confirmType === "delete" ? <Trash2 /> : <Ban />}
+            </div>
+            <h3 className="osp-confirm-title">
+              {confirmType === "delete" ? "Bestellung löschen?" : "Bestellung stornieren?"}
+            </h3>
+            <p className="osp-confirm-text">
+              {confirmType === "delete" ? (
+                <>
+                  Bestellung <strong>#{orderNo}</strong> wird endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+                </>
+              ) : (
+                <>
+                  Bestellung <strong>#{orderNo}</strong> wird storniert. Der Kunde
+                  {order.customerEmail ? <> (<span style={{ fontFamily: "JetBrains Mono, monospace" }}>{order.customerEmail}</span>)</> : null}
+                  {" "}erhält eine Storno-Mail. Der Fotograf bekommt eine Benachrichtigung.
+                </>
+              )}
+            </p>
+            <div className="osp-confirm-actions">
+              <button
+                type="button"
+                className="osp-confirm-btn"
+                disabled={busy}
+                onClick={() => setConfirmType(null)}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                className={`osp-confirm-btn ${confirmType === "delete" ? "is-danger" : "is-warn"}`}
+                disabled={busy}
+                onClick={() => void (confirmType === "delete" ? handleDelete() : handleCancel())}
+              >
+                {busy ? "Bitte warten…" : confirmType === "delete" ? "Endgültig löschen" : "Stornieren + Mail senden"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
