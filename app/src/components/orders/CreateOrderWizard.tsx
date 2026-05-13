@@ -962,7 +962,42 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             <div className="cow-grid-2">
               <div className="cow-field is-full">
                 <label className="cow-field-label">Adresse <span className="cow-req">*</span></label>
-                <input type="text" value={formData.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Bahnhofstrasse 12, 8001 Zürich" />
+                <AddressAutocompleteInput
+                  required
+                  mode="combined"
+                  value={formData.address}
+                  onChange={(v) => updateField("address", v)}
+                  onBlur={() => {
+                    if (!formData.travelZone) {
+                      const zip = formData.zip || extractSwissZip(formData.address);
+                      if (zip) lookupTravelZone(formData.objectCanton || "", zip);
+                    }
+                  }}
+                  onSelectParsed={(parsed: ParsedAddress) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: parsed.display,
+                      street: parsed.street,
+                      houseNumber: parsed.houseNumber,
+                      zip: parsed.zip,
+                      city: parsed.city,
+                      zipcity: `${parsed.zip} ${parsed.city}`.trim(),
+                      objectCanton: parsed.canton || "",
+                    }));
+                    if (parsed.canton || parsed.zip) {
+                      lookupTravelZone(parsed.canton || "", parsed.zip || "");
+                    }
+                  }}
+                  onSelectZipcity={(zipcity: string) => {
+                    if (!zipcity) return;
+                    setFormData((prev) => ({ ...prev, zipcity }));
+                    const zipFromZipcity = zipcity.match(/^(\d{4})/)?.[1] || "";
+                    if (zipFromZipcity) lookupTravelZone("", zipFromZipcity);
+                  }}
+                  lang={lang}
+                  placeholder="Bahnhofstrasse 12, 8001 Zürich"
+                  minChars={3}
+                />
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">Objekttyp</label>
