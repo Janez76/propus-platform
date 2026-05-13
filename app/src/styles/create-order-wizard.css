@@ -674,15 +674,10 @@
   border-radius: var(--r-md);
   padding: 16px 18px;
 }
-/* Inputs, selects, textareas */
-.cow-v2 input[type="text"],
-.cow-v2 input[type="email"],
-.cow-v2 input[type="tel"],
-.cow-v2 input[type="number"],
-.cow-v2 input[type="date"],
-.cow-v2 input[type="time"],
-.cow-v2 input[type="datetime-local"],
-.cow-v2 input[type="search"],
+/* Inputs, selects, textareas — match ALL inputs by default so
+   CustomerAutocompleteInput (which renders <input> without explicit
+   type="text") picks up the same look as the plain fields. */
+.cow-v2 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]),
 .cow-v2 select,
 .cow-v2 textarea {
   width: 100%;
@@ -699,7 +694,7 @@
 }
 .cow-v2 input::placeholder,
 .cow-v2 textarea::placeholder { color: var(--text-4); }
-.cow-v2 input:focus,
+.cow-v2 input:not([type="checkbox"]):not([type="radio"]):focus,
 .cow-v2 select:focus,
 .cow-v2 textarea:focus {
   outline: none;
