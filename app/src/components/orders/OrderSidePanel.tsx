@@ -175,7 +175,9 @@ export function OrderSidePanel({
   const fullOrderHref = `/orders/${encodeURIComponent(orderNo)}`;
   const statusKey = normalizeStatusKey(order.status);
   const pill = statusPill(statusKey, lang);
-  const isDone = statusKey === "done" || statusKey === "completed" || statusKey === "archived";
+  // "completed" maps to "Material in Bearbeitung" (still in production),
+  // so the "Rechnung offen" pill must only show for truly finished orders.
+  const isDone = statusKey === "done" || statusKey === "archived";
   const invoiceOpen = isDone && !order.bexioOrderNumber;
 
   const photographerName = order.photographer?.name?.trim() || "";

@@ -1091,22 +1091,29 @@ function OrdersKanban({
     if (current === target) return;
     setOptimistic((prev) => ({ ...prev, [orderNo]: target }));
     setBusy(true);
+    let writeOk = false;
     try {
       await updateOrderStatus(token, orderNo, target, { sendEmails: false });
+      writeOk = true;
+      // The DB write landed. A refetch failure must NOT roll the UI back —
+      // otherwise the card snaps to its old column even though the new
+      // status is now persisted. Keep the optimistic entry until the
+      // refetch lands (then it gets cleared because `orders` reflects it).
       await onChanged();
-      // Clear optimistic once the refetch has landed.
       setOptimistic((prev) => {
         const next = { ...prev };
         delete next[orderNo];
         return next;
       });
     } catch {
-      // Rollback on error.
-      setOptimistic((prev) => {
-        const next = { ...prev };
-        delete next[orderNo];
-        return next;
-      });
+      if (!writeOk) {
+        // Only roll back when the write itself failed.
+        setOptimistic((prev) => {
+          const next = { ...prev };
+          delete next[orderNo];
+          return next;
+        });
+      }
     } finally {
       setBusy(false);
     }

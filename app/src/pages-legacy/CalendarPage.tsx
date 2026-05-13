@@ -110,17 +110,25 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-function evPosition(ev: CalendarEvent): { top: number; height: number } | null {
-  if (!ev.start) return null;
+function evPosition(ev: CalendarEvent): { top: number; height: number; clippedTop: boolean; clippedBottom: boolean } | null {
+  if (!ev.start || ev.allDay) return null;
   const s = new Date(ev.start);
   if (Number.isNaN(s.getTime())) return null;
   const e = ev.end ? new Date(ev.end) : new Date(s.getTime() + 60 * 60_000);
   if (Number.isNaN(e.getTime())) return null;
-  const startMin = (s.getHours() - DAY_START_HOUR) * 60 + s.getMinutes();
-  const endMin = (e.getHours() - DAY_START_HOUR) * 60 + e.getMinutes();
-  const top = Math.max(0, (startMin / 60) * HOUR_HEIGHT);
-  const height = Math.max(28, ((endMin - startMin) / 60) * HOUR_HEIGHT);
-  return { top, height };
+  // Window in minutes relative to DAY_START_HOUR
+  const totalMin = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+  const rawStart = (s.getHours() * 60 + s.getMinutes()) - DAY_START_HOUR * 60;
+  const rawEnd = Math.max(rawStart + 15, (e.getHours() * 60 + e.getMinutes()) - DAY_START_HOUR * 60);
+  // Drop events entirely outside the visible window
+  if (rawEnd <= 0 || rawStart >= totalMin) return null;
+  const clippedTop = rawStart < 0;
+  const clippedBottom = rawEnd > totalMin;
+  const startMin = Math.max(0, rawStart);
+  const endMin = Math.min(totalMin, rawEnd);
+  const top = (startMin / 60) * HOUR_HEIGHT;
+  const height = Math.max(22, ((endMin - startMin) / 60) * HOUR_HEIGHT);
+  return { top, height, clippedTop, clippedBottom };
 }
 
 function nowLineTop(): number | null {
@@ -928,6 +936,8 @@ export function CalendarPage() {
                             type="button"
                             className="cp-event"
                             data-tone={evTone(ev)}
+                            data-clip-top={pos.clippedTop ? "true" : undefined}
+                            data-clip-bottom={pos.clippedBottom ? "true" : undefined}
                             style={{ top: pos.top, height: pos.height }}
                             onClick={(e) => { e.stopPropagation(); openEvent(toClicked(ev)); }}
                           >
@@ -1010,6 +1020,8 @@ export function CalendarPage() {
                                 type="button"
                                 className="cp-event"
                                 data-tone={evTone(ev)}
+                                data-clip-top={pos.clippedTop ? "true" : undefined}
+                                data-clip-bottom={pos.clippedBottom ? "true" : undefined}
                                 style={{ top: pos.top, height: pos.height }}
                                 onClick={(e) => { e.stopPropagation(); openEvent(toClicked(ev)); }}
                               >

@@ -687,6 +687,22 @@
   color: #7a3d00;
   border-left: 3px solid var(--orange);
 }
+.cp-event[data-clip-top="true"]::before {
+  content: '↑';
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  font-size: 9px;
+  opacity: 0.6;
+}
+.cp-event[data-clip-bottom="true"]::after {
+  content: '↓';
+  position: absolute;
+  bottom: 2px;
+  right: 6px;
+  font-size: 9px;
+  opacity: 0.6;
+}
 .cp-now-line {
   position: absolute;
   left: 0;
