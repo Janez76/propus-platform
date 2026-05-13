@@ -804,6 +804,14 @@
 
 /* ── OrdersMap (dv2) Apple-style overrides ─────────────── */
 .cp-map-wrap { /* host wrapper, no chrome of its own */ }
+/* dv2 root adds 24px 28px of inner padding by default → on /calendar we
+   already have the page padding around the wrapper, so strip it so the
+   map card is exactly as wide as the calendar card above. */
+.cal-page-v2 .cp-map-wrap.dv2 {
+  padding: 0;
+  background: transparent;
+  min-height: 0;
+}
 .cal-page-v2 .cp-map-wrap .dv2-card {
   background: var(--surface);
   border: 0;
