@@ -819,6 +819,87 @@ body:has(.cow-v2) > .fixed.inset-0.z-50.flex > div[class*="max-w-7xl"] {
   border: 3px solid var(--surface);
 }
 
+/* ── Customer Autocomplete Dropdown (Apple-style override) ─────── */
+/* The CustomerAutocompleteInput renders a <ul role="listbox">. Strip
+   the existing Tailwind utility look + reapply the macOS vibrancy
+   popover (matches the .cow-dd-menu / .op-dd-menu pattern). */
+.cow-v2 ul[role="listbox"] {
+  position: absolute;
+  z-index: 70;
+  margin-top: 6px !important;
+  max-height: 320px;
+  width: 100%;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 0 !important;
+  border-radius: var(--r-md);
+  padding: 5px !important;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
+  list-style: none;
+}
+.cow-v2 ul[role="listbox"] li[role="option"] {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  font-size: 13px !important;
+  color: var(--text);
+  background: transparent !important;
+  transition: background-color 0.1s;
+}
+.cow-v2 ul[role="listbox"] li[role="option"]:hover,
+.cow-v2 ul[role="listbox"] li[role="option"][aria-selected="true"] {
+  background: var(--blue) !important;
+  color: #fff;
+}
+.cow-v2 ul[role="listbox"] li[role="option"]:hover *,
+.cow-v2 ul[role="listbox"] li[role="option"][aria-selected="true"] * {
+  color: #fff !important;
+}
+.cow-v2 ul[role="listbox"] li[role="option"] > div { gap: 8px; }
+.cow-v2 ul[role="listbox"] li[role="option"] svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-3);
+}
+.cow-v2 ul[role="listbox"] li[role="option"] p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.cow-v2 ul[role="listbox"] li[role="option"] p.font-semibold,
+.cow-v2 ul[role="listbox"] li[role="option"] p:first-child {
+  font-weight: 600;
+  color: var(--text);
+}
+.cow-v2 ul[role="listbox"] li[role="option"] p.text-xs,
+.cow-v2 ul[role="listbox"] li[role="option"] .text-\[11px\],
+.cow-v2 ul[role="listbox"] li[role="option"] .text-xs {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* Tiny "Suche..." badge while loading suggestions */
+.cow-v2 .pointer-events-none.absolute[class*="top-\[36px\]"] {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: var(--text-2) !important;
+  font-size: 11px !important;
+  padding: 3px 8px !important;
+  border-radius: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+}
+
+/* Make sure the autocomplete's wrapper doesn't break the field layout */
+.cow-v2 .cow-field > div.relative {
+  width: 100%;
+}
+
 /* Page heading per step */
 .cow-v2 .cow-pane-title {
   font-size: 22px;

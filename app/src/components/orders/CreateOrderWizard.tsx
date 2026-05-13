@@ -657,11 +657,23 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
     const zipcity = customer.zipcity || "";
     const zipMatch = zipcity.match(/^(\d{4,5})\s+(.+)$/);
     const isSynthEmail = (e?: string) => String(e || "").toLowerCase().endsWith("@company.local");
+    // If the contact came back with a single `name` like "Cvacho Jordan" and
+    // no separate first_name, split it into first + last so Vorname / Name
+    // are filled correctly. With an explicit first_name we trust the DB.
+    const incomingFirst = (customer.first_name || "").trim();
+    const incomingName = (customer.name || "").trim();
+    let resolvedFirst = incomingFirst;
+    let resolvedLast = incomingName;
+    if (!incomingFirst && incomingName.includes(" ")) {
+      const parts = incomingName.split(/\s+/);
+      resolvedFirst = parts[0] || "";
+      resolvedLast = parts.slice(1).join(" ");
+    }
     setFormData((prev) => ({
       ...prev,
       salutation: customer.salutation || prev.salutation,
-      first_name: customer.first_name || prev.first_name,
-      customerName: customer.name || "",
+      first_name: resolvedFirst || prev.first_name,
+      customerName: resolvedLast,
       customerEmail: isSynthEmail(customer.email) ? "" : (customer.email || ""),
       customerPhone: customer.phone || "",
       customerPhoneMobile: customer.phone_mobile || prev.customerPhoneMobile,
