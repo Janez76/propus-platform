@@ -194,6 +194,9 @@ export function UploadModalForm({
 
     const sessionId = buildChunkSessionId(orderNo);
     const completedBytesPerFile = new Array(files.length).fill(0) as number[];
+    // Pro Datei merken, ob ihr Server-`complete` durchlief. Nur diese duerfen wir
+    // nach erfolgreichem `finalize` aus der Auswahl entfernen.
+    const completedFileNames = new Set<string>();
 
     const reportProgress = () => {
       if (totalBytes <= 0) return;
@@ -264,6 +267,7 @@ export function UploadModalForm({
 
       await completeChunkedUpload(token, orderNo, uploadId);
       completedBytesPerFile[index] = fileSize;
+      completedFileNames.add(`${file.name}::${file.size}`);
       reportProgress();
     };
 
@@ -295,6 +299,24 @@ export function UploadModalForm({
         ...(addSuffix ? { addOrderSuffix: true } : {}),
       });
 
+      // Anti-Datenverlust-Check: der Server bestaetigt einen Batch mit
+      // fileCount === Anzahl der vom Server tatsaechlich akzeptierten,
+      // fertig gemergeten Dateien. Stimmt die Zahl nicht mit unserer
+      // hochgeladenen Datei-Liste ueberein, hat z.B. ein ECONNRESET im
+      // `complete`-Schritt einige Dateien verschluckt — Server-Sicht
+      // gewinnt, wir blocken den Success-Status und lassen die Auswahl
+      // stehen, damit der/die Fotograf:in den Upload wiederholen kann.
+      const acceptedCount = Number(finalizeResult.batch?.fileCount ?? 0);
+      const acceptedBytes = Number(finalizeResult.batch?.totalBytes ?? 0);
+      if (acceptedCount !== files.length) {
+        throw new Error(
+          `Server hat nur ${acceptedCount} von ${files.length} Dateien ` +
+          `(${formatBytes(acceptedBytes)} von ${formatBytes(totalBytes)}) ` +
+          "uebernommen. Vermutlich brach die Verbindung beim Abschluss ab. " +
+          "Bitte den Upload erneut starten — die Auswahl bleibt erhalten.",
+        );
+      }
+
       // Server-seitige Bestaetigung — verschiebt das Batch ins NAS-Staging und versendet ggf. Mail.
       try {
         await confirmUploadBatch(token, orderNo, finalizeResult.batch.id, comment.trim() || undefined);
@@ -303,12 +325,22 @@ export function UploadModalForm({
       }
 
       setProgress(100);
-      setSuccess({ count: files.length, bytes: totalBytes });
+      setSuccess({ count: acceptedCount, bytes: acceptedBytes });
       setFiles([]);
       setComment("");
       await onChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload fehlgeschlagen.");
+      // Auswahl NICHT clearen — der/die Fotograf:in soll direkt erneut
+      // klicken koennen. Wenn ein Teil schon serverseitig akzeptiert
+      // wurde, wuerden diese Dateien doppelt landen — dafuer protokollieren
+      // wir per Browser-Konsole, was clientseitig erfolgreich war.
+      if (typeof console !== "undefined" && completedFileNames.size > 0) {
+        console.warn(
+          `[upload-modal] ${completedFileNames.size}/${files.length} Dateien wurden vom Browser als 'complete' bestaetigt. ` +
+          "Bitte ggf. doppelte Eintraege im Zielordner nachpruefen.",
+        );
+      }
     } finally {
       setBusy(false);
     }
