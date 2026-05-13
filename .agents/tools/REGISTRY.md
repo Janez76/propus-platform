@@ -2,6 +2,12 @@
 
 Quick reference for AI agents to discover tool capabilities and integration methods.
 
+> **propus-platform note:** Vendored from
+> [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills)
+> into `.agents/tools/`. All `tools/...` paths referenced from SKILL.md files
+> resolve relative to `.agents/`, e.g. `.agents/tools/integrations/ga4.md`,
+> `.agents/tools/clis/ga4.js`.
+
 ## How to Use This Registry
 
 1. **Find tools by category** - Browse sections below for tools in each domain

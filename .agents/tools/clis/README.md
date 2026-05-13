@@ -4,6 +4,14 @@ Zero-dependency, single-file CLI tools for marketing platforms that don't ship t
 
 Every CLI is a standalone Node.js script (Node 18+) with no `npm install` required — just `chmod +x` and go.
 
+> **propus-platform note:** This bundle is vendored from
+> [coreyhaines31/marketingskills](https://github.com/coreyhaines31/marketingskills)
+> under `.agents/tools/`. The examples below use the upstream path
+> prefix `tools/...` — in this repo prepend `.agents/`, i.e. run
+> `node .agents/tools/clis/ahrefs.js ...` from the repo root. The same
+> `.agents/` prefix applies to every `tools/integrations/<tool>.md`
+> reference in the integration docs and SKILL.md files.
+
 ## Install
 
 ### Option 1: Run directly
