@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import {
   AlertTriangle,
   ArrowRight,
-  ArrowUpFromLine,
   Calendar,
   CalendarCheck,
   CalendarClock,
@@ -230,15 +229,6 @@ export function OrderSidePanel({
               <span className="osp-title">#{orderNo}</span>
             </div>
             <div className="osp-header-actions">
-              <a
-                href={fullOrderHref}
-                className="osp-icon-btn"
-                title={tr(lang, "orders.sidePanel.fullView", "In neuem Tab öffnen")}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink />
-              </a>
               <button type="button" className="osp-icon-btn" title="Mehr" aria-label="Mehr">
                 <MoreHorizontal />
               </button>
@@ -483,10 +473,10 @@ export function OrderSidePanel({
           <a
             href={fullOrderHref}
             className="osp-footer-secondary"
-            title={tr(lang, "orders.sidePanel.export", "Exportieren")}
-            aria-label={tr(lang, "orders.sidePanel.export", "Exportieren")}
+            title={tr(lang, "orders.sidePanel.fullView", "Volle Ansicht")}
+            aria-label={tr(lang, "orders.sidePanel.fullView", "Volle Ansicht")}
           >
-            <ArrowUpFromLine />
+            <ExternalLink />
           </a>
         </div>
       </aside>
