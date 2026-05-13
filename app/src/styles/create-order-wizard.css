@@ -762,14 +762,41 @@
 .cow-v2 .cow-close-btn:hover { background: rgba(120,120,128,0.18); color: var(--text); }
 .cow-v2 .cow-close-btn > svg { width: 14px; height: 14px; }
 
-/* DialogContent the wizard renders into: make it the macOS modal frame.
-   The wizard nests .cow-v2 inside a Dialog; this targets the *content*
-   wrapper rendered by ../ui/dialog.tsx so the user sees one rounded
-   beige-paper sheet instead of two stacked frames. */
+/* Override the parent Dialog wrapper so the modal centers vertically
+   and horizontally and isn't constrained to max-w-7xl. */
+body:has(.cow-v2) > .fixed.inset-0.z-50.flex {
+  align-items: center !important;
+}
+body:has(.cow-v2) > .fixed.inset-0.z-50.flex > div[class*="max-w-7xl"] {
+  max-width: 920px !important;
+  margin: auto !important;
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* Reset DialogContent's default padding/border so .cow-v2 IS the
+   visible card — otherwise we got the dialog's own white padding
+   wrapping our paper sheet (= "ui in ui"). */
+.cow-v2-dialog {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  max-width: 880px;
+  width: 100%;
+  margin: 0 auto;
+}
+.cow-v2-dialog > .propus-dialog-close,
+.cow-v2-dialog .propus-dialog-close {
+  display: none !important; /* parent Dialog renders its own X — ours is in the header */
+}
+
 .cow-v2 {
   background: var(--surface);
   border-radius: 20px;
   overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 /* Hide the default DialogTitle / DialogClose — the new cow-header renders

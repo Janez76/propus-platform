@@ -802,8 +802,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="cow-v2-dialog max-w-3xl max-h-[92vh] p-0 overflow-hidden">
-        <DialogClose onClose={() => onOpenChange(false)} />
+      <DialogContent className="cow-v2-dialog">
         <DialogHeader className="sr-only">
           <DialogTitle>{t(lang, "wizard.title")}</DialogTitle>
         </DialogHeader>
