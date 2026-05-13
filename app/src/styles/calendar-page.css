@@ -1,0 +1,581 @@
+/* =====================================================================
+   Kalender — macOS Look v2026.05 (beige paper, matches admin)
+   Scoped unter .cal-page-v2. Inter + JetBrains Mono werden global
+   in layout.tsx geladen. Dark-Theme via html.dark-Override am Ende.
+===================================================================== */
+.cal-page-v2 {
+  --bg: #F4F1EA;
+  --surface: #ffffff;
+  --surface-2: #F7F4ED;
+  --hover: #EEEAE0;
+
+  --border: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.10);
+  --divider: rgba(0, 0, 0, 0.05);
+
+  --text: #1d1d1f;
+  --text-2: #515154;
+  --text-3: #86868b;
+  --text-4: #b0b0b5;
+
+  --blue: #007aff;
+  --blue-bg: rgba(0, 122, 255, 0.10);
+  --orange: #ff9500;
+  --orange-bg: rgba(255, 149, 0, 0.12);
+  --red: #ff3b30;
+  --red-bg: rgba(255, 59, 48, 0.10);
+  --green: #34c759;
+  --green-bg: rgba(52, 199, 89, 0.14);
+  --teal: #5ac8c8;
+  --teal-bg: rgba(90, 200, 200, 0.14);
+  --purple: #af52de;
+  --indigo: #5856d6;
+  --gray-bg: rgba(120, 120, 128, 0.10);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-full: 9999px;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01';
+  min-height: 100vh;
+}
+.cal-page-v2 *,
+.cal-page-v2 *::before,
+.cal-page-v2 *::after { box-sizing: border-box; }
+
+.cal-page-v2 .cp-page {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 28px 60px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Card */
+.cp-card {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-md);
+  overflow: hidden;
+}
+
+/* ── Header card ─────────────────────────────────────── */
+.cp-header-card {
+  padding: 22px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-md);
+}
+.cp-header-text { flex: 1; min-width: 0; }
+.cp-header-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-weight: 500;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.cp-events-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  padding: 2px 9px;
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 600;
+  font-feature-settings: 'tnum';
+}
+.cp-page-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin: 0 0 3px;
+}
+.cp-page-sub {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0;
+}
+.cp-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.cp-weather-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  background: var(--gray-bg);
+  border-radius: var(--r-full);
+  margin-right: 4px;
+}
+.cp-weather-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #ffd166, #ffb13d);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.cp-weather-temp {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-feature-settings: 'tnum';
+}
+.cp-weather-loc {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.cp-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--gray-bg);
+  color: var(--text);
+  border: 0;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  letter-spacing: -0.01em;
+}
+.cp-ghost-btn:hover { background: rgba(120,120,128,0.18); }
+.cp-ghost-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.cp-ghost-btn > svg { width: 13px; height: 13px; color: var(--text-2); }
+.cp-ghost-btn.is-syncing > svg { animation: cpSpin 0.9s linear infinite; }
+@keyframes cpSpin { to { transform: rotate(360deg); } }
+.cp-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--text);
+  color: #fff;
+  border: 0;
+  border-radius: var(--r-sm);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: background-color 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+.cp-primary-btn:hover {
+  background: #000;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.cp-primary-btn > svg { width: 13px; height: 13px; }
+
+/* ── Calendar Toolbar ────────────────────────────────── */
+.cp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 0.5px solid var(--border);
+  flex-wrap: wrap;
+}
+.cp-nav { display: flex; align-items: center; gap: 4px; }
+.cp-nav-btn {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s, color 0.12s;
+}
+.cp-nav-btn > svg { width: 13px; height: 13px; }
+.cp-nav-btn:hover { background: var(--gray-bg); color: var(--text); }
+.cp-today {
+  padding: 6px 14px;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 0;
+  transition: box-shadow 0.15s;
+}
+.cp-today:hover { box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm); }
+
+/* Date pill */
+.cp-date-pill-wrap { position: relative; }
+.cp-date-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  letter-spacing: -0.02em;
+}
+.cp-date-pill:hover { background: var(--gray-bg); }
+.cp-date-pill > svg { width: 10px; height: 10px; color: var(--text-3); }
+.cp-mini-cal-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-radius: var(--r-md);
+  padding: 14px;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
+  z-index: 80;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.98);
+  transform-origin: top left;
+  transition: opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  min-width: 280px;
+}
+.cp-date-pill-wrap.is-open .cp-mini-cal-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+/* Toolbar divider */
+.cp-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* Dropdowns */
+.cp-dropdown { position: relative; }
+.cp-dd-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-sm);
+  letter-spacing: -0.01em;
+  transition: box-shadow 0.15s;
+}
+.cp-dd-trigger:hover { box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm); }
+.cp-dropdown.is-open .cp-dd-trigger { box-shadow: 0 0 0 2px var(--blue), var(--shadow-sm); }
+.cp-dd-lead { width: 12px; height: 12px; color: var(--text-3); }
+.cp-dd-label { color: var(--text-3); font-weight: 500; }
+.cp-dd-value { color: var(--text); font-weight: 600; }
+.cp-dd-chev {
+  width: 10px;
+  height: 10px;
+  color: var(--text-3);
+  margin-left: 2px;
+  transition: transform 0.18s;
+}
+.cp-dropdown.is-open .cp-dd-chev { transform: rotate(180deg); }
+.cp-dd-dots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.cp-dd-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.cp-dd-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-radius: var(--r-md);
+  padding: 5px;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
+  z-index: 70;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.98);
+  transform-origin: top left;
+  transition: opacity 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cp-dropdown.is-open .cp-dd-menu {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+.cp-dd-section {
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.cp-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px 7px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: -0.01em;
+  transition: background-color 0.1s;
+}
+.cp-dd-item:hover { background: var(--blue); color: #fff; }
+.cp-dd-item:hover .cp-dd-count { color: rgba(255,255,255,0.7); }
+.cp-dd-item:hover .cp-dd-check { color: #fff; }
+.cp-dd-check {
+  width: 14px;
+  height: 14px;
+  color: var(--blue);
+  opacity: 0;
+  flex-shrink: 0;
+}
+.cp-dd-item.is-selected .cp-dd-check { opacity: 1; }
+.cp-dd-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+  font-feature-settings: 'tnum';
+}
+.cp-dd-mini-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+.cp-dd-divider {
+  height: 0.5px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.cp-dd-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px 2px 8px;
+  border-top: 0.5px solid var(--border);
+  margin-top: 4px;
+}
+.cp-dd-link {
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.cp-dd-link:hover { background: var(--blue-bg); }
+
+/* View switch */
+.cp-view-switch {
+  margin-left: auto;
+  display: inline-flex;
+  background: var(--gray-bg);
+  border-radius: var(--r-sm);
+  padding: 2px;
+  gap: 2px;
+}
+.cp-view-btn {
+  padding: 5px 14px;
+  background: transparent;
+  border: 0;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+.cp-view-btn:hover { color: var(--text); }
+.cp-view-btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm), 0 0 0 0.5px rgba(0,0,0,0.06);
+}
+
+/* Hide HandoffCalendarView's internal toolbar so we don't get a duplicate
+   nav row. We render our own toolbar above. */
+.cal-page-v2 .cal-main > div:first-child {
+  display: none;
+}
+.cal-page-v2 .cal-main {
+  background: var(--surface);
+}
+
+/* Map card head */
+.cp-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 0.5px solid var(--border);
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.cp-map-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.cp-map-title > svg { width: 14px; height: 14px; color: var(--blue); }
+.cp-map-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.cp-map-sub strong { color: var(--text-2); font-weight: 500; }
+
+/* Empty / error / saved hints */
+.cp-hint {
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  color: var(--text-3);
+}
+.cp-hint.is-error { color: var(--red); }
+.cp-hint.is-saved { color: #1f7a36; }
+.cp-empty {
+  padding: 60px 24px;
+  text-align: center;
+}
+.cp-empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+.cp-empty-link {
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+/* Responsive */
+@media (max-width: 980px) {
+  .cp-toolbar { gap: 6px; }
+  .cp-toolbar-divider { display: none; }
+  .cp-header-card { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 760px) {
+  .cp-view-switch { margin-left: 0; }
+}
+
+/* Dark theme */
+html.dark .cal-page-v2 {
+  --bg: #0a0a0c;
+  --surface: #1a1a1d;
+  --surface-2: #141417;
+  --hover: #232327;
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --divider: rgba(255, 255, 255, 0.05);
+
+  --text: #f5f5f7;
+  --text-2: #c8c8cc;
+  --text-3: #98989d;
+  --text-4: #6e6e74;
+
+  --gray-bg: rgba(255, 255, 255, 0.08);
+}
+html.dark .cal-page-v2 .cp-dd-menu,
+html.dark .cal-page-v2 .cp-mini-cal-popover {
+  background: rgba(40, 40, 44, 0.92);
+}
+html.dark .cal-page-v2 .cp-primary-btn {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm);
+}
+html.dark .cal-page-v2 .cp-primary-btn:hover { background: #2a2a2e; }

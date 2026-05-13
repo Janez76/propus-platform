@@ -1,6 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ExternalLink, Plus } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Layers,
+  MapPin,
+  Plus,
+  RotateCw,
+  User as UserIcon,
+} from "lucide-react";
 import { assignPhotographer, getOrders, rescheduleOrder, updateOrderStatus, type Order } from "../api/orders";
 import { OrderStatusSelect } from "../components/orders/OrderStatusSelect";
 import { getPhotographers, type Photographer } from "../api/photographers";
@@ -30,7 +41,61 @@ import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatDateTime } from "../lib/utils";
 import { getStatusLabel, STATUS_KEYS, statusMatches } from "../lib/status";
-import { FilterBar, PageHeader } from "../components/handoff";
+import "../styles/calendar-page.css";
+
+const STATUS_DOT_COLOR: Record<string, string> = {
+  pending: "var(--orange)",
+  provisional: "var(--indigo)",
+  disposition_offen: "var(--purple)",
+  confirmed: "var(--blue)",
+  paused: "var(--text-4)",
+  completed: "var(--orange)",
+  done: "var(--green)",
+  cancelled: "var(--red)",
+  archived: "var(--teal)",
+};
+
+function addDaysDate(d: Date, days: number): Date {
+  const n = new Date(d);
+  n.setDate(n.getDate() + days);
+  return n;
+}
+function startOfWeekMon(d: Date): Date {
+  const day = (d.getDay() + 6) % 7;
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+  return r;
+}
+function fmtRangeLabel(anchor: Date, view: CalendarViewKind): string {
+  if (view === "day") {
+    return new Intl.DateTimeFormat("de-CH", { day: "numeric", month: "long", year: "numeric" }).format(anchor);
+  }
+  if (view === "week") {
+    const ws = startOfWeekMon(anchor);
+    const we = addDaysDate(ws, 6);
+    const sameMonth = ws.getMonth() === we.getMonth();
+    const left = sameMonth
+      ? `${ws.getDate()}.`
+      : `${ws.getDate()}. ${new Intl.DateTimeFormat("de-CH", { month: "short" }).format(ws)}`;
+    const right = new Intl.DateTimeFormat("de-CH", { day: "numeric", month: "long", year: "numeric" }).format(we);
+    return `${left} – ${right}`;
+  }
+  return new Intl.DateTimeFormat("de-CH", { month: "long", year: "numeric" }).format(anchor);
+}
+
+function gradientFor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `linear-gradient(135deg, hsl(${hue} 65% 60%), hsl(${(hue + 24) % 360} 60% 42%))`;
+}
+function initialsFor(name?: string | null, key?: string | null): string {
+  const src = name?.trim() || key?.trim() || "";
+  if (!src) return "?";
+  const parts = src.split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? "";
+  const b = parts[1]?.[0] ?? "";
+  return (a + b).toUpperCase() || src.charAt(0).toUpperCase();
+}
 
 const DEFAULT_STATUS_EMAIL_TARGETS = {
   customer: false,
@@ -114,6 +179,24 @@ export function CalendarPage() {
   const [showBkbn, setShowBkbn] = useState<boolean>(() => readBoolStorage(BKBN_TOGGLE_KEY, true));
   const [bkbnMeta, setBkbnMeta] = useState<CalendarBkbnMeta | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [miniCalOpen, setMiniCalOpen] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  useEffect(() => {
+    if (!openDropdown && !miniCalOpen) return;
+    function onDocClick(e: MouseEvent) {
+      const root = toolbarRef.current;
+      if (!root) return;
+      if (!root.contains(e.target as Node)) {
+        setOpenDropdown(null);
+        setMiniCalOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [openDropdown, miniCalOpen]);
 
   const outlookRange = useMemo(() => {
     const base = calendarAnchor;
@@ -174,7 +257,9 @@ export function CalendarPage() {
         if (alive) setError(e instanceof Error ? e.message : t(lang, "common.error"));
       });
     return () => { alive = false; };
-  }, [token, showOutlook, showBkbn, outlookRange.from, outlookRange.to]);
+    // reloadTick is intentional: triggers manual refresh from the toolbar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, showOutlook, showBkbn, outlookRange.from, outlookRange.to, reloadTick]);
 
   useEffect(() => {
     if (!token) return;
@@ -384,266 +469,360 @@ export function CalendarPage() {
       photographerKey !== (selected.photographerKey || "")
     : false;
 
+  // Today's weather for the header chip
+  const todayFc = useMemo(() => {
+    const d = new Date();
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return forecastByDate.get(k) ?? null;
+  }, [forecastByDate]);
+  const monthLabel = useMemo(
+    () => new Intl.DateTimeFormat("de-CH", { month: "long", year: "numeric" }).format(calendarAnchor),
+    [calendarAnchor],
+  );
+  const dateRangeLabel = useMemo(
+    () => fmtRangeLabel(calendarAnchor, calendarView),
+    [calendarAnchor, calendarView],
+  );
+
+  // Status counts for the dropdown
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      const k = String(e.status || "").toLowerCase();
+      if (k) counts[k] = (counts[k] ?? 0) + 1;
+    }
+    return counts;
+  }, [events]);
+
+  const statusLabel = filter === "all"
+    ? t(lang, "common.all") || "Alle"
+    : getStatusLabel(filter);
+  const photographerLabel = photographerFilter === "all"
+    ? t(lang, "common.all") || "Alle"
+    : (photographers.find((p) => p.key === photographerFilter)?.name || photographerFilter);
+  const quellenCount = (showOutlook ? 1 : 0) + (showBkbn ? 1 : 0);
+  const quellenLabel = quellenCount === 0
+    ? "Keine"
+    : quellenCount === 2
+      ? "Alle"
+      : (showOutlook ? "365-Kalender" : "Backbone-Aufträge");
+
+  function shiftAnchor(direction: -1 | 1) {
+    const d = new Date(calendarAnchor);
+    if (calendarView === "day") d.setDate(d.getDate() + direction);
+    else if (calendarView === "week") d.setDate(d.getDate() + direction * 7);
+    else d.setMonth(d.getMonth() + direction);
+    setCalendarAnchor(d);
+  }
+
   return (
-    <div className="padmin-shell">
-      <PageHeader
-        eyebrow={t(lang, "calendar.eyebrow") || "Planung"}
-        title={t(lang, "nav.calendar") || "Kalender"}
-        sub={t(lang, "calendar.label.filterDesc")}
-        kpis={[{
-          id: "events",
-          label: t(lang, "calendar.label.eventCount").replace("{{n}}", String(filtered.length)),
-          value: String(filtered.length),
-          trend: t(lang, "calendar.label.filterDesc"),
-        }]}
-        actions={(
-          <button
-            type="button"
-            onClick={() => openCreateBooking()}
-            className="pad-btn-primary"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t(lang, "calendar.button.createBooking")}
-          </button>
-        )}
-      />
-      <div className="pad-content space-y-3">
-      <div className="cal-layout">
-        <aside className="cal-side">
-          <CalMiniMonth
-            anchor={miniMonthAnchor}
-            onChangeAnchor={setMiniMonthAnchor}
-            onPickDay={(dateKey) => {
-              setCalendarAnchor(new Date(`${dateKey}T00:00:00`));
-              setCalendarView("day");
-            }}
-            eventCounts={eventCounts}
-            forecastByDate={forecastByDate}
-            selectedDateIso={(() => {
-              const y = calendarAnchor.getFullYear();
-              const m = String(calendarAnchor.getMonth() + 1).padStart(2, "0");
-              const d = String(calendarAnchor.getDate()).padStart(2, "0");
-              return `${y}-${m}-${d}`;
-            })()}
-          />
-          <div className="cal-side-card">
-            <h4>Filter</h4>
-            <FilterBar
-              pills={[
-                { id: "all", label: t(lang, "common.all") },
-                ...STATUS_KEYS.map((s) => ({ id: s, label: getStatusLabel(s) })),
-              ]}
-              activePillId={filter}
-              onPillClick={setFilter}
-            />
-            <div className="mt-2">
-              <label htmlFor="calendarStatusSelect" className="mb-1.5 block text-xs font-medium text-[var(--fg-3)]">
-                {t(lang, "calendar.label.status")}
-              </label>
-              <select
-                id="calendarStatusSelect"
-                className="ui-input w-full"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                aria-label={t(lang, "calendar.label.status")}
-              >
-                <option value="all">{t(lang, "common.all")}</option>
-                {STATUS_KEYS.map((s) => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
-              </select>
+    <div className="cal-page-v2">
+      <div className="cp-page">
+        {/* Header card */}
+        <header className="cp-header-card">
+          <div className="cp-header-text">
+            <div className="cp-header-meta">
+              <span className="cp-events-badge">{filtered.length} Events</span>
+              <span>{monthLabel}</span>
             </div>
+            <h1 className="cp-page-title">{t(lang, "nav.calendar") || "Kalender"}</h1>
+            <p className="cp-page-sub">{t(lang, "calendar.label.filterDesc")}</p>
           </div>
-          <div className="cal-side-card">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="m-0">365-Kalender</h4>
-              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-3)]">
-                <input
-                  type="checkbox"
-                  checked={showOutlook}
-                  onChange={(e) => setShowOutlook(e.target.checked)}
-                  aria-label="Persönliche 365-Termine anzeigen"
-                />
-                <span>{showOutlook ? "An" : "Aus"}</span>
-              </label>
-            </div>
-            <p className="mt-1 text-[11px] text-[var(--fg-3)]">
-              Persönliche Outlook-Termine werden lila markiert (Badge „365").
-              {outlookMeta?.user ? <> Verbunden mit <span className="font-mono">{outlookMeta.user}</span>.</> : null}
-              {outlookMeta?.error === "graph_not_configured" ? <> MS Graph ist nicht konfiguriert.</> : null}
-              {outlookMeta?.error === "no_user_email" ? <> Kein 365-Postfach für deinen Account hinterlegt.</> : null}
-              {outlookMeta && outlookMeta.error && outlookMeta.error !== "graph_not_configured" && outlookMeta.error !== "no_user_email" ? (
-                <> Fehler: <span className="text-red-500">{outlookMeta.error}</span></>
-              ) : null}
-            </p>
-            {showOutlook && outlookCategories.length > 0 ? (
-              <div className="mt-2">
-                <label htmlFor="outlookCategorySelect" className="mb-1.5 block text-xs font-medium text-[var(--fg-3)]">
-                  Kategorie
-                </label>
-                <select
-                  id="outlookCategorySelect"
-                  className="ui-input w-full"
-                  value={outlookCategory}
-                  onChange={(e) => setOutlookCategory(e.target.value)}
-                  aria-label="365-Kategorie filtern"
-                >
-                  <option value="all">Alle Kategorien</option>
-                  {outlookCategories.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    className={`filter-pill${outlookCategory === "all" ? " is-active active" : ""}`}
-                    onClick={() => setOutlookCategory("all")}
-                  >
-                    Alle
-                  </button>
-                  {outlookCategories.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className={`filter-pill${outlookCategory === c ? " is-active active" : ""}`}
-                      onClick={() => setOutlookCategory(c)}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <div className="cp-header-actions">
+            {todayFc ? (
+              <span className="cp-weather-chip" title={`Wetter heute · ${todayFc.kind}`}>
+                <span className="cp-weather-icon" aria-hidden>{weatherEmoji(todayFc.kind)}</span>
+                <span className="cp-weather-temp">{todayFc.t_max}°</span>
+                <span className="cp-weather-loc">Zürich</span>
+              </span>
             ) : null}
-            {showOutlook && outlookCategories.length === 0 && outlookMeta?.enabled ? (
-              <p className="mt-2 text-[11px] text-[var(--fg-3)]">Keine kategorisierten Termine im sichtbaren Zeitraum.</p>
-            ) : null}
-          </div>
-          <div className="cal-side-card">
-            <div className="flex items-center justify-between gap-2">
-              <h4 className="m-0">
-                <span className="mr-1.5 rounded bg-[#ea580c] px-1.5 py-0.5 text-[10px] font-bold text-white align-middle">BKBN</span>
-                Backbone-Aufträge
-              </h4>
-              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-3)]">
-                <input
-                  type="checkbox"
-                  checked={showBkbn}
-                  onChange={(e) => setShowBkbn(e.target.checked)}
-                  aria-label="BKBN-Aufträge im Kalender anzeigen"
-                />
-                <span>{showBkbn ? "An" : "Aus"}</span>
-              </label>
-            </div>
-            <p className="mt-1 text-[11px] text-[var(--fg-3)]">
-              Shooting-Aufträge von backbonephoto.co aus den 365-Kalendern von Ivan &amp; Janez (orange markiert).
-              {!showBkbn ? <> (deaktiviert)</> : null}
-              {showBkbn && bkbnMeta?.enabled ? <> {bkbnMeta.count} im sichtbaren Zeitraum.</> : null}
-              {showBkbn && bkbnMeta && bkbnMeta.enabled === false ? <> MS Graph nicht verfügbar{bkbnMeta.error ? ` (${bkbnMeta.error})` : ""}.</> : null}
-              {showBkbn && bkbnMeta && bkbnMeta.enabled && bkbnMeta.error ? <> Fehler: <span className="text-red-500">{bkbnMeta.error}</span></> : null}
-            </p>
-            {showBkbn && bkbnLegendItems.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--fg-3)]">
-                {bkbnLegendItems.map((it) => (
-                  <span key={it.mailbox} className="inline-flex items-center gap-1.5" title={it.mailbox}>
-                    <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: it.color }} aria-hidden />
-                    {it.name}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            <button
-              type="button"
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--accent)] hover:underline"
-              onClick={() => navigate("/admin/bkbn-orders")}
-            >
-              Alle BKBN-Aufträge ansehen →
+            <button type="button" className="cp-ghost-btn" onClick={() => setReloadTick((n) => n + 1)}>
+              <RotateCw />
+              <span>{t(lang, "common.refresh") || "Aktualisieren"}</span>
+            </button>
+            <button type="button" className="cp-primary-btn" onClick={() => openCreateBooking()}>
+              <Plus />
+              <span>{t(lang, "calendar.button.createBooking") || "Buchung erstellen"}</span>
             </button>
           </div>
-          <div className="cal-side-card">
-            <h4>{t(lang, "calendar.label.employee")}</h4>
-            <select
-              className="ui-input w-full"
-              value={photographerFilter}
-              onChange={(e) => setPhotographerFilter(e.target.value)}
-              aria-label={t(lang, "calendar.label.employee")}
-            >
-              <option value="all">{t(lang, "common.all")}</option>
-              {photographers.map((p) => <option key={p.key} value={p.key}>{p.name} ({p.key})</option>)}
-            </select>
-            <p className="mt-2 text-xs text-[var(--fg-3)]">
-              Wochen- / Tages- / Monatsansicht: Toolbar des Kalenders rechts.
-            </p>
-          </div>
-          <div className="cal-side-card">
-            <h4>Wetter · 7 Tage</h4>
-            <div className="flex flex-col gap-1">
-              {(() => {
-                const days: WeatherForecastDay[] = [];
-                const start = new Date();
-                start.setHours(0, 0, 0, 0);
-                for (let i = 0; i < 7; i += 1) {
-                  const d = new Date(start);
-                  d.setDate(start.getDate() + i);
-                  const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-                  const fc = forecastByDate.get(k);
-                  if (fc) days.push(fc);
-                }
-                if (days.length === 0) {
-                  return (
-                    <p className="text-xs text-[var(--fg-3)]">
-                      Vorhersage wird geladen …
-                    </p>
-                  );
-                }
-                return days.map((fc) => {
-                  const d = new Date(`${fc.date}T00:00:00`);
-                  const dow = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()];
-                  return (
-                    <div
-                      key={fc.date}
-                      className="flex items-center justify-between rounded-md border border-[var(--border)] bg-white/60 px-2 py-1"
+        </header>
+
+        {error ? <p className="cp-hint is-error">{error}</p> : null}
+        {savedOk ? <p className="cp-hint is-saved">{t(lang, "common.saved")}</p> : null}
+
+        {/* Calendar card */}
+        <div className="cp-card">
+          <div className="cp-toolbar" ref={toolbarRef}>
+            <div className="cp-nav">
+              <button type="button" className="cp-nav-btn" onClick={() => shiftAnchor(-1)} aria-label="Zurück">
+                <ChevronLeft />
+              </button>
+              <button type="button" className="cp-today" onClick={() => setCalendarAnchor(new Date())}>
+                {t(lang, "orders.calendar.today") || "Heute"}
+              </button>
+              <button type="button" className="cp-nav-btn" onClick={() => shiftAnchor(1)} aria-label="Vor">
+                <ChevronRight />
+              </button>
+            </div>
+
+            <div className={`cp-date-pill-wrap${miniCalOpen ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="cp-date-pill"
+                onClick={() => {
+                  setOpenDropdown(null);
+                  setMiniCalOpen((v) => !v);
+                }}
+              >
+                <span>{dateRangeLabel}</span>
+                <ChevronDown />
+              </button>
+              <div className="cp-mini-cal-popover">
+                <CalMiniMonth
+                  anchor={miniMonthAnchor}
+                  onChangeAnchor={setMiniMonthAnchor}
+                  onPickDay={(dateKey) => {
+                    setCalendarAnchor(new Date(`${dateKey}T00:00:00`));
+                    setCalendarView("day");
+                    setMiniCalOpen(false);
+                  }}
+                  eventCounts={eventCounts}
+                  forecastByDate={forecastByDate}
+                  selectedDateIso={(() => {
+                    const y = calendarAnchor.getFullYear();
+                    const m = String(calendarAnchor.getMonth() + 1).padStart(2, "0");
+                    const d = String(calendarAnchor.getDate()).padStart(2, "0");
+                    return `${y}-${m}-${d}`;
+                  })()}
+                />
+              </div>
+            </div>
+
+            <span className="cp-toolbar-divider" />
+
+            {/* Status dropdown */}
+            <div className={`cp-dropdown${openDropdown === "status" ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="cp-dd-trigger"
+                onClick={() => {
+                  setMiniCalOpen(false);
+                  setOpenDropdown((p) => (p === "status" ? null : "status"));
+                }}
+              >
+                <span className="cp-dd-dots">
+                  <span className="cp-dd-dot" style={{ background: filter === "all" ? "var(--blue)" : STATUS_DOT_COLOR[filter] ?? "var(--text-4)" }} />
+                </span>
+                <span className="cp-dd-label">{t(lang, "calendar.label.status")}:</span>
+                <span className="cp-dd-value">{statusLabel}</span>
+                <ChevronDown className="cp-dd-chev" />
+              </button>
+              <div className="cp-dd-menu">
+                <button
+                  type="button"
+                  className={`cp-dd-item${filter === "all" ? " is-selected" : ""}`}
+                  onClick={() => {
+                    setFilter("all");
+                    setOpenDropdown(null);
+                  }}
+                >
+                  <Check className="cp-dd-check" />
+                  <span>{t(lang, "common.all") || "Alle"}</span>
+                  <span className="cp-dd-count">{events.length}</span>
+                </button>
+                <div className="cp-dd-divider" />
+                {STATUS_KEYS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`cp-dd-item${filter === s ? " is-selected" : ""}`}
+                    onClick={() => {
+                      setFilter(s);
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <Check className="cp-dd-check" />
+                    <span className="cp-dd-dot" style={{ background: STATUS_DOT_COLOR[s] ?? "var(--text-4)" }} />
+                    <span>{getStatusLabel(s)}</span>
+                    <span className="cp-dd-count">{statusCounts[s] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mitarbeiter dropdown */}
+            <div className={`cp-dropdown${openDropdown === "mitarbeiter" ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="cp-dd-trigger"
+                onClick={() => {
+                  setMiniCalOpen(false);
+                  setOpenDropdown((p) => (p === "mitarbeiter" ? null : "mitarbeiter"));
+                }}
+              >
+                <UserIcon className="cp-dd-lead" />
+                <span className="cp-dd-label">{t(lang, "calendar.label.employee")}:</span>
+                <span className="cp-dd-value">{photographerLabel}</span>
+                <ChevronDown className="cp-dd-chev" />
+              </button>
+              <div className="cp-dd-menu">
+                <button
+                  type="button"
+                  className={`cp-dd-item${photographerFilter === "all" ? " is-selected" : ""}`}
+                  onClick={() => {
+                    setPhotographerFilter("all");
+                    setOpenDropdown(null);
+                  }}
+                >
+                  <Check className="cp-dd-check" />
+                  <span>{t(lang, "common.all") || "Alle Mitarbeiter"}</span>
+                </button>
+                {photographers.length > 0 ? <div className="cp-dd-divider" /> : null}
+                {photographers.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className={`cp-dd-item${photographerFilter === p.key ? " is-selected" : ""}`}
+                    onClick={() => {
+                      setPhotographerFilter(p.key);
+                      setOpenDropdown(null);
+                    }}
+                  >
+                    <Check className="cp-dd-check" />
+                    <span
+                      className="cp-dd-mini-avatar"
+                      style={{ background: gradientFor(p.key || p.name || "x") }}
+                      aria-hidden
                     >
-                      <span className="font-mono text-[11px] font-semibold text-[var(--ink)]" style={{ minWidth: 28 }}>
-                        {dow}
-                      </span>
-                      <span className="text-base leading-none" aria-hidden>
-                        {weatherEmoji(fc.kind)}
-                      </span>
-                      <span className="font-mono text-[11px] font-semibold text-[var(--ink)]">
-                        {fc.t_max}°/{fc.t_min}°
-                      </span>
-                      <span className="font-mono text-[10px] text-[var(--fg-3)]">{fc.precip}%</span>
-                    </div>
-                  );
-                });
-              })()}
+                      {initialsFor(p.name, p.key)}
+                    </span>
+                    <span>{p.name || p.key}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quellen (Outlook + BKBN toggles) */}
+            <div className={`cp-dropdown${openDropdown === "quellen" ? " is-open" : ""}`}>
+              <button
+                type="button"
+                className="cp-dd-trigger"
+                onClick={() => {
+                  setMiniCalOpen(false);
+                  setOpenDropdown((p) => (p === "quellen" ? null : "quellen"));
+                }}
+              >
+                <Layers className="cp-dd-lead" />
+                <span className="cp-dd-label">Quellen:</span>
+                <span className="cp-dd-value">{quellenLabel}</span>
+                <ChevronDown className="cp-dd-chev" />
+              </button>
+              <div className="cp-dd-menu">
+                <button
+                  type="button"
+                  className={`cp-dd-item${showOutlook ? " is-selected" : ""}`}
+                  onClick={() => setShowOutlook((v) => !v)}
+                >
+                  <Check className="cp-dd-check" />
+                  <span className="cp-dd-dot" style={{ background: "var(--purple)" }} />
+                  <span>365-Kalender</span>
+                  {outlookMeta?.user ? <span className="cp-dd-count" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{outlookMeta.user.split('@')[0]}</span> : null}
+                </button>
+                <button
+                  type="button"
+                  className={`cp-dd-item${showBkbn ? " is-selected" : ""}`}
+                  onClick={() => setShowBkbn((v) => !v)}
+                >
+                  <Check className="cp-dd-check" />
+                  <span className="cp-dd-dot" style={{ background: "var(--orange)" }} />
+                  <span>Backbone-Aufträge</span>
+                  {showBkbn && bkbnMeta?.enabled ? <span className="cp-dd-count">{bkbnMeta.count}</span> : null}
+                </button>
+                {showOutlook && outlookCategories.length > 0 ? (
+                  <>
+                    <div className="cp-dd-divider" />
+                    <div className="cp-dd-section">365-Kategorie</div>
+                    <button
+                      type="button"
+                      className={`cp-dd-item${outlookCategory === "all" ? " is-selected" : ""}`}
+                      onClick={() => setOutlookCategory("all")}
+                    >
+                      <Check className="cp-dd-check" />
+                      <span>Alle Kategorien</span>
+                    </button>
+                    {outlookCategories.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`cp-dd-item${outlookCategory === c ? " is-selected" : ""}`}
+                        onClick={() => setOutlookCategory(c)}
+                      >
+                        <Check className="cp-dd-check" />
+                        <span>{c}</span>
+                      </button>
+                    ))}
+                  </>
+                ) : null}
+              </div>
+            </div>
+
+            {/* View switch */}
+            <div className="cp-view-switch">
+              {(["day", "week", "month"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className={`cp-view-btn${calendarView === v ? " is-active" : ""}`}
+                  onClick={() => setCalendarView(v)}
+                >
+                  {v === "day" ? "Tag" : v === "week" ? "Woche" : "Monat"}
+                </button>
+              ))}
             </div>
           </div>
-        </aside>
-        <div className="min-w-0 space-y-2">
-      {error ? <p className="text-sm text-red-500">{error}</p> : null}
-      {savedOk ? <p className="text-sm text-[var(--success)]">{t(lang, "common.saved")}</p> : null}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface)]/80 p-10 text-center">
-          <p className="text-sm font-medium text-[var(--text-main)]">{t(lang, "calendar.noEventsInRange")}</p>
-          <button type="button" className="btn-secondary mt-3" onClick={() => openCreateBooking()}>{t(lang, "calendar.newBooking")}</button>
+
+          {filtered.length === 0 ? (
+            <div className="cp-empty">
+              <p className="cp-empty-title">{t(lang, "calendar.noEventsInRange")}</p>
+              <button type="button" className="cp-empty-link" onClick={() => openCreateBooking()}>
+                {t(lang, "calendar.newBooking")} →
+              </button>
+            </div>
+          ) : (
+            <HandoffCalendarView
+              events={filtered}
+              view={calendarView}
+              anchor={calendarAnchor}
+              onChangeView={setCalendarView}
+              onChangeAnchor={setCalendarAnchor}
+              onEventClick={openEvent}
+              onDateClick={prepareNewBooking}
+              forecastByDate={forecastByDate}
+            />
+          )}
         </div>
-      ) : null}
-      <HandoffCalendarView
-        events={filtered}
-        view={calendarView}
-        anchor={calendarAnchor}
-        onChangeView={setCalendarView}
-        onChangeAnchor={setCalendarAnchor}
-        onEventClick={openEvent}
-        onDateClick={prepareNewBooking}
-        forecastByDate={forecastByDate}
-      />
+
+        {/* Map card */}
+        <div className="cp-card">
+          <div className="cp-map-head">
+            <div>
+              <div className="cp-map-title"><MapPin /> Karte · Aufträge der Woche</div>
+              <div className="cp-map-sub">
+                {orders.length > 0 ? <><strong>{orders.length}</strong> Auftrag{orders.length === 1 ? "" : "e"} im Datensatz</> : "Keine Daten"}
+                {bkbnLegendItems.length > 0 ? (
+                  <> · {bkbnLegendItems.map((it) => it.name).join(" · ")}</>
+                ) : null}
+              </div>
+            </div>
+            <button type="button" className="cp-ghost-btn" onClick={() => navigate("/admin/bkbn-orders")}>
+              <Layers />
+              <span>BKBN-Ansicht</span>
+            </button>
+          </div>
+          <div className="dv2">
+            <OrdersMap orders={orders} lang={lang} />
+          </div>
         </div>
-      </div>
-      <div className="dv2">
-        <OrdersMap orders={orders} lang={lang} />
-      </div>
       <CreateOrderWizard
         token={token}
         open={showCreate}
