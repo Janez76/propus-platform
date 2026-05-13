@@ -2,16 +2,23 @@
  * Kompaktes Upload-Formular fuer den Popup-Dialog auf /upload.
  * Eigene Komponente statt UploadTool, damit das Layout des Modal-Designs
  * (Title-Block, Toggle-Slider, Files-Preview-Box, History-Footer) 1:1
- * umgesetzt werden kann. Die schwere Chunked-Upload-Pipeline aus
- * UploadTool ist hier bewusst nicht enthalten — der Popup ist fuer
- * uebliche Upload-Mengen (bis ~paar GB Multipart) gedacht.
+ * umgesetzt werden kann. Verwendet dieselbe Chunked-Upload-Pipeline wie
+ * UploadTool (4 MB Chunks, Retry mit Backoff, Resume, finalize), damit
+ * auch grosse Rohmaterial-Uploads (>>500 MB, viele NEFs) zuverlaessig
+ * durchgehen — der direkte Multipart-Endpoint /upload wird bewusst nicht
+ * mehr genutzt, weil dort Cloudflare und Server-Limits (max 120 Files /
+ * 10 GB pro Datei) bei groesseren Liefermengen abbrechen.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, CloudUpload, X, Image as ImageIcon, Check } from "lucide-react";
 import {
+  completeChunkedUpload,
   confirmUploadBatch,
-  uploadOrderFiles,
+  finalizeChunkedUpload,
+  getChunkedUploadStatus,
+  initChunkedUpload,
+  uploadChunkPart,
   type OrderFolderType,
   type OrderUploadBatch,
   type OrderUploadCategory,
@@ -43,6 +50,24 @@ const MODE_OPTIONS: Array<{ value: OrderUploadMode; label: string }> = [
   { value: "existing",  label: "Zum bestehenden Ordner hinzufuegen" },
   { value: "new_batch", label: "Neuer Unterordner mit Zeitstempel" },
 ];
+
+// Chunked-Upload-Konstanten — identisch zu UploadTool, damit das Modal
+// dieselbe Pipeline wie das vollwertige Tool nutzt.
+const CHUNK_SIZE_BYTES = 4 * 1024 * 1024;
+const CHUNK_RETRY_ATTEMPTS = 5;
+const UPLOAD_CONCURRENCY = 2;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function buildChunkSessionId(orderNo: string): string {
+  const randomPart =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+  return `chs_${String(orderNo)}_${Date.now()}_${randomPart}`;
+}
 
 function formatBytes(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "0 B";
@@ -166,26 +191,118 @@ export function UploadModalForm({
     setError("");
     setSuccess(null);
     setProgress(0);
+
+    const sessionId = buildChunkSessionId(orderNo);
+    const completedBytesPerFile = new Array(files.length).fill(0) as number[];
+
+    const reportProgress = () => {
+      if (totalBytes <= 0) return;
+      const absoluteBytes = completedBytesPerFile.reduce((s, b) => s + b, 0);
+      const pct = Math.min(99, Math.round((absoluteBytes / totalBytes) * 100));
+      setProgress(pct);
+    };
+
+    const uploadOneFile = async (file: File, index: number) => {
+      const init = await initChunkedUpload(token, orderNo, {
+        sessionId,
+        filename: file.name,
+        size: Number(file.size || 0),
+        type: file.type || "application/octet-stream",
+        lastModified: Number(file.lastModified || 0),
+      });
+      const uploadId = init.uploadId;
+      const fileSize = Number(file.size || 0);
+      const totalChunks = Math.max(1, Math.ceil(fileSize / CHUNK_SIZE_BYTES));
+
+      // Status fragen, damit nach einem Verbindungsabbruch nur fehlende Chunks neu hochgeladen werden.
+      const chunkStatus = await getChunkedUploadStatus(token, orderNo, uploadId);
+      const completed = chunkStatus.completed || {};
+
+      let uploadedBytes = 0;
+      for (let idx = 0; idx < totalChunks; idx += 1) {
+        if (completed[idx]) {
+          const start = idx * CHUNK_SIZE_BYTES;
+          const end = Math.min(start + CHUNK_SIZE_BYTES, fileSize);
+          uploadedBytes += Math.max(0, end - start);
+        }
+      }
+      completedBytesPerFile[index] = uploadedBytes;
+      reportProgress();
+
+      for (let idx = 0; idx < totalChunks; idx += 1) {
+        if (completed[idx]) continue;
+        const start = idx * CHUNK_SIZE_BYTES;
+        const end = Math.min(start + CHUNK_SIZE_BYTES, fileSize);
+        const chunkBlob = file.slice(start, end);
+        const chunkBytes = end - start;
+
+        let attempt = 0;
+        while (true) {
+          try {
+            await uploadChunkPart(
+              token,
+              orderNo,
+              { uploadId, index: idx, chunk: chunkBlob, filename: `${file.name}.part${idx}` },
+              (loaded) => {
+                const chunkLoaded = Math.min(chunkBytes, Number(loaded || 0));
+                completedBytesPerFile[index] = uploadedBytes + chunkLoaded;
+                reportProgress();
+              },
+            );
+            uploadedBytes += chunkBytes;
+            completedBytesPerFile[index] = uploadedBytes;
+            reportProgress();
+            break;
+          } catch (err) {
+            attempt += 1;
+            if (attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
+            // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+            await sleep(Math.min(16000, 1000 * (2 ** (attempt - 1))));
+          }
+        }
+      }
+
+      await completeChunkedUpload(token, orderNo, uploadId);
+      completedBytesPerFile[index] = fileSize;
+      reportProgress();
+    };
+
     try {
-      const res = await uploadOrderFiles(
-        token,
-        orderNo,
-        {
-          category,
-          uploadMode: mode,
-          folderType,
-          comment: comment.trim() || undefined,
-          files,
-          ...(addSuffix ? { addOrderSuffix: true } : {}),
-        },
-        (pct) => setProgress(pct),
-      );
+      // Bounded-Concurrency Queue (zwei parallele Datei-Uploads).
+      const queue = files.map((file, index) => ({ file, index }));
+      const errors: Error[] = [];
+      const runNext = async (): Promise<void> => {
+        const item = queue.shift();
+        if (!item) return;
+        try {
+          await uploadOneFile(item.file, item.index);
+        } catch (err) {
+          errors.push(err instanceof Error ? err : new Error(String(err)));
+        }
+        await runNext();
+      };
+      const slots = Math.min(UPLOAD_CONCURRENCY, files.length);
+      await Promise.all(Array.from({ length: slots }, () => runNext()));
+      if (errors.length > 0) throw errors[0];
+
+      // Finalize: Staging-Batch in DB anlegen, NAS-Transfer laeuft im Hintergrund.
+      const finalizeResult = await finalizeChunkedUpload(token, orderNo, {
+        sessionId,
+        category,
+        uploadMode: mode,
+        folderType,
+        comment: comment.trim() || undefined,
+        ...(addSuffix ? { addOrderSuffix: true } : {}),
+      });
+
       // Server-seitige Bestaetigung — verschiebt das Batch ins NAS-Staging und versendet ggf. Mail.
       try {
-        await confirmUploadBatch(token, orderNo, res.batch.id, comment.trim() || undefined);
+        await confirmUploadBatch(token, orderNo, finalizeResult.batch.id, comment.trim() || undefined);
       } catch {
         /* Confirm-Fehler ignorieren, der Upload selbst war erfolgreich */
       }
+
+      setProgress(100);
       setSuccess({ count: files.length, bytes: totalBytes });
       setFiles([]);
       setComment("");
