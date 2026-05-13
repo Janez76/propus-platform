@@ -844,7 +844,336 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
           {/* Body */}
           <div className="cow-body" ref={bodyRef}>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+        {/* ── NEW MAC-OS PANELS (1:1 to user's HTML template) ─────────── */}
+        {currentStep === 1 ? (
+          <section className="cow-pane" data-cow-step="1">
+            <h2 className="cow-pane-title">Wer ist der Kunde?</h2>
+            <p className="cow-pane-desc">Kontaktdaten für Rechnung, Terminbestätigung und Lieferung.</p>
+            <div className="cow-grid-2">
+              <div className="cow-field">
+                <label className="cow-field-label">Anrede</label>
+                <select value={formData.salutation} onChange={(e) => updateField("salutation", e.target.value)}>
+                  <option value="">—</option>
+                  <option value="Herr">Herr</option>
+                  <option value="Frau">Frau</option>
+                  <option value="Firma">Firma</option>
+                </select>
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Firma <span className="cow-opt">optional</span></label>
+                <input type="text" value={formData.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Beispiel GmbH" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Vorname</label>
+                <input type="text" value={formData.first_name} onChange={(e) => updateField("first_name", e.target.value)} placeholder="Max" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Name <span className="cow-req">*</span></label>
+                <input type="text" value={formData.customerName} onChange={(e) => updateField("customerName", e.target.value)} placeholder="Mustermann" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">E-Mail <span className="cow-req">*</span></label>
+                <input type="email" value={formData.customerEmail} onChange={(e) => updateField("customerEmail", e.target.value)} placeholder="max@beispiel.ch" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Mobil</label>
+                <input type="tel" value={formData.customerPhoneMobile} onChange={(e) => updateField("customerPhoneMobile", e.target.value)} placeholder="+41 79 123 45 67" />
+              </div>
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Bestell-Referenz <span className="cow-opt">optional</span></label>
+                <input type="text" value={formData.billingOrderRef} onChange={(e) => updateField("billingOrderRef", e.target.value)} placeholder="z.B. Ref-Nr." />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {currentStep === 2 ? (
+          <section className="cow-pane" data-cow-step="2">
+            <h2 className="cow-pane-title">Wo wird fotografiert?</h2>
+            <p className="cow-pane-desc">Adresse und Eckdaten des Objekts. Bestimmt Zone, Aufwand und Anfahrt.</p>
+            <div className="cow-grid-2">
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Adresse <span className="cow-req">*</span></label>
+                <input type="text" value={formData.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Bahnhofstrasse 12, 8001 Zürich" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Objekttyp</label>
+                <select value={formData.objectType} onChange={(e) => updateField("objectType", e.target.value)}>
+                  <option value="">—</option>
+                  <option>Wohnung</option>
+                  <option>Einfamilienhaus</option>
+                  <option>Mehrfamilienhaus</option>
+                  <option>Gewerbe</option>
+                  <option>Grundstück</option>
+                </select>
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Fläche</label>
+                <div className="cow-input-with-suffix">
+                  <input type="number" value={formData.area} onChange={(e) => updateField("area", e.target.value)} placeholder="120" />
+                  <span className="cow-suffix">m²</span>
+                </div>
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Etagen</label>
+                <input type="number" value={formData.floors} onChange={(e) => updateField("floors", e.target.value)} placeholder="1" />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Zimmer</label>
+                <input type="number" step="0.5" value={formData.rooms} onChange={(e) => updateField("rooms", e.target.value)} placeholder="4.5" />
+              </div>
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Besonderheiten <span className="cow-opt">optional</span></label>
+                <input type="text" value={formData.specials} onChange={(e) => updateField("specials", e.target.value)} placeholder="z.B. Pool, Garten, Dachterrasse" />
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {currentStep === 3 ? (
+          <section className="cow-pane" data-cow-step="3">
+            <h2 className="cow-pane-title">Welches Paket?</h2>
+            <p className="cow-pane-desc">Wähle ein Standard-Paket oder stelle individuell zusammen.</p>
+            <div className="cow-pkg-grid">
+              {catalog.filter((p) => p.kind === "package").slice(0, 6).map((pkg) => {
+                const isSel = selectedPackageCode === pkg.code;
+                return (
+                  <button
+                    key={pkg.code}
+                    type="button"
+                    className={`cow-pkg-card${isSel ? " is-selected" : ""}`}
+                    onClick={() => {
+                      const next = isSel ? "" : pkg.code;
+                      setSelectedPackageCode(next);
+                      syncServiceFields(next, selectedAddonCodes);
+                    }}
+                  >
+                    <span className="cow-pkg-check"><Check /></span>
+                    <div className="cow-pkg-name">{pkg.name}</div>
+                    <div className="cow-pkg-price">CHF {Math.round(estimatePrice(pkg))}</div>
+                    {pkg.description ? <div className="cow-pkg-desc">{pkg.description}</div> : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(() => {
+              const groups = new Map<string, Product[]>();
+              for (const p of catalog) {
+                if (p.kind !== "addon" && p.kind !== "extra" && p.kind !== "service") continue;
+                const g = p.group_key || p.kind;
+                if (!groups.has(g)) groups.set(g, []);
+                groups.get(g)?.push(p);
+              }
+              return [...groups.entries()].map(([group, products]) => (
+                <div key={group} className="cow-prod-group">
+                  <div className="cow-prod-group-head">
+                    <span className="cow-prod-group-icon"><Package /></span>
+                    <span className="cow-prod-group-title">{group}</span>
+                    <span className="cow-prod-group-count">{products.length} Optionen</span>
+                  </div>
+                  <div className="cow-prod-grid">
+                    {products.map((p) => {
+                      const isSel = selectedAddonCodes.includes(p.code);
+                      return (
+                        <button
+                          key={p.code}
+                          type="button"
+                          className={`cow-prod-card${isSel ? " is-selected" : ""}`}
+                          onClick={() => {
+                            const next = isSel
+                              ? selectedAddonCodes.filter((c) => c !== p.code)
+                              : [...selectedAddonCodes, p.code];
+                            setSelectedAddonCodes(next);
+                            syncServiceFields(selectedPackageCode, next);
+                          }}
+                        >
+                          <span className="cow-prod-card-check"><Check /></span>
+                          <span className="cow-prod-card-icon"><Package /></span>
+                          <div className="cow-prod-card-body">
+                            <div className="cow-prod-card-name">{p.name}</div>
+                            {p.description ? <div className="cow-prod-card-sub">{p.description}</div> : null}
+                          </div>
+                          <span className="cow-prod-card-price">+{Math.round(estimatePrice(p))}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
+          </section>
+        ) : null}
+
+        {currentStep === 4 ? (
+          <section className="cow-pane" data-cow-step="4">
+            <h2 className="cow-pane-title">Wann findet der Termin statt?</h2>
+            <p className="cow-pane-desc">Datum, Uhrzeit und Fotograf. Status kann später noch geändert werden.</p>
+            <div className="cow-grid-2">
+              <div className="cow-field">
+                <label className="cow-field-label">Datum <span className="cow-req">*</span></label>
+                <input type="date" value={formData.date || ""} onChange={(e) => updateField("date", e.target.value)} />
+              </div>
+              <div className="cow-field">
+                <label className="cow-field-label">Uhrzeit</label>
+                <input type="time" value={formData.time || ""} onChange={(e) => updateField("time", e.target.value)} />
+              </div>
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Fotograf</label>
+                <select value={formData.photographerKey || ""} onChange={(e) => updateField("photographerKey", e.target.value)}>
+                  <option value="">Beliebig (automatisch)</option>
+                  {photographers.map((p) => (
+                    <option key={p.key} value={p.key}>{p.name || p.key}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Status</label>
+                <div className="cow-status-pills">
+                  {([
+                    { key: "pending", label: "Ausstehend", tone: "pending" },
+                    { key: "provisional", label: "Provisorisch", tone: "provisional" },
+                    { key: "confirmed", label: "Bestätigt", tone: "confirmed" },
+                  ] as const).map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      className={`cow-status-pill${initialStatus === s.key ? " is-active" : ""}`}
+                      data-tone={s.tone}
+                      onClick={() => setInitialStatus(s.key as StatusKey)}
+                    >
+                      <span className="cow-pdot" /> {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="cow-field is-full">
+                <label className="cow-field-label">Notizen <span className="cow-opt">nur intern</span></label>
+                <textarea value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} placeholder="z.B. Zugang über Lift, Schlüssel beim Hauswart…" />
+              </div>
+            </div>
+            <div className="cow-callout">
+              <AlertCircle />
+              <span><strong>Terminbestätigung:</strong> Kunde erhält eine E-Mail mit Link zur Bestätigung des Termins. Im nächsten Schritt deaktivierbar.</span>
+            </div>
+          </section>
+        ) : null}
+
+        {currentStep === 5 ? (
+          <section className="cow-pane" data-cow-step="5">
+            <h2 className="cow-pane-title">Alles korrekt?</h2>
+            <p className="cow-pane-desc">Übersicht prüfen, dann Bestellung erstellen.</p>
+
+            <div className="cow-review-section">
+              <div className="cow-review-head">
+                <div className="cow-review-title">
+                  <span className="cow-review-icon"><User /></span>
+                  Kunde
+                </div>
+                <button type="button" className="cow-review-edit" onClick={() => goToStep(1)}>Ändern <ChevronRight /></button>
+              </div>
+              <div className="cow-review-body">
+                <strong>{[formData.salutation, formData.first_name, formData.customerName].filter(Boolean).join(" ") || "—"}</strong><br />
+                <span className="cow-muted">{[formData.customerEmail, formData.customerPhoneMobile].filter(Boolean).join(" · ") || "—"}</span>
+                {formData.company ? <div className="cow-muted">{formData.company}</div> : null}
+              </div>
+            </div>
+
+            <div className="cow-review-section">
+              <div className="cow-review-head">
+                <div className="cow-review-title">
+                  <span className="cow-review-icon"><Building2 /></span>
+                  Objekt
+                </div>
+                <button type="button" className="cow-review-edit" onClick={() => goToStep(2)}>Ändern <ChevronRight /></button>
+              </div>
+              <div className="cow-review-body">
+                <strong>{formData.address || "—"}</strong><br />
+                <span className="cow-muted">{[formData.objectType, formData.area ? `${formData.area} m²` : null, formData.floors ? `${formData.floors} Etagen` : null, formData.rooms ? `${formData.rooms} Zimmer` : null].filter(Boolean).join(" · ")}</span>
+              </div>
+            </div>
+
+            <div className="cow-review-section">
+              <div className="cow-review-head">
+                <div className="cow-review-title">
+                  <span className="cow-review-icon"><CalendarIcon /></span>
+                  Termin
+                </div>
+                <button type="button" className="cow-review-edit" onClick={() => goToStep(4)}>Ändern <ChevronRight /></button>
+              </div>
+              <div className="cow-review-body">
+                <strong>{formData.date ? `${formData.date}${formData.time ? ` · ${formData.time}` : ""}` : "Noch kein Termin"}</strong><br />
+                <span className="cow-muted">
+                  Fotograf: {(photographers.find((p) => p.key === formData.photographerKey)?.name) || "Beliebig"} · Status: {initialStatus === "pending" ? "Ausstehend" : initialStatus === "provisional" ? "Provisorisch" : initialStatus === "confirmed" ? "Bestätigt" : initialStatus}
+                </span>
+              </div>
+            </div>
+
+            <div className="cow-review-section">
+              <div className="cow-review-head">
+                <div className="cow-review-title">
+                  <span className="cow-review-icon"><Package /></span>
+                  Positionen & Preis
+                </div>
+                <button type="button" className="cow-review-edit" onClick={() => goToStep(3)}>Ändern <ChevronRight /></button>
+              </div>
+              <div className="cow-review-body">
+                {selectedPackageCode ? (
+                  <div><strong>{catalog.find((p) => p.code === selectedPackageCode)?.name || selectedPackageCode}</strong></div>
+                ) : (
+                  <div className="cow-muted">Kein Paket gewählt</div>
+                )}
+                {selectedAddonCodes.length > 0 ? (
+                  <div className="cow-muted" style={{ marginTop: 4 }}>
+                    + {selectedAddonCodes.map((c) => catalog.find((p) => p.code === c)?.name || c).join(", ")}
+                  </div>
+                ) : null}
+              </div>
+              <div className="cow-review-totals">
+                <div className="cow-total-row is-grand">
+                  <span className="l">Total</span>
+                  <span className="v">CHF {Number(formData.total || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="cow-review-section">
+              <div className="cow-review-head">
+                <div className="cow-review-title">
+                  <span className="cow-review-icon"><Check /></span>
+                  Benachrichtigungen
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap", paddingTop: 4 }}>
+                <label className="cow-check">
+                  <input type="checkbox" checked={sendStatusEmails && statusEmailTargets.customer} onChange={(e) => { setSendStatusEmails(true); setStatusEmailTargets((p) => ({ ...p, customer: e.target.checked })); }} />
+                  Kunde
+                </label>
+                <label className="cow-check">
+                  <input type="checkbox" checked={sendStatusEmails && statusEmailTargets.photographer} onChange={(e) => { setSendStatusEmails(true); setStatusEmailTargets((p) => ({ ...p, photographer: e.target.checked })); }} />
+                  Fotograf
+                </label>
+                <label className="cow-check">
+                  <input type="checkbox" checked={sendStatusEmails && statusEmailTargets.office} onChange={(e) => { setSendStatusEmails(true); setStatusEmailTargets((p) => ({ ...p, office: e.target.checked })); }} />
+                  Büro
+                </label>
+                <label className="cow-check">
+                  <input type="checkbox" checked={sendConfirmationRequest} onChange={(e) => setSendConfirmationRequest(e.target.checked)} />
+                  Terminbestätigungs-Link
+                </label>
+              </div>
+            </div>
+
+            {error ? (
+              <div className="cow-callout" style={{ background: "rgba(255, 59, 48, 0.10)", color: "var(--red)" }}>
+                <AlertCircle />
+                <span>{error}</span>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        <form ref={formRef} onSubmit={handleSubmit} className="cow-legacy-form space-y-5">
 
           {/* ── Anfangsstatus + E-Mail-Zielgruppen ───────────────────────── */}
           <div className={sectionClass} data-cow-step="5">
