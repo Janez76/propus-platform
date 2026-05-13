@@ -482,13 +482,14 @@ export function OrderSidePanel({
                 <button
                   key={s.id}
                   type="button"
-                  className={`osp-status-btn${statusKey === s.id ? " is-active" : ""}`}
+                  className={`osp-status-row${statusKey === s.id ? " is-active" : ""}`}
                   data-tone={s.tone}
                   disabled={busy || !token}
                   onClick={() => void handleSetStatus(s.id)}
                 >
                   <span className="osp-dot" />
-                  <span>{s.label}</span>
+                  <span className="osp-status-row-label">{s.label}</span>
+                  {statusKey === s.id ? <CheckCircle2 className="osp-status-row-check" /> : null}
                 </button>
               ))}
             </div>
