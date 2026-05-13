@@ -21,38 +21,38 @@ export const metadata: Metadata = {
 };
 
 /**
- * Hintergrundbilder.
+ * Hintergrundbilder der Slideshow.
  *
- * Empfehlung: durch eigene Propus-Aufnahmen ersetzen
- * (Querformat, neutral bearbeitet, min. 2000 × 1200 px).
- * Ablage: app/public/login/
- *
- * Für optimale Performance als WebP/AVIF speichern.
+ * Aktuell vier generierte, dunkle Architektur-Texturen (siehe
+ * `app/scripts/gen-login-bg.mjs`). Wenn echte Propus-Aufnahmen vorliegen,
+ * einfach die WebP-Dateien unter `app/public/login/` ersetzen (Dateinamen
+ * behalten) — oder hier weitere Einträge ergänzen. Empfehlung für echte
+ * Fotos: Querformat, neutral bearbeitet, min. 2000 × 1200 px.
  */
 const BG_IMAGES = [
   {
-    src: "/login/bg-1.jpg",
-    alt: "Modernes Wohnzimmer, lichtdurchflutet",
-    credit: "Modern Living · Lichtdurchflutet",
-    photographer: "Propus Portfolio",
+    src: "/login/bg-1.webp",
+    alt: "Dunkler Architektur-Hintergrund mit warmem Abendlicht",
+    credit: "Modern Living · Abendlicht",
+    photographer: "Propus",
   },
   {
-    src: "/login/bg-2.jpg",
-    alt: "Architektur, Bauhaus-Inspiration",
-    credit: "Architektur · Bauhaus-Inspiration",
-    photographer: "Propus Portfolio",
+    src: "/login/bg-2.webp",
+    alt: "Kühle Glasfassade, vertikale Linien",
+    credit: "Architektur · Bauhaus-Linie",
+    photographer: "Propus",
   },
   {
-    src: "/login/bg-3.jpg",
-    alt: "Loft mit hohen Decken",
-    credit: "Loft · Hohe Decken, klare Linien",
-    photographer: "Propus Portfolio",
+    src: "/login/bg-3.webp",
+    alt: "Sichtbeton mit dramatischem Streiflicht",
+    credit: "Material · Beton & Licht",
+    photographer: "Propus",
   },
   {
-    src: "/login/bg-4.jpg",
-    alt: "Interieur Zürich",
-    credit: "Interieur · Wohnen in Zürich",
-    photographer: "Propus Portfolio",
+    src: "/login/bg-4.webp",
+    alt: "Überlagerte Glasflächen, Reflexionen",
+    credit: "Fassade · Reflexionen",
+    photographer: "Propus",
   },
 ] as const;
 
