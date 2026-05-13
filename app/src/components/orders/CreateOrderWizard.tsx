@@ -26,6 +26,50 @@ const COW_STEPS: { id: number; label: string }[] = [
   { id: 4, label: "Termin" },
   { id: 5, label: "Bestätigen" },
 ];
+
+/** Strip HTML tags + decode the few entities we ever see in catalog descriptions. */
+function cleanText(s: string | null | undefined): string {
+  if (!s) return "";
+  return s
+    .replace(/<br\s*\/?>/gi, " · ")
+    .replace(/<\/?(p|div|span|strong|em|b|i)>/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+·\s+·\s+/g, " · ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** group_key → German label for the product-card section headers. */
+const GROUP_LABELS: Record<string, string> = {
+  camera: "Fotos",
+  photo: "Fotos",
+  drone: "Drohne",
+  dronePhoto: "Drohne Fotos",
+  droneVideo: "Drohne Video",
+  video: "Video & Reels",
+  matterport: "360° Tour",
+  tour: "360° Tour",
+  floorplan: "Grundriss",
+  grundriss: "Grundriss",
+  staging: "Staging",
+  keypickup: "Schlüssel",
+  express: "Express",
+  extra: "Extras",
+  service: "Service",
+};
+function groupLabel(key: string): string {
+  if (!key) return "Weitere";
+  if (GROUP_LABELS[key]) return GROUP_LABELS[key];
+  // Fallback: camelCase / snake_case → "Camel Case"
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import { createOrder, updateOrderStatus, resendEmail } from "../../api/orders";
 import { getProducts, type Product } from "../../api/products";
 import { getPhotographers, type Photographer } from "../../api/photographers";
@@ -860,7 +904,14 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">Firma <span className="cow-opt">optional</span></label>
-                <input type="text" value={formData.company} onChange={(e) => updateField("company", e.target.value)} placeholder="Beispiel GmbH" />
+                <CustomerAutocompleteInput
+                  value={formData.company}
+                  onChange={(v) => updateField("company", v)}
+                  onSelectCustomer={(c) => handleSelectCustomer(c as never)}
+                  selectValue={(c) => c.company || c.name || ""}
+                  token={token}
+                  placeholder="Beispiel GmbH"
+                />
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">Vorname</label>
@@ -868,7 +919,13 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">Name <span className="cow-req">*</span></label>
-                <input type="text" value={formData.customerName} onChange={(e) => updateField("customerName", e.target.value)} placeholder="Mustermann" />
+                <CustomerAutocompleteInput
+                  value={formData.customerName}
+                  onChange={(v) => updateField("customerName", v)}
+                  onSelectCustomer={(c) => handleSelectCustomer(c as never)}
+                  token={token}
+                  placeholder="Mustermann"
+                />
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">E-Mail <span className="cow-req">*</span></label>
@@ -950,7 +1007,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                     <span className="cow-pkg-check"><Check /></span>
                     <div className="cow-pkg-name">{pkg.name}</div>
                     <div className="cow-pkg-price">CHF {Math.round(estimatePrice(pkg))}</div>
-                    {pkg.description ? <div className="cow-pkg-desc">{pkg.description}</div> : null}
+                    {pkg.description ? <div className="cow-pkg-desc">{cleanText(pkg.description)}</div> : null}
                   </button>
                 );
               })}
@@ -968,7 +1025,7 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                 <div key={group} className="cow-prod-group">
                   <div className="cow-prod-group-head">
                     <span className="cow-prod-group-icon"><Package /></span>
-                    <span className="cow-prod-group-title">{group}</span>
+                    <span className="cow-prod-group-title">{groupLabel(group)}</span>
                     <span className="cow-prod-group-count">{products.length} Optionen</span>
                   </div>
                   <div className="cow-prod-grid">
@@ -987,11 +1044,10 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
                             syncServiceFields(selectedPackageCode, next);
                           }}
                         >
-                          <span className="cow-prod-card-check"><Check /></span>
                           <span className="cow-prod-card-icon"><Package /></span>
                           <div className="cow-prod-card-body">
                             <div className="cow-prod-card-name">{p.name}</div>
-                            {p.description ? <div className="cow-prod-card-sub">{p.description}</div> : null}
+                            {p.description ? <div className="cow-prod-card-sub">{cleanText(p.description)}</div> : null}
                           </div>
                           <span className="cow-prod-card-price">+{Math.round(estimatePrice(p))}</span>
                         </button>
