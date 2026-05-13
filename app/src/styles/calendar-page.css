@@ -726,8 +726,10 @@
 /* Month grid */
 .cp-month-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border-top: 0.5px solid var(--border);
+  width: 100%;
+  overflow: hidden;
 }
 .cp-month-dayname {
   padding: 8px 10px;
@@ -738,9 +740,13 @@
   letter-spacing: 0.06em;
   border-bottom: 0.5px solid var(--border);
   background: var(--surface-2);
+  min-width: 0;
+  overflow: hidden;
 }
 .cp-month-cell {
   min-height: 110px;
+  min-width: 0;
+  overflow: hidden;
   border-left: 0.5px solid var(--divider);
   border-bottom: 0.5px solid var(--divider);
   padding: 6px 8px;
@@ -784,6 +790,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
   background: var(--blue-bg);
   color: var(--blue);
   border-left: 2px solid var(--blue);
