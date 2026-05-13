@@ -7,7 +7,6 @@ import {
   ChevronRight,
   ExternalLink,
   Layers,
-  MapPin,
   Plus,
   RotateCw,
   User as UserIcon,
@@ -33,7 +32,6 @@ import {
   type WeatherForecastDay,
 } from "../api/weather";
 import { CreateOrderWizard } from "../components/orders/CreateOrderWizard";
-import { bkbnLegend } from "../lib/bkbn";
 import { useAuthStore } from "../store/authStore";
 import { t } from "../i18n";
 import { formatDateTime } from "../lib/utils";
@@ -423,8 +421,6 @@ export function CalendarPage() {
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, "de"));
   }, [events]);
-
-  const bkbnLegendItems = useMemo(() => bkbnLegend(events), [events]);
 
   const filtered = useMemo(
     () =>
@@ -1101,26 +1097,9 @@ export function CalendarPage() {
           ) : null}
         </div>
 
-        {/* Map card */}
-        <div className="cp-card">
-          <div className="cp-map-head">
-            <div>
-              <div className="cp-map-title"><MapPin /> Karte · Aufträge der Woche</div>
-              <div className="cp-map-sub">
-                {orders.length > 0 ? <><strong>{orders.length}</strong> Auftrag{orders.length === 1 ? "" : "e"} im Datensatz</> : "Keine Daten"}
-                {bkbnLegendItems.length > 0 ? (
-                  <> · {bkbnLegendItems.map((it) => it.name).join(" · ")}</>
-                ) : null}
-              </div>
-            </div>
-            <button type="button" className="cp-ghost-btn" onClick={() => navigate("/admin/bkbn-orders")}>
-              <Layers />
-              <span>BKBN-Ansicht</span>
-            </button>
-          </div>
-          <div className="dv2">
-            <OrdersMap orders={orders} lang={lang} />
-          </div>
+        {/* Map (OrdersMap renders its own card; we just scope the macOS look) */}
+        <div className="dv2 cp-map-wrap">
+          <OrdersMap orders={orders} lang={lang} />
         </div>
       <CreateOrderWizard
         token={token}
