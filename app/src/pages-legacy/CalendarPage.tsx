@@ -25,10 +25,7 @@ import { OrdersMap } from "../components/dashboard-v2/OrdersMap";
 import "../components/dashboard-v2/dashboard-v2.css";
 import { type CalendarClickedEvent, normalizeMojibakeText } from "../components/calendar/CalendarView";
 import { CalMiniMonth } from "../components/calendar/CalMiniMonth";
-import {
-  HandoffCalendarView,
-  type CalendarView as CalendarViewKind,
-} from "../components/calendar/HandoffCalendarView";
+type CalendarViewKind = "day" | "week" | "month";
 import {
   getWeatherForecast,
   indexForecastByDate,
@@ -80,6 +77,96 @@ function fmtRangeLabel(anchor: Date, view: CalendarViewKind): string {
     return `${left} – ${right}`;
   }
   return new Intl.DateTimeFormat("de-CH", { month: "long", year: "numeric" }).format(anchor);
+}
+
+const HOUR_HEIGHT = 52;
+const DAY_START_HOUR = 7;
+const DAY_END_HOUR = 20; // 13 visible slots: 07..19
+
+function evTone(ev: CalendarEvent): string {
+  if (ev.type === "outlook") return "outlook";
+  if (ev.type === "bkbn" || ev.source === "bkbn") return "bkbn";
+  const s = (ev.status || "").toLowerCase();
+  if (s === "confirmed") return "bestaetigt";
+  if (s === "pending" || s === "disposition_offen") return "ausstehend";
+  if (s === "provisional") return "provisorisch";
+  if (s === "done" || s === "archived") return "erledigt";
+  if (s === "completed") return "ausstehend";
+  if (s === "paused") return "paused";
+  if (s === "cancelled") return "cancelled";
+  return "bestaetigt";
+}
+
+function fmtHHmm(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("de-CH", { hour: "2-digit", minute: "2-digit" }).format(d);
+}
+
+function isoDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function evPosition(ev: CalendarEvent): { top: number; height: number } | null {
+  if (!ev.start) return null;
+  const s = new Date(ev.start);
+  if (Number.isNaN(s.getTime())) return null;
+  const e = ev.end ? new Date(ev.end) : new Date(s.getTime() + 60 * 60_000);
+  if (Number.isNaN(e.getTime())) return null;
+  const startMin = (s.getHours() - DAY_START_HOUR) * 60 + s.getMinutes();
+  const endMin = (e.getHours() - DAY_START_HOUR) * 60 + e.getMinutes();
+  const top = Math.max(0, (startMin / 60) * HOUR_HEIGHT);
+  const height = Math.max(28, ((endMin - startMin) / 60) * HOUR_HEIGHT);
+  return { top, height };
+}
+
+function nowLineTop(): number | null {
+  const now = new Date();
+  const hour = now.getHours();
+  if (hour < DAY_START_HOUR || hour >= DAY_END_HOUR) return null;
+  return ((hour - DAY_START_HOUR) + now.getMinutes() / 60) * HOUR_HEIGHT;
+}
+
+function eventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
+  return events
+    .filter((ev) => {
+      if (!ev.start) return false;
+      const s = new Date(ev.start);
+      return !Number.isNaN(s.getTime()) && sameDay(s, day);
+    })
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+}
+
+function toClicked(ev: CalendarEvent): CalendarClickedEvent {
+  return {
+    id: ev.id,
+    title: ev.title,
+    start: ev.start,
+    end: ev.end,
+    allDay: ev.allDay,
+    type: ev.type,
+    source: ev.source,
+    orderNo: ev.orderNo != null ? String(ev.orderNo) : undefined,
+    address: ev.address,
+    photographerKey: ev.photographerKey,
+    photographerName: ev.photographerName,
+    grund: ev.grund,
+    status: ev.status,
+    category: ev.category,
+    bodyPreview: ev.bodyPreview,
+    webLink: ev.webLink,
+    showAs: ev.showAs,
+    mailbox: ev.mailbox,
+    mailboxes: ev.mailboxes,
+    organizerEmail: ev.organizerEmail,
+    organizerName: ev.organizerName,
+    color: ev.color,
+  };
 }
 
 function gradientFor(seed: string): string {
@@ -529,13 +616,13 @@ export function CalendarPage() {
             <p className="cp-page-sub">{t(lang, "calendar.label.filterDesc")}</p>
           </div>
           <div className="cp-header-actions">
-            {todayFc ? (
-              <span className="cp-weather-chip" title={`Wetter heute · ${todayFc.kind}`}>
-                <span className="cp-weather-icon" aria-hidden>{weatherEmoji(todayFc.kind)}</span>
-                <span className="cp-weather-temp">{todayFc.t_max}°</span>
-                <span className="cp-weather-loc">Zürich</span>
+            <span className="cp-weather-chip" title={todayFc ? `Wetter heute · ${todayFc.kind}` : "Wetter heute"}>
+              <span className="cp-weather-icon" aria-hidden>
+                {todayFc ? weatherEmoji(todayFc.kind) : "☀"}
               </span>
-            ) : null}
+              <span className="cp-weather-temp">{todayFc ? `${todayFc.t_max}°` : "—"}</span>
+              <span className="cp-weather-loc">Zürich</span>
+            </span>
             <button type="button" className="cp-ghost-btn" onClick={() => setReloadTick((n) => n + 1)}>
               <RotateCw />
               <span>{t(lang, "common.refresh") || "Aktualisieren"}</span>
@@ -781,6 +868,209 @@ export function CalendarPage() {
             </div>
           </div>
 
+          {(() => {
+            // Build the week / day / month grid inline so the layout
+            // matches the macOS spec end-to-end.
+            const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i);
+            const today = new Date();
+            const MONTHS = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+            const DOW_SHORT = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+
+            if (calendarView === "day") {
+              const day = calendarAnchor;
+              const dayEvents = eventsForDay(filtered, day);
+              const isToday = sameDay(day, today);
+              const nowTop = isToday ? nowLineTop() : null;
+              const dow = day.getDay();
+              const isWeekend = dow === 0 || dow === 6;
+              return (
+                <>
+                  <div className="cp-week-head is-day">
+                    <div className="cp-day-col" />
+                    <div className={`cp-day-col${isToday ? " is-today" : ""}${isWeekend ? " is-weekend" : ""}`}>
+                      <div className="cp-day-name">{DOW_SHORT[dow]}{isToday ? " · Heute" : ""}</div>
+                      <div className="cp-day-num">
+                        <span className="cp-day-n">{day.getDate()}</span>
+                        <span className="cp-day-month">{MONTHS[day.getMonth()]}</span>
+                      </div>
+                      {dayEvents.length > 0 ? <span className="cp-day-count">{dayEvents.length}</span> : null}
+                    </div>
+                  </div>
+                  <div className="cp-week-body is-day">
+                    <div className="cp-time-col">
+                      {HOURS.map((h) => (
+                        <div key={h} className="cp-time-slot">{String(h).padStart(2, "0")}:00</div>
+                      ))}
+                    </div>
+                    <div
+                      className={`cp-col-body${isToday ? " is-today" : ""}${isWeekend ? " is-weekend" : ""}`}
+                      onClick={() => prepareNewBooking(isoDateKey(day))}
+                    >
+                      {HOURS.slice(1).map((h) => (
+                        <div key={h} className="cp-grid-line" style={{ top: (h - DAY_START_HOUR) * HOUR_HEIGHT }} />
+                      ))}
+                      {nowTop != null ? <div className="cp-now-line" style={{ top: nowTop }} /> : null}
+                      {dayEvents.map((ev) => {
+                        const pos = evPosition(ev);
+                        if (!pos) return null;
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            className="cp-event"
+                            data-tone={evTone(ev)}
+                            style={{ top: pos.top, height: pos.height }}
+                            onClick={(e) => { e.stopPropagation(); openEvent(toClicked(ev)); }}
+                          >
+                            <div className="cp-ev-time">{fmtHHmm(ev.start)}{ev.end ? ` – ${fmtHHmm(ev.end)}` : ""}</div>
+                            <div className="cp-ev-title">{normalizeMojibakeText(ev.address) || normalizeMojibakeText(ev.title) || "—"}</div>
+                            {ev.photographerName || ev.zipcity ? (
+                              <div className="cp-ev-meta">{[normalizeMojibakeText(ev.zipcity), ev.photographerName].filter(Boolean).join(" · ")}</div>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              );
+            }
+
+            if (calendarView === "week") {
+              const ws = startOfWeekMon(calendarAnchor);
+              const days = Array.from({ length: 7 }, (_, i) => addDaysDate(ws, i));
+              return (
+                <>
+                  <div className="cp-week-head">
+                    <div className="cp-day-col" />
+                    {days.map((day) => {
+                      const isToday = sameDay(day, today);
+                      const dow = day.getDay();
+                      const isWeekend = dow === 0 || dow === 6;
+                      const cnt = eventsForDay(filtered, day).length;
+                      return (
+                        <div
+                          key={day.toISOString()}
+                          className={`cp-day-col${isToday ? " is-today" : ""}${isWeekend ? " is-weekend" : ""}`}
+                        >
+                          <div className="cp-day-name">{DOW_SHORT[dow]}{isToday ? " · Heute" : ""}</div>
+                          <div className="cp-day-num">
+                            <span className="cp-day-n">{day.getDate()}</span>
+                            <span className="cp-day-month">{MONTHS[day.getMonth()]}</span>
+                          </div>
+                          {cnt > 0 ? <span className="cp-day-count">{cnt}</span> : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="cp-week-body">
+                    <div className="cp-time-col">
+                      {HOURS.map((h) => (
+                        <div key={h} className="cp-time-slot">{String(h).padStart(2, "0")}:00</div>
+                      ))}
+                    </div>
+                    {days.map((day) => {
+                      const dayEvents = eventsForDay(filtered, day);
+                      const isToday = sameDay(day, today);
+                      const dow = day.getDay();
+                      const isWeekend = dow === 0 || dow === 6;
+                      const nowTop = isToday ? nowLineTop() : null;
+                      return (
+                        <div
+                          key={`b-${day.toISOString()}`}
+                          className={`cp-col-body${isToday ? " is-today" : ""}${isWeekend ? " is-weekend" : ""}`}
+                          onClick={() => prepareNewBooking(isoDateKey(day))}
+                        >
+                          {HOURS.slice(1).map((h) => (
+                            <div key={h} className="cp-grid-line" style={{ top: (h - DAY_START_HOUR) * HOUR_HEIGHT }} />
+                          ))}
+                          {nowTop != null ? <div className="cp-now-line" style={{ top: nowTop }} /> : null}
+                          {dayEvents.map((ev) => {
+                            const pos = evPosition(ev);
+                            if (!pos) return null;
+                            return (
+                              <button
+                                key={ev.id}
+                                type="button"
+                                className="cp-event"
+                                data-tone={evTone(ev)}
+                                style={{ top: pos.top, height: pos.height }}
+                                onClick={(e) => { e.stopPropagation(); openEvent(toClicked(ev)); }}
+                              >
+                                <div className="cp-ev-time">{fmtHHmm(ev.start)}{ev.end ? ` – ${fmtHHmm(ev.end)}` : ""}</div>
+                                <div className="cp-ev-title">{normalizeMojibakeText(ev.address) || normalizeMojibakeText(ev.title) || "—"}</div>
+                                {ev.photographerName ? (
+                                  <div className="cp-ev-meta">{ev.photographerName}</div>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            }
+
+            // Month view
+            const mAnchor = calendarAnchor;
+            const firstOfMonth = new Date(mAnchor.getFullYear(), mAnchor.getMonth(), 1);
+            const gridStart = startOfWeekMon(firstOfMonth);
+            const cells = Array.from({ length: 42 }, (_, i) => addDaysDate(gridStart, i));
+            return (
+              <div>
+                <div className="cp-month-grid" style={{ gridTemplateRows: "auto" }}>
+                  {["Mo","Di","Mi","Do","Fr","Sa","So"].map((d) => (
+                    <div key={d} className="cp-month-dayname">{d}</div>
+                  ))}
+                </div>
+                <div className="cp-month-grid">
+                  {cells.map((day) => {
+                    const inMonth = day.getMonth() === mAnchor.getMonth();
+                    const isToday = sameDay(day, today);
+                    const dayEvents = eventsForDay(filtered, day);
+                    const visible = dayEvents.slice(0, 3);
+                    const overflow = dayEvents.length - visible.length;
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={`cp-month-cell${!inMonth ? " is-muted" : ""}${isToday ? " is-today" : ""}`}
+                        onClick={() => prepareNewBooking(isoDateKey(day))}
+                      >
+                        <div className="cp-month-cell-head">
+                          <span className="cp-month-day">{day.getDate()}</span>
+                        </div>
+                        {visible.map((ev) => (
+                          <div
+                            key={ev.id}
+                            className="cp-month-event"
+                            data-tone={evTone(ev)}
+                            onClick={(e) => { e.stopPropagation(); openEvent(toClicked(ev)); }}
+                            title={ev.title}
+                          >
+                            {fmtHHmm(ev.start)} {normalizeMojibakeText(ev.address) || normalizeMojibakeText(ev.title)}
+                          </div>
+                        ))}
+                        {overflow > 0 ? (
+                          <span
+                            className="cp-month-more"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCalendarAnchor(day);
+                              setCalendarView("day");
+                            }}
+                          >
+                            + {overflow} weitere
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
           {filtered.length === 0 ? (
             <div className="cp-empty">
               <p className="cp-empty-title">{t(lang, "calendar.noEventsInRange")}</p>
@@ -788,18 +1078,7 @@ export function CalendarPage() {
                 {t(lang, "calendar.newBooking")} →
               </button>
             </div>
-          ) : (
-            <HandoffCalendarView
-              events={filtered}
-              view={calendarView}
-              anchor={calendarAnchor}
-              onChangeView={setCalendarView}
-              onChangeAnchor={setCalendarAnchor}
-              onEventClick={openEvent}
-              onDateClick={prepareNewBooking}
-              forecastByDate={forecastByDate}
-            />
-          )}
+          ) : null}
         </div>
 
         {/* Map card */}
