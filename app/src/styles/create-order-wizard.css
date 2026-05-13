@@ -435,6 +435,125 @@
 .cow-v2 .cow-prod-card.is-selected .cow-prod-card-check { opacity: 1; }
 .cow-v2 .cow-prod-card-check > svg { width: 9px; height: 9px; }
 
+/* ── Date / Time Apple-style pickers (Step 4) ───────── */
+.cow-v2 .cow-date-wrap,
+.cow-v2 .cow-time-wrap { position: relative; }
+.cow-v2 .cow-date-trigger,
+.cow-v2 .cow-time-trigger {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 0;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm);
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: box-shadow 0.15s;
+}
+.cow-v2 .cow-date-trigger:hover,
+.cow-v2 .cow-time-trigger:hover {
+  box-shadow: 0 0 0 0.5px var(--text-3), var(--shadow-sm);
+}
+.cow-v2 .cow-date-trigger.is-empty,
+.cow-v2 .cow-time-trigger.is-empty { color: var(--text-4); }
+.cow-v2 .cow-date-trigger > svg,
+.cow-v2 .cow-time-trigger > svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.cow-v2 .cow-date-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 80;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-radius: var(--r-md);
+  padding: 14px;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
+  animation: cowFade 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cow-v2 .cow-date-popover-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border);
+}
+.cow-v2 .cow-date-popover-link {
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+.cow-v2 .cow-date-popover-link:hover { background: var(--blue-bg); }
+
+/* Make sure the embedded CalMiniMonth picks up the macOS look */
+.cow-v2 .cow-date-popover .cmm-day,
+.cow-v2 .cow-date-popover [class*="mini"] button {
+  font-feature-settings: 'tnum';
+}
+
+.cow-v2 .cow-time-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 80;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-radius: var(--r-md);
+  padding: 6px;
+  box-shadow: 0 0 0 0.5px rgba(0,0,0,0.08), var(--shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+  animation: cowFade 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+.cow-v2 .cow-time-slot {
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-feature-settings: 'tnum';
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.1s;
+}
+.cow-v2 .cow-time-slot:hover {
+  background: var(--blue);
+  color: #fff;
+}
+.cow-v2 .cow-time-slot.is-selected {
+  background: var(--blue);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* Status pills */
 .cow-v2 .cow-status-pills {
   display: flex;

@@ -76,6 +76,7 @@ import { getPhotographers, type Photographer } from "../../api/photographers";
 import { getCustomerContacts, type Customer, type CustomerContact } from "../../api/customers";
 import { CustomerAutocompleteInput } from "../ui/CustomerAutocompleteInput";
 import { AddressAutocompleteInput, type ParsedAddress } from "../ui/AddressAutocompleteInput";
+import { CalMiniMonth } from "../calendar/CalMiniMonth";
 import { StructuredAddressForm } from "../address/StructuredAddressForm";
 import { randomUUID } from "../../lib/selekto/randomId";
 import { DbFieldHint } from "../ui/DbFieldHint";
@@ -320,6 +321,24 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   const [currentStep, setCurrentStep] = useState<number>(1);
   const formRef = useRef<HTMLFormElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  // Date / Time popover state for Step 4 (Apple-style picker).
+  const [dateOpen, setDateOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+  const [miniMonthAnchor, setMiniMonthAnchor] = useState<Date>(() => new Date());
+  const datePopRef = useRef<HTMLDivElement | null>(null);
+  const timePopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!dateOpen && !timeOpen) return;
+    function onDoc(e: globalThis.MouseEvent) {
+      const t = e.target as Node;
+      if (datePopRef.current && datePopRef.current.contains(t)) return;
+      if (timePopRef.current && timePopRef.current.contains(t)) return;
+      setDateOpen(false);
+      setTimeOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [dateOpen, timeOpen]);
   function goToStep(n: number) {
     if (n < 1 || n > 5) return;
     setCurrentStep(n);
@@ -1114,11 +1133,81 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
             <div className="cow-grid-2">
               <div className="cow-field">
                 <label className="cow-field-label">Datum <span className="cow-req">*</span></label>
-                <input type="date" value={formData.date || ""} onChange={(e) => updateField("date", e.target.value)} />
+                <div className="cow-date-wrap" ref={datePopRef}>
+                  <button
+                    type="button"
+                    className={`cow-date-trigger${formData.date ? "" : " is-empty"}`}
+                    onClick={() => { setDateOpen((v) => !v); setTimeOpen(false); }}
+                  >
+                    {formData.date
+                      ? new Date(`${formData.date}T00:00:00`).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "long", year: "numeric" })
+                      : "Datum wählen"}
+                    <CalendarIcon />
+                  </button>
+                  {dateOpen ? (
+                    <div className="cow-date-popover">
+                      <CalMiniMonth
+                        anchor={miniMonthAnchor}
+                        onChangeAnchor={setMiniMonthAnchor}
+                        onPickDay={(iso) => { updateField("date", iso); setDateOpen(false); }}
+                        eventCounts={new Map()}
+                        forecastByDate={null}
+                        selectedDateIso={formData.date || null}
+                      />
+                      <div className="cow-date-popover-actions">
+                        <button type="button" className="cow-date-popover-link" onClick={() => { updateField("date", ""); setDateOpen(false); }}>Löschen</button>
+                        <button
+                          type="button"
+                          className="cow-date-popover-link"
+                          onClick={() => {
+                            const t = new Date();
+                            const iso = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+                            updateField("date", iso);
+                            setMiniMonthAnchor(t);
+                            setDateOpen(false);
+                          }}
+                        >Heute</button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="cow-field">
                 <label className="cow-field-label">Uhrzeit</label>
-                <input type="time" value={formData.time || ""} onChange={(e) => updateField("time", e.target.value)} />
+                <div className="cow-time-wrap" ref={timePopRef}>
+                  <button
+                    type="button"
+                    className={`cow-time-trigger${formData.time ? "" : " is-empty"}`}
+                    onClick={() => { setTimeOpen((v) => !v); setDateOpen(false); }}
+                  >
+                    {formData.time || "Uhrzeit wählen"}
+                    <Clock />
+                  </button>
+                  {timeOpen ? (
+                    <div className="cow-time-popover" role="listbox">
+                      {(() => {
+                        const slots: string[] = [];
+                        for (let h = 7; h <= 19; h++) {
+                          for (const m of [0, 30]) {
+                            slots.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+                          }
+                        }
+                        return slots.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            role="option"
+                            aria-selected={formData.time === slot}
+                            className={`cow-time-slot${formData.time === slot ? " is-selected" : ""}`}
+                            onClick={() => { updateField("time", slot); setTimeOpen(false); }}
+                          >
+                            {slot}
+                          </button>
+                        ));
+                      })()}
+                    </div>
+                  ) : null}
+                </div>
               </div>
               <div className="cow-field is-full">
                 <label className="cow-field-label">Fotograf</label>
