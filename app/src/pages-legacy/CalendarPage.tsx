@@ -392,13 +392,18 @@ export function CalendarPage() {
 
   useEffect(() => {
     let alive = true;
-    const y = miniMonthAnchor.getFullYear();
-    const m = miniMonthAnchor.getMonth();
-    const gridStart = new Date(y, m, 1);
-    const dow = (gridStart.getDay() + 6) % 7;
-    gridStart.setDate(gridStart.getDate() - dow - 7);
-    const fromIso = `${gridStart.getFullYear()}-${String(gridStart.getMonth() + 1).padStart(2, "0")}-${String(gridStart.getDate()).padStart(2, "0")}`;
-    getWeatherForecast(token, { from: fromIso, days: 56, region: "zurich" })
+    // Open-Meteo erlaubt nur 16 Tage. Wir starten am Wochenanfang der
+    // aktuellen Calendar-Ansicht (oder Heute, falls die Ansicht in der
+    // Vergangenheit liegt), damit der heutige Tag immer im geladenen
+    // Fenster liegt — sonst zeigt der Header-Chip "—" und die Tag-Header
+    // hätten kein Wetter.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeekMon(calendarAnchor);
+    weekStart.setHours(0, 0, 0, 0);
+    const startD = weekStart.getTime() < today.getTime() ? today : weekStart;
+    const fromIso = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}-${String(startD.getDate()).padStart(2, "0")}`;
+    getWeatherForecast(token, { from: fromIso, days: 16, region: "zurich" })
       .then((resp) => {
         if (!alive) return;
         setForecastByDate(indexForecastByDate(resp));
@@ -409,7 +414,7 @@ export function CalendarPage() {
     return () => {
       alive = false;
     };
-  }, [token, miniMonthAnchor]);
+  }, [token, calendarAnchor]);
 
   const outlookCategories = useMemo(() => {
     const set = new Set<string>();
