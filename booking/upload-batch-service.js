@@ -294,7 +294,11 @@ function normalizeBatchInput({
     throw new Error("Ungültige Kategorie");
   }
   const normalizedMode = normalizeUploadMode(uploadMode);
-  const normalizedFolderType = ["raw_material", "customer_folder"].includes(String(folderType || ""))
+  // "selection" is the customer-choice / zur-Auswahl drop area added in
+  // commit 01f054d3 — it MUST be in the allowlist, otherwise the upload
+  // silently lands in the customer folder root (where Bildauswahl can't
+  // find it and the gallery suggestion comes up empty).
+  const normalizedFolderType = ["raw_material", "customer_folder", "selection"].includes(String(folderType || ""))
     ? String(folderType)
     : "customer_folder";
   const normalizedComment = sanitizeUploadComment(comment);
