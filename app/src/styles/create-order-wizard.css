@@ -792,6 +792,9 @@ body:has(.cow-v2) > .fixed.inset-0.z-50.flex > div[class*="max-w-7xl"] {
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+  /* Fixed modal size — body scrolls when content overflows so the
+     dialog frame never jumps between steps. */
+  height: min(720px, 92vh);
 }
 
 /* Hide the default DialogTitle / DialogClose — the new cow-header renders

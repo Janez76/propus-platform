@@ -857,12 +857,12 @@ export function CreateOrderWizard({ token, open, onOpenChange, initialDate, init
   const displaySlots = slotPeriod === "am" ? amSlots : pmSlots;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} dismissOnOverlayClick={false}>
       <DialogContent className="cow-v2-dialog">
         <DialogHeader className="sr-only">
           <DialogTitle>{t(lang, "wizard.title")}</DialogTitle>
         </DialogHeader>
-        <div className="cow-v2 flex flex-col" data-cow-step={String(currentStep)} style={{ maxHeight: "92vh" }}>
+        <div className="cow-v2 flex flex-col" data-cow-step={String(currentStep)}>
           {/* Header + Stepper */}
           <header className="cow-header">
             <div className="cow-header-top">

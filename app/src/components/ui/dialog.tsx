@@ -5,10 +5,14 @@ import { cn } from "../../lib/utils";
 export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** If false, clicking the dimmed backdrop does NOT close the dialog.
+   *  Useful for multi-step wizards where an accidental click would lose
+   *  unsaved input. Esc + an explicit close button still work. */
+  dismissOnOverlayClick?: boolean;
   children: React.ReactNode;
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, dismissOnOverlayClick = true, children }: DialogProps) {
   React.useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && open) {
@@ -24,9 +28,9 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-4">
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={() => onOpenChange(false)}
+        onClick={dismissOnOverlayClick ? () => onOpenChange(false) : undefined}
       />
       <div className="relative z-50 w-full max-w-7xl max-h-[95vh] overflow-y-auto mx-4 my-auto">
         {children}
