@@ -512,6 +512,32 @@
   font-weight: 500;
   text-transform: uppercase;
 }
+.cp-day-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  font-feature-settings: 'tnum';
+  letter-spacing: -0.01em;
+}
+.cp-day-weather .cp-day-w-icon {
+  font-size: 13px;
+  line-height: 1;
+  filter: saturate(1.05);
+}
+.cp-day-weather .cp-day-w-temp {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.cp-day-weather .cp-day-w-low {
+  color: var(--text-4);
+  font-weight: 500;
+}
+.cp-day-col.is-today .cp-day-weather { color: var(--blue); }
+.cp-day-col.is-today .cp-day-weather .cp-day-w-temp { color: var(--blue); }
 .cp-day-count {
   position: absolute;
   top: 12px;

@@ -883,6 +883,7 @@ export function CalendarPage() {
               const nowTop = isToday ? nowLineTop() : null;
               const dow = day.getDay();
               const isWeekend = dow === 0 || dow === 6;
+              const dayFc = forecastByDate.get(isoDateKey(day));
               return (
                 <>
                   <div className="cp-week-head is-day">
@@ -893,6 +894,13 @@ export function CalendarPage() {
                         <span className="cp-day-n">{day.getDate()}</span>
                         <span className="cp-day-month">{MONTHS[day.getMonth()]}</span>
                       </div>
+                      {dayFc ? (
+                        <div className="cp-day-weather" title={`${dayFc.kind} · ${dayFc.precip}% Niederschlag`}>
+                          <span className="cp-day-w-icon" aria-hidden>{weatherEmoji(dayFc.kind)}</span>
+                          <span className="cp-day-w-temp">{dayFc.t_max}°</span>
+                          <span className="cp-day-w-low">/ {dayFc.t_min}°</span>
+                        </div>
+                      ) : null}
                       {dayEvents.length > 0 ? <span className="cp-day-count">{dayEvents.length}</span> : null}
                     </div>
                   </div>
@@ -948,6 +956,7 @@ export function CalendarPage() {
                       const dow = day.getDay();
                       const isWeekend = dow === 0 || dow === 6;
                       const cnt = eventsForDay(filtered, day).length;
+                      const dayFc = forecastByDate.get(isoDateKey(day));
                       return (
                         <div
                           key={day.toISOString()}
@@ -958,6 +967,12 @@ export function CalendarPage() {
                             <span className="cp-day-n">{day.getDate()}</span>
                             <span className="cp-day-month">{MONTHS[day.getMonth()]}</span>
                           </div>
+                          {dayFc ? (
+                            <div className="cp-day-weather" title={`${dayFc.kind} · ${dayFc.precip}% Niederschlag`}>
+                              <span className="cp-day-w-icon" aria-hidden>{weatherEmoji(dayFc.kind)}</span>
+                              <span className="cp-day-w-temp">{dayFc.t_max}°</span>
+                            </div>
+                          ) : null}
                           {cnt > 0 ? <span className="cp-day-count">{cnt}</span> : null}
                         </div>
                       );
