@@ -11790,39 +11790,53 @@ app.get("/api/catalog/travel-zones", async (req, res) => {
 // Admin: Historische Bestellungen rückwirkend mit Zonen-Addon versehen
 app.post("/api/admin/orders/backfill-travel-zones", requireAdmin, async (req, res) => {
   try {
+    const force = String(req.query.force || req.body?.force || "").toLowerCase() === "true" || req.query.force === "1";
+    const onlyOrderNo = req.query.orderNo ? Number(req.query.orderNo) : (req.body?.orderNo ? Number(req.body.orderNo) : null);
     const orders = await loadOrders();
     let updated = 0;
     let skipped = 0;
+    let replaced = 0;
     const errors = [];
 
     for (const order of orders) {
       try {
+        if (onlyOrderNo && Number(order.orderNo) !== onlyOrderNo) continue;
         const services = order.services || {};
         const addons = Array.isArray(services.addons) ? services.addons : [];
 
-        // Bereits eine Reisezone? Überspringen.
-        const hasTravelZone = addons.some((a) => String(a.id || a.labelKey || "").startsWith("travel:zone-"));
-        if (hasTravelZone) { skipped++; continue; }
+        const existingZoneAddon = addons.find((a) => String(a.id || a.labelKey || "").startsWith("travel:zone-"));
+        const hasTravelZone = !!existingZoneAddon;
+        if (hasTravelZone && !force) { skipped++; continue; }
 
-        // Adresse ermitteln: aus billing.zipcity oder zip-Felder
+        // PLZ-Quelle: bevorzugt Liegenschafts-Adresse (order.address), sonst Rechnungs-Felder
         const billing = order.billing || {};
+        const objAddr = String(order.address || "").trim();
+        const zipFromObjAddr = (objAddr.match(/\b(\d{4})\b/) || [])[1] || "";
         const zipcity = String(billing.zipcity || billing.zip_city || "").trim();
         const zipFromBilling = zipcity ? zipcity.split(" ")[0] : String(billing.zip || "").trim();
         const canton = String(order.canton || billing.canton || "").trim();
-        const zip = zipFromBilling || String(order.zip || "").trim();
+        const zip = zipFromObjAddr || zipFromBilling || String(order.zip || "").trim();
 
         if (!zip && !canton) { skipped++; continue; }
 
         const tz = await resolveTravelZone(canton, zip);
         if (!tz.productCode) { skipped++; continue; }
 
-        const updatedAddons = [...addons, { id: tz.productCode, group: "travel_zone", label: tz.label, labelKey: tz.productCode }];
+        // Wenn bereits korrekt: nichts tun
+        if (hasTravelZone && String(existingZoneAddon.id || existingZoneAddon.labelKey) === tz.productCode) {
+          skipped++; continue;
+        }
+
+        const previousPrice = hasTravelZone ? Number(existingZoneAddon.price || 0) : 0;
+        const addonsWithoutZone = addons.filter((a) => !String(a.id || a.labelKey || "").startsWith("travel:zone-"));
+        const newZoneAddon = { id: tz.productCode, group: "travel_zone", label: tz.label, labelKey: tz.productCode, price: tz.price };
+        const updatedAddons = [...addonsWithoutZone, newZoneAddon];
         const updatedServices = { ...services, addons: updatedAddons };
 
-        // Preis neu berechnen
+        // Preis neu berechnen: alte Zone abziehen, neue addieren
         const vatRate = Number((await getSetting("pricing.vatRate")).value || 0.081);
         const currentSubtotal = Number(order.subtotal || order.pricing?.subtotal || 0);
-        const newSubtotal = Math.round((currentSubtotal + tz.price) * 100) / 100;
+        const newSubtotal = Math.round((currentSubtotal - previousPrice + tz.price) * 100) / 100;
         const discountVal = Number(order.discount || order.pricing?.discount || 0);
         const vatBase = Math.max(0, newSubtotal - discountVal);
         const newVat = Math.round(vatBase * vatRate * 100) / 100;
@@ -11839,13 +11853,13 @@ app.post("/api/admin/orders/backfill-travel-zones", requireAdmin, async (req, re
           await db.updateOrderFields(order.orderNo, updateFields);
         }
 
-        updated++;
+        if (hasTravelZone) replaced++; else updated++;
       } catch (err) {
         errors.push(`#${order.orderNo}: ${err?.message || "Fehler"}`);
       }
     }
 
-    res.json({ ok: true, updated, skipped, errors });
+    res.json({ ok: true, updated, replaced, skipped, errors });
   } catch (err) {
     res.status(500).json({ error: err.message || "Backfill fehlgeschlagen" });
   }
@@ -13777,16 +13791,18 @@ app.put("/api/admin/photographers/:key/settings", requireAdmin, async (req, res)
     for (const f of settingsCols) {
       if (f in body) patch[f] = body[f];
     }
+    // Radius-Normalisierung: leer / 0 / negativ / NaN => NULL (= Radius inaktiv im Resolver-Flow)
+    const normalizeRadius = (raw) => {
+      if (raw === "" || raw == null) return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return Math.round(n);
+    };
     if ("radius_km" in body && !("max_radius_km" in body)) {
-      const r = body.radius_km;
-      patch.max_radius_km =
-        r === "" || r == null || (typeof r === "number" && !Number.isFinite(r))
-          ? null
-          : Math.round(Number(r));
+      patch.max_radius_km = normalizeRadius(body.radius_km);
     }
-    if ("max_radius_km" in patch && patch.max_radius_km != null) {
-      const n = Number(patch.max_radius_km);
-      patch.max_radius_km = Number.isFinite(n) ? Math.round(n) : null;
+    if ("max_radius_km" in patch) {
+      patch.max_radius_km = normalizeRadius(patch.max_radius_km);
     }
     if ("home_lat" in patch) {
       const n = Number(patch.home_lat);

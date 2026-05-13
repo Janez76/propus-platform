@@ -42,11 +42,19 @@ function firstNonEmpty() {
   return "";
 }
 
+function buildAddressLine(billing, order) {
+  const objAddr = String(order?.address || "").trim();
+  const zipCity = String(billing?.zipcity || "").trim();
+  if (objAddr && /\b\d{4}\b/.test(objAddr)) return objAddr;
+  return [zipCity, objAddr].filter(Boolean).join(", ");
+}
+
 function buildPhotographerRadiusLabel(value) {
   if (value == null || String(value).trim() === "") return "";
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value).trim();
-  return n <= 0 ? "unbegrenzt" : `${Math.round(n)} km`;
+  if (n <= 0) return "";
+  return `${Math.round(n)} km`;
 }
 
 function buildPhotographerContactSummary({ phone = "", mobile = "", whatsapp = "" } = {}) {
@@ -318,7 +326,7 @@ function buildTemplateVars(order, extra) {
     company: billing.company || "",
     address: order.address || "",
     zipCity: billing.zipcity || "",
-    addressLine: [billing.zipcity, order.address].filter(Boolean).join(", ") || "",
+    addressLine: buildAddressLine(billing, order),
     appointmentDate,
     appointmentTime,
     photographerKey: photographer.key || "",
@@ -655,4 +663,6 @@ module.exports = {
   sendAttendeeNotifications,
   AVAILABLE_PLACEHOLDERS,
   normalizeMailSendResult,
+  buildAddressLine,
+  buildPhotographerRadiusLabel,
 };
