@@ -11,6 +11,7 @@ export function OrderMessages({ token, orderNo, onClose }: Props) {
   const lang = useAuthStore((s) => s.language);
   const [items, setItems] = useState<OrderMessage[]>([]);
   const [message, setMessage] = useState("");
+  const [sendErr, setSendErr] = useState("");
 
   async function load() {
     setItems(await getOrderMessages(token, orderNo));
@@ -27,9 +28,14 @@ export function OrderMessages({ token, orderNo, onClose }: Props) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!message.trim()) return;
-    await postOrderMessage(token, orderNo, message.trim());
-    setMessage("");
-    await load();
+    setSendErr("");
+    try {
+      await postOrderMessage(token, orderNo, message.trim());
+      setMessage("");
+      await load();
+    } catch {
+      setSendErr(t(lang, "chat.error.sendFailed"));
+    }
   }
 
   return (
@@ -43,6 +49,7 @@ export function OrderMessages({ token, orderNo, onClose }: Props) {
           {items.map((m) => <p key={m.id} className="text-sm"><span className="text-zinc-500">{formatDateTime(m.created_at)}</span> - {m.message}</p>)}
           {!items.length ? <p className="text-sm text-zinc-500">{t(lang, "messages.empty")}</p> : null}
         </div>
+        {sendErr && <p className="mt-2 text-sm text-red-600">{sendErr}</p>}
         <form className="mt-3 flex gap-2" onSubmit={submit}>
           <label htmlFor="msgInput" className="sr-only">{t(lang, "messages.label.message")}</label>
           <input id="msgInput" name="msgInput" value={message} onChange={(e) => setMessage(e.target.value)} className="ui-input min-w-0 flex-1" />

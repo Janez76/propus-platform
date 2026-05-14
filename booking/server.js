@@ -7591,6 +7591,7 @@ function getEmailWorkflowIcsFlags(configMap, templateKey, role) {
 
 // Status -ndern (inkl. archived) - mit State-Machine-Validierung
 app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) => {
+  try {
   const orderNo = Number(req.params.orderNo);
   const { status, reason } = req.body || {};
 
@@ -7654,7 +7655,7 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
       let icsContentForSend = null;
       if (order.schedule?.date && order.schedule?.time) {
         try {
-          const evTypeSt = String(order.status || "").toLowerCase() === "confirmed" ? "confirmed" : undefined;
+          const evTypeSt = String(status || "").toLowerCase() === "confirmed" ? "confirmed" : undefined;
           let titleIcs = buildCalendarSubject({ title: `Auftrag #${orderNo}`, orderNo });
           let descIcs = `Auftrag #${orderNo}`;
           if (pool) {
@@ -7938,6 +7939,10 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
     console.error("[status] event log error", logErr && logErr.message);
   }
   res.json({ ok: true, orderNo, status, sideEffects });
+  } catch (err) {
+    console.error("[status] unhandled error", err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: "Interner Fehler bei Statusänderung" });
+  }
 });
 
 app.get("/api/admin/orders/:orderNo/events", requireAdmin, async (req, res) => {
@@ -8496,6 +8501,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
 
 // Fotograf -ndern
 app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, res) => {
+  try {
   const orderNo = Number(req.params.orderNo);
   const { photographerKey: newKey } = req.body || {};
   if(!newKey){
@@ -8700,6 +8706,10 @@ app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, r
     console.error("[reassign] event log error", logErr && logErr.message);
   }
   res.json({ ok: true, orderNo, photographer: { key: newKey, name: newPhotogName } });
+  } catch (err) {
+    console.error("[reassign] unhandled error", err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: "Interner Fehler bei Fotograf-Zuweisung" });
+  }
 });
 
 // Bestellung loeschen

@@ -510,7 +510,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
     setErr("");
     setBusy("details");
     try {
-      const pkgCfg = adminConfig?.packages.find((p) => p.key === editPackageKey);
+      const pkgCfg = adminConfig?.packages?.find((p) => p.key === editPackageKey);
       await updateOrderDetails(token, data.orderNo, {
         billing: editBilling,
         object: editObject,
@@ -1141,7 +1141,7 @@ export function OrderDetail({ token, orderNo, onClose, onDelete, onRefresh, onOp
                   <div className="rounded-lg border border-zinc-200 p-3 text-sm">
                     <div className="mb-2 font-semibold text-zinc-600">{t(lang, "orderDetail.label.selectionOverview")}</div>
                     {(() => {
-                      const pkg = adminConfig?.packages.find((p) => p.key === editPackageKey);
+                      const pkg = adminConfig?.packages?.find((p) => p.key === editPackageKey);
                       return pkg ? (
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="font-medium">{pkg.label}</span>
