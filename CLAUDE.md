@@ -179,33 +179,10 @@ git submodule update --init --recursive .vault
 ```
 
 Danach arbeitest du im Container mit `.vault/` als Vault-Wurzel.
-Schreibe neue Notizen genauso wie lokal, und wenn die Aufgabe
-abgeschlossen ist:
-
-```bash
-cd .vault
-git checkout main
-git add . && git commit -m "notes: <was-getan>" && git push
-```
-
-Zurück im Haupt-Repo den Submodule-Pointer mit-committen:
-
-```bash
-cd ..
-git add .vault
-git commit -m "chore: bump vault submodule"
-git push
-```
-
-Janez' Windows-Rechner zieht die Änderungen automatisch durch den stündlich
-laufenden Auto-Pull (Task Scheduler: `ObsidianVaultAutoPush`).
 
 **Mache den `submodule update --init`-Schritt ungefragt zu Beginn jeder
 Cloud-Session**, wenn `.vault/` leer ist — es ist Teil von Janez'
 Standard-Workflow, nicht optional.
-
-Das Regelwerk dort (`CLAUDE.md` im Vault-Root) gilt für alle Vault-Schreibe.
-Die wichtigsten Ordner für Repo-bezogene Inhalte:
 
 | Inhalt | Zielordner im Vault |
 |---|---|
@@ -215,46 +192,91 @@ Die wichtigsten Ordner für Repo-bezogene Inhalte:
 | Schnelle Idee, später triagieren | `00_Inbox/` |
 | Projekt-spezifisches (Roadmap, Meilenstein) | `20_Projects/propus-platform/` |
 
-### Wann notieren
-
-- **Architektur-Entscheidungen** (warum X statt Y): kurzer Eintrag in
-  `10_Notes/` mit `tags: [propus, architecture, decision]` und Link
-  zum betroffenen PR/Commit.
-- **Recherche-Ergebnisse** (z.B. „wie funktioniert Logto Token Refresh"):
-  `40_Resources/research/<thema>-<YYYY-MM-DD>.md` mit Quellen-Fußnoten.
-- **Wiederkehrende Befehle/Setups** (psql-Verbindungsstring, Deploy-Quirks):
-  `40_Resources/tools/`.
-- **Bug-Hunt-Erkenntnisse** mit zukünftigem Wert: `10_Notes/` mit Link zum
-  Fix-Commit.
-
-### Wann NICHT notieren
-
-- Trivialer Commit-Inhalt → `git log` reicht.
-- Halbfertige Hypothesen mitten in einer Debug-Session → erst klären,
-  dann notieren.
-- Sensible Daten (Secrets, Customer-Daten) → niemals.
-
-### Frontmatter-Konvention für Repo-bezogene Notizen
-
-```yaml
 ---
-title: "Aussagekräftiger Titel"
-created: 2026-05-11
-tags: [propus, <kategorie>]
-status: active
-repo: "propus-platform"
-commit: "<sha-falls-relevant>"
----
+
+## 9. Ruflo — Agent-Orchestrierung (Swarm v3)
+
+Ruflo ist installiert und aktiv (`.mcp.json`, `.claude/agents/`, `.swarm/`).
+Nutze es für Tasks mit 3+ Dateien, Cross-Modul-Änderungen oder paralleler Arbeit.
+
+### Agent Comms (SendMessage-First)
+
+```javascript
+// ALLE Agents in EINER Nachricht spawnen
+Agent({ prompt: "Recherchiere Codebase. Sende Ergebnisse an 'architect'.",
+  subagent_type: "researcher", name: "researcher", run_in_background: true })
+Agent({ prompt: "Warte auf 'researcher'. Entwirf Lösung. Sende an 'coder'.",
+  subagent_type: "system-architect", name: "architect", run_in_background: true })
+Agent({ prompt: "Warte auf 'architect'. Implementiere. Sende an 'tester'.",
+  subagent_type: "coder", name: "coder", run_in_background: true })
+Agent({ prompt: "Warte auf 'coder'. Schreibe Tests. Sende Ergebnisse an 'reviewer'.",
+  subagent_type: "tester", name: "tester", run_in_background: true })
+
+SendMessage({ to: "researcher", summary: "Start", message: "[task context]" })
 ```
 
-`tags: propus` ist Pflicht, damit du in Obsidian per Dataview alle
-Code-bezogenen Notizen abfragen kannst.
+### Wann Swarm nutzen
 
-### Bei Unsicherheit
+| Ja | Nein |
+|----|------|
+| 3+ Dateien, neue Features, API-Änderungen | Single-File-Edits |
+| Cross-Modul-Refactoring, Security, Performance | 1–2 Zeilen Fixes |
 
-Bevor du eine größere Notiz schreibst, kurz nachfragen, ob es das Thema
-schon im Vault gibt — der MCP-Server kann suchen. Duplikate vermeiden.
+### Routing für Propus-Tasks
+
+| Task | Agents |
+|------|--------|
+| Bug Fix | researcher → coder → tester |
+| Feature | architect → coder → tester → reviewer |
+| DB-Migration | architect → coder → reviewer |
+| Security-Audit | security-architect → security-auditor |
+
+### Memory
+
+```bash
+# Vor Task: Muster suchen
+npx ruflo@latest memory search --query "[keywords]"
+
+# Nach Erfolg: Muster speichern
+npx ruflo@latest memory store --namespace patterns --key "[name]" --value "[was funktioniert hat]"
+```
+
+### Swarm-Status
+
+```bash
+npx ruflo@latest swarm status    # Aktiver Swarm: swarm-1778774844512-le7l90
+npx ruflo@latest doctor --fix    # Diagnostik
+```
+
+### Daemon (Background-Worker)
+
+```bash
+npx ruflo@latest daemon status   # PID + Worker-Status
+npx ruflo@latest daemon start    # erste Aktivierung (laeuft schon, PID 6312)
+npx ruflo@latest daemon stop
+```
+
+### MCP-Server (22 verfuegbar)
+
+`claude mcp list` zeigt den aktuellen Stand. Lokal angebunden: ruflo, memory,
+sequential-thinking, exa, magic, obsidian, claude-mem, AIDefence + 6 Cloudflare-MCPs
+(docs, dns, audit, graphql, radar, browser). claude.ai-hosted: M365, Gmail, Linear,
+MailerLite, Canva, Context7, Supabase, Vercel, Slack, PayPal, Higgfield u.a.
+
+### Orchestration-Playbook (extern, Obsidian)
+
+Alle Routing-Regeln, MCP-Inventar, Agent-Catalog und Setup-Stand in
+**`C:\Users\svajc\Documents\Obsidian Vault\PC JANEZ\10-Projekte\VPS-Infrastruktur\00_Orchestration\`**:
+
+- `INDEX.md` — Einstieg
+- `PLAYBOOK.md` — wann welches Tool/Agent/MCP
+- `MCP-SERVERS.md` — alle 22 Server mit Status + Auth
+- `RUFLO-SETUP.md` — Setup-Stand + Cheat-Sheet
+- `AGENT-CATALOG.md` — die 98 ruflo-Agents kategorisiert
+
+Credentials/Secrets parallel unter `00_Zugangsdaten/INDEX.md` (gleicher Vault).
 
 ---
 
-*Stand: 2026-05-11. Diese Datei ergänzt — nicht ersetzt — `AGENTS.md`.*
+*Stand: 2026-05-14. Ruflo v3.7.0-alpha.35, agentic-flow v2.0.11, 22 MCPs aktiv.*
+*Diese Datei ergänzt — nicht ersetzt — `AGENTS.md`.*

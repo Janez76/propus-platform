@@ -38,3 +38,10 @@ dist/
 coverage/
 .playwright-mcp/
 claude-skills.zip
+# Ruflo / claude-flow runtime (lokal pro Maschine, nicht versionieren)
+.claude-flow/
+.swarm/
+.claude/agents/
+.claude/commands/
+.claude/helpers/
+.claude/memory.db
