@@ -104,7 +104,9 @@ async function createPortalMagicLink(customerEmail, { returnTo = '/portal/invoic
   if (!email) return null;
   try {
     const customerResult = await pool.query(
-      'SELECT id, blocked FROM customers WHERE LOWER(email) = $1 LIMIT 1',
+      `SELECT id, blocked FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
       [email]
     );
     const customer = customerResult.rows[0];

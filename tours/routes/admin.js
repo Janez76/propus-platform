@@ -17,6 +17,8 @@ const { pool } = require('../lib/db');
 const userProfiles = require('../lib/user-profiles');
 const portalTeam = require('../lib/portal-team');
 
+const ah = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 async function runExternPortalSync(_ownerEmail, _memberEmail) {
   // Logto entfernt – kein externer Sync mehr nötig
 }
@@ -1357,7 +1359,7 @@ router.use('/suggestions', (req, res) => {
   return res.status(404).send('Nicht gefunden');
 });
 
-router.get('/search', async (req, res) => {
+router.get('/search', ah(async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return res.json([]);
   const like = `%${q.toLowerCase()}%`;
@@ -1414,7 +1416,7 @@ router.get('/search', async (req, res) => {
   }
 
   res.json(results);
-});
+}));
 
 /** Einstellungen: APIs, Dashboard-Widgets, Sync */
 router.get('/settings', (req, res) => {
@@ -1633,7 +1635,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
         const nameRow = await pool.query(
           `SELECT DISTINCT trim(t.customer_name) AS customer_name
            FROM tour_manager.tours t
-           LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+           LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
            WHERE LOWER(TRIM(t.customer_email)) = $1
              AND t.customer_name IS NOT NULL AND trim(t.customer_name) <> ''
              AND c.id IS NULL
@@ -1645,7 +1647,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
           const siblingsRow = await pool.query(
             `SELECT DISTINCT LOWER(TRIM(t.customer_email)) AS email
              FROM tour_manager.tours t
-             LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+             LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
              WHERE LOWER(trim(t.customer_name)) = LOWER($1)
                AND LOWER(TRIM(t.customer_email)) <> $2
                AND t.customer_email IS NOT NULL AND TRIM(t.customer_email) <> ''
@@ -2172,7 +2174,7 @@ router.get('/tours', (req, res) => {
   res.redirect(reactUrl(req, '/admin/tours/list' + (qs ? '?' + qs : '')));
 });
 
-router.post('/tours/:id/set-tour-url', async (req, res) => {
+router.post('/tours/:id/set-tour-url', ah(async (req, res) => {
   const { id } = req.params;
   const v = validatePropusMatterportTourUrl(req.body?.tour_url);
   if (!v.ok) {
@@ -2185,9 +2187,9 @@ router.post('/tours/:id/set-tour-url', async (req, res) => {
     [tour_url, id]
   );
   res.redirect(reactUrl(req, `/admin/tours/${id}?tourUrlSaved=1`));
-});
+}));
 
-router.post('/tours/:id/set-name', async (req, res) => {
+router.post('/tours/:id/set-name', ah(async (req, res) => {
   const { id } = req.params;
   const name = String(req.body?.name || '').trim();
   const syncMatterport = req.body?.syncMatterport === '1';
@@ -2217,9 +2219,9 @@ router.post('/tours/:id/set-name', async (req, res) => {
   qs.set('nameSaved', '1');
   if (nameSyncFailed) qs.set('nameSyncFailed', '1');
   return res.redirect(`/admin/tours/${id}?${qs.toString()}`);
-});
+}));
 
-router.post('/tours/:id/set-start-sweep', async (req, res) => {
+router.post('/tours/:id/set-start-sweep', ah(async (req, res) => {
   const { id } = req.params;
   const sweep = String(req.body?.start_sweep || '').trim() || null;
   const exists = await pool.query('SELECT id FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
@@ -2231,9 +2233,9 @@ router.post('/tours/:id/set-start-sweep', async (req, res) => {
     [sweep, id]
   );
   return res.redirect(`/admin/tours/${id}?startSweepSaved=1`);
-});
+}));
 
-router.post('/tours/:id/set-verified', async (req, res) => {
+router.post('/tours/:id/set-verified', ah(async (req, res) => {
   const { id } = req.params;
   const verified = req.body.verified === '1';
   await pool.query(
@@ -2241,9 +2243,9 @@ router.post('/tours/:id/set-verified', async (req, res) => {
     [verified, id]
   );
   res.redirect(`/admin/tours/${id}?verifiedSaved=1`);
-});
+}));
 
-router.post('/tours/:id/visibility', async (req, res) => {
+router.post('/tours/:id/visibility', ah(async (req, res) => {
   const { id } = req.params;
   const tourResult = await pool.query('SELECT * FROM tour_manager.tours WHERE id = $1 LIMIT 1', [id]);
   const tourRow = normalizeTourRow(tourResult.rows[0] || null);
@@ -2278,7 +2280,7 @@ router.post('/tours/:id/visibility', async (req, res) => {
   });
 
   return res.redirect(`/admin/tours/${id}?visibilitySaved=1`);
-});
+}));
 
 /** Rechnungsübersicht: interne Verlängerungsrechnungen */
 router.get('/invoices', (req, res) => {
@@ -2415,7 +2417,7 @@ router.post('/bank-import/upload', bankDataUpload.single('bankFile'), async (req
   return res.redirect('/admin/bank-import?uploaded=1');
 });
 
-router.post('/bank-import/transactions/:id/confirm', async (req, res) => {
+router.post('/bank-import/transactions/:id/confirm', ah(async (req, res) => {
   await ensureBankImportSchema();
   const txId = parseInt(String(req.params.id || ''), 10);
   if (!Number.isFinite(txId)) return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Ungültige Transaktion.'));
@@ -2463,9 +2465,9 @@ router.post('/bank-import/transactions/:id/confirm', async (req, res) => {
     [txId, finalInvoiceId, 'renewal', nextReason]
   );
   return res.redirect('/admin/bank-import');
-});
+}));
 
-router.post('/bank-import/transactions/:id/ignore', async (req, res) => {
+router.post('/bank-import/transactions/:id/ignore', ah(async (req, res) => {
   await ensureBankImportSchema();
   const txId = parseInt(String(req.params.id || ''), 10);
   if (!Number.isFinite(txId)) return res.redirect('/admin/bank-import?error=' + encodeURIComponent('Ungültige Transaktion.'));
@@ -2477,9 +2479,9 @@ router.post('/bank-import/transactions/:id/ignore', async (req, res) => {
     [txId]
   );
   return res.redirect('/admin/bank-import');
-});
+}));
 
-router.post('/tours/:id/invoices/create-manual', async (req, res) => {
+router.post('/tours/:id/invoices/create-manual', ah(async (req, res) => {
   await ensureSuggestionSchema();
   const tourId = parseInt(req.params.id, 10);
   if (!Number.isFinite(tourId)) return res.redirect('/admin/tours?error=ungueltig');
@@ -2598,9 +2600,9 @@ router.post('/tours/:id/invoices/create-manual', async (req, res) => {
   qs.set('invoiceCreated', '1');
   if (markPaidNow) qs.set('paymentSaved', '1');
   return res.redirect(`/admin/tours/${tourId}?${qs.toString()}`);
-});
+}));
 
-router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) => {
+router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', ah(async (req, res) => {
   await ensureSuggestionSchema();
   const tourId = parseInt(req.params.id, 10);
   const invoiceId = parseInt(req.params.invoiceId, 10);
@@ -2717,7 +2719,7 @@ router.post('/tours/:id/invoices/:invoiceId/mark-paid-manual', async (req, res) 
   });
 
   return res.redirect(`/admin/tours/${tourId}?paymentSaved=1`);
-});
+}));
 
 router.get('/tours/:id/invoices/:invoiceId/pdf', async (req, res) => {
   const tourId = parseInt(String(req.params.id || ''), 10);
@@ -2816,7 +2818,7 @@ router.get('/tours/:id/link-invoice', (req, res) => {
   res.redirect(reactUrl(req, '/admin/tours/' + req.params.id + '/link-invoice'));
 });
 
-router.post('/tours/:id/link-invoice', async (req, res) => {
+router.post('/tours/:id/link-invoice', ah(async (req, res) => {
   const { id } = req.params;
   const invoiceId = req.body?.invoice_id;
   if (!invoiceId) {
@@ -2835,10 +2837,10 @@ router.post('/tours/:id/link-invoice', async (req, res) => {
   }
   await pool.query('UPDATE tour_manager.exxas_invoices SET tour_id = $1 WHERE id = $2', [id, invoiceId]);
   res.redirect(`/admin/tours/${id}?invoiceLinked=1`);
-});
+}));
 
 /** Rechnung löschen (nur lokal erstellte, ohne Exxas-Verknüpfung) */
-router.post('/invoices/:invoiceId/delete', async (req, res) => {
+router.post('/invoices/:invoiceId/delete', ah(async (req, res) => {
   const invoiceId = parseInt(req.params.invoiceId, 10);
   if (!invoiceId) return res.redirect('/admin/invoices?error=invalid');
 
@@ -2856,7 +2858,7 @@ router.post('/invoices/:invoiceId/delete', async (req, res) => {
   await pool.query('DELETE FROM tour_manager.exxas_invoices WHERE id = $1', [invoiceId]);
   const next = row.tour_id ? `/admin/tours/${row.tour_id}?invoiceDeleted=1` : '/admin/invoices?deleted=1';
   res.redirect(next);
-});
+}));
 
 /** Matterport-Verknüpfung: nur aktive, noch nicht verknüpfte Spaces anzeigen */
 router.get('/link-matterport', (req, res) => {
@@ -2864,7 +2866,7 @@ router.get('/link-matterport', (req, res) => {
   res.redirect(reactUrl(req, '/admin/tours/link-matterport' + (qs ? '?' + qs : '')));
 });
 
-router.post('/link-matterport', async (req, res) => {
+router.post('/link-matterport', ah(async (req, res) => {
   const mpId = String(req.body?.matterportSpaceId || '').trim();
   const tourUrl = String(req.body?.tourUrl || '').trim();
   const cannotAssign = req.body?.cannotAssign === '1';
@@ -2998,7 +3000,7 @@ router.post('/link-matterport', async (req, res) => {
   }
 
   return res.redirect('/admin/link-matterport?linked=1');
-});
+}));
 
 router.get('/link-matterport/customer-search', async (req, res) => {
   const q = String(req.query.q || '').trim();
@@ -3113,7 +3115,7 @@ router.post('/link-matterport/auto', async (req, res) => {
 });
 
 /** Matterport-Erstellungsdaten für bereits verknüpfte Touren nachtragen */
-router.post('/link-matterport/refresh-created', async (req, res) => {
+router.post('/link-matterport/refresh-created', ah(async (req, res) => {
   await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_created_at TIMESTAMPTZ');
   const rows = await pool.query(`
     SELECT id, matterport_space_id FROM tour_manager.tours
@@ -3132,10 +3134,10 @@ router.post('/link-matterport/refresh-created', async (req, res) => {
     }
   }
   res.redirect(`/admin/link-matterport?refreshCreated=${updated}`);
-});
+}));
 
 /** Matterport Space-Status synchronisieren (Aktiv, Archiviert, etc.) */
-router.post('/link-matterport/sync-status', async (req, res) => {
+router.post('/link-matterport/sync-status', ah(async (req, res) => {
   await pool.query('ALTER TABLE tour_manager.tours ADD COLUMN IF NOT EXISTS matterport_state VARCHAR(50)');
   const rows = await pool.query(`
     SELECT id, matterport_space_id FROM tour_manager.tours
@@ -3157,7 +3159,7 @@ router.post('/link-matterport/sync-status', async (req, res) => {
     updated++;
   }
   res.redirect(`/admin/link-matterport?syncStatusUpdated=${updated}`);
-});
+}));
 
 /** Matterport-Zugehörigkeit prüfen: gehört der Space zu unserem Account oder fremdem? */
 router.post('/link-matterport/check-ownership', async (req, res) => {
@@ -3501,7 +3503,12 @@ router.post('/customers/new', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM core.customers WHERE LOWER(email)=$1', [email]);
+    const existing = await pool.query(
+      `SELECT id FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
+      [email]
+    );
     if (existing.rows.length > 0) {
       return res.redirect(`/admin/customers/${existing.rows[0].id}?error=` + encodeURIComponent('Ein Kunde mit dieser E-Mail existiert bereits.'));
     }
@@ -3564,7 +3571,11 @@ router.post('/customers/:id', async (req, res) => {
 
   try {
     const conflict = await pool.query(
-      'SELECT id FROM core.customers WHERE LOWER(email)=$1 AND id<>$2', [email, id]
+      `SELECT id FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+         AND id <> $2
+       LIMIT 1`,
+      [email, id]
     );
     if (conflict.rows.length > 0) {
       return res.redirect(`/admin/customers/${id}?error=` + encodeURIComponent('Diese E-Mail wird bereits von einem anderen Kunden verwendet.'));

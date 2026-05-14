@@ -81,7 +81,7 @@ async function loadPortalRolesSnapshot(queryTab) {
         END AS firma,
         COALESCE(c_ref.id, c.id, c_cc.id) AS customer_id
       FROM tour_manager.tours t
-      LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+      LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
       LEFT JOIN core.customers c_ref ON trim(c_ref.customer_number) = trim(CAST(t.kunde_ref AS text))
       LEFT JOIN core.customer_contacts cc_link ON LOWER(cc_link.email) = LOWER(t.customer_email)
       LEFT JOIN core.customers c_cc ON c_cc.id = cc_link.customer_id
@@ -231,7 +231,7 @@ async function getPortalExternContactsJson(ownerEmailRaw, customerIdRaw) {
         const nameRow = await pool.query(
           `SELECT DISTINCT trim(t.customer_name) AS customer_name
            FROM tour_manager.tours t
-           LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+           LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
            WHERE LOWER(TRIM(t.customer_email)) = $1
              AND t.customer_name IS NOT NULL AND trim(t.customer_name) <> ''
              AND c.id IS NULL
@@ -243,7 +243,7 @@ async function getPortalExternContactsJson(ownerEmailRaw, customerIdRaw) {
           const siblingsRow = await pool.query(
             `SELECT DISTINCT LOWER(TRIM(t.customer_email)) AS email
              FROM tour_manager.tours t
-             LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+             LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
              WHERE LOWER(trim(t.customer_name)) = LOWER($1)
                AND LOWER(TRIM(t.customer_email)) <> $2
                AND t.customer_email IS NOT NULL AND TRIM(t.customer_email) <> ''

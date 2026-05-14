@@ -170,7 +170,7 @@ async function resolveCustomerIdForOwnerEmail(ownerEmail) {
     `SELECT DISTINCT cu.id
      FROM tour_manager.tours t
      JOIN core.customers cu ON cu.customer_number = TRIM(CAST(t.kunde_ref AS TEXT))
-     WHERE LOWER(TRIM(t.customer_email)) = $1
+     WHERE core.customer_email_matches($1, cu.email, cu.email_aliases)
        AND t.kunde_ref IS NOT NULL AND TRIM(CAST(t.kunde_ref AS TEXT)) <> ''
      LIMIT 1`,
     [norm]

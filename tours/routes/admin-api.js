@@ -1269,18 +1269,29 @@ router.get('/mail/inbox', async (req, res) => {
       }
 
       const custRes = await pool.query(
-        `SELECT id, name, email FROM core.customers
-         WHERE LOWER(email) = ANY($1::text[])
-            OR id IN (
+        `SELECT c.id, c.name, c.email, c.email_aliases FROM core.customers c
+         WHERE EXISTS (
+                 SELECT 1 FROM unnest($1::text[]) AS needle
+                 WHERE core.customer_email_matches(needle, c.email, c.email_aliases)
+               )
+            OR c.id IN (
               SELECT customer_id FROM core.customer_contacts
               WHERE LOWER(email) = ANY($1::text[]) AND customer_id IS NOT NULL
             )`,
         [senderEmails]
       );
       for (const row of custRes.rows) {
-        const em = (row.email || '').toLowerCase();
-        if (!customersByEmail[em]) customersByEmail[em] = [];
-        customersByEmail[em].push(row);
+        const keys = new Set();
+        const primary = (row.email || '').toLowerCase().trim();
+        if (primary) keys.add(primary);
+        for (const alias of row.email_aliases || []) {
+          const a = String(alias || '').toLowerCase().trim();
+          if (a) keys.add(a);
+        }
+        for (const em of keys) {
+          if (!customersByEmail[em]) customersByEmail[em] = [];
+          customersByEmail[em].push(row);
+        }
       }
     }
 
@@ -1390,14 +1401,14 @@ router.get('/mail/sent-customer-match', async (req, res) => {
       const email = (row.recipient_email || '').toLowerCase().trim();
       if (!email) continue;
 
-      // Kunden suchen per E-Mail
+      // Kunden suchen per E-Mail (inkl. Aliases)
       const custRes = await pool.query(
         `SELECT c.id, c.name, c.email, c.customer_number, c.exxas_contact_id,
                 cc.name as contact_name, cc.email as contact_email
          FROM core.customers c
          LEFT JOIN core.customer_contacts cc
            ON cc.customer_id = c.id AND LOWER(cc.email) = LOWER($1)
-         WHERE LOWER(c.email) = LOWER($1)
+         WHERE core.customer_email_matches($1, c.email, c.email_aliases)
             OR EXISTS (
               SELECT 1 FROM core.customer_contacts
               WHERE customer_id = c.id AND LOWER(email) = LOWER($1)
@@ -1474,7 +1485,7 @@ router.post('/mail/sent-customer-match/apply', async (req, res) => {
           `SELECT c.id, c.name, c.email, c.customer_number,
                   (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) as contact_name
            FROM core.customers c
-           WHERE LOWER(c.email) = LOWER($1)
+           WHERE core.customer_email_matches($1, c.email, c.email_aliases)
               OR EXISTS (SELECT 1 FROM core.customer_contacts WHERE customer_id = c.id AND LOWER(email) = LOWER($1))
            LIMIT 1`,
           [email]
@@ -1610,8 +1621,7 @@ router.get('/mail/sent-matterport-match', async (req, res) => {
                 (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_name,
                 (SELECT email FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_email
          FROM core.customers c
-         WHERE LOWER(c.email) = LOWER($1)
-            OR c.email_aliases @> to_jsonb(LOWER($1)::text)
+         WHERE core.customer_email_matches($1, c.email, c.email_aliases)
             OR EXISTS (
               SELECT 1 FROM core.customer_contacts
               WHERE customer_id = c.id AND LOWER(email) = LOWER($1)
@@ -1709,8 +1719,7 @@ router.post('/mail/sent-matterport-match/apply', async (req, res) => {
             `SELECT c.id, c.name, c.company, c.email, c.customer_number,
                     (SELECT name FROM core.customer_contacts WHERE customer_id = c.id ORDER BY id LIMIT 1) AS contact_name
              FROM core.customers c
-             WHERE LOWER(c.email) = LOWER($1)
-                OR c.email_aliases @> to_jsonb(LOWER($1)::text)
+             WHERE core.customer_email_matches($1, c.email, c.email_aliases)
                 OR EXISTS (SELECT 1 FROM core.customer_contacts WHERE customer_id = c.id AND LOWER(email) = LOWER($1))
              LIMIT 1`,
             [mailInfo.email]
@@ -3258,14 +3267,23 @@ router.get('/link-matterport/booking-search', async (req, res) => {
     const coreCustomerByEmail = new Map();
     if (emails.length > 0) {
       try {
+        const normalizedEmails = emails.map(e => e.toLowerCase());
         const custRows = await pool.query(
-          `SELECT c.id, c.company, c.name, c.email, c.customer_number
+          `SELECT c.id, c.company, c.name, c.email, c.email_aliases, c.customer_number
            FROM core.customers c
-           WHERE LOWER(c.email) = ANY($1::text[])`,
-          [emails.map(e => e.toLowerCase())]
+           WHERE EXISTS (
+             SELECT 1 FROM unnest($1::text[]) AS needle
+             WHERE core.customer_email_matches(needle, c.email, c.email_aliases)
+           )`,
+          [normalizedEmails]
         );
         for (const c of custRows.rows) {
-          coreCustomerByEmail.set((c.email || '').toLowerCase(), c);
+          const primary = (c.email || '').toLowerCase();
+          if (primary) coreCustomerByEmail.set(primary, c);
+          for (const alias of c.email_aliases || []) {
+            const a = String(alias || '').toLowerCase().trim();
+            if (a) coreCustomerByEmail.set(a, c);
+          }
         }
         // Kontakte für gefundene Kunden laden
         const custIds = [...new Set(custRows.rows.map(c => c.id))];
@@ -4027,80 +4045,100 @@ router.post('/team/invite', async (req, res) => {
 });
 
 router.post('/team/toggle-active', async (req, res) => {
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const action = String(req.body?.action || '').trim().toLowerCase();
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ ok: false, error: 'invalid_email' });
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ ok: false, error: 'invalid_email' });
+    }
+    if (!['enable', 'disable'].includes(action)) {
+      return res.status(400).json({ ok: false, error: 'invalid_action' });
+    }
+    const ok = await setAdminUserActive(email, action === 'enable');
+    if (!ok) return res.status(400).json({ ok: false, error: 'user_not_found' });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'toggle_failed' });
   }
-  if (!['enable', 'disable'].includes(action)) {
-    return res.status(400).json({ ok: false, error: 'invalid_action' });
-  }
-  const ok = await setAdminUserActive(email, action === 'enable');
-  if (!ok) return res.status(400).json({ ok: false, error: 'user_not_found' });
-  return res.json({ ok: true });
 });
 
 router.post('/team/invites/:id/revoke', async (req, res) => {
-  const ok = await revokeInviteById(req.params.id);
-  if (!ok) return res.status(400).json({ ok: false, error: 'invite_not_found' });
-  return res.json({ ok: true });
+  try {
+    const ok = await revokeInviteById(req.params.id);
+    if (!ok) return res.status(400).json({ ok: false, error: 'invite_not_found' });
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'revoke_failed' });
+  }
 });
 
 router.put('/team/users/:id', async (req, res) => {
-  const userId = parseInt(String(req.params?.id || ''), 10);
-  if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, error: 'invalid_user' });
+  try {
+    const userId = parseInt(String(req.params?.id || ''), 10);
+    if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, error: 'invalid_user' });
 
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const name = String(req.body?.name || '').trim();
-  const rawPassword = String(req.body?.password || '');
-  const password = rawPassword && rawPassword !== '********' ? rawPassword : '';
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const name = String(req.body?.name || '').trim();
+    const rawPassword = String(req.body?.password || '');
+    const password = rawPassword && rawPassword !== '********' ? rawPassword : '';
 
-  const result = await updateAdminUserById(userId, { email, name, password });
-  if (!result.ok) return res.status(400).json({ ok: false, error: result.code || 'update_failed' });
+    const result = await updateAdminUserById(userId, { email, name, password });
+    if (!result.ok) return res.status(400).json({ ok: false, error: result.code || 'update_failed' });
 
-  const currentEmail = String(req.session?.admin?.email || req.session?.adminEmail || '').trim().toLowerCase();
-  const previousEmail = String(result.previousEmail || '').toLowerCase();
-  const updatedEmail = String(result.email || '').toLowerCase();
-  if (currentEmail && (currentEmail === previousEmail || currentEmail === updatedEmail)) {
-    if (req.session?.admin) req.session.admin.email = result.email;
-    if (req.session) req.session.adminEmail = result.email;
+    const currentEmail = String(req.session?.admin?.email || req.session?.adminEmail || '').trim().toLowerCase();
+    const previousEmail = String(result.previousEmail || '').toLowerCase();
+    const updatedEmail = String(result.email || '').toLowerCase();
+    if (currentEmail && (currentEmail === previousEmail || currentEmail === updatedEmail)) {
+      if (req.session?.admin) req.session.admin.email = result.email;
+      if (req.session) req.session.adminEmail = result.email;
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'update_failed' });
   }
-  return res.json({ ok: true });
 });
 
 router.delete('/team/users/:id', async (req, res) => {
-  const userId = parseInt(String(req.params?.id || ''), 10);
-  if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, error: 'invalid_user' });
+  try {
+    const userId = parseInt(String(req.params?.id || ''), 10);
+    if (!Number.isFinite(userId)) return res.status(400).json({ ok: false, error: 'invalid_user' });
 
-  const result = await deleteAdminUserById(userId);
-  if (!result.ok) return res.status(400).json({ ok: false, error: result.code || 'delete_failed' });
+    const result = await deleteAdminUserById(userId);
+    if (!result.ok) return res.status(400).json({ ok: false, error: result.code || 'delete_failed' });
 
-  const currentEmail = String(req.session?.admin?.email || req.session?.adminEmail || '').trim().toLowerCase();
-  if (currentEmail && currentEmail === String(result.email || '').toLowerCase()) {
-    req.session.destroy(() => null);
-    return res.json({ ok: true, loggedOut: true });
+    const currentEmail = String(req.session?.admin?.email || req.session?.adminEmail || '').trim().toLowerCase();
+    if (currentEmail && currentEmail === String(result.email || '').toLowerCase()) {
+      req.session.destroy(() => null);
+      return res.json({ ok: true, loggedOut: true });
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'delete_failed' });
   }
-  return res.json({ ok: true });
 });
 
 /** KI-Chat (nur generative Antwort, ohne Schreib-Aktionen wie in EJS /chat-assistant) */
 router.get('/ai-chat-config', async (req, res) => {
-  const rawEmail = String(req.session?.admin?.email || '').trim().toLowerCase();
-  const emailLocal = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
-  const adminName = emailLocal
-    ? emailLocal
-        .split(/[._-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ')
-    : 'Admin';
-  const aiConfig = getAiConfig();
-  return res.json({
-    ok: true,
-    adminName,
-    allowedModels: getAllowedChatModels(),
-    defaultModel: aiConfig.model || 'gpt-5.4',
-  });
+  try {
+    const rawEmail = String(req.session?.admin?.email || '').trim().toLowerCase();
+    const emailLocal = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
+    const adminName = emailLocal
+      ? emailLocal
+          .split(/[._-]+/)
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ')
+      : 'Admin';
+    const aiConfig = getAiConfig();
+    return res.json({
+      ok: true,
+      adminName,
+      allowedModels: getAllowedChatModels(),
+      defaultModel: aiConfig.model || 'gpt-5.4',
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err?.message || 'config_failed' });
+  }
 });
 
 router.post('/ai-chat', async (req, res) => {
@@ -4207,6 +4245,9 @@ const TICKET_CATEGORIES = [
   'startpunkt', 'name_aendern', 'blur_request', 'sweep_verschieben', 'sonstiges',
 ];
 const TICKET_STATUSES = ['open', 'in_progress', 'done', 'rejected'];
+const TICKET_MODULES = ['tours', 'booking'];
+const TICKET_REFERENCE_TYPES = ['tour', 'order'];
+const TICKET_PRIORITIES = ['normal', 'high', 'low'];
 
 // Attachment ausliefern
 router.get('/tickets/attachment/:filename', (req, res) => {
@@ -4276,6 +4317,15 @@ router.post('/tickets', async (req, res) => {
     }
     if (!TICKET_CATEGORIES.includes(category)) {
       return res.status(400).json({ ok: false, error: `Ungültige Kategorie: ${category}` });
+    }
+    if (!TICKET_MODULES.includes(mod)) {
+      return res.status(400).json({ ok: false, error: `Ungültiges Modul: ${mod}` });
+    }
+    if (!TICKET_REFERENCE_TYPES.includes(reference_type)) {
+      return res.status(400).json({ ok: false, error: `Ungültiger reference_type: ${reference_type}` });
+    }
+    if (!TICKET_PRIORITIES.includes(priority)) {
+      return res.status(400).json({ ok: false, error: `Ungültige Priorität: ${priority}` });
     }
     const creator = adminEmail(req);
     const result = await pool.query(

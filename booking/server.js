@@ -7591,6 +7591,7 @@ function getEmailWorkflowIcsFlags(configMap, templateKey, role) {
 
 // Status -ndern (inkl. archived) - mit State-Machine-Validierung
 app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) => {
+  try {
   const orderNo = Number(req.params.orderNo);
   const { status, reason } = req.body || {};
 
@@ -7654,7 +7655,7 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
       let icsContentForSend = null;
       if (order.schedule?.date && order.schedule?.time) {
         try {
-          const evTypeSt = String(order.status || "").toLowerCase() === "confirmed" ? "confirmed" : undefined;
+          const evTypeSt = String(status || "").toLowerCase() === "confirmed" ? "confirmed" : undefined;
           let titleIcs = buildCalendarSubject({ title: `Auftrag #${orderNo}`, orderNo });
           let descIcs = `Auftrag #${orderNo}`;
           if (pool) {
@@ -7938,6 +7939,10 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
     console.error("[status] event log error", logErr && logErr.message);
   }
   res.json({ ok: true, orderNo, status, sideEffects });
+  } catch (err) {
+    console.error("[status] unhandled error", err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: "Interner Fehler bei Statusänderung" });
+  }
 });
 
 app.get("/api/admin/orders/:orderNo/events", requireAdmin, async (req, res) => {
@@ -8496,6 +8501,7 @@ app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res
 
 // Fotograf -ndern
 app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, res) => {
+  try {
   const orderNo = Number(req.params.orderNo);
   const { photographerKey: newKey } = req.body || {};
   if(!newKey){
@@ -8700,6 +8706,10 @@ app.patch("/api/admin/orders/:orderNo/photographer", requireAdmin, async (req, r
     console.error("[reassign] event log error", logErr && logErr.message);
   }
   res.json({ ok: true, orderNo, photographer: { key: newKey, name: newPhotogName } });
+  } catch (err) {
+    console.error("[reassign] unhandled error", err?.message || err);
+    if (!res.headersSent) res.status(500).json({ error: "Interner Fehler bei Fotograf-Zuweisung" });
+  }
 });
 
 // Bestellung loeschen
@@ -12492,8 +12502,8 @@ app.get("/api/admin/customers", requireAdmin, async (_req, res) => {
             OR (
               TRIM(COALESCE(c.email, '')) <> ''
               AND (
-                LOWER(TRIM(COALESCE(o.billing->>'email', ''))) = LOWER(TRIM(c.email))
-                OR LOWER(TRIM(COALESCE(o.object->>'email', ''))) = LOWER(TRIM(c.email))
+                core.customer_email_matches(COALESCE(o.billing->>'email', ''), c.email, c.email_aliases)
+                OR core.customer_email_matches(COALESCE(o.object->>'email', ''), c.email, c.email_aliases)
               )
             )
        ) oc ON TRUE
@@ -12897,7 +12907,13 @@ app.put("/api/admin/customers/:id", requireAdmin, async (req, res) => {
     const city = v("city").trim();
     const zipcity = zip && city ? `${zip} ${city}` : v("zipcity");
     const existing = email
-      ? await pool.query("SELECT id FROM customers WHERE LOWER(email)=LOWER($1) AND id<>$2", [email, customerId])
+      ? await pool.query(
+          `SELECT id FROM customers
+           WHERE core.customer_email_matches($1, email, email_aliases)
+             AND id <> $2
+           LIMIT 1`,
+          [email, customerId],
+        )
       : { rows: [] };
     if (existing.rows.length) {
       return res.status(409).json({ error: "Diese E-Mail-Adresse wird bereits von einem anderen Kunden verwendet." });
@@ -12949,7 +12965,13 @@ app.patch("/api/admin/customers/:id/email", requireAdmin, async (req, res) => {
     const email = String(req.body?.email || "").trim().toLowerCase();
     if (email && !email.includes("@")) return res.status(400).json({ error: "Ungueltige E-Mail-Adresse" });
     const existing = email
-      ? await pool.query("SELECT id FROM customers WHERE LOWER(email)=LOWER($1) AND id<>$2", [email, customerId])
+      ? await pool.query(
+          `SELECT id FROM customers
+           WHERE core.customer_email_matches($1, email, email_aliases)
+             AND id <> $2
+           LIMIT 1`,
+          [email, customerId],
+        )
       : { rows: [] };
     if (existing.rows.length) {
       return res.status(409).json({ error: "Diese E-Mail-Adresse wird bereits von einem anderen Kunden verwendet." });

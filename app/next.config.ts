@@ -57,6 +57,11 @@ const nextConfig: NextConfig = {
           source: "/api/tours/posteingang/webhook",
           destination: `${PLATFORM_INTERNAL_URL}/api/tours/posteingang/webhook`,
         },
+        // Tour Manager Cron-Endpoints (Matterport-Sync, Posteingang-Trigger, etc.)
+        {
+          source: "/api/tours/cron/:path*",
+          destination: `${PLATFORM_INTERNAL_URL}/api/tours/cron/:path*`,
+        },
         // Swagger UI + OpenAPI-Spec (booking/docs-routes.js).
         // /api/docs allein muss separat gelistet werden, sonst greift der
         // /:path*-Eintrag nicht (path ist hier optional/leer).
