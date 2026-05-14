@@ -1,5 +1,5 @@
 import { pool } from "@/lib/db";
-import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./types";
 
 const DANGEROUS_PATTERN = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE|EXECUTE|CALL)\b/i;
 const MAX_ROWS = 100;

@@ -5,7 +5,7 @@ import { normalizeTimestamptzParam } from "@/lib/pg-timestamptz";
 import { getAllowedTransitions, normalizeStatusKey } from "@/lib/status";
 import { enqueueOutbox as defaultEnqueueOutbox, type OutboxKind } from "@/lib/outbox";
 import { renderWorkflowMails } from "@/lib/mail/workflowMail";
-import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./types";
 
 type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: Querier) => Promise<T[]>;
 type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[], tx?: Querier) => Promise<T | null>;

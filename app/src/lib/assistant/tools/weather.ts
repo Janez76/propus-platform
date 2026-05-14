@@ -1,7 +1,7 @@
 import { queryOne as defaultQueryOne } from "@/lib/db";
 import { fetchWeatherForOrders, type OrderWeather } from "@/api/weatherProvider";
 import { lookupZip } from "@/components/dashboard-v2/zipCoords";
-import type { ToolDefinition, ToolHandler } from "./index";
+import type { ToolDefinition, ToolHandler } from "./types";
 
 type QueryOneFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T | null>;
 type FetchFn = typeof globalThis.fetch;

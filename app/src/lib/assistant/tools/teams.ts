@@ -15,7 +15,7 @@
  *   - list_user_chats            1:1 / Group-Chats eines Users (Protected API)
  *   - read_chat_messages         Nachrichten eines Chats (Protected API)
  */
-import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./types";
 import { delegatedGraphRequest as defaultDelegatedRequest } from "@/lib/assistant/teams-delegated";
 
 type FetchFn = typeof globalThis.fetch;

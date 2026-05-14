@@ -1,6 +1,6 @@
 import { query as defaultQuery } from "@/lib/db";
 import { LIVE_ORIGIN_PLACEHOLDER, liveCoordsForGoogle } from "../live-location-types";
-import type { ToolDefinition, ToolHandler, ToolContext } from "./index";
+import type { ToolDefinition, ToolHandler, ToolContext } from "./types";
 
 type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
 type FetchFn = typeof globalThis.fetch;

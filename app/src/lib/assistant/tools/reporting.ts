@@ -3,7 +3,7 @@
  * Kein freies SQL für Nutzer — nur vordefinierte Report-Typen mit Limits und Rollenmatrix.
  */
 import { query as defaultQuery } from "@/lib/db";
-import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./types";
 
 type QueryFn = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
 

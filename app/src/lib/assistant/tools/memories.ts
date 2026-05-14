@@ -1,5 +1,5 @@
 import { createMemory } from "@/lib/assistant/memory-store";
-import type { ToolContext, ToolDefinition, ToolHandler } from "./index";
+import type { ToolContext, ToolDefinition, ToolHandler } from "./types";
 
 export const memoriesTools: ToolDefinition[] = [
   {

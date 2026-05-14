@@ -20,7 +20,7 @@
  * Bestellungs-Logik (siehe tours/lib/matterport.js).
  */
 import { query as defaultQuery } from "@/lib/db";
-import type { ToolDefinition, ToolHandler } from "./index";
+import type { ToolDefinition, ToolHandler } from "./types";
 
 const MATTERPORT_GRAPHQL_URLS = [
   "https://api.matterport.com/api/models/graph",
