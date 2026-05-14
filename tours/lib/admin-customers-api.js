@@ -124,7 +124,12 @@ async function postCustomerNewJson(body) {
     return { ok: false, error: 'Name und E-Mail sind Pflichtfelder.' };
   }
 
-  const existing = await pool.query('SELECT id FROM core.customers WHERE LOWER(email)=$1', [email]);
+  const existing = await pool.query(
+    `SELECT id FROM core.customers
+     WHERE core.customer_email_matches($1, email, email_aliases)
+     LIMIT 1`,
+    [email]
+  );
   if (existing.rows.length > 0) {
     return { ok: false, error: 'Ein Kunde mit dieser E-Mail existiert bereits.', existingId: existing.rows[0].id };
   }
@@ -228,7 +233,13 @@ async function postCustomerUpdateJson(idRaw, body) {
     return { ok: false, error: 'Firma/Kunde und E-Mail sind Pflichtfelder.' };
   }
 
-  const conflict = await pool.query('SELECT id FROM core.customers WHERE LOWER(email)=$1 AND id<>$2', [email, id]);
+  const conflict = await pool.query(
+    `SELECT id FROM core.customers
+     WHERE core.customer_email_matches($1, email, email_aliases)
+       AND id <> $2
+     LIMIT 1`,
+    [email, id]
+  );
   if (conflict.rows.length > 0) {
     return { ok: false, error: 'Diese E-Mail wird bereits von einem anderen Kunden verwendet.' };
   }

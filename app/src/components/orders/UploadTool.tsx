@@ -676,6 +676,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
   const [fileTypeFilter, setFileTypeFilter] = useState<FileTypeFilter>("all");
   const [fileProgress, setFileProgress] = useState<Record<string, number>>({});
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState(false);
   const [sequenceUploadActive, setSequenceUploadActive] = useState(false);
@@ -929,6 +930,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
     pausedRef.current = false;
     setUploadPaused(false);
     const total = files.length || 1;
+    setUploadTotal(total);
     const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
     const sessionId = buildChunkSessionId(orderNo);
 
@@ -1404,7 +1406,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
           <div className="mt-3">
             <div className="mb-1 flex justify-between text-xs p-text-muted">
               <span className="flex items-center gap-2">
-                {`${uploadedCount} von ${files.length > 0 ? files.length : "?"} Datei${files.length !== 1 ? "en" : ""}`}
+                {`${uploadedCount} von ${uploadTotal > 0 ? uploadTotal : "?"} Datei${uploadTotal !== 1 ? "en" : ""}`}
                 {uploadPaused && <span className="text-amber-400 font-semibold">– Pausiert</span>}
                 {uploadSpeed && !uploadPaused && (
                   <span className="text-zinc-500">{uploadSpeed}</span>
@@ -1595,7 +1597,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                           <p className="text-sm font-semibold text-zinc-100">
                             {uploadPaused
                               ? <span className="text-amber-400">Upload pausiert</span>
-                              : `${t(lang, "upload.status.uploading")} ${uploadedCount > 0 ? `${uploadedCount} / ${files.length}` : ""}`}
+                              : `${t(lang, "upload.status.uploading")} ${uploadedCount > 0 ? `${uploadedCount} / ${uploadTotal}` : ""}`}
                           </p>
                           <div className="flex items-center gap-3 mt-0.5">
                             {status && !uploadPaused && (
@@ -1619,7 +1621,7 @@ export function UploadTool({ token, orderNo, folderType, onClose, onChanged, emb
                       {/* Gesamtfortschritt */}
                       <div>
                         <div className="flex justify-between text-xs p-text-muted mb-1">
-                          <span>{`Datei ${Math.min(uploadedCount + 1, files.length)} von ${files.length}`}</span>
+                          <span>{`Datei ${Math.min(uploadedCount + 1, uploadTotal)} von ${uploadTotal}`}</span>
                           <span>{`${progress}%`}</span>
                         </div>
                         <div className="h-2 w-full rounded bg-zinc-800 overflow-hidden">

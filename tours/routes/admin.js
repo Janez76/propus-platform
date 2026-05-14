@@ -1633,7 +1633,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
         const nameRow = await pool.query(
           `SELECT DISTINCT trim(t.customer_name) AS customer_name
            FROM tour_manager.tours t
-           LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+           LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
            WHERE LOWER(TRIM(t.customer_email)) = $1
              AND t.customer_name IS NOT NULL AND trim(t.customer_name) <> ''
              AND c.id IS NULL
@@ -1645,7 +1645,7 @@ router.get('/portal-roles/extern-contacts', async (req, res) => {
           const siblingsRow = await pool.query(
             `SELECT DISTINCT LOWER(TRIM(t.customer_email)) AS email
              FROM tour_manager.tours t
-             LEFT JOIN core.customers c ON LOWER(c.email) = LOWER(t.customer_email)
+             LEFT JOIN core.customers c ON core.customer_email_matches(t.customer_email, c.email, c.email_aliases)
              WHERE LOWER(trim(t.customer_name)) = LOWER($1)
                AND LOWER(TRIM(t.customer_email)) <> $2
                AND t.customer_email IS NOT NULL AND TRIM(t.customer_email) <> ''
@@ -3501,7 +3501,12 @@ router.post('/customers/new', async (req, res) => {
   }
 
   try {
-    const existing = await pool.query('SELECT id FROM core.customers WHERE LOWER(email)=$1', [email]);
+    const existing = await pool.query(
+      `SELECT id FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+       LIMIT 1`,
+      [email]
+    );
     if (existing.rows.length > 0) {
       return res.redirect(`/admin/customers/${existing.rows[0].id}?error=` + encodeURIComponent('Ein Kunde mit dieser E-Mail existiert bereits.'));
     }
@@ -3564,7 +3569,11 @@ router.post('/customers/:id', async (req, res) => {
 
   try {
     const conflict = await pool.query(
-      'SELECT id FROM core.customers WHERE LOWER(email)=$1 AND id<>$2', [email, id]
+      `SELECT id FROM core.customers
+       WHERE core.customer_email_matches($1, email, email_aliases)
+         AND id <> $2
+       LIMIT 1`,
+      [email, id]
     );
     if (conflict.rows.length > 0) {
       return res.redirect(`/admin/customers/${id}?error=` + encodeURIComponent('Diese E-Mail wird bereits von einem anderen Kunden verwendet.'));
