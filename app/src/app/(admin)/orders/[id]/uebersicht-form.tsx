@@ -106,15 +106,20 @@ export function UebersichtForm({ order, isEditing, action }: Props) {
               defaultValue={order.order_reference ?? ''}
               disabled={!isEditing}
               maxLength={64}
+              placeholder="z. B. PO-2026-001"
               hint="Max. 64 Zeichen (interne Referenz)"
             />
           </div>
         )}
 
-        <div className="bd-hint-strip">
-          <Info />
-          <span>Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.</span>
-        </div>
+        {/* Hint nur anzeigen, solange die E-Mail wirklich fehlt — beim
+            befuellten Auftrag wuerde der Hint sonst Schein-Lärm produzieren. */}
+        {!order.contact_email && (
+          <div className="bd-hint-strip">
+            <Info />
+            <span>Mindestens eine Person mit E-Mail – diese wird als Schlüssel in der Kundenkartei verwendet.</span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-[140px_1fr_1fr]">
           <SelectField
@@ -220,7 +225,7 @@ function SegOption({
 }
 
 function Field({
-  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint, mono, link,
+  label, name, defaultValue = '', type = 'text', disabled, required, autoComplete, maxLength, hint, placeholder, mono, link,
 }: {
   label: string;
   name: string;
@@ -231,6 +236,7 @@ function Field({
   autoComplete?: string;
   maxLength?: number;
   hint?: string;
+  placeholder?: string;
   mono?: boolean;
   link?: boolean;
 }) {
@@ -260,6 +266,7 @@ function Field({
           required={required}
           maxLength={maxLength}
           autoComplete={autoComplete}
+          placeholder={placeholder}
           aria-describedby={hintId}
           className={mono ? 'bd-mono' : ''}
         />

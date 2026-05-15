@@ -9,11 +9,21 @@ import { saveOrderAllSections } from "./order-bulk-actions";
 import type { BulkStep } from "./order-bulk-types";
 import { isOrderReadOnly } from "./_shared";
 
+/**
+ * Tabs OHNE Bearbeiten-Formular — der "Bearbeiten"-Button erscheint dort
+ * nicht, sonst hat der Klick keine Wirkung (dead-end). Tabs mit
+ * eigenstaendigen Editoren (Kommunikation = Chat, Dateien = Uploader,
+ * Listing/Bildauswahl/Verknuepfungen = inline-Editoren) handhaben ihre
+ * Aenderungen selbst und brauchen keinen globalen Edit-Mode.
+ */
 function tabPathSupportsEdit(pathname: string | null): boolean {
   if (!pathname) return true;
   if (pathname.includes("/verlauf")) return false;
   if (pathname.includes("/kommunikation")) return false;
   if (pathname.includes("/dateien")) return false;
+  if (pathname.includes("/listing")) return false;
+  if (pathname.includes("/bildauswahl")) return false;
+  if (pathname.includes("/verknuepfungen")) return false;
   return true;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Printer, Copy, MoreHorizontal,
   FileDown, Ban, Archive, Loader2,
@@ -8,6 +9,7 @@ import {
 import { duplicateOrder } from "./duplicate-actions";
 import { changeOrderStatus } from "./status-change-actions";
 import { isOrderReadOnly } from "./_shared";
+import { getStatusLabel } from "@/lib/status";
 
 type Props = {
   orderNo: number;
@@ -15,10 +17,14 @@ type Props = {
 };
 
 export function OrderTopActions({ orderNo, status }: Props) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const readOnly = isOrderReadOnly(status);
+  // Label des Status, in den eine duplizierte Bestellung faellt (pending).
+  // Frueher hardcoded „Offen" — divergierte nach Rename auf „Ausstehend".
+  const newOrderStatusLabel = getStatusLabel("pending");
 
   // Klick außerhalb schließt das Mehr-Menü
   useEffect(() => {
@@ -46,7 +52,7 @@ export function OrderTopActions({ orderNo, status }: Props) {
 
   function onDuplicate() {
     if (!window.confirm(
-      `Bestellung #${orderNo} duplizieren? Eine neue Bestellung mit denselben Kunden- und Leistungsdaten wird im Status „Offen" angelegt (ohne Termin).`,
+      `Bestellung #${orderNo} duplizieren? Eine neue Bestellung mit denselben Kunden- und Leistungsdaten wird im Status „${newOrderStatusLabel}" angelegt (ohne Termin).`,
     )) return;
     start(async () => {
       const r = await duplicateOrder(orderNo);
@@ -57,13 +63,16 @@ export function OrderTopActions({ orderNo, status }: Props) {
     });
   }
 
+  // router.refresh() statt window.location.reload(): re-rendert die Server-
+  // Komponenten ohne harten Page-Reload, Client-State bleibt erhalten,
+  // kein Weissblitz.
   function onCancel() {
     if (!window.confirm(`Bestellung #${orderNo} wirklich stornieren?`)) return;
     setMenuOpen(false);
     start(async () => {
       const r = await changeOrderStatus(orderNo, "cancelled");
       if (r.ok) {
-        window.location.reload();
+        router.refresh();
       } else {
         alert(`Stornieren fehlgeschlagen: ${r.error}`);
       }
@@ -76,7 +85,7 @@ export function OrderTopActions({ orderNo, status }: Props) {
     start(async () => {
       const r = await changeOrderStatus(orderNo, "archived");
       if (r.ok) {
-        window.location.reload();
+        router.refresh();
       } else {
         alert(`Archivieren fehlgeschlagen: ${r.error}`);
       }

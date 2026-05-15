@@ -8,46 +8,56 @@ import {
 import { getAdminSession, requireOrderViewAccess } from '@/lib/auth.server';
 import { loadOrderContext } from './_order-context';
 import { OrderTabs } from './order-tabs';
-import { OrderReadOnlyBadge, OrderEditActions } from './header-actions';
+import { OrderEditActions } from './header-actions';
 import { OrderSaveToast } from './order-save-toast';
 import { OrderEditShellProvider } from './order-edit-shell-context';
 import { OrderEditShellContent } from './order-edit-shell-content';
 import { OrderBulkDirtyHint } from './order-bulk-hint';
 import { OrderTopActions } from './topbar-actions';
-import { isOrderReadOnly } from './_shared';
+import { isOrderReadOnly, formatDateTime as sharedFormatDateTime } from './_shared';
+import { getStatusLabel } from '@/lib/status';
 import { AppSidebar } from '@/components/layout/AppSidebar';
 import type { Role } from '@/types';
 import './bestellung-detail.css';
 
-type StatusMeta = {
-  label: string;
+type StatusChipColors = {
   color: string;
   bg: string;
   text: string;
   border: string;
 };
 
-const STATUS_META: Record<string, StatusMeta> = {
-  pending:     { label: 'Offen',          color: '#B87514', bg: '#FBEED4', text: '#8A5710', border: 'rgba(184,117,20,0.33)' },
-  provisional: { label: 'Provisorisch',   color: '#7C5BC9', bg: '#EDE5FA', text: '#4A2F8E', border: 'rgba(124,91,201,0.33)' },
-  confirmed:   { label: 'Bestätigt',      color: '#2A7A2A', bg: '#E6F2E3', text: '#1F5C20', border: 'rgba(42,122,42,0.33)' },
-  completed:   { label: 'Abgeschlossen',  color: '#0F8A7E', bg: '#D6F1ED', text: '#0A5C53', border: 'rgba(15,138,126,0.33)' },
-  done:        { label: 'Erledigt',       color: '#244865', bg: '#DFEBF5', text: '#244865', border: 'rgba(36,72,101,0.33)' },
-  paused:      { label: 'Pausiert',       color: '#6B6962', bg: '#EFEDE6', text: '#3C3B38', border: 'rgba(107,105,98,0.33)' },
-  cancelled:   { label: 'Storniert',      color: '#B4311B', bg: '#F8E0DB', text: '#8A2515', border: 'rgba(180,49,27,0.33)' },
-  archived:    { label: 'Archiviert',     color: '#6B6962', bg: '#F0EBDF', text: '#3C3B38', border: 'rgba(107,105,98,0.33)' },
+/**
+ * Hex-Farben pro DB-Status für das Hero-Chip. Label kommt aus dem
+ * zentralen STATUS_MAP (lib/status.ts), damit Detail-Page, Kanban und
+ * Liste denselben Begriff verwenden. Sub-Stati (provisional,
+ * disposition_offen, archived) bekommen eigene Farben, damit Office
+ * den Sub-Zustand erkennt, aber das Label folgt dem Bucket
+ * (Ausstehend bzw. Abgeschlossen).
+ */
+const STATUS_CHIP_COLORS: Record<string, StatusChipColors> = {
+  pending:           { color: '#B87514', bg: '#FBEED4', text: '#8A5710', border: 'rgba(184,117,20,0.33)' },
+  provisional:       { color: '#7C5BC9', bg: '#EDE5FA', text: '#4A2F8E', border: 'rgba(124,91,201,0.33)' },
+  disposition_offen: { color: '#D97706', bg: '#FCE7C2', text: '#8A4A10', border: 'rgba(217,119,6,0.33)' },
+  confirmed:         { color: '#2A7A2A', bg: '#E6F2E3', text: '#1F5C20', border: 'rgba(42,122,42,0.33)' },
+  paused:            { color: '#7C5BC9', bg: '#EDE5FA', text: '#4A2F8E', border: 'rgba(124,91,201,0.33)' },
+  completed:         { color: '#0F8A7E', bg: '#D6F1ED', text: '#0A5C53', border: 'rgba(15,138,126,0.33)' },
+  done:              { color: '#10B981', bg: '#DCFCE7', text: '#065F46', border: 'rgba(16,185,129,0.33)' },
+  cancelled:         { color: '#B4311B', bg: '#F8E0DB', text: '#8A2515', border: 'rgba(180,49,27,0.33)' },
+  archived:          { color: '#6B6962', bg: '#F0EBDF', text: '#3C3B38', border: 'rgba(107,105,98,0.33)' },
 };
 
 function formatAppointment(date: string | null, time: string | null) {
-  if (!date) return '—';
-  const d = new Date(`${date}T${time ?? '00:00'}:00`);
-  const datePart = new Intl.DateTimeFormat('de-CH', {
-    weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(d);
-  const timePart = time
-    ? new Intl.DateTimeFormat('de-CH', { hour: '2-digit', minute: '2-digit' }).format(d)
-    : null;
-  return timePart ? `${datePart}, ${timePart}` : datePart;
+  // Vereinheitlicht via shared formatDateTime (UTC-parse) — vorher gab es
+  // einen lokalen Parser ohne Z-Suffix der ein anderes Datum produzierte
+  // als _shared.formatDateTime, sodass Hero und Tab-Inhalte divergierten.
+  return sharedFormatDateTime(date, time);
+}
+
+function formatTerminValue(date: string | null, time: string | null) {
+  // Em-dash war fuer User unklar — explizite Hinweise sind verstaendlicher.
+  if (!date) return 'Noch nicht terminiert';
+  return formatAppointment(date, time);
 }
 
 function formatCHF(amount: number | null | undefined) {
@@ -81,7 +91,8 @@ export default async function OrderLayout({ children, params }: Props) {
   const order = await loadOrderContext(orderNo);
   if (!order) notFound();
 
-  const status = STATUS_META[order.status] ?? STATUS_META.pending;
+  const statusColors = STATUS_CHIP_COLORS[order.status] ?? STATUS_CHIP_COLORS.pending;
+  const statusLabel = getStatusLabel(order.status);
   const sessionRole = (session?.role ?? 'admin') as Role;
 
   return (
@@ -97,9 +108,8 @@ export default async function OrderLayout({ children, params }: Props) {
             </Link>
             <span className="sep">›</span>
             <strong>#{order.order_no}</strong>
-            <Suspense fallback={null}>
-              <OrderReadOnlyBadge />
-            </Suspense>
+            {/* OrderReadOnlyBadge wurde hier entfernt — der Schreibgeschuetzt-
+                Hinweis erscheint nur noch im Hero-Bereich darunter. */}
           </div>
 
           <div className="bd-top-actions">
@@ -118,15 +128,18 @@ export default async function OrderLayout({ children, params }: Props) {
           <div className="bd-hero-sub">
             <span
               className="bd-status-chip"
-              style={{ background: status.bg, color: status.text, borderColor: status.border }}
+              style={{ background: statusColors.bg, color: statusColors.text, borderColor: statusColors.border }}
             >
-              <span className="dot" style={{ background: status.color }} />
-              {status.label}
+              <span className="dot" style={{ background: statusColors.color }} />
+              {statusLabel}
             </span>
+            {/* Schreibgeschuetzt-Chip nur im Hero, NICHT auch in der Topbar
+                (Doppelung vermieden — OrderReadOnlyBadge in der Topbar
+                bleibt deaktiviert, siehe header-actions.tsx). */}
             {isOrderReadOnly(order.status) && (
               <span
                 className="bd-lock-chip"
-                title={`Status: ${status.label} — Bearbeitung deaktiviert`}
+                title={`Status: ${statusLabel} — Bearbeitung deaktiviert`}
               >
                 <Lock className="h-3 w-3" />
                 Schreibgeschützt
@@ -139,7 +152,7 @@ export default async function OrderLayout({ children, params }: Props) {
             <HeroStat
               icon={<Calendar />}
               label="Termin"
-              value={formatAppointment(order.schedule_date, order.schedule_time)}
+              value={formatTerminValue(order.schedule_date, order.schedule_time)}
             />
             <HeroStat
               icon={<User />}
