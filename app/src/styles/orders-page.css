@@ -1603,8 +1603,10 @@
 }
 
 /* Status-Dropdown im Side-Panel — Trigger zeigt aktuellen Status,
-   Menue klappt unter dem Trigger auf. Vermeidet ueberlappende Inhalte
-   im Side-Panel, die durch die feste 5-Zeilen-Liste entstanden sind. */
+   Menue oeffnet als OVERLAY (absolute, kein Layout-Shift). Bewusst
+   nicht im Flow, sonst wuerden Objekt/Zusammenfassung/Ereignisse beim
+   Aufklappen nach unten geschoben. */
+.osp-status-card { position: relative; }
 .osp-status-trigger {
   display: flex;
   align-items: center;
@@ -1641,15 +1643,24 @@
   background: var(--osp-surface-2);
 }
 .osp-status-menu {
+  position: absolute;
+  top: 100%;
+  left: 8px;
+  right: 8px;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-top: 0.5px solid var(--osp-divider);
+  margin-top: 4px;
   background: var(--osp-surface);
+  border: 0.5px solid var(--osp-divider);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
   animation: ospFadeIn 0.12s ease;
 }
 .osp-status-menu .osp-status-row {
-  padding: 10px 14px 10px 28px; /* leichter Einzug, damit Menue visuell zum Trigger gehoert */
+  padding: 10px 14px;
 }
 
 /* Kanban "Abgeschlossen"-Spalte: Hinweis-Text statt Karten —

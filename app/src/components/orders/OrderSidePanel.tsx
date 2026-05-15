@@ -698,7 +698,7 @@ function StatusDropdown({
   const current = bucketOption(currentStatus);
 
   return (
-    <div className="osp-card" ref={wrapRef}>
+    <div className="osp-card osp-status-card" ref={wrapRef}>
       <div className="osp-card-header">
         <span className="osp-card-title">
           <SlidersHorizontal style={{ width: 11, height: 11, display: "inline-block", marginRight: 6, verticalAlign: "-1px" }} />
