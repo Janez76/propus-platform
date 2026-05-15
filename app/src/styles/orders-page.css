@@ -1605,8 +1605,11 @@
 /* Status-Dropdown im Side-Panel — Trigger zeigt aktuellen Status,
    Menue oeffnet als OVERLAY (absolute, kein Layout-Shift). Bewusst
    nicht im Flow, sonst wuerden Objekt/Zusammenfassung/Ereignisse beim
-   Aufklappen nach unten geschoben. */
-.osp-status-card { position: relative; }
+   Aufklappen nach unten geschoben.
+   overflow:visible !important ueberschreibt .osp-card { overflow:hidden } —
+   sonst wuerde das absolute Menue innerhalb der Card abgeschnitten und
+   waere unsichtbar (genau dieser Bug fuehrte zu "klappt ned aus"). */
+.osp-status-card { position: relative; overflow: visible !important; }
 .osp-status-trigger {
   display: flex;
   align-items: center;
