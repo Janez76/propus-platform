@@ -8232,7 +8232,14 @@ app.get("/api/admin/orders/:orderNo/chat/events", requirePhotographerOrAdmin, as
  */
 async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
   const orderNo = Number(orderNoIn);
-  const { date, time, durationMin: durationMinRaw } = body || {};
+  const { date, time, durationMin: durationMinRaw, skipMails: skipMailsRaw } = body || {};
+  // skipMails:true unterdrueckt die 3 Reschedule-Benachrichtigungen
+  // (Office/Fotograf/Kunde). Calendar-Update + DB + Event-Log laufen
+  // unveraendert. Use Case: Telefon-Verschiebungen wo Kunde bereits
+  // informiert ist, oder admin-getriggerte stille Korrekturen via
+  // KI-Assistant. Outbox-Handler setzt das NICHT (Default false), damit
+  // Mail-Flows aus dem Workflow-System unangetastet bleiben.
+  const skipMails = skipMailsRaw === true;
   if (!date || !time) {
     const err = new Error("Datum und Uhrzeit erforderlich");
     err.code = "BAD_REQUEST";
@@ -8413,7 +8420,11 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
   // Kein graphClient-Guard: sendMailWithFallback kann auch SMTP-only
   // (CodeRabbit Major #262); Calendar-Sync und Mail-Versand sind
   // unabhaengig.
-  if (timingChanged) {
+  // skipMails:true unterdrueckt die Mails (Calendar + DB laufen normal).
+  if (timingChanged && skipMails) {
+    console.log("[reschedule] skipMails=true -> no mails sent", { orderNo });
+  }
+  if (timingChanged && !skipMails) {
     const rsPhotogPhone = PHOTOG_PHONES[order.photographer?.key] || "-";
     try {
       const officeLang = process.env.OFFICE_LANG || "de";
@@ -8476,12 +8487,12 @@ async function performAdminReschedule({ orderNo: orderNoIn, body, actor }) {
       actor: { user: actor?.user || "admin", role: actor?.role || "" },
       oldValue: { date: oldDate, time: oldTime, durationMin: oldDurationMin },
       newValue: { date, time, durationMin },
-      metadata: { timingChanged },
+      metadata: { timingChanged, skipMails, mailsSent: timingChanged && !skipMails },
     });
   } catch (logErr) {
     console.error("[reschedule] event log error", logErr && logErr.message);
   }
-  return { ok: true, orderNo, schedule: { date, time, durationMin }, emailsSent: timingChanged };
+  return { ok: true, orderNo, schedule: { date, time, durationMin }, emailsSent: timingChanged && !skipMails, skipMails };
 }
 
 app.patch("/api/admin/orders/:orderNo/reschedule", requireAdmin, async (req, res) => {

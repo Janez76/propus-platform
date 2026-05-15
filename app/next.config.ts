@@ -18,6 +18,22 @@ const nextConfig: NextConfig = {
     "/api/assistant/training/seed": ["./scripts/seed-memories.yaml"],
   },
   async redirects() {
+    // Social-Media Short-URLs (PRO-11). Captions verlinken
+    // booking.propus.ch/ig (oder propus.ch/ig wenn DNS dorthin zeigt) —
+    // hier wird 302 auf booking.propus.ch mit korrekten UTMs gemacht.
+    // medium=social (Kanalart), source=plattform (woher), campaign=organic
+    // (vs paid). 302 statt 308 weil UTM-Mapping kuenftig variieren darf.
+    const socialRedirects = [
+      { source: "/ig", utm: "instagram" },
+      { source: "/li", utm: "linkedin" },
+      { source: "/tt", utm: "tiktok" },
+      { source: "/yt", utm: "youtube" },
+    ].map(({ source, utm }) => ({
+      source,
+      destination: `https://booking.propus.ch/?utm_source=${utm}&utm_medium=social&utm_campaign=organic`,
+      permanent: false,
+    }));
+
     return [
       {
         source: "/admin/orders/:id",
@@ -29,6 +45,7 @@ const nextConfig: NextConfig = {
         destination: "/orders/:id/:path*",
         permanent: false,
       },
+      ...socialRedirects,
     ];
   },
   async rewrites() {

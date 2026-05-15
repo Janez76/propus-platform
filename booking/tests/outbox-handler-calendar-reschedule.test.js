@@ -47,6 +47,30 @@ test("omits durationMin from body when not provided", async () => {
   assert.deepEqual(calls[0].body, { date: "2026-06-15", time: "10:00" });
 });
 
+test("forwards skipMails:true when set in payload", async () => {
+  const calls = [];
+  const handler = makeCalendarRescheduleHandler({
+    performAdminReschedule: async (args) => { calls.push(args); },
+  });
+  await handler(makeCtx({ date: "2026-06-15", time: "10:00", skipMails: true }));
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, { date: "2026-06-15", time: "10:00", skipMails: true });
+});
+
+test("omits skipMails from body when falsy or absent (default = send mails)", async () => {
+  const calls = [];
+  const handler = makeCalendarRescheduleHandler({
+    performAdminReschedule: async (args) => { calls.push(args); },
+  });
+  await handler(makeCtx({ date: "2026-06-15", time: "10:00" }));
+  await handler(makeCtx({ date: "2026-06-15", time: "10:00", skipMails: false }));
+  await handler(makeCtx({ date: "2026-06-15", time: "10:00", skipMails: "true" }));
+  assert.equal(calls.length, 3);
+  for (const c of calls) {
+    assert.equal(c.body.skipMails, undefined, "skipMails darf nur bei strikt true gesetzt sein");
+  }
+});
+
 test("skips silently on incomplete payload (no throw -> done)", async () => {
   const calls = [];
   const handler = makeCalendarRescheduleHandler({
