@@ -55,8 +55,17 @@ test('getAllowedTargets: pending hat provisional, confirmed, cancelled', () => {
   assert.ok(targets.includes('cancelled'));
 });
 
-test('getAllowedTargets: done hat nur archived', () => {
-  assert.deepEqual(getAllowedTargets('done'), ['archived']);
+test('getAllowedTargets: done erlaubt Reaktivierung + archive (liberale Admin-Matrix)', () => {
+  const targets = getAllowedTargets('done');
+  // archive bleibt der historische End-Zielzustand und muss enthalten sein.
+  assert.ok(targets.includes('archived'), `expected archived in ${targets}`);
+  // Admin darf einen abgeschlossenen Auftrag wieder oeffnen — pending oder
+  // material-Bearbeitung (completed) sind die typischen "Drag zurueck"-Faelle.
+  assert.ok(targets.includes('pending'), `expected pending in ${targets}`);
+  assert.ok(targets.includes('completed'), `expected completed in ${targets}`);
+  // provisional bleibt verboten: ein abgeschlossener Auftrag wird nicht
+  // wieder zu einem Provisorium herabgestuft (es gibt keinen 3-Tage-Timer).
+  assert.ok(!targets.includes('provisional'), `provisional should remain forbidden out of done`);
 });
 
 test('getAllowedTargets: unbekannter Status → leeres Array', () => {

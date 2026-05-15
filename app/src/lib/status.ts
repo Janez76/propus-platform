@@ -163,17 +163,22 @@ export function statusMatches(orderStatus: string | undefined | null, filterKey:
  * Spiegelt booking/order-status.js ALLOWED_TRANSITIONS (SSOT im Backend).
  * Bei Aenderungen IMMER auch booking/order-status.js und
  * app/src/lib/orderWorkflow/stateMachine.ts anpassen.
+ *
+ * Liberale Admin-Matrix: jeder Bucket-zu-Bucket-Drag im Kanban funktioniert.
+ * Harte Invarianten (Photographer+Termin fuer confirmed/provisional;
+ * provisional->pending nur via expiry_job) werden vom Backend zusaetzlich
+ * geprueft.
  */
 export const ALLOWED_TRANSITIONS: Record<StatusKey, StatusKey[]> = {
   pending:           ["provisional", "disposition_offen", "confirmed", "paused", "cancelled", "archived", "done", "completed"],
-  provisional:       ["confirmed", "paused", "cancelled"],
-  disposition_offen: ["confirmed", "paused", "cancelled"],
-  confirmed:         ["completed", "done", "paused", "cancelled"],
-  paused:            ["pending", "provisional", "disposition_offen", "confirmed", "cancelled"],
-  completed:         ["done", "archived"],
-  done:              ["archived"],
-  cancelled:         ["archived", "pending"],
-  archived:          ["pending"],
+  provisional:       ["confirmed", "disposition_offen", "paused", "completed", "done", "cancelled", "archived"],
+  disposition_offen: ["pending", "provisional", "confirmed", "paused", "completed", "done", "cancelled", "archived"],
+  confirmed:         ["pending", "provisional", "disposition_offen", "completed", "done", "paused", "cancelled", "archived"],
+  paused:            ["pending", "provisional", "disposition_offen", "confirmed", "completed", "done", "cancelled", "archived"],
+  completed:         ["pending", "confirmed", "done", "paused", "cancelled", "archived"],
+  done:              ["pending", "confirmed", "completed", "paused", "cancelled", "archived"],
+  cancelled:         ["pending", "confirmed", "completed", "done", "paused", "archived"],
+  archived:          ["pending", "confirmed", "completed", "done", "paused", "cancelled"],
 };
 
 /**

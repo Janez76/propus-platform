@@ -311,9 +311,12 @@ describe("update_order_status", () => {
     );
   });
 
-  it("rejects invalid transition (confirmed → pending)", async () => {
+  it("rejects invalid transition (provisional → pending manuell — nur via expiry_job)", async () => {
+    // Einziger noch-verbotener Pfad in der liberalen Admin-Matrix: ein
+    // Provisorium wird nicht manuell auf pending zurueckgesetzt; das macht
+    // der Expiry-Job, wenn die 3-Tage-Frist abgelaufen ist.
     const deps = makeDeps();
-    deps.queryOne.mockResolvedValueOnce({ status: "confirmed" });
+    deps.queryOne.mockResolvedValueOnce({ status: "provisional" });
     const handlers = createWriteHandlers(deps);
     const result = await handlers.update_order_status({ order_no: 100, new_status: "pending" }, ctx);
 
@@ -323,11 +326,13 @@ describe("update_order_status", () => {
     expect(deps.query).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid transition (done → confirmed)", async () => {
+  it("rejects invalid transition (done → provisional)", async () => {
+    // done → provisional bleibt verboten: ein abgeschlossener Auftrag
+    // bekommt keinen 3-Tage-Provisorium-Timer rueckwirkend.
     const deps = makeDeps();
     deps.queryOne.mockResolvedValueOnce({ status: "done" });
     const handlers = createWriteHandlers(deps);
-    const result = await handlers.update_order_status({ order_no: 200, new_status: "confirmed" }, ctx);
+    const result = await handlers.update_order_status({ order_no: 200, new_status: "provisional" }, ctx);
 
     expect(result).toEqual({
       error: expect.stringContaining("nicht erlaubt"),

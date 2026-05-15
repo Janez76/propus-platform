@@ -35,8 +35,11 @@ test('isTransitionAllowed: disposition_offen → paused erlaubt', () => {
   assert.equal(isTransitionAllowed('disposition_offen', 'paused'), true);
 });
 
-test('isTransitionAllowed: disposition_offen → done direkt nicht erlaubt', () => {
-  assert.equal(isTransitionAllowed('disposition_offen', 'done'), false);
+test('isTransitionAllowed: disposition_offen → done direkt erlaubt (Admin-Kurzschluss)', () => {
+  // Frueher verboten — jetzt Teil der liberalen Admin-Matrix, damit ein
+  // Drag aus "Ausstehend" direkt nach "Abgeschlossen" im Kanban ohne
+  // Zwischenschritt funktioniert.
+  assert.equal(isTransitionAllowed('disposition_offen', 'done'), true);
 });
 
 test('isTransitionAllowed: paused → disposition_offen erlaubt (re-disponieren)', () => {
