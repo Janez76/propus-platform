@@ -357,3 +357,152 @@ describe("update_order_status", () => {
     expect(result).toMatchObject({ ok: true, newStatus: "completed" });
   });
 });
+
+describe("reschedule_order", () => {
+  function makeRescheduleDeps(orderRow: { status: string; schedule: Record<string, unknown> | null } | null) {
+    const deps = makeDeps();
+    deps.queryOne.mockResolvedValueOnce(orderRow);
+    const tx: object = {};
+    const withTransaction = vi.fn(async <R>(fn: (t: object) => Promise<R>) => fn(tx));
+    const enqueueOutbox = vi.fn().mockResolvedValue({ id: 42 });
+    return { deps, withTransaction, enqueueOutbox };
+  }
+
+  it("enqueues calendar_reschedule outbox and returns ack on happy path", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: { date: "2026-05-15", time: "11:45" },
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00" },
+      ctx,
+    );
+    expect(enqueueOutbox).toHaveBeenCalledTimes(1);
+    const [, orderNoArg, kindArg, payloadArg] = enqueueOutbox.mock.calls[0];
+    expect(orderNoArg).toBe(100115);
+    expect(kindArg).toBe("calendar_reschedule");
+    expect(payloadArg).toEqual({ date: "2026-05-15", time: "12:00" });
+    expect(result).toMatchObject({
+      ok: true,
+      orderNo: 100115,
+      outboxId: 42,
+      oldSchedule: { date: "2026-05-15", time: "11:45" },
+      newSchedule: { date: "2026-05-15", time: "12:00", durationMin: null },
+      skipMails: false,
+    });
+  });
+
+  it("passes skipMails:true into outbox payload when skip_mails set", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: { date: "2026-05-15", time: "11:45" },
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00", skip_mails: true },
+      ctx,
+    );
+    const payload = enqueueOutbox.mock.calls[0][3];
+    expect(payload).toEqual({ date: "2026-05-15", time: "12:00", skipMails: true });
+    expect(result).toMatchObject({ skipMails: true });
+  });
+
+  it("includes durationMin in payload when provided", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: { date: "2026-05-15", time: "11:45" },
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00", duration_min: 90 },
+      ctx,
+    );
+    expect(enqueueOutbox.mock.calls[0][3]).toEqual({
+      date: "2026-05-15",
+      time: "12:00",
+      durationMin: 90,
+    });
+  });
+
+  it("rejects when order does not exist", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps(null);
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 999999, date: "2026-05-15", time: "12:00" },
+      ctx,
+    );
+    expect(result).toEqual({ error: "Auftrag 999999 nicht gefunden" });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancelled order", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "cancelled",
+      schedule: { date: "2026-05-15", time: "11:45" },
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00" },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("cancelled") });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+
+  it("rejects archived order", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "archived",
+      schedule: { date: "2026-05-15", time: "11:45" },
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00" },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("archived") });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed date", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: null,
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "15.05.2026", time: "12:00" },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("YYYY-MM-DD") });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed time", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: null,
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12 Uhr" },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("HH:MM") });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid duration_min", async () => {
+    const { deps, withTransaction, enqueueOutbox } = makeRescheduleDeps({
+      status: "confirmed",
+      schedule: null,
+    });
+    const handlers = createWriteHandlers({ ...deps, withTransaction, enqueueOutbox });
+    const result = await handlers.reschedule_order(
+      { order_no: 100115, date: "2026-05-15", time: "12:00", duration_min: -10 },
+      ctx,
+    );
+    expect(result).toMatchObject({ error: expect.stringContaining("duration_min") });
+    expect(enqueueOutbox).not.toHaveBeenCalled();
+  });
+});

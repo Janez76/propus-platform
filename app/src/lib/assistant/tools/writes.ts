@@ -300,6 +300,28 @@ export const writeTools: ToolDefinition[] = [
     },
   },
   {
+    name: "reschedule_order",
+    description:
+      "Verschiebt Datum/Uhrzeit eines Buchungsauftrags. Triggert via Outbox-Pattern den booking-Worker, der: 1) alte Outlook-Events (Fotograf + Office) loescht, 2) neue Calendar-Events erstellt, 3) DB updated, 4) Event-Log schreibt, 5) optional 3 Reschedule-Mails sendet (Office/Fotograf/Kunde). Nutze `skip_mails: true` wenn Kunde bereits anderweitig informiert ist (z. B. telefonische Verschiebung) — dann nur Calendar + DB. Erlaubt nicht bei cancelled/archived. Verarbeitung ist asynchron via Outbox-Worker (innert Sekunden) — der Auftrag selbst zeigt das neue Datum erst nach Worker-Durchlauf.",
+    kind: "write",
+    requiresConfirmation: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        order_no: { type: "number", description: "Auftragsnummer" },
+        date: { type: "string", description: "Neues Datum (ISO YYYY-MM-DD)" },
+        time: { type: "string", description: "Neue Uhrzeit (HH:MM, 24h)" },
+        duration_min: { type: "number", description: "Optional: neue Dauer in Minuten. Weglassen = unveraendert." },
+        skip_mails: {
+          type: "boolean",
+          description:
+            "Wenn true: keine Reschedule-Benachrichtigungen senden (Office/Fotograf/Kunde). Calendar + DB laufen normal. Nutze bei telefonischen Verschiebungen oder wenn der Kunde bereits anderweitig informiert ist. Default false (alle 3 Mails gehen raus).",
+        },
+      },
+      required: ["order_no", "date", "time"],
+    },
+  },
+  {
     name: "add_order_items",
     description:
       "Fuegt Positionen zu einem bestehenden Auftrag hinzu (z. B. Schluesselabholung, Grundriss nachgereicht). Tool resolved Codes aus booking.products / pricing_rules wie create_order, haengt sie an services.addons an und rechnet pricing.subtotal/vat/total neu. Erlaubt nur in offenen Statuus (pending, provisional, disposition_offen, paused). Storno + Neuanlage ist NICHT noetig.",
@@ -888,6 +910,75 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         oldStatus: order.status,
         newStatus: normalizedNew,
         message: `Auftrag ${orderNo}: Status von "${order.status}" auf "${normalizedNew}" geändert.`,
+      };
+    },
+
+    reschedule_order: async (input: Record<string, unknown>, _ctx: ToolContext) => {
+      const orderNo = optionalPositiveInt(input.order_no);
+      if (!orderNo) return { error: "order_no ist erforderlich" };
+      const date = requireString(input.date, "date");
+      const time = requireString(input.time, "time");
+      // Strenge Format-Pruefung im Tool (statt erst im booking-Worker)
+      // damit der KI-Assistant einen sofortigen, lesbaren Fehler bekommt
+      // statt eines BAD_REQUEST nach Outbox-Dispatch.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return { error: `date hat falsches Format: "${date}". Erwartet: YYYY-MM-DD.` };
+      }
+      if (!/^\d{2}:\d{2}(?::\d{2})?$/.test(time)) {
+        return { error: `time hat falsches Format: "${time}". Erwartet: HH:MM (24h).` };
+      }
+      const durationRaw = input.duration_min;
+      let durationMin: number | null = null;
+      if (durationRaw != null) {
+        const n = Number(durationRaw);
+        if (!Number.isFinite(n) || n <= 0) {
+          return { error: `duration_min muss eine positive Zahl sein, war: ${durationRaw}` };
+        }
+        durationMin = Math.trunc(n);
+      }
+      const skipMails = input.skip_mails === true;
+
+      const order = await runQueryOne<{
+        status: string;
+        schedule: Record<string, unknown> | null;
+      }>(
+        `SELECT status, schedule FROM booking.orders WHERE order_no = $1`,
+        [orderNo],
+      );
+      if (!order) return { error: `Auftrag ${orderNo} nicht gefunden` };
+      if (order.status === "cancelled" || order.status === "archived") {
+        return {
+          error: `Auftrag ${orderNo} ist ${order.status} und kann nicht verschoben werden.`,
+        };
+      }
+      const oldDate = order.schedule && typeof order.schedule === "object" ? (order.schedule as Record<string, unknown>).date : null;
+      const oldTime = order.schedule && typeof order.schedule === "object" ? (order.schedule as Record<string, unknown>).time : null;
+
+      // Outbox-Enqueue in eigener Tx (Pattern wie create_order). Der
+      // booking-Worker dispatcht `calendar_reschedule` und ruft
+      // performAdminReschedule mit dem hier gesetzten skipMails-Flag auf.
+      const enqueued = await runWithTransaction(async (tx) => {
+        return runEnqueueOutbox(tx, orderNo, "calendar_reschedule", {
+          date,
+          time,
+          ...(durationMin != null ? { durationMin } : {}),
+          ...(skipMails ? { skipMails: true } : {}),
+        });
+      });
+
+      const mailInfo = skipMails
+        ? "Keine Reschedule-Mails (skip_mails=true)."
+        : "Office/Fotograf/Kunde werden via Mail informiert.";
+      return {
+        ok: true,
+        orderNo,
+        outboxId: enqueued.id,
+        oldSchedule: { date: oldDate, time: oldTime },
+        newSchedule: { date, time, durationMin },
+        skipMails,
+        message:
+          `Reschedule fuer Auftrag #${orderNo} eingereiht (Outbox #${enqueued.id}): ${oldDate ?? "?"} ${oldTime ?? "?"} -> ${date} ${time}. ` +
+          `${mailInfo} Outbox-Worker fuehrt Calendar-Sync + DB-Update innert Sekunden aus.`,
       };
     },
 

@@ -7,7 +7,11 @@
  * `performAdminReschedule` (booking/server.js).
  *
  * Payload-Schema:
- *   { date: "YYYY-MM-DD", time: "HH:MM", durationMin?: number }
+ *   { date: "YYYY-MM-DD", time: "HH:MM", durationMin?: number, skipMails?: boolean }
+ *
+ * skipMails:true unterdrueckt die 3 Reschedule-Mails (Office/Fotograf/
+ * Kunde) — Calendar + DB laufen unveraendert. Use Case: KI-Assistant-
+ * triggered reschedule wo Kunde bereits telefonisch informiert ist.
  *
  * Idempotency:
  *   performAdminReschedule loescht zuerst die alten Calendar-Events
@@ -51,6 +55,7 @@ function makeCalendarRescheduleHandler(deps) {
       date,
       time,
       ...(p.durationMin != null ? { durationMin: Number(p.durationMin) } : {}),
+      ...(p.skipMails === true ? { skipMails: true } : {}),
     };
 
     try {
