@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 
-import { getOrders, type Order } from "../api/orders";
+import { getOrders, updateOrderStatus, type Order } from "../api/orders";
 import { OrderSidePanel } from "../components/orders/OrderSidePanel";
 import { DeadlineBadge } from "../components/ui/DeadlineBadge";
 import { useQuery } from "../hooks/useQuery";
 import { ordersQueryKey } from "../lib/queryKeys";
-import { normalizeStatusKey, type StatusKey } from "../lib/status";
+import { getStatusLabel, normalizeStatusKey, type StatusKey } from "../lib/status";
 import { useAuthStore } from "../store/authStore";
+import { useQueryStore } from "../store/queryStore";
 import { t as translate } from "../i18n";
 
 import "../styles/orders-kanban.css";
@@ -24,6 +26,7 @@ const DEFAULT_COLUMN_KEYS = [
   "disposition-offen",
   "neu",
   "termin-abmachen",
+  "termin-provisorisch",
   "termin-abgemacht",
   "wartet-kunde",
   "material-bearbeitung",
@@ -44,6 +47,7 @@ const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
   "disposition-offen": "orders.kanban.col.dispositionOffen",
   "neu": "orders.kanban.col.neu",
   "termin-abmachen": "orders.kanban.col.terminAbmachen",
+  "termin-provisorisch": "orders.kanban.col.terminProvisorisch",
   "termin-abgemacht": "orders.kanban.col.terminAbgemacht",
   "wartet-kunde": "orders.kanban.col.wartetKunde",
   "material-bearbeitung": "orders.kanban.col.materialBearbeitung",
@@ -56,6 +60,32 @@ const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
   "bereit-verrechnung": "orders.kanban.col.bereitVerrechnung",
   "abgeschlossen": "orders.kanban.col.abgeschlossen",
   "storniert": "orders.kanban.col.storniert",
+};
+
+/**
+ * Mapping Spalte -> Backend-Status. Spalten ohne Mapping (gibt es aktuell
+ * keine, aber Custom-Spalten haben keins) sind reine UI-Buckets ohne
+ * Status-Auswirkung. Mehrere Spalten koennen auf denselben Status mappen
+ * (Sub-Phasen von "completed") -- ein Drop zwischen zwei Sub-Spalten
+ * verschiebt dann nur die UI-Position, ohne Backend-Status zu aendern.
+ */
+const COLUMN_TO_STATUS: Partial<Record<DefaultColumnKey, StatusKey>> = {
+  "disposition-offen":   "disposition_offen",
+  "neu":                 "pending",
+  "termin-abmachen":     "pending",
+  "termin-provisorisch": "provisional",
+  "termin-abgemacht":    "confirmed",
+  "wartet-kunde":        "paused",
+  "material-bearbeitung":"completed",
+  "grundrisse-fehlen":   "completed",
+  "staging-fehlt":       "completed",
+  "video-fehlt":         "completed",
+  "bereit-versenden":    "completed",
+  "revision":            "completed",
+  "versendet":           "completed",
+  "bereit-verrechnung":  "done",
+  "abgeschlossen":       "archived",
+  "storniert":           "cancelled",
 };
 
 function readLocal<T>(key: string, fallback: T): T {
@@ -102,6 +132,7 @@ function defaultColumnFor(order: Order): DefaultColumnKey {
     case "pending":
       return order.appointmentDate ? "termin-abmachen" : "neu";
     case "provisional":
+      return "termin-provisorisch";
     case "confirmed":
       return "termin-abgemacht";
     case "paused":
@@ -162,25 +193,44 @@ export function OrdersKanbanPage() {
   const [adding, setAdding] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const newColumnInputRef = useRef<HTMLInputElement | null>(null);
+  // Optimistic Backend-Status Overrides. Setzen wir beim Drop sofort, damit
+  // die Karte in der Zielspalte landet bevor der Refetch zurueckkommt. Wenn
+  // updateOrderStatus fehlschlaegt, revertieren wir den Eintrag.
+  const [optimisticStatus, setOptimisticStatus] = useState<Record<string, StatusKey>>({});
 
   // Hydrate from localStorage on mount.
   useEffect(() => {
     const stored = readLocal<KanbanColumn[] | null>(LS_COLUMNS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      // Gezielte Migration NUR fuer die neue "storniert"-Spalte: bestehende
-      // localStorage-Layouts kennen sie nicht, ohne sie wuerde
-      // resolveColumnId() cancelled-Karten in "abgeschlossen" einsortieren.
+      // Gezielte Migration NUR fuer die neuen Pflicht-Spalten: bestehende
+      // localStorage-Layouts kennen "storniert" und "termin-provisorisch"
+      // nicht. Ohne "storniert" wuerden cancelled-Karten in "abgeschlossen"
+      // einsortiert, ohne "termin-provisorisch" landen provisorisch gebuchte
+      // Auftraege in der Confirmed-Spalte und sind nicht mehr von endgueltig
+      // bestaetigten unterscheidbar.
       // Andere fehlende Defaults werden BEWUSST nicht nachgezogen, damit
       // User-Loeschungen (z. B. "video-fehlt") ueber Refreshes hinweg
       // persistent bleiben — sonst wuerde die Migration dauerhaft alle
       // gesammelten Defaults zurueckschreiben.
       const knownIds = new Set(stored.map((c) => c.id));
+      const next = [...stored];
       if (!knownIds.has("storniert")) {
         const labelKey = DEFAULT_COLUMN_LABEL_KEYS["storniert"];
-        setColumns([...stored, { id: "storniert", label: labelKey ? t(labelKey) : "Storniert" }]);
-      } else {
-        setColumns(stored);
+        next.push({ id: "storniert", label: labelKey ? t(labelKey) : "Storniert" });
       }
+      if (!knownIds.has("termin-provisorisch")) {
+        // Vor "termin-abgemacht" einfuegen, damit die natuerliche Workflow-
+        // Reihenfolge erhalten bleibt; faellt das Ziel weg, ans Ende.
+        const labelKey = DEFAULT_COLUMN_LABEL_KEYS["termin-provisorisch"];
+        const newCol: KanbanColumn = {
+          id: "termin-provisorisch",
+          label: labelKey ? t(labelKey) : "Termin provisorisch",
+        };
+        const insertIdx = next.findIndex((c) => c.id === "termin-abgemacht");
+        if (insertIdx >= 0) next.splice(insertIdx, 0, newCol);
+        else next.push(newCol);
+      }
+      setColumns(next);
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
     setCardOverrides(overrides);
@@ -240,6 +290,19 @@ export function OrdersKanbanPage() {
 
   const columnIdSet = useMemo(() => new Set(columns.map((c) => c.id)), [columns]);
 
+  // Effektiver Backend-Status der Karte: optimistic vorrangig vor o.status,
+  // damit eine frisch verschobene Karte sofort in der Zielspalte sichtbar
+  // ist (vor dem refetch). Sub-Spalten ohne Status-Mapping aendern den
+  // Status nicht, fuer sie bleibt o.status massgebend.
+  const effectiveOrderForRouting = useCallback(
+    (o: Order): Order => {
+      const o2 = optimisticStatus[o.orderNo];
+      if (!o2) return o;
+      return { ...o, status: o2 };
+    },
+    [optimisticStatus],
+  );
+
   const ordersByColumn = useMemo(() => {
     const buckets = new Map<string, Order[]>();
     for (const col of columns) buckets.set(col.id, []);
@@ -263,7 +326,8 @@ export function OrdersKanbanPage() {
       return columns[columns.length - 1]?.id ?? null;
     };
 
-    for (const o of filteredOrders) {
+    for (const o0 of filteredOrders) {
+      const o = effectiveOrderForRouting(o0);
       const oStatusKey = normalizeStatusKey(o.status);
       if (!showCancelled && oStatusKey === "cancelled") continue;
       const override = cardOverrides[o.orderNo];
@@ -272,16 +336,24 @@ export function OrdersKanbanPage() {
       // "storniert"-Spalte (waehrend showCancelled=true) sie unsichtbar machen,
       // sobald der Toggle ausgeschaltet wird (Spalte ausgeblendet, Karte
       // bleibt persistiert dort).
+      //
+      // Override gilt zusaetzlich NUR, wenn der gemappte Backend-Status zur
+      // tatsaechlichen Order passt. Sonst koennte z. B. eine pending-Order
+      // mit altem Override "termin-abgemacht" (=confirmed) faelschlich als
+      // bestaetigt erscheinen, obwohl der Status-Update damals fehlschlug.
+      const overrideStatus = override ? COLUMN_TO_STATUS[override as DefaultColumnKey] : undefined;
+      const overrideStatusMatches = !overrideStatus || overrideStatus === oStatusKey;
       const overrideValid =
         !!override
         && columnIdSet.has(override)
+        && overrideStatusMatches
         && (override !== "storniert" || (showCancelled && oStatusKey === "cancelled"));
       const targetId = overrideValid
         ? override
         : resolveColumnId(defaultColumnFor(o));
       if (!targetId) continue;
       const bucket = buckets.get(targetId);
-      if (bucket) bucket.push(o);
+      if (bucket) bucket.push(o0);
     }
 
     const orderNoNum = (no: string) => {
@@ -316,7 +388,7 @@ export function OrdersKanbanPage() {
       buckets.set(k, [...list].sort(sorter));
     }
     return buckets;
-  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort, showCancelled]);
+  }, [columns, filteredOrders, cardOverrides, columnIdSet, sort, showCancelled, effectiveOrderForRouting]);
 
   const sidePanelOrder = useMemo(
     () => (sidePanelNo ? allOrders.find((o) => o.orderNo === sidePanelNo) ?? null : null),
@@ -351,9 +423,73 @@ export function OrdersKanbanPage() {
       setDraggedOrderNo(null);
       setDropTargetCol(null);
       if (!orderNo) return;
+
+      const order = allOrders.find((o) => o.orderNo === orderNo);
+      if (!order) return;
+
+      const targetStatus = COLUMN_TO_STATUS[columnId as DefaultColumnKey];
+      const currentStatus = normalizeStatusKey(order.status);
+
+      // Reine UI-Position (User-Custom-Spalte ohne Status-Mapping ODER
+      // Sub-Spalte mit gleichem Status wie aktuell): nur Override setzen,
+      // keine API-Anfrage.
+      if (!targetStatus || targetStatus === currentStatus) {
+        setCardOverrides((prev) => ({ ...prev, [orderNo]: columnId }));
+        return;
+      }
+
+      // Status-Wechsel: optimistic, API-Call, bei Fehler revertieren.
+      if (!token) {
+        toast.error(t("orders.kanban.dropAuthError") || "Nicht angemeldet — Statusaenderung abgebrochen.");
+        return;
+      }
+
+      const prevOverride = cardOverrides[orderNo];
+      setOptimisticStatus((prev) => ({ ...prev, [orderNo]: targetStatus }));
       setCardOverrides((prev) => ({ ...prev, [orderNo]: columnId }));
+
+      const fromLabel = getStatusLabel(currentStatus || order.status);
+      const toLabel = getStatusLabel(targetStatus);
+
+      (async () => {
+        try {
+          await updateOrderStatus(token, orderNo, targetStatus, { sendEmails: false });
+          await refetch({ force: true });
+          // Cache invalidieren, damit Dashboard/Map nicht stale sind
+          useQueryStore.getState().invalidate(queryKey);
+          // optimistic-Eintrag entfernen — refetch hat den DB-Stand geladen
+          setOptimisticStatus((prev) => {
+            const next = { ...prev };
+            delete next[orderNo];
+            return next;
+          });
+          toast.success(
+            (t("orders.kanban.dropSuccess") || "Status geaendert: {{from}} -> {{to}}")
+              .replace("{{from}}", fromLabel)
+              .replace("{{to}}", toLabel),
+          );
+        } catch (err) {
+          // Revert: optimistic + override
+          setOptimisticStatus((prev) => {
+            const next = { ...prev };
+            delete next[orderNo];
+            return next;
+          });
+          setCardOverrides((prev) => {
+            const next = { ...prev };
+            if (prevOverride === undefined) delete next[orderNo];
+            else next[orderNo] = prevOverride;
+            return next;
+          });
+          const msg = err instanceof Error ? err.message : String(err);
+          toast.error(
+            (t("orders.kanban.dropError") || "Statusaenderung fehlgeschlagen: {{msg}}")
+              .replace("{{msg}}", msg),
+          );
+        }
+      })();
     },
-    [draggedOrderNo],
+    [allOrders, cardOverrides, draggedOrderNo, queryKey, refetch, t, token],
   );
 
   const handleAddColumn = useCallback(() => {
@@ -600,6 +736,17 @@ function KanbanCard({
   const photographerName = order.photographer?.name || "";
   const initials = initialsFromName(photographerName);
   const showServiceTag = Boolean(order.exxasOrderId);
+  const statusKey = normalizeStatusKey(order.status);
+  const isProvisional = statusKey === "provisional";
+  // Verbleibende Tage bis Ablauf eines Provisoriums (max. 3 Tage Spec).
+  // Negativ = abgelaufen (sollte vom Expiry-Job kassiert werden); 0 = heute.
+  const provExpiresInDays = (() => {
+    if (!isProvisional || !order.provisionalExpiresAt) return null;
+    const d = new Date(order.provisionalExpiresAt);
+    if (Number.isNaN(d.getTime())) return null;
+    const now = new Date();
+    return Math.ceil((d.getTime() - now.getTime()) / 86_400_000);
+  })();
 
   return (
     <button
@@ -610,6 +757,7 @@ function KanbanCard({
       onClick={onOpen}
       className="pkanban__card"
       data-dragging={isDragging ? "true" : undefined}
+      data-status={statusKey ?? undefined}
     >
       <div className="pkanban__card-title">
         {titleLine || "—"}{" "}
@@ -617,6 +765,22 @@ function KanbanCard({
       </div>
       {subLine ? (
         <div className="pkanban__card-sub">{subLine}</div>
+      ) : null}
+      {isProvisional ? (
+        <div className="pkanban__card-meta mt-1">
+          <span
+            className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold text-violet-700"
+            title={order.provisionalExpiresAt || undefined}
+          >
+            {provExpiresInDays === null
+              ? "Provisorisch"
+              : provExpiresInDays < 0
+                ? "Provisorium abgelaufen"
+                : provExpiresInDays === 0
+                  ? "Provisorium läuft heute ab"
+                  : `Provisorium: noch ${provExpiresInDays} Tag${provExpiresInDays === 1 ? "" : "e"}`}
+          </span>
+        </div>
       ) : null}
       {order.deadlineAt ? (
         <div className="pkanban__card-meta mt-1">

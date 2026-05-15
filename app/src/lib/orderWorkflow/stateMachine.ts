@@ -1,8 +1,13 @@
 import { ORDER_STATUS, VALID_STATUSES } from "./orderStatus";
 
+/**
+ * Spiegelt booking/order-status.js ALLOWED_TRANSITIONS (SSOT im Backend).
+ * Bei Aenderungen IMMER beide Dateien anpassen + app/src/lib/status.ts.
+ */
 const ALLOWED: Record<string, string[]> = {
   [ORDER_STATUS.PENDING]: [
     ORDER_STATUS.PROVISIONAL,
+    ORDER_STATUS.DISPOSITION_OFFEN,
     ORDER_STATUS.CONFIRMED,
     ORDER_STATUS.PAUSED,
     ORDER_STATUS.CANCELLED,
@@ -11,9 +16,15 @@ const ALLOWED: Record<string, string[]> = {
     ORDER_STATUS.COMPLETED,
   ],
   [ORDER_STATUS.PROVISIONAL]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.DISPOSITION_OFFEN]: [
+    ORDER_STATUS.CONFIRMED,
+    ORDER_STATUS.PAUSED,
+    ORDER_STATUS.CANCELLED,
+  ],
   [ORDER_STATUS.PAUSED]: [
     ORDER_STATUS.PENDING,
     ORDER_STATUS.PROVISIONAL,
+    ORDER_STATUS.DISPOSITION_OFFEN,
     ORDER_STATUS.CONFIRMED,
     ORDER_STATUS.CANCELLED,
   ],
@@ -99,7 +110,18 @@ export function getSideEffects(fromStatus: string, toStatus: string): string[] {
     } else {
       effects.push("calendar.create_final");
     }
-    effects.push("email.confirmed_customer", "email.confirmed_photographer", "email.confirmed_office");
+    if (from === ORDER_STATUS.DISPOSITION_OFFEN) {
+      effects.push(
+        "email.flex_booking_disposition",
+        "email.confirmed_photographer",
+        "email.confirmed_office",
+      );
+    } else {
+      effects.push("email.confirmed_customer", "email.confirmed_photographer", "email.confirmed_office");
+    }
+  }
+  if (to === ORDER_STATUS.DISPOSITION_OFFEN) {
+    effects.push("email.flex_booking_confirmation");
   }
   if (to === ORDER_STATUS.PAUSED) {
     effects.push("calendar.delete");

@@ -11,41 +11,10 @@
 const {
   ORDER_STATUS,
   VALID_STATUSES,
+  ALLOWED_TRANSITIONS,
+  isTransitionAllowed,
   getStatusLabel,
 } = require("./order-status");
-
-/**
- * Zentrale Transition-Matrix der Workflow-State-Machine.
- * Hinweis: pending ist fuer provisional nur via expiry_job erlaubt.
- */
-const ALLOWED_TRANSITIONS = {
-  [ORDER_STATUS.PENDING]:           [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
-  [ORDER_STATUS.PROVISIONAL]:       [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.DISPOSITION_OFFEN]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.PAUSED]:            [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]:         [ORDER_STATUS.COMPLETED, ORDER_STATUS.DONE, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.COMPLETED]:         [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.DONE]:              [ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.CANCELLED]:         [ORDER_STATUS.ARCHIVED, ORDER_STATUS.PENDING],
-  [ORDER_STATUS.ARCHIVED]:          [ORDER_STATUS.PENDING],
-};
-
-function isTransitionAllowed(from, to, context) {
-  const f = String(from || "").toLowerCase();
-  const t = String(to || "").toLowerCase();
-
-  if (!VALID_STATUSES.includes(t)) return false;
-
-  const allowed = ALLOWED_TRANSITIONS[f] || [];
-  if (allowed.includes(t)) return true;
-
-  // Sonderfall: provisional -> pending nur via Ablauf-Job
-  if (f === ORDER_STATUS.PROVISIONAL && t === ORDER_STATUS.PENDING) {
-    return !!(context && context.source === "expiry_job");
-  }
-
-  return false;
-}
 
 /**
  * Prueft ob ein Statusuebergang erlaubt ist.

@@ -303,8 +303,12 @@ async function changeOrderStatus(orderId, targetStatus, context, deps) {
       }
     }
 
-    if (to === ORDER_STATUS.PENDING && from === ORDER_STATUS.PROVISIONAL) {
-      // Provisorium-Felder leeren (Ablauf-Job)
+    // provisional.clear: jeder Wechsel WEG von "provisional" leert die
+    // Provisorium-Felder. Frueher nur fuer pending (Ablauf-Job) behandelt —
+    // das hat bei provisional -> cancelled / paused Karteileichen
+    // hinterlassen, sodass alte Reminder-Timestamps + expires_at in der DB
+    // verblieben und Diagnose-Queries verzerrt haben.
+    if (from === ORDER_STATUS.PROVISIONAL && to !== ORDER_STATUS.PROVISIONAL) {
       updateFields.provisional_booked_at = null;
       updateFields.provisional_expires_at = null;
       updateFields.provisional_reminder_1_sent_at = null;

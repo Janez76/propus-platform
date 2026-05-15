@@ -53,21 +53,30 @@ const STATUS_LABELS_DE = {
  * Erlaubte Statusuebergaenge (Transition-Matrix).
  * Schluessel = Ausgangsstatus, Wert = Array erlaubter Zielstatus.
  *
+ * SINGLE SOURCE OF TRUTH: Diese Matrix wird von state-machine.js importiert
+ * und gespiegelt im Frontend (app/src/lib/status.ts +
+ * app/src/lib/orderWorkflow/stateMachine.ts). Aenderungen hier muessen dort
+ * ebenfalls erfolgen — sonst weicht Frontend-Validierung vom Backend ab.
+ *
  * Sonderfall provisional -> pending:
  * Manuell NICHT erlaubt. Nur via Ablauf-Job (context.source === "expiry_job").
- * Der context-Check erfolgt in getTransitionError / isTransitionAllowed.
+ * Der context-Check erfolgt in isTransitionAllowed.
+ *
+ * Semantik der "ungewoehnlichen" Uebergaenge:
+ *  - paused -> confirmed:  Reaktivierung mit neuem Termin+Fotograf in einem Schritt
+ *  - confirmed -> done:    Sprung wenn Material aus anderer Quelle vorliegt (kein Shooting noetig)
+ *  - cancelled -> pending: Reaktivierung eines stornierten Auftrags
  */
 const ALLOWED_TRANSITIONS = {
   [ORDER_STATUS.PENDING]:           [ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED, ORDER_STATUS.ARCHIVED, ORDER_STATUS.DONE, ORDER_STATUS.COMPLETED],
   [ORDER_STATUS.PROVISIONAL]:       [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
-  // Flexible Buchung wartet auf Disposition: Office wählt Slot+Fotograf -> confirmed.
   [ORDER_STATUS.DISPOSITION_OFFEN]: [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
   // pending ist hier nicht aufgefuehrt – wird nur via expiry_job erlaubt (siehe isTransitionAllowed)
-  [ORDER_STATUS.PAUSED]:            [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CANCELLED],
-  [ORDER_STATUS.CONFIRMED]:         [ORDER_STATUS.COMPLETED, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.PAUSED]:            [ORDER_STATUS.PENDING, ORDER_STATUS.PROVISIONAL, ORDER_STATUS.DISPOSITION_OFFEN, ORDER_STATUS.CONFIRMED, ORDER_STATUS.CANCELLED],
+  [ORDER_STATUS.CONFIRMED]:         [ORDER_STATUS.COMPLETED, ORDER_STATUS.DONE, ORDER_STATUS.PAUSED, ORDER_STATUS.CANCELLED],
   [ORDER_STATUS.COMPLETED]:         [ORDER_STATUS.DONE, ORDER_STATUS.ARCHIVED],
   [ORDER_STATUS.DONE]:              [ORDER_STATUS.ARCHIVED],
-  [ORDER_STATUS.CANCELLED]:         [ORDER_STATUS.ARCHIVED],
+  [ORDER_STATUS.CANCELLED]:         [ORDER_STATUS.ARCHIVED, ORDER_STATUS.PENDING],
   [ORDER_STATUS.ARCHIVED]:          [ORDER_STATUS.PENDING],
 };
 

@@ -154,14 +154,16 @@ export function statusMatches(orderStatus: string | undefined | null, filterKey:
 
 /**
  * Erlaubte Statusübergänge (Zielmatrix DoD C).
- * Spiegelt backend/state-machine.js.
+ * Spiegelt booking/order-status.js ALLOWED_TRANSITIONS (SSOT im Backend).
+ * Bei Aenderungen IMMER auch booking/order-status.js und
+ * app/src/lib/orderWorkflow/stateMachine.ts anpassen.
  */
 export const ALLOWED_TRANSITIONS: Record<StatusKey, StatusKey[]> = {
   pending:           ["provisional", "disposition_offen", "confirmed", "paused", "cancelled", "archived", "done", "completed"],
   provisional:       ["confirmed", "paused", "cancelled"],
   disposition_offen: ["confirmed", "paused", "cancelled"],
   confirmed:         ["completed", "done", "paused", "cancelled"],
-  paused:            ["pending", "provisional", "disposition_offen", "cancelled"],
+  paused:            ["pending", "provisional", "disposition_offen", "confirmed", "cancelled"],
   completed:         ["done", "archived"],
   done:              ["archived"],
   cancelled:         ["archived", "pending"],
