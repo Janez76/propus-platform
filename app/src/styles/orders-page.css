@@ -3,6 +3,29 @@
    Scoped unter .orders-page-v2. Theme-aware via html.dark-Override am
    Ende. Inter + JetBrains Mono werden global in layout.tsx geladen.
 ===================================================================== */
+
+/* Page-Background ueberschreiben, wenn die /orders-Route rendert.
+   `body:has(.orders-page-v2)` matched body wenn irgendwo im Subtree die
+   Bestellungen-V2-Komponente steht. Mit dem Padmin-Shell als Wrapper:
+   wir muessen auch dessen background uebergehen, sonst bleibt der
+   beige Streifen am Rand sichtbar (wie im Screenshot zu sehen). */
+body:has(.orders-page-v2),
+html body:has(.orders-page-v2) {
+  background: #f5f5f7 !important;
+}
+body:has(.orders-page-v2) .padmin-shell,
+body:has(.orders-page-v2) .app-classic {
+  --paper: #f5f5f7;
+  --paper-strip: #fafafa;
+  background: #f5f5f7 !important;
+}
+html.dark body:has(.orders-page-v2),
+html.dark body:has(.orders-page-v2) .padmin-shell,
+html.dark body:has(.orders-page-v2) .app-classic {
+  background: #000000 !important;
+  --paper: #000000;
+  --paper-strip: #1c1c1e;
+}
 .orders-page-v2 {
   /* Apple-Look 2026 — light gray page background, pure-white surfaces.
      Frueher beige Propus-Theme (#F4F1EA) — auf Wunsch von Janez auf
@@ -1894,22 +1917,45 @@ html.dark .osp-footer-primary:hover { background: #2a2a2e; }
 
 /* ── Dark theme ──────────────────────────────────────── */
 html.dark .orders-page-v2 {
-  --bg: #0a0a0c;
-  --surface: #1a1a1d;
-  --surface-2: #141417;
-  --hover: #232327;
-  --selected: rgba(0, 122, 255, 0.18);
+  /* Apple Dark Mode Palette (iOS/macOS dunkel):
+     - Page-bg: True Black (#000) — auf OLED stromsparend, kontrastreich
+     - Surface 1: #1c1c1e (System Gray 6, Apple Cards)
+     - Surface 2: #2c2c2e (System Gray 5, Sub-Cards)
+  */
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --hover: #2c2c2e;
+  --selected: rgba(10, 132, 255, 0.20);
 
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.13);
-  --divider: rgba(255, 255, 255, 0.05);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --divider: rgba(255, 255, 255, 0.06);
 
-  --text: #f5f5f7;
-  --text-2: #c8c8cc;
-  --text-3: #98989d;
-  --text-4: #6e6e74;
+  --text: #ffffff;
+  --text-2: #ebebf5;
+  --text-3: rgba(235, 235, 245, 0.60);
+  --text-4: rgba(235, 235, 245, 0.30);
 
-  --gray-bg: rgba(255, 255, 255, 0.08);
+  /* Apple Dark — System Colors slightly brighter (P3-ish) */
+  --blue: #0a84ff;
+  --blue-bg: rgba(10, 132, 255, 0.18);
+  --orange: #ff9f0a;
+  --orange-bg: rgba(255, 159, 10, 0.18);
+  --red: #ff453a;
+  --red-bg: rgba(255, 69, 58, 0.16);
+  --green: #30d158;
+  --green-bg: rgba(48, 209, 88, 0.18);
+  --teal: #64d2ff;
+  --teal-bg: rgba(100, 210, 255, 0.18);
+  --purple: #bf5af2;
+  --purple-bg: rgba(191, 90, 242, 0.18);
+
+  --gray-bg: rgba(120, 120, 128, 0.24);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.50);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
 }
 html.dark .orders-page-v2 .op-dd-menu {
   background: rgba(40, 40, 44, 0.92);
