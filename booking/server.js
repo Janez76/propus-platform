@@ -7619,7 +7619,9 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
   console.log("[status] transition", { orderNo, from: prevStatus, to: status, sideEffects });
 
   // Kalender-Side-Effects (Phase 2): provisional, upgrade, create_final
-  // Loeschen bei cancelled/done/completed laeuft weiterhin im becomingFinal-Block unten
+  // Loeschen bei cancelled/archived laeuft weiterhin im becomingFinal-Block unten.
+  // done/completed loeschen Events NICHT mehr — Termine bleiben fuer
+  // historischen Ueberblick + Year-in-Review-Reports stehen (PRO-43 Folge).
   const calendarCreateEffects = sideEffects.filter(function(e) {
     return e === "calendar.create_provisional" || e === "calendar.upgrade_to_final" || e === "calendar.create_final";
   });
@@ -7703,10 +7705,14 @@ app.patch("/api/admin/orders/:orderNo/status", requireAdmin, async (req, res) =>
     }
   }
 
-    const becomingFinal = (status === "cancelled" || status === "completed" || status === "done" || status === "archived") && prevStatus !== status;
+    // becomingFinal: nur cancelled + archived loeschen Kalender-Events.
+    // done/completed bleiben drin fuer historischen Ueberblick — Kunde-Rule.
+    // (User: "Termin muss drinn bleiben ausser bei stornirt oder geloescht.")
+    const becomingFinal = (status === "cancelled" || status === "archived") && prevStatus !== status;
   const becomingPaused = status === "paused" && prevStatus !== "paused";
 
-  // Bei Absage, Erledigt ODER Pausiert: Kalender-Events loeschen (Slot freigeben)
+  // Bei Absage, Archivierung ODER Pausierung: Kalender-Events loeschen (Slot freigeben).
+  // done/completed: bewusst NICHT mehr (siehe oben).
   const deletedEvents = [];
   let deletedPhotographerEvent = false;
   let deletedOfficeEvent = false;
