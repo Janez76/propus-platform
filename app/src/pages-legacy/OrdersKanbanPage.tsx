@@ -121,7 +121,17 @@ function uniqueColumnId(base: string, taken: Set<string>): string {
 }
 
 function defaultColumnFor(order: Order): DefaultColumnKey {
-  const k: StatusKey | null = normalizeStatusKey(order.status);
+  return bucketColumnFor(normalizeStatusKey(order.status));
+}
+
+/**
+ * Welche Bucket-Spalte ein DB-Status hat. provisional + disposition_offen
+ * landen mit pending in "ausstehend"; archived mit done in "abgeschlossen".
+ * Wichtig fuer handleDrop: ein Drop auf "ausstehend" soll fuer eine
+ * provisional-Order keinen DB-Update ausloesen, sonst wuerde der Backend
+ * provisional -> pending ablehnen (nur via expiry_job erlaubt).
+ */
+function bucketColumnFor(k: StatusKey | null): DefaultColumnKey {
   switch (k) {
     case "pending":
     case "provisional":
@@ -425,11 +435,13 @@ export function OrdersKanbanPage() {
 
       const targetStatus = COLUMN_TO_STATUS[columnId as DefaultColumnKey];
       const currentStatus = normalizeStatusKey(order.status);
+      const currentBucket = bucketColumnFor(currentStatus);
 
-      // Reine UI-Position (User-Custom-Spalte ohne Status-Mapping ODER
-      // Sub-Spalte mit gleichem Status wie aktuell): nur Override setzen,
-      // keine API-Anfrage.
-      if (!targetStatus || targetStatus === currentStatus) {
+      // Reine UI-Position: User-Custom-Spalte ohne Status-Mapping, ODER
+      // Karte landet wieder in ihrem aktuellen Bucket (z. B. provisional-
+      // Order von "Ausstehend" zurueck nach "Ausstehend"). Kein DB-Update,
+      // sonst wuerde provisional -> pending durch Backend abgelehnt werden.
+      if (!targetStatus || columnId === currentBucket) {
         setCardOverrides((prev) => ({ ...prev, [orderNo]: columnId }));
         return;
       }

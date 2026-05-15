@@ -22,9 +22,26 @@ const PALETTE_REUSE: Record<StatusKey, StatusKey | null> = {
   archived: null,
 };
 
+// UI ist auf 5 Bucket-Sections + Storniert reduziert. provisional und
+// disposition_offen fallen in die "pending"-Section, archived in die
+// "done"-Section. Der Test sichert nur noch, dass jede Section-Key auch ein
+// gueltiger StatusKey ist und CHIP_GROUPS jeden Status erreichen.
+const HIDDEN_FROM_TABLE_SECTIONS: ReadonlySet<StatusKey> = new Set([
+  "provisional",
+  "disposition_offen",
+  "archived",
+]);
+
 describe("status coverage", () => {
-  it("OrderTable.SECTION_ORDER contains every StatusKey", () => {
-    const missing = STATUS_KEYS.filter((k) => !SECTION_ORDER.includes(k));
+  it("OrderTable.SECTION_ORDER consists only of valid StatusKeys", () => {
+    const invalid = SECTION_ORDER.filter((k) => !STATUS_KEYS.includes(k));
+    expect(invalid).toEqual([]);
+  });
+
+  it("OrderTable.SECTION_ORDER covers every visible StatusKey (3 sub-states are bucketed)", () => {
+    const missing = STATUS_KEYS.filter(
+      (k) => !SECTION_ORDER.includes(k) && !HIDDEN_FROM_TABLE_SECTIONS.has(k),
+    );
     expect(missing).toEqual([]);
   });
 

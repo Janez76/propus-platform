@@ -21,6 +21,7 @@ import {
   UserMinus,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import "../styles/orders-page.css";
 import {
   createBexioSalesOrder,
@@ -1106,8 +1107,12 @@ function OrdersKanban({
   async function applyDrop(orderNo: string, target: StatusKey) {
     const o = orders.find((x) => x.orderNo === orderNo);
     if (!o || !token) return;
-    const current = normalizeStatusKey(o.status);
-    if (current === target) return;
+    // Bucket-Vergleich statt Raw-Status: provisional/disposition_offen
+    // teilen den "pending"-Bucket; archived teilt sich den "done"-Bucket.
+    // Drag auf dieselbe Bucket-Spalte ist ein No-op, sonst wuerde der
+    // Backend einen verbotenen Uebergang (provisional -> pending) ablehnen.
+    const currentBucket = bucketFor(o.status);
+    if (currentBucket === target) return;
     setOptimistic((prev) => ({ ...prev, [orderNo]: target }));
     setBusy(true);
     let writeOk = false;
@@ -1124,7 +1129,10 @@ function OrdersKanban({
         delete next[orderNo];
         return next;
       });
-    } catch {
+      toast.success(
+        `Status geändert: ${getStatusLabel(currentBucket || o.status)} → ${getStatusLabel(target)}`,
+      );
+    } catch (err) {
       if (!writeOk) {
         // Only roll back when the write itself failed.
         setOptimistic((prev) => {
@@ -1133,6 +1141,8 @@ function OrdersKanban({
           return next;
         });
       }
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Statusänderung fehlgeschlagen: ${msg}`);
     } finally {
       setBusy(false);
     }

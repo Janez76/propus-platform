@@ -41,15 +41,19 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
     eventColor: "#f59e0b",
     iconName: "Clock",
   },
+  // provisional + disposition_offen sind UI-seitig "Ausstehend" — Bucket
+  // zusammen mit pending. Die unterschiedlichen Farben bleiben als Hinweis
+  // (Provisorium = violett, Flex-Disposition = orange) erhalten, damit
+  // Office im Listing-Badge die Sub-Form noch erkennt.
   provisional: {
-    label: "Termin provisorisch gebucht",
+    label: "Ausstehend",
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-500/15 text-violet-600 border border-violet-500/30",
     barColor: "bg-violet-500",
     eventColor: "#8b5cf6",
     iconName: "CalendarClock",
   },
   disposition_offen: {
-    label: "Disposition offen",
+    label: "Ausstehend",
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-orange-500/15 text-orange-600 border border-orange-500/30",
     barColor: "bg-orange-500",
     eventColor: "#f97316",
@@ -91,7 +95,9 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
     iconName: "X",
   },
   archived: {
-    label: "Archiviert",
+    // archived ist UI-seitig "Abgeschlossen" (zusammen mit done). Farbe bleibt
+    // Slate, damit Archiv-Zustand im Badge unterscheidbar bleibt.
+    label: "Abgeschlossen",
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-slate-500/15 text-slate-500 border border-slate-500/30",
     barColor: "bg-slate-400",
     eventColor: "#94a3b8",

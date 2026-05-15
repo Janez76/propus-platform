@@ -9813,7 +9813,10 @@ function saveAllOrdersToJson(orders){
 
 async function loadOrders(){
   if (process.env.DATABASE_URL) {
-    return await db.getOrders();
+    // limit:10000 ueberschreibt das db.getOrders-Default von 500 —
+    // sonst werden aeltere abgeschlossene/archivierte Auftraege nicht mehr
+    // an die Admin-UI geliefert und tauchen in der Liste/im Kanban nicht auf.
+    return await db.getOrders({ limit: 10000 });
   }
   return loadOrdersFromJson();
 }

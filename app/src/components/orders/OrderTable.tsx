@@ -33,17 +33,30 @@ type Props = {
 type SortKey = "orderNo" | "customer" | "address" | "appointment" | "total";
 type SortDir = "asc" | "desc";
 
+// 5 sichtbare Bucket-Sections + Storniert (toggle). Die Begriffe spiegeln
+// 1:1 die Kanban-Spalten — provisional/disposition_offen erscheinen in
+// "Ausstehend", archived erscheint in "Abgeschlossen".
 export const SECTION_ORDER: StatusKey[] = [
   "pending",
-  "provisional",
-  "disposition_offen",
   "confirmed",
   "paused",
   "completed",
   "done",
-  "archived",
   "cancelled",
 ];
+
+/**
+ * Welche Bucket-Section ein DB-Status zeigt. Bewusst kein Mapping auf
+ * cancelled fuer "andere" Status, damit fehlerhafte Status nicht still in
+ * den Storniert-Bucket rutschen.
+ */
+function bucketSectionFor(status: string | undefined | null): StatusKey {
+  const k = normalizeStatusKey(status);
+  if (k === "provisional" || k === "disposition_offen") return "pending";
+  if (k === "archived") return "done";
+  if (k === null) return "pending";
+  return k;
+}
 
 const DEFAULT_EXPANDED: Record<StatusKey, boolean> = {
   pending: true,
@@ -177,8 +190,8 @@ export function OrderTable({
     for (const key of SECTION_ORDER) grouped.set(key, []);
 
     for (const order of orders) {
-      const key = normalizeStatusKey(order.status) ?? "pending";
-      grouped.get(key)?.push(order);
+      const bucket = bucketSectionFor(order.status);
+      grouped.get(bucket)?.push(order);
     }
 
     return SECTION_ORDER
