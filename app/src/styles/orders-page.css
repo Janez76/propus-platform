@@ -4,15 +4,18 @@
    Ende. Inter + JetBrains Mono werden global in layout.tsx geladen.
 ===================================================================== */
 .orders-page-v2 {
-  --bg: #F4F1EA;
+  /* Apple-Look 2026 — light gray page background, pure-white surfaces.
+     Frueher beige Propus-Theme (#F4F1EA) — auf Wunsch von Janez auf
+     macOS-typischen Light-Gray (#f5f5f7) umgestellt. */
+  --bg: #f5f5f7;
   --surface: #ffffff;
-  --surface-2: #F7F4ED;
-  --hover: #EEEAE0;
-  --selected: #FBF6E8;
+  --surface-2: #fafafa;
+  --hover: #f5f5f5;
+  --selected: #f0f4ff;
 
   --border: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.1);
-  --divider: rgba(0, 0, 0, 0.04);
+  --divider: rgba(0, 0, 0, 0.05);
 
   --text: #1d1d1f;
   --text-2: #515154;
@@ -20,17 +23,21 @@
   --text-4: #b0b0b5;
 
   --blue: #007aff;
-  --blue-bg: rgba(0, 122, 255, 0.08);
+  --blue-bg: rgba(0, 122, 255, 0.10);
   --orange: #ff9500;
-  --orange-bg: rgba(255, 149, 0, 0.10);
+  --orange-bg: rgba(255, 149, 0, 0.12);
   --red: #ff3b30;
   --red-bg: rgba(255, 59, 48, 0.10);
   --green: #34c759;
-  --green-bg: rgba(52, 199, 89, 0.12);
+  --green-bg: rgba(52, 199, 89, 0.14);
+  --teal: #5ac8c8;
+  --teal-bg: rgba(90, 200, 200, 0.14);
   --yellow: #ffcc00;
   --yellow-bg: rgba(255, 204, 0, 0.14);
   --purple: #af52de;
   --purple-bg: rgba(175, 82, 222, 0.10);
+  --indigo: #5856d6;
+  --indigo-bg: rgba(88, 86, 214, 0.10);
   --gray-bg: rgba(120, 120, 128, 0.10);
 
   --gold: #b68e20;
@@ -38,7 +45,7 @@
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
 
   --r-sm: 8px;
   --r-md: 12px;
@@ -67,23 +74,38 @@
   padding: 32px 28px 80px 28px;
 }
 
-/* ── Header ───────────────────────────────────────────── */
+/* ── Header (Apple-Look Card) ─────────────────────────── */
 .op-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   gap: 24px;
   flex-wrap: wrap;
+  /* Apple-Style: Header ist eine eigene Card, nicht mehr flat */
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-md);
+  padding: 22px 24px;
 }
 .op-header-text { flex: 1; min-width: 0; }
 .op-header-meta {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
   color: var(--text-3);
   font-weight: 500;
   margin-bottom: 4px;
   letter-spacing: -0.01em;
 }
+/* Erste "Wort" der Meta-Zeile (Anzahl + 'aktive Bestellungen') als
+   Pill-Badge in Apple-Blau. Wir koennen das Markup nicht aendern,
+   stylen aber den Text-Block per ::first-line trick? Stattdessen
+   wickeln wir den Counter in einen Badge via :before, der den
+   numerischen Inhalt aus einer CSS-Variable holt — fallback: bleibt
+   die schlichte Text-Variante, kein Bruch. */
+.op-header-meta { font-feature-settings: 'tnum'; }
 .op-page-title {
   font-size: 28px;
   font-weight: 700;
@@ -826,9 +848,12 @@
 }
 .op-kanban-col {
   flex: 0 0 268px;
-  background: var(--surface);
-  border-radius: var(--r-md);
-  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-sm);
+  /* Apple-Style: Column-Hintergrund Light-Gray, Cards darin reinweiss.
+     Frueher war es invertiert (weisse Column, graue Cards) — das wirkte
+     flach und unstrukturiert. */
+  background: var(--surface-2);
+  border-radius: var(--r-lg);
+  box-shadow: 0 0 0 0.5px var(--border);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 360px);
@@ -836,8 +861,8 @@
   transition: box-shadow 0.18s, background-color 0.18s;
 }
 .op-kanban-col.is-drop-target {
-  background: var(--gold-bg);
-  box-shadow: 0 0 0 2px var(--gold), var(--shadow-md);
+  background: rgba(0, 122, 255, 0.04);
+  box-shadow: 0 0 0 2px var(--blue);
 }
 .op-kanban-board[data-busy="true"] { pointer-events: none; opacity: 0.85; }
 .op-kanban-col-head {
@@ -885,28 +910,30 @@
   padding: 12px 0;
 }
 .op-kanban-card {
-  background: var(--surface-2);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
+  /* Apple-Style Card: reinweiss auf Light-Gray-Column, weiche Schatten,
+     leichter Lift beim Hover. */
+  background: var(--surface);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
   border: 0;
   text-align: left;
   cursor: grab;
   font-family: inherit;
   display: block;
   width: 100%;
-  transition: background-color 0.12s, box-shadow 0.12s, transform 0.12s, opacity 0.12s;
-  box-shadow: 0 0 0 0.5px var(--border);
+  transition: box-shadow 0.18s, transform 0.18s, opacity 0.18s;
+  box-shadow: 0 0 0 0.5px var(--border), var(--shadow-sm);
 }
 .op-kanban-card:active { cursor: grabbing; }
 .op-kanban-card:hover {
-  background: var(--surface);
-  box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-sm);
+  box-shadow: 0 0 0 0.5px var(--border-strong), var(--shadow-md);
   transform: translateY(-1px);
 }
 .op-kanban-card[data-dragging="true"] {
   opacity: 0.4;
   cursor: grabbing;
-  transform: none;
+  transform: rotate(-1deg) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 .op-kanban-card-no {
   font-family: 'JetBrains Mono', monospace;

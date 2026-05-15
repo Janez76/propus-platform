@@ -1,47 +1,58 @@
 /* Orders → Kanban page
  * Scoped under .padmin-shell.pkanban so it inherits paper/ink tokens
- * defined by .padmin-shell in admin-redesign.css.
+ * defined by .padmin-shell in admin-redesign.css. Apple-Look-Override
+ * 2026-05: weisse Cards auf hellgrauer Spalten-Flaeche statt Beige.
  */
 
 .padmin-shell.pkanban {
   display: flex;
   flex-direction: column;
   padding: 0;
-  /*
-   * Füllt den von AppShell/main bereitgestellten Flex-Bereich (nicht 100dvh allein —
-   * sonst wächst die Seite über den Viewport und Spalten-Scroll greift nicht).
-   */
   flex: 1 1 0;
   min-height: 0;
   align-self: stretch;
+  /* Apple-Look-Tokens — ueberschreiben die Beige-Tokens aus admin-redesign.
+     Bewusst nur in dieser Page, damit andere Admin-Bereiche unveraendert
+     bleiben. */
+  --paper: #f5f5f7;
+  --paper-strip: #fafafa;
+  --pad-border: rgba(0, 0, 0, 0.08);
+  --ink: #1d1d1f;
+  --ink-2: #515154;
+  --ink-3: #86868b;
+  --ink-4: #b0b0b5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Tabs row (Liste | Kanban) */
+/* Tabs row (Liste | Kanban) — Apple-Style mit weichem Underline */
 .padmin-shell .pkanban__tabs {
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 8px 16px 0;
-  border-bottom: 1px solid var(--pad-border);
+  padding: 12px 28px 0;
+  border-bottom: 0.5px solid var(--pad-border);
   background: #fff;
 }
 .padmin-shell .pkanban__tab {
   position: relative;
   padding: 12px 4px;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--ink-3);
   text-decoration: none;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
+  letter-spacing: -0.01em;
 }
 .padmin-shell .pkanban__tab:hover {
   color: var(--ink-2);
 }
 .padmin-shell .pkanban__tab[data-active="true"] {
   color: var(--ink);
-  border-bottom-color: #1a8cff; /* matches reference screenshot accent */
+  border-bottom-color: #007aff;
   cursor: default;
 }
 
@@ -49,40 +60,45 @@
 .padmin-shell .pkanban__toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 14px 28px;
   background: #fff;
-  border-bottom: 1px solid var(--pad-border);
+  border-bottom: 0.5px solid var(--pad-border);
 }
 .padmin-shell .pkanban__toolbar-spacer { flex: 1; }
 
 .padmin-shell .pkanban__btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 6px;
-  border: 1px solid var(--pad-border);
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 0;
   background: #fff;
   color: var(--ink-2);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s, color 0.15s, transform 0.15s;
+  letter-spacing: -0.01em;
 }
 .padmin-shell .pkanban__btn:hover {
-  background: var(--paper-strip);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.10), 0 4px 16px rgba(0, 0, 0, 0.06);
   color: var(--ink);
 }
 .padmin-shell .pkanban__btn--primary {
-  border-color: transparent;
   background: var(--ink);
   color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .padmin-shell .pkanban__btn--primary:hover {
-  background: var(--ink-2);
+  background: #000;
   color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10);
 }
 .padmin-shell .pkanban__btn--ghost {
   background: transparent;
@@ -121,35 +137,39 @@
 }
 .padmin-shell .pkanban__search-input {
   width: 100%;
-  height: 32px;
-  padding: 0 12px 0 30px;
-  border-radius: 6px;
-  border: 1px solid var(--pad-border);
+  height: 34px;
+  padding: 0 14px 0 32px;
+  border-radius: 8px;
+  border: 0;
   background: #fff;
   color: var(--ink);
-  font-size: 13px;
+  font-size: 13.5px;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.18s;
+  letter-spacing: -0.01em;
 }
 .padmin-shell .pkanban__search-input::placeholder { color: var(--ink-4); }
 .padmin-shell .pkanban__search-input:focus {
   outline: none;
-  border-color: var(--ink-3);
+  box-shadow: 0 0 0 2px #007aff, 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .padmin-shell .pkanban__icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--pad-border);
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 0;
   background: #fff;
   color: var(--ink-3);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s, color 0.15s;
 }
 .padmin-shell .pkanban__icon-btn:hover {
-  background: var(--paper-strip);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.10), 0 4px 16px rgba(0, 0, 0, 0.06);
   color: var(--ink);
 }
 .padmin-shell .pkanban__icon-btn[data-busy="true"] {
@@ -171,20 +191,21 @@
   font-size: 13px;
 }
 
-/* Board */
+/* Board — Apple Light-Gray Hintergrund */
 .padmin-shell .pkanban__board {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 16px 28px 24px;
   overflow-x: auto;
   overflow-y: hidden;
   align-items: stretch;
   background: var(--paper);
 }
 
-/* Column */
+/* Column — Apple-Style: weiche Spalte mit subtilem inner box-shadow
+   statt Border, Cards heben sich darin durch reines Weiss ab. */
 .padmin-shell .pkanban__column {
   display: flex;
   flex-direction: column;
@@ -192,13 +213,14 @@
   min-width: clamp(232px, 22vw, 292px);
   min-height: 0;
   background: var(--paper-strip);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  transition: background 0.12s, border-color 0.12s;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 0 0 0.5px var(--pad-border);
+  transition: background 0.18s, box-shadow 0.18s;
 }
 .padmin-shell .pkanban__column[data-drop-active="true"] {
-  background: #EAF3FE;
-  border-color: #1a8cff;
+  background: rgba(0, 122, 255, 0.04);
+  box-shadow: 0 0 0 2px #1a8cff;
 }
 
 .padmin-shell .pkanban__col-header {
@@ -259,28 +281,31 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Card */
+/* Card — Apple-Style: kein harter Border, dafuer feiner Schatten,
+   Lift beim Hover, gekippt beim Drag. */
 .padmin-shell .pkanban__card {
   display: block;
   width: 100%;
   text-align: left;
   background: #fff;
-  border: 1px solid var(--pad-border);
-  border-radius: 6px;
-  padding: 10px 12px;
-  box-shadow: 0 1px 0 rgba(20, 20, 19, 0.03);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: grab;
-  transition: border-color 0.12s, box-shadow 0.12s, transform 0.05s;
+  transition: box-shadow 0.18s, transform 0.18s;
 }
 .padmin-shell .pkanban__card:hover {
-  border-color: var(--ink-4);
-  box-shadow: 0 2px 6px rgba(20, 20, 19, 0.06);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.10), 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
 }
 .padmin-shell .pkanban__card:active {
   cursor: grabbing;
 }
 .padmin-shell .pkanban__card[data-dragging="true"] {
   opacity: 0.4;
+  transform: rotate(-1deg) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 .padmin-shell .pkanban__card-title {
   font-size: 13px;
