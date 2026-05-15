@@ -57,12 +57,15 @@ import { BkbnOrdersBanner } from "../components/bkbn/BkbnOrdersBanner";
 type ViewMode = "list" | "kanban" | "calendar" | "map";
 type QuickFilter = "none" | "today" | "thisWeek" | "nextWeek" | "overdue" | "overdueFlex" | "mine";
 
-// Chip-Gruppen spiegeln 1:1 die Backend-Status, damit Filter-Label und
-// Auftrags-Badge ueberall denselben Begriff verwenden (Single Source =
-// app/src/lib/status.ts STATUS_MAP). Frueher waren pending+provisional+
-// disposition_offen zu "Offen" zusammengezogen — das hat provisorisch
-// gebuchte Termine als "ausstehend" angezeigt, obwohl der Slot bereits
-// blockiert war.
+// Genau 5 sichtbare Chips, gespiegelt zum Kanban-Bucket-Modell:
+//  - Ausstehend buendelt pending + provisional + disposition_offen
+//    (alle drei sind operativ "wartet auf naechsten Schritt").
+//  - Abgeschlossen buendelt done + archived (archived ist read-only-Endzustand).
+//  - cancelled bleibt versteckt und wird via Toggle eingeblendet — Storni
+//    sollen nicht standardmaessig im aktiven Workflow erscheinen.
+// Filter-Label und Auftrags-Badge nutzen denselben Begriff (Single Source =
+// app/src/lib/status.ts STATUS_MAP), damit Filter und Badge nicht
+// auseinanderlaufen.
 type ChipGroup = {
   id: string;
   labelKey: string;
@@ -73,15 +76,12 @@ type ChipGroup = {
 };
 
 export const CHIP_GROUPS: ChipGroup[] = [
-  { id: "pending", labelKey: "orders.chip.pending", fallbackLabel: "Ausstehend", members: ["pending"], dot: "#f59e0b" },
-  { id: "provisional", labelKey: "orders.chip.provisional", fallbackLabel: "Provisorisch", members: ["provisional"], dot: "#8b5cf6" },
-  { id: "disposition_offen", labelKey: "orders.chip.dispositionOffen", fallbackLabel: "Disposition offen", members: ["disposition_offen"], dot: "#f97316" },
+  { id: "ausstehend", labelKey: "orders.chip.ausstehend", fallbackLabel: "Ausstehend", members: ["pending", "provisional", "disposition_offen"], dot: "#f59e0b" },
   { id: "confirmed", labelKey: "orders.chip.confirmed", fallbackLabel: "Bestätigt", members: ["confirmed"], dot: "#3b82f6" },
-  { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Pausiert", members: ["paused"], dot: "#a78bfa" },
-  { id: "completed", labelKey: "orders.chip.completed", fallbackLabel: "Erledigt (Material)", members: ["completed"], dot: "#14b8a6" },
-  { id: "done", labelKey: "orders.chip.done", fallbackLabel: "Abgeschlossen", members: ["done"], dot: "#10b981" },
+  { id: "paused", labelKey: "orders.chip.paused", fallbackLabel: "Wartet auf Kunde", members: ["paused"], dot: "#a78bfa" },
+  { id: "material", labelKey: "orders.chip.material", fallbackLabel: "Material in Bearbeitung", members: ["completed"], dot: "#14b8a6" },
+  { id: "abgeschlossen", labelKey: "orders.chip.abgeschlossen", fallbackLabel: "Abgeschlossen", members: ["done", "archived"], dot: "#10b981" },
   { id: "cancelled", labelKey: "orders.chip.cancelled", fallbackLabel: "Storniert", members: ["cancelled"], dot: "#ef4444", hiddenByDefault: true },
-  { id: "archived", labelKey: "orders.chip.archived", fallbackLabel: "Archiviert", members: ["archived"], dot: "#94a3b8", hiddenByDefault: true },
 ];
 
 function isOpenOrder(key: StatusKey | null): boolean {
@@ -1068,21 +1068,29 @@ function OrdersKanban({
   token: string | null;
   onChanged: () => void | Promise<void>;
 }) {
-  // Alle Backend-Status haben eine Spalte. Frueher nur 5 Spalten, was dazu
-  // fuehrte dass Auftraege im Status provisional/disposition_offen/cancelled/
-  // archived im Kanban-View komplett verschwanden — der Status ist aber
-  // semantisch unverzichtbar (Slot blockiert, Disposition steht aus, etc.).
+  // 5 sichtbare Spalten — provisional + disposition_offen werden im
+  // Default-Routing zu "pending" gebuendelt (Slot bzw. Disposition offen,
+  // beide sind operativ "Ausstehend"); archived faellt in "done"; cancelled
+  // bekommt im View-Switch keine eigene Spalte (Filter via Status-Chip).
   const columns: { id: StatusKey; title: string }[] = [
-    { id: "pending", title: getStatusLabel("pending") },
-    { id: "provisional", title: getStatusLabel("provisional") },
-    { id: "disposition_offen", title: getStatusLabel("disposition_offen") },
-    { id: "confirmed", title: getStatusLabel("confirmed") },
-    { id: "paused", title: getStatusLabel("paused") },
-    { id: "completed", title: getStatusLabel("completed") },
-    { id: "done", title: getStatusLabel("done") },
-    { id: "cancelled", title: getStatusLabel("cancelled") },
-    { id: "archived", title: getStatusLabel("archived") },
+    { id: "pending", title: "Ausstehend" },
+    { id: "confirmed", title: "Bestätigt" },
+    { id: "paused", title: "Wartet auf Kunde" },
+    { id: "completed", title: "Material in Bearbeitung" },
+    { id: "done", title: "Abgeschlossen" },
   ];
+
+  // Statt der reinen normalizeStatusKey-Anzeige wird ein DB-Status auf einen
+  // der 5 Bucket-Stati gemappt. Sonst verschwaenden provisional /
+  // disposition_offen / archived im Kanban — alle drei haben semantisch ein
+  // sichtbares Pendant unter den 5 Bucket-Spalten.
+  const bucketFor = (raw: string | undefined | null): StatusKey | null => {
+    const k = normalizeStatusKey(raw);
+    if (k === "provisional" || k === "disposition_offen") return "pending";
+    if (k === "archived") return "done";
+    if (k === "cancelled") return null;
+    return k;
+  };
 
   const [draggingNo, setDraggingNo] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<string | null>(null);
@@ -1091,8 +1099,8 @@ function OrdersKanban({
 
   function effectiveStatus(o: Order): StatusKey | null {
     const o2 = optimistic[o.orderNo];
-    if (o2) return o2;
-    return normalizeStatusKey(o.status);
+    if (o2) return bucketFor(o2);
+    return bucketFor(o.status);
   }
 
   async function applyDrop(orderNo: string, target: StatusKey) {

@@ -22,21 +22,16 @@ const LS_CARD_COLUMN = "propus.orders.kanban.cardColumn.v1";
 
 type KanbanColumn = { id: string; label: string };
 
+// Genau 5 sichtbare Spalten + Storniert (Toggle). Bewusste Reduktion vom
+// vorherigen 15-Spalten-Modell, in dem Sub-Phasen (grundrisse-fehlen,
+// staging-fehlt, video-fehlt, bereit-versenden, revision, versendet) als
+// localStorage-only Zustaende existierten — ohne Backend-Persistenz und
+// damit pro-Browser inkonsistent.
 const DEFAULT_COLUMN_KEYS = [
-  "disposition-offen",
-  "neu",
-  "termin-abmachen",
-  "termin-provisorisch",
-  "termin-abgemacht",
+  "ausstehend",
+  "bestaetigt",
   "wartet-kunde",
   "material-bearbeitung",
-  "grundrisse-fehlen",
-  "staging-fehlt",
-  "video-fehlt",
-  "bereit-versenden",
-  "revision",
-  "versendet",
-  "bereit-verrechnung",
   "abgeschlossen",
   "storniert",
 ] as const;
@@ -44,49 +39,50 @@ const DEFAULT_COLUMN_KEYS = [
 type DefaultColumnKey = (typeof DEFAULT_COLUMN_KEYS)[number];
 
 const DEFAULT_COLUMN_LABEL_KEYS: Record<DefaultColumnKey, string> = {
-  "disposition-offen": "orders.kanban.col.dispositionOffen",
-  "neu": "orders.kanban.col.neu",
-  "termin-abmachen": "orders.kanban.col.terminAbmachen",
-  "termin-provisorisch": "orders.kanban.col.terminProvisorisch",
-  "termin-abgemacht": "orders.kanban.col.terminAbgemacht",
+  "ausstehend": "orders.kanban.col.ausstehend",
+  "bestaetigt": "orders.kanban.col.bestaetigt",
   "wartet-kunde": "orders.kanban.col.wartetKunde",
   "material-bearbeitung": "orders.kanban.col.materialBearbeitung",
-  "grundrisse-fehlen": "orders.kanban.col.grundrisseFehlen",
-  "staging-fehlt": "orders.kanban.col.stagingFehlt",
-  "video-fehlt": "orders.kanban.col.videoFehlt",
-  "bereit-versenden": "orders.kanban.col.bereitVersenden",
-  "revision": "orders.kanban.col.revision",
-  "versendet": "orders.kanban.col.versendet",
-  "bereit-verrechnung": "orders.kanban.col.bereitVerrechnung",
   "abgeschlossen": "orders.kanban.col.abgeschlossen",
   "storniert": "orders.kanban.col.storniert",
 };
 
 /**
- * Mapping Spalte -> Backend-Status. Spalten ohne Mapping (gibt es aktuell
- * keine, aber Custom-Spalten haben keins) sind reine UI-Buckets ohne
- * Status-Auswirkung. Mehrere Spalten koennen auf denselben Status mappen
- * (Sub-Phasen von "completed") -- ein Drop zwischen zwei Sub-Spalten
- * verschiebt dann nur die UI-Position, ohne Backend-Status zu aendern.
+ * Mapping Spalte -> Backend-Status. Drag in eine Spalte schreibt diesen
+ * Status. "Ausstehend" buendelt drei DB-Status (pending/provisional/
+ * disposition_offen) — ein Drop SETZT pending, eine Karte die schon einer
+ * dieser drei Status hat wird via defaultColumnFor ohnehin hier eingeordnet,
+ * ohne dass es eines DB-Updates beduerfte.
+ * "Abgeschlossen" enthaelt {done, archived}; Drop schreibt done (archive ist
+ * ein read-only Folgestatus, der nur ueber das Detail-Menue erreichbar ist).
  */
 const COLUMN_TO_STATUS: Partial<Record<DefaultColumnKey, StatusKey>> = {
-  "disposition-offen":   "disposition_offen",
-  "neu":                 "pending",
-  "termin-abmachen":     "pending",
-  "termin-provisorisch": "provisional",
-  "termin-abgemacht":    "confirmed",
+  "ausstehend":          "pending",
+  "bestaetigt":          "confirmed",
   "wartet-kunde":        "paused",
   "material-bearbeitung":"completed",
-  "grundrisse-fehlen":   "completed",
-  "staging-fehlt":       "completed",
-  "video-fehlt":         "completed",
-  "bereit-versenden":    "completed",
-  "revision":            "completed",
-  "versendet":           "completed",
-  "bereit-verrechnung":  "done",
-  "abgeschlossen":       "archived",
+  "abgeschlossen":       "done",
   "storniert":           "cancelled",
 };
+
+// Alte Default-Spalten aus dem 15-Spalten-Modell. Werden beim Hydraten aus
+// dem persistierten Spalten-Layout entfernt, falls sie noch im
+// localStorage liegen. cardOverrides die auf einen dieser Werte zeigen
+// werden ebenfalls bereinigt.
+const LEGACY_DEFAULT_COLUMN_IDS = new Set<string>([
+  "disposition-offen",
+  "neu",
+  "termin-abmachen",
+  "termin-provisorisch",
+  "termin-abgemacht",
+  "grundrisse-fehlen",
+  "staging-fehlt",
+  "video-fehlt",
+  "bereit-versenden",
+  "revision",
+  "versendet",
+  "bereit-verrechnung",
+]);
 
 function readLocal<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -127,26 +123,23 @@ function uniqueColumnId(base: string, taken: Set<string>): string {
 function defaultColumnFor(order: Order): DefaultColumnKey {
   const k: StatusKey | null = normalizeStatusKey(order.status);
   switch (k) {
-    case "disposition_offen":
-      return "disposition-offen";
     case "pending":
-      return order.appointmentDate ? "termin-abmachen" : "neu";
     case "provisional":
-      return "termin-provisorisch";
+    case "disposition_offen":
+      return "ausstehend";
     case "confirmed":
-      return "termin-abgemacht";
+      return "bestaetigt";
     case "paused":
       return "wartet-kunde";
     case "completed":
       return "material-bearbeitung";
     case "done":
-      return "bereit-verrechnung";
     case "archived":
       return "abgeschlossen";
     case "cancelled":
       return "storniert";
     default:
-      return "neu";
+      return "ausstehend";
   }
 }
 
@@ -202,38 +195,41 @@ export function OrdersKanbanPage() {
   useEffect(() => {
     const stored = readLocal<KanbanColumn[] | null>(LS_COLUMNS, null);
     if (stored && Array.isArray(stored) && stored.length > 0) {
-      // Gezielte Migration NUR fuer die neuen Pflicht-Spalten: bestehende
-      // localStorage-Layouts kennen "storniert" und "termin-provisorisch"
-      // nicht. Ohne "storniert" wuerden cancelled-Karten in "abgeschlossen"
-      // einsortiert, ohne "termin-provisorisch" landen provisorisch gebuchte
-      // Auftraege in der Confirmed-Spalte und sind nicht mehr von endgueltig
-      // bestaetigten unterscheidbar.
-      // Andere fehlende Defaults werden BEWUSST nicht nachgezogen, damit
-      // User-Loeschungen (z. B. "video-fehlt") ueber Refreshes hinweg
-      // persistent bleiben — sonst wuerde die Migration dauerhaft alle
-      // gesammelten Defaults zurueckschreiben.
+      // Migration vom 15-Spalten-Modell auf 5+1 Spalten: alle Legacy-
+      // Defaults (LEGACY_DEFAULT_COLUMN_IDS) werden entfernt, fehlende
+      // neue Pflicht-Spalten ergaenzt. User-Custom-Spalten (alles was
+      // weder in den neuen Defaults noch in den Legacy-Defaults vorkommt)
+      // bleiben erhalten.
       const knownIds = new Set(stored.map((c) => c.id));
-      const next = [...stored];
-      if (!knownIds.has("storniert")) {
-        const labelKey = DEFAULT_COLUMN_LABEL_KEYS["storniert"];
-        next.push({ id: "storniert", label: labelKey ? t(labelKey) : "Storniert" });
-      }
-      if (!knownIds.has("termin-provisorisch")) {
-        // Vor "termin-abgemacht" einfuegen, damit die natuerliche Workflow-
-        // Reihenfolge erhalten bleibt; faellt das Ziel weg, ans Ende.
-        const labelKey = DEFAULT_COLUMN_LABEL_KEYS["termin-provisorisch"];
-        const newCol: KanbanColumn = {
-          id: "termin-provisorisch",
-          label: labelKey ? t(labelKey) : "Termin provisorisch",
-        };
-        const insertIdx = next.findIndex((c) => c.id === "termin-abgemacht");
-        if (insertIdx >= 0) next.splice(insertIdx, 0, newCol);
-        else next.push(newCol);
+      let next = stored.filter((c) => !LEGACY_DEFAULT_COLUMN_IDS.has(c.id));
+      const needed: DefaultColumnKey[] = [...DEFAULT_COLUMN_KEYS];
+      // Wenn keine der neuen Pflicht-Spalten existiert, ersetzen wir das
+      // Layout komplett mit den Defaults (alte Layouts ohne Schnittmenge).
+      const hasAnyNew = needed.some((id) => knownIds.has(id));
+      if (!hasAnyNew) {
+        next = needed.map((id) => ({
+          id,
+          label: t(DEFAULT_COLUMN_LABEL_KEYS[id]),
+        }));
+      } else {
+        for (const id of needed) {
+          if (next.some((c) => c.id === id)) continue;
+          next.push({ id, label: t(DEFAULT_COLUMN_LABEL_KEYS[id]) });
+        }
       }
       setColumns(next);
     }
     const overrides = readLocal<Record<string, string>>(LS_CARD_COLUMN, {});
-    setCardOverrides(overrides);
+    // Overrides auf Legacy-Default-Spalten entfernen — sonst wuerde eine
+    // Karte mit altem Override (z. B. "video-fehlt") in keiner sichtbaren
+    // Spalte mehr landen.
+    const cleanedOverrides: Record<string, string> = {};
+    for (const [orderNo, colId] of Object.entries(overrides)) {
+      if (!LEGACY_DEFAULT_COLUMN_IDS.has(colId)) {
+        cleanedOverrides[orderNo] = colId;
+      }
+    }
+    setCardOverrides(cleanedOverrides);
     setShowCancelled(readLocal<boolean>(LS_SHOW_CANCELLED, false));
     setHydrated(true);
     // t() wird hier intentional NICHT als dep gelistet — die Hydration soll

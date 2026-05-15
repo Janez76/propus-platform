@@ -63,14 +63,14 @@ export const STATUS_MAP: Record<string, StatusEntry> = {
     iconName: "CheckCircle",
   },
   paused: {
-    label: "Pausiert",
+    label: "Wartet auf Kunde",
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-500/15 p-text-muted border border-zinc-500/30",
     barColor: "bg-zinc-500",
     eventColor: "#71717a",
     iconName: "Pause",
   },
   completed: {
-    label: "Erledigt",
+    label: "Material in Bearbeitung",
     badgeClass: "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-500/15 text-teal-600 border border-teal-500/30",
     barColor: "bg-teal-500",
     eventColor: "#14b8a6",
