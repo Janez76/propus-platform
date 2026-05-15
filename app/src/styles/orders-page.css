@@ -1602,6 +1602,76 @@
   background: rgba(0, 122, 255, 0.10);
 }
 
+/* Status-Dropdown im Side-Panel — Trigger zeigt aktuellen Status,
+   Menue klappt unter dem Trigger auf. Vermeidet ueberlappende Inhalte
+   im Side-Panel, die durch die feste 5-Zeilen-Liste entstanden sind. */
+.osp-status-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: 0;
+  border-top: 0.5px solid var(--osp-divider);
+  color: var(--osp-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: -0.01em;
+  transition: background-color 0.12s;
+}
+.osp-status-trigger:first-of-type { border-top: 0; }
+.osp-status-trigger:hover:not(:disabled) { background: var(--osp-surface-2); }
+.osp-status-trigger:disabled { opacity: 0.55; cursor: not-allowed; }
+.osp-status-trigger > .osp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--osp-text-4);
+  flex-shrink: 0;
+}
+.osp-status-trigger[data-tone="open"] > .osp-dot { background: var(--osp-orange); }
+.osp-status-trigger[data-tone="confirmed"] > .osp-dot { background: var(--osp-blue); }
+.osp-status-trigger[data-tone="paused"] > .osp-dot { background: #af52de; }
+.osp-status-trigger[data-tone="done"] > .osp-dot { background: var(--osp-green); }
+.osp-status-trigger.is-open {
+  background: var(--osp-surface-2);
+}
+.osp-status-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 0.5px solid var(--osp-divider);
+  background: var(--osp-surface);
+  animation: ospFadeIn 0.12s ease;
+}
+.osp-status-menu .osp-status-row {
+  padding: 10px 14px 10px 28px; /* leichter Einzug, damit Menue visuell zum Trigger gehoert */
+}
+
+/* Kanban "Abgeschlossen"-Spalte: Hinweis-Text statt Karten —
+   abgeschlossene Auftraege werden in der Liste angezeigt, nicht im Board. */
+.pkanban__col-empty-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--text-muted, #71717a);
+  font-size: 12px;
+  line-height: 1.5;
+  gap: 4px;
+}
+.pkanban__col-empty-hint strong {
+  font-weight: 600;
+  color: var(--text-main, #1f1f1f);
+  font-size: 13px;
+}
+
 /* Confirm dialog */
 .osp-confirm-backdrop {
   position: fixed;

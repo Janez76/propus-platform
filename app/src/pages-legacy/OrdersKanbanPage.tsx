@@ -336,6 +336,10 @@ export function OrdersKanbanPage() {
       const o = effectiveOrderForRouting(o0);
       const oStatusKey = normalizeStatusKey(o.status);
       if (!showCancelled && oStatusKey === "cancelled") continue;
+      // Abgeschlossen-Spalte ist im Kanban bewusst leer: abgeschlossene
+      // Auftraege werden nur in der Liste/im Volle-Ansicht-Bereich angezeigt.
+      // Anzahl wird unten separat berechnet und im Header gezeigt.
+      if (oStatusKey === "done" || oStatusKey === "archived") continue;
       const override = cardOverrides[o.orderNo];
       // Override "storniert" nur fuer cancelled-Orders gelten lassen — sonst
       // koennte ein versehentliches Drop einer aktiven Karte in die
@@ -399,6 +403,17 @@ export function OrdersKanbanPage() {
   const sidePanelOrder = useMemo(
     () => (sidePanelNo ? allOrders.find((o) => o.orderNo === sidePanelNo) ?? null : null),
     [allOrders, sidePanelNo],
+  );
+
+  // Total der abgeschlossenen Auftraege (done + archived). Wird im Header
+  // der "Abgeschlossen"-Spalte gezeigt, obwohl die Karten dort nicht
+  // gerendert werden — siehe Info-Hinweis in der Spalte.
+  const completedTotal = useMemo(
+    () => allOrders.filter((o) => {
+      const k = normalizeStatusKey(o.status);
+      return k === "done" || k === "archived";
+    }).length,
+    [allOrders],
   );
 
   const handleDragStart = useCallback((e: DragEvent<HTMLButtonElement>, orderNo: string) => {
@@ -624,6 +639,11 @@ export function OrdersKanbanPage() {
           // immer Platz beanspruchen).
           if (col.id === "storniert" && !showCancelled) return null;
           const rows = ordersByColumn.get(col.id) ?? [];
+          const isCompletedCol = col.id === "abgeschlossen";
+          // Counter im Header: fuer "Abgeschlossen" die Gesamtzahl der
+          // done+archived-Auftraege (auch wenn sie hier nicht gerendert
+          // werden), sonst die Anzahl der Karten im Bucket.
+          const headerCount = isCompletedCol ? completedTotal : rows.length;
           const dropActive = dropTargetCol === col.id;
           return (
             <section
@@ -637,7 +657,7 @@ export function OrdersKanbanPage() {
               <header className="pkanban__col-header group">
                 <h3 className="pkanban__col-title" title={col.label}>
                   {col.label}{" "}
-                  <span className="pkanban__col-count">({rows.length})</span>
+                  <span className="pkanban__col-count">({headerCount})</span>
                 </h3>
                 {col.id !== "storniert" ? (
                   <button
@@ -652,17 +672,29 @@ export function OrdersKanbanPage() {
                 ) : null}
               </header>
               <div className="pkanban__col-body">
-                {rows.map((o) => (
-                  <KanbanCard
-                    key={o.orderNo}
-                    order={o}
-                    onOpen={() => setSidePanelNo(o.orderNo)}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggedOrderNo === o.orderNo}
-                    serviceOrderTag={t("orders.kanban.tag.serviceOrder")}
-                  />
-                ))}
+                {isCompletedCol ? (
+                  <div className="pkanban__col-empty-hint">
+                    <strong>{completedTotal} abgeschlossene Aufträge</strong>
+                    <span>
+                      Abgeschlossene Aufträge werden nur in der Listenansicht angezeigt.
+                    </span>
+                    <Link to="/orders" className="pkanban__tab" style={{ marginTop: 6 }}>
+                      Zur Liste
+                    </Link>
+                  </div>
+                ) : (
+                  rows.map((o) => (
+                    <KanbanCard
+                      key={o.orderNo}
+                      order={o}
+                      onOpen={() => setSidePanelNo(o.orderNo)}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggedOrderNo === o.orderNo}
+                      serviceOrderTag={t("orders.kanban.tag.serviceOrder")}
+                    />
+                  ))
+                )}
               </div>
             </section>
           );

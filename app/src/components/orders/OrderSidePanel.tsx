@@ -8,6 +8,7 @@ import {
   CalendarClock,
   Camera,
   CheckCircle2,
+  ChevronDown,
   Clock,
   ExternalLink,
   FileText,
@@ -463,37 +464,14 @@ export function OrderSidePanel({
             </div>
           </div>
 
-          {/* Status setter */}
-          <div className="osp-card">
-            <div className="osp-card-header">
-              <span className="osp-card-title">
-                <SlidersHorizontal style={{ width: 11, height: 11, display: "inline-block", marginRight: 6, verticalAlign: "-1px" }} />
-                Status
-              </span>
-            </div>
-            <div className="osp-status-grid">
-              {([
-                { id: "pending" as StatusKey, label: "Ausstehend", tone: "open" as const },
-                { id: "confirmed" as StatusKey, label: "Bestätigt", tone: "confirmed" as const },
-                { id: "paused" as StatusKey, label: "Wartet auf Kunde", tone: "paused" as const },
-                { id: "completed" as StatusKey, label: "Material in Bearbeitung", tone: "confirmed" as const },
-                { id: "done" as StatusKey, label: "Abgeschlossen", tone: "done" as const },
-              ]).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`osp-status-row${statusKey === s.id ? " is-active" : ""}`}
-                  data-tone={s.tone}
-                  disabled={busy || !token}
-                  onClick={() => void handleSetStatus(s.id)}
-                >
-                  <span className="osp-dot" />
-                  <span className="osp-status-row-label">{s.label}</span>
-                  {statusKey === s.id ? <CheckCircle2 className="osp-status-row-check" /> : null}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Status setter — aufklappbares Dropdown, damit das Side-Panel
+              nicht durch die 5-Buttons-Liste ueberlauft und nichts
+              abgeschnitten wird. */}
+          <StatusDropdown
+            currentStatus={statusKey}
+            disabled={busy || !token}
+            onSelect={(target) => void handleSetStatus(target)}
+          />
 
           {/* Objekt */}
           {objHasData ? (
@@ -667,5 +645,113 @@ export function OrderSidePanel({
         </div>
       ) : null}
     </>
+  );
+}
+
+type StatusOption = { id: StatusKey; label: string; tone: "open" | "confirmed" | "paused" | "done" };
+
+const STATUS_OPTIONS: ReadonlyArray<StatusOption> = [
+  { id: "pending",   label: "Ausstehend",             tone: "open" },
+  { id: "confirmed", label: "Bestätigt",              tone: "confirmed" },
+  { id: "paused",    label: "Wartet auf Kunde",       tone: "paused" },
+  { id: "completed", label: "Material in Bearbeitung", tone: "confirmed" },
+  { id: "done",      label: "Abgeschlossen",          tone: "done" },
+];
+
+function bucketOption(key: StatusKey | null): StatusOption {
+  if (!key) return STATUS_OPTIONS[0];
+  // provisional + disposition_offen mappen UI-seitig auf "Ausstehend",
+  // archived auf "Abgeschlossen" — dieselben Buckets wie im Kanban.
+  if (key === "provisional" || key === "disposition_offen") return STATUS_OPTIONS[0];
+  if (key === "archived") return STATUS_OPTIONS[4];
+  if (key === "cancelled") {
+    return { id: "cancelled", label: "Storniert", tone: "paused" };
+  }
+  return STATUS_OPTIONS.find((o) => o.id === key) ?? STATUS_OPTIONS[0];
+}
+
+function StatusDropdown({
+  currentStatus,
+  disabled,
+  onSelect,
+}: {
+  currentStatus: StatusKey | null;
+  disabled: boolean;
+  onSelect: (target: StatusKey) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Klick ausserhalb schliesst das Dropdown — sonst bleibt es offen, sobald
+  // der User auf eine andere Card im Side-Panel klickt.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: globalThis.MouseEvent) {
+      const root = wrapRef.current;
+      if (!root) return;
+      if (!root.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const current = bucketOption(currentStatus);
+
+  return (
+    <div className="osp-card" ref={wrapRef}>
+      <div className="osp-card-header">
+        <span className="osp-card-title">
+          <SlidersHorizontal style={{ width: 11, height: 11, display: "inline-block", marginRight: 6, verticalAlign: "-1px" }} />
+          Status
+        </span>
+      </div>
+      <button
+        type="button"
+        className={`osp-status-trigger${open ? " is-open" : ""}`}
+        data-tone={current.tone}
+        disabled={disabled}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="osp-dot" />
+        <span className="osp-status-row-label">{current.label}</span>
+        <ChevronDown
+          style={{
+            width: 14,
+            height: 14,
+            marginLeft: "auto",
+            transition: "transform 120ms",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        />
+      </button>
+      {open ? (
+        <div className="osp-status-menu" role="listbox">
+          {STATUS_OPTIONS.map((s) => {
+            const isActive = current.id === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                className={`osp-status-row${isActive ? " is-active" : ""}`}
+                data-tone={s.tone}
+                disabled={disabled}
+                onClick={() => {
+                  setOpen(false);
+                  if (!isActive) onSelect(s.id);
+                }}
+              >
+                <span className="osp-dot" />
+                <span className="osp-status-row-label">{s.label}</span>
+                {isActive ? <CheckCircle2 className="osp-status-row-check" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }

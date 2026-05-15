@@ -904,6 +904,7 @@ export function OrdersPage() {
         ) : view === "kanban" ? (
           <OrdersKanban
             orders={orders}
+            allOrders={allOrders}
             onOpenDetail={openOrderPreview}
             lang={lang}
             token={token}
@@ -1058,12 +1059,14 @@ export function OrdersPage() {
 
 function OrdersKanban({
   orders,
+  allOrders,
   onOpenDetail,
   lang,
   token,
   onChanged,
 }: {
   orders: Order[];
+  allOrders: Order[];
   onOpenDetail: (orderNo: string) => void;
   lang: "de" | "en" | "fr" | "it";
   token: string | null;
@@ -1148,10 +1151,22 @@ function OrdersKanban({
     }
   }
 
+  // Anzahl der abgeschlossenen Auftraege (done + archived) — Counter aus
+  // allOrders, NICHT aus der gefilterten orders-Liste. Sonst wuerde der
+  // Counter 0 zeigen, sobald der Default-Filter ("nur offene") aktiv ist.
+  const completedTotal = allOrders.filter((o) => {
+    const k = normalizeStatusKey(o.status);
+    return k === "done" || k === "archived";
+  }).length;
+
   return (
     <div className="op-kanban-board op-kanban-board--simple" data-busy={busy ? "true" : undefined}>
       {columns.map((col) => {
-        const rows = orders.filter((o) => effectiveStatus(o) === col.id);
+        const isCompletedCol = col.id === "done";
+        // Abgeschlossen-Spalte rendert keine Karten — abgeschlossene
+        // Auftraege werden nur in der Listenansicht gezeigt.
+        const rows = isCompletedCol ? [] : orders.filter((o) => effectiveStatus(o) === col.id);
+        const headerCount = isCompletedCol ? completedTotal : rows.length;
         const isDropTarget = dropCol === col.id && draggingNo !== null;
         return (
           <section
@@ -1175,10 +1190,19 @@ function OrdersKanban({
           >
             <header className="op-kanban-col-head">
               <span className="op-kanban-col-title">{col.title}</span>
-              <span className="op-kanban-col-count">{rows.length}</span>
+              <span className="op-kanban-col-count">{headerCount}</span>
             </header>
             <div className="op-kanban-col-body">
-              {rows.length === 0 ? (
+              {isCompletedCol ? (
+                <div className="op-kanban-col-empty" style={{ textAlign: "center", padding: "12px 8px", lineHeight: 1.5 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                    {completedTotal} abgeschlossene Aufträge
+                  </div>
+                  <div style={{ fontSize: 11 }}>
+                    Abgeschlossene Aufträge werden nur in der Listenansicht angezeigt.
+                  </div>
+                </div>
+              ) : rows.length === 0 ? (
                 <div className="op-kanban-col-empty">{t(lang, "orders.kanban.column.empty") || "Keine Einträge"}</div>
               ) : rows.map((o) => (
                 <button
