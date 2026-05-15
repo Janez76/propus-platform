@@ -161,8 +161,14 @@ function defaultAdminNotifyBody() {
                 <center style="color:#F4F1EA;font-family:Arial,sans-serif;font-size:13px;font-weight:600;letter-spacing:1px;">IM BACKPANEL ÖFFNEN</center>
               </v:roundrect>
               <![endif]-->
-              <!--[if !mso]><!-- -->
-              <a href="{{gallery_link}}" style="display:inline-block;background:#141413;color:#F4F1EA;font-family:${FF};font-size:13px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;text-decoration:none;padding:16px 32px;border:1px solid #141413;mso-hide:all;">Im Backpanel öffnen</a>
+              <!--[if !mso]><!-->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;">
+                <tr>
+                  <td align="center" bgcolor="#141413" style="background:#141413;border:1px solid #141413;">
+                    <a href="{{gallery_link}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:16px 32px;font-family:${FF};font-size:13px;font-weight:600;color:#F4F1EA;text-decoration:none;letter-spacing:1.2px;text-transform:uppercase;">Im Backpanel öffnen</a>
+                  </td>
+                </tr>
+              </table>
               <!--<![endif]-->
             </td>
           </tr>
