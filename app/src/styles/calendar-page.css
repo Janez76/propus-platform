@@ -58,9 +58,10 @@
 .cal-page-v2 *::after { box-sizing: border-box; }
 
 .cal-page-v2 .cp-page {
-  max-width: 1440px;
+  /* Box-Breite + Padding identisch zu /orders (.op-page). */
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 28px 28px 60px 28px;
+  padding: 32px 28px 80px 28px;
   display: flex;
   flex-direction: column;
   gap: 16px;
