@@ -153,6 +153,25 @@ const heroImage =
 		<GoogleReviewsSection reviews={reviewsForHome} />
 	</div>
 
+	<section class="home-checklisten u-section" aria-labelledby="home-checklisten-h">
+		<div class="u-container home-checklisten__inner">
+			<div class="home-checklisten__text u-animate" style="--delay: 40ms">
+				<p class="u-eyebrow">Vorbereitung</p>
+				<h2 id="home-checklisten-h">Checklisten vor dem Shooting</h2>
+				<div class="divider-gold" aria-hidden="true"></div>
+				<p>
+					Damit Ihre Immobilie ins beste Licht rückt: fünf kompakte Anleitungen für Foto-Shooting,
+					Dämmerung, saisonale Vorbereitung, Matterport 360° und Video — online lesbar oder als
+					druckbares PDF.
+				</p>
+				<p class="home-checklisten__links">
+					<a class="link-cta" href="/checklisten/">Alle Checklisten ansehen →</a>
+					<a class="link-cta" href="/faq/">Häufige Fragen →</a>
+				</p>
+			</div>
+		</div>
+	</section>
+
 	<section class="cta-final">
 		<div class="u-container cta-final__inner">
 			<h2 class="cta-final__title u-animate" style="--delay: 0ms">Wir freuen uns auf Ihr Objekt</h2>
@@ -382,6 +401,50 @@ const heroImage =
 	.home-ref__more {
 		margin: var(--space-lg) 0 0;
 		text-align: center;
+	}
+
+	.home-checklisten {
+		padding-block: calc(var(--space-2xl) + var(--space-xs));
+		text-align: center;
+	}
+
+	.home-checklisten__inner {
+		max-width: 38rem;
+	}
+
+	.home-checklisten__text {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--space-xs);
+	}
+
+	.home-checklisten__text h2 {
+		margin: 0;
+		font-size: clamp(1.5rem, 3vw, 1.95rem);
+		font-weight: 600;
+		letter-spacing: -0.03em;
+		color: var(--color-text);
+	}
+
+	.home-checklisten__text :global(.divider-gold) {
+		margin: 0.4rem auto 0.6rem;
+	}
+
+	.home-checklisten__text p {
+		margin: 0;
+		font-size: 1.0625rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+		max-width: 36rem;
+	}
+
+	.home-checklisten__links {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem 1.5rem;
+		margin-top: var(--space-sm);
 	}
 
 	.cta-final {

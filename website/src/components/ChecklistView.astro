@@ -1,0 +1,446 @@
+---
+import type { ChecklistItem } from '../content/checklisten';
+
+interface Props {
+	item: ChecklistItem;
+}
+
+const { item } = Astro.props;
+---
+
+<article class="cl-view">
+	<header class="cl-view__head">
+		<p class="cl-view__eyebrow">{item.eyebrow}</p>
+		<h1 class="cl-view__title">{item.title}</h1>
+		<p class="cl-view__subtitle">{item.subtitle}</p>
+	</header>
+
+	<div class="cl-view__intro u-animate" style="--delay: 40ms">
+		<p class="cl-view__intro-text">{item.intro}</p>
+		{item.promise && (
+			<aside class="cl-view__promise" aria-label="Unser Versprechen">
+				<p class="cl-view__promise-eyebrow">Unser Versprechen</p>
+				<p class="cl-view__promise-text">{item.promise}</p>
+			</aside>
+		)}
+	</div>
+
+	<aside class="cl-view__download u-animate" style="--delay: 80ms" aria-label="PDF-Download">
+		<div class="cl-view__download-text">
+			<p class="cl-view__download-title">Druckbare Version</p>
+			<p class="cl-view__download-hint">
+				Offizielle Propus-Anleitung (Edition 2026, {item.pdfPages} Seiten) — gleicher Inhalt wie auf dieser Seite.
+			</p>
+		</div>
+		<a
+			class="btn btn--inverse"
+			href={item.pdfHref}
+			download
+			aria-label={`${item.title} als PDF herunterladen`}
+		>
+			PDF herunterladen
+		</a>
+	</aside>
+
+	<section class="cl-view__section u-animate" style="--delay: 120ms" aria-labelledby="cl-keypoints">
+		<h2 id="cl-keypoints" class="cl-view__h2">
+			{item.keyPoints.length === 5
+				? 'Die 5 wichtigsten Punkte'
+				: `Die ${item.keyPoints.length} wichtigsten Punkte`}
+		</h2>
+		<ol class="cl-view__keys">
+			{item.keyPoints.map((p, i) => (
+				<li class="cl-key">
+					<span class="cl-key__num" aria-hidden="true">{i + 1}</span>
+					<div class="cl-key__body">
+						<h3 class="cl-key__title">{p.title}</h3>
+						<p class="cl-key__text">{p.body}</p>
+					</div>
+				</li>
+			))}
+		</ol>
+	</section>
+
+	{item.timeline && item.timeline.length > 0 && (
+		<section class="cl-view__section u-animate" style="--delay: 160ms" aria-labelledby="cl-timeline">
+			<h2 id="cl-timeline" class="cl-view__h2">So läuft es ab</h2>
+			<ol class="cl-view__timeline">
+				{item.timeline.map((s) => (
+					<li class="cl-step">
+						<span class="cl-step__label">{s.step}</span>
+						<span class="cl-step__body">{s.body}</span>
+					</li>
+				))}
+			</ol>
+		</section>
+	)}
+
+	<section class="cl-view__section u-animate" style="--delay: 200ms" aria-labelledby="cl-details">
+		<h2 id="cl-details" class="cl-view__h2">Detail-Checkliste</h2>
+		<p class="cl-view__lead">
+			Wenn Sie die wichtigsten Punkte erledigt haben, sind Sie bereits sehr gut aufgestellt. Wer noch das letzte Quäntchen
+			herauskitzeln möchte, findet hier eine Übersicht — kein Muss, sondern Inspiration.
+		</p>
+		<div class="cl-view__groups">
+			{item.groups.map((g) => (
+				<details class="cl-group" open>
+					<summary class="cl-group__summary">
+						<span class="cl-group__name">{g.heading}</span>
+						<span class="cl-group__chev" aria-hidden="true" />
+					</summary>
+					<ul class="cl-group__items">
+						{g.items.map((it) => (
+							<li class="cl-group__item">
+								<span class="cl-group__check" aria-hidden="true" />
+								<span>{it}</span>
+							</li>
+						))}
+					</ul>
+				</details>
+			))}
+		</div>
+	</section>
+
+	{item.closing && (
+		<aside class="cl-view__closing u-animate" style="--delay: 220ms">
+			<p>{item.closing}</p>
+		</aside>
+	)}
+</article>
+
+<style>
+	.cl-view {
+		display: flex;
+		flex-direction: column;
+		gap: clamp(1.75rem, 4vw, 2.5rem);
+	}
+
+	.cl-view__head {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		max-width: 42rem;
+	}
+
+	.cl-view__eyebrow {
+		margin: 0;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.2em;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+	}
+
+	.cl-view__title {
+		margin: 0;
+		font-size: clamp(1.85rem, 4.5vw, 2.65rem);
+		font-weight: 650;
+		letter-spacing: -0.035em;
+		line-height: 1.1;
+		color: var(--color-text);
+	}
+
+	.cl-view__subtitle {
+		margin: 0;
+		font-size: 1.0625rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+		max-width: 42rem;
+	}
+
+	.cl-view__intro {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		max-width: 42rem;
+	}
+
+	.cl-view__intro-text {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.7;
+		color: var(--color-text);
+	}
+
+	.cl-view__promise {
+		padding: 1rem 1.15rem;
+		border-radius: var(--radius-md);
+		background: var(--color-bg-muted);
+		border: 1px solid var(--color-border);
+	}
+
+	.cl-view__promise-eyebrow {
+		margin: 0 0 0.35rem;
+		font-size: 0.6875rem;
+		font-weight: 700;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+	}
+
+	.cl-view__promise-text {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-text);
+	}
+
+	.cl-view__download {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1.15rem 1.35rem;
+		border-radius: var(--radius-md);
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-soft);
+	}
+
+	.cl-view__download-text {
+		min-width: 0;
+		flex: 1 1 18rem;
+	}
+
+	.cl-view__download-title {
+		margin: 0;
+		font-size: 0.9375rem;
+		font-weight: 650;
+		letter-spacing: -0.015em;
+		color: var(--color-text);
+	}
+
+	.cl-view__download-hint {
+		margin: 0.2rem 0 0;
+		font-size: 0.8125rem;
+		line-height: 1.55;
+		color: var(--color-text-muted);
+	}
+
+	.cl-view__section {
+		max-width: 48rem;
+	}
+
+	.cl-view__h2 {
+		margin: 0 0 1rem;
+		font-size: clamp(1.25rem, 2.6vw, 1.5rem);
+		font-weight: 650;
+		letter-spacing: -0.025em;
+		line-height: 1.2;
+		color: var(--color-text);
+	}
+
+	.cl-view__lead {
+		margin: 0 0 1.25rem;
+		font-size: 0.9375rem;
+		line-height: 1.65;
+		color: var(--color-text-muted);
+	}
+
+	.cl-view__keys {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.85rem;
+	}
+
+	.cl-key {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		gap: 1rem;
+		padding: 1rem 1.15rem;
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
+
+	.cl-key__num {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		height: 2rem;
+		border-radius: 999px;
+		background: var(--color-gold);
+		color: #fff;
+		font-weight: 700;
+		font-size: 0.875rem;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.cl-key__title {
+		margin: 0 0 0.2rem;
+		font-size: 0.9375rem;
+		font-weight: 650;
+		letter-spacing: -0.015em;
+		color: var(--color-text);
+	}
+
+	.cl-key__text {
+		margin: 0;
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.cl-view__timeline {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+	}
+
+	.cl-step {
+		display: grid;
+		grid-template-columns: minmax(7rem, max-content) 1fr;
+		gap: 1rem;
+		padding: 0.75rem 0.95rem;
+		border-radius: var(--radius-sm);
+		background: var(--color-bg-muted);
+		border: 1px solid var(--color-border);
+	}
+
+	.cl-step__label {
+		font-size: 0.8125rem;
+		font-weight: 650;
+		letter-spacing: 0.02em;
+		color: var(--color-gold-muted);
+	}
+
+	.cl-step__body {
+		font-size: 0.875rem;
+		line-height: 1.55;
+		color: var(--color-text);
+	}
+
+	.cl-view__groups {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+	}
+
+	.cl-group {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		overflow: hidden;
+		transition: border-color var(--transition-med);
+	}
+
+	.cl-group:hover {
+		border-color: color-mix(in srgb, var(--color-border), var(--color-text) 18%);
+	}
+
+	.cl-group[open] {
+		border-color: rgb(184 149 106 / 0.22);
+	}
+
+	.cl-group__summary {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.95rem 1.15rem;
+		cursor: pointer;
+		list-style: none;
+		font-weight: 600;
+		color: var(--color-text);
+		user-select: none;
+	}
+
+	.cl-group__summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.cl-group__name {
+		font-size: 0.9375rem;
+		letter-spacing: -0.015em;
+	}
+
+	.cl-group__chev {
+		flex-shrink: 0;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 999px;
+		border: 1px solid var(--color-border);
+		position: relative;
+		transition:
+			transform var(--transition-med),
+			border-color var(--transition-med);
+	}
+
+	.cl-group__chev::before {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 0.4rem;
+		height: 0.4rem;
+		border-right: 1.5px solid var(--color-text-muted);
+		border-bottom: 1.5px solid var(--color-text-muted);
+		translate: -50% -60%;
+		rotate: 45deg;
+	}
+
+	.cl-group[open] .cl-group__chev {
+		transform: rotate(180deg);
+		border-color: rgb(184 149 106 / 0.35);
+	}
+
+	.cl-group__items {
+		list-style: none;
+		margin: 0;
+		padding: 0 1.15rem 1.05rem;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.5rem 1.25rem;
+	}
+
+	@media (min-width: 640px) {
+		.cl-group__items {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	.cl-group__item {
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: start;
+		gap: 0.6rem;
+		font-size: 0.875rem;
+		line-height: 1.5;
+		color: var(--color-text);
+	}
+
+	.cl-group__check {
+		display: inline-block;
+		width: 1.05rem;
+		height: 1.05rem;
+		margin-top: 0.18rem;
+		border-radius: 0.25rem;
+		border: 1.5px solid var(--color-gold);
+		background: transparent;
+		flex-shrink: 0;
+	}
+
+	.cl-view__closing {
+		max-width: 42rem;
+		padding: 1rem 1.15rem;
+		border-left: 3px solid var(--color-gold);
+		background: var(--color-bg-muted);
+		border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	}
+
+	.cl-view__closing p {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.6;
+		color: var(--color-text);
+		font-style: italic;
+	}
+</style>
