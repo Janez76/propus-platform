@@ -1,121 +1,115 @@
-/* Mascot Sidebar Card — Mockup V3.1 Sprint 6
-   Direkter Einstieg ins Cockpit/Propi vom Sidebar-Footer aus. */
+/* Mascot Sidebar Card — Apple-Look 2026-05 (Mockup propus-shell.html .sb-propi).
+   Direkter Einstieg ins Cockpit/Propi vom dunklen Sidebar-Footer aus.
+   Card-Layout: Avatar links, Name + Themen rechts, darunter ein CTA. */
 
 .propus-mascot-card {
-  margin: 12px 10px 14px;
-  padding: 14px;
+  margin: 8px 10px 10px;
+  padding: 10px;
   width: calc(100% - 20px);
-  background: linear-gradient(135deg, #fff8eb, #fdeec9);
-  border: 1px solid var(--propus-line-warm, var(--propus-border));
-  border-radius: var(--propus-r-md, 14px);
-  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0;
+  border-radius: 12px;
+  text-align: left;
   cursor: pointer;
-  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--propus-font-body, 'Roboto', sans-serif);
-  color: var(--propus-text-primary);
-  transition: transform var(--propus-dur-base, .25s) var(--propus-ease-spring, cubic-bezier(.34,1.56,.64,1)),
-              box-shadow var(--propus-dur-base, .25s),
-              border-color var(--propus-dur-fast, .15s);
-}
-html.dark .propus-mascot-card {
-  background: linear-gradient(135deg, #2a2014, #322618);
+  gap: 8px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: #f5f5f7;
+  transition: background 0.15s ease;
 }
 .propus-mascot-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--propus-shadow-md, 0 6px 20px rgba(60,40,15,.07));
-  border-color: var(--propus-accent-warm, var(--propus-gold));
+  background: rgba(255, 255, 255, 0.07);
 }
 .propus-mascot-card:focus-visible {
-  outline: 2px solid var(--propus-accent-warm, var(--propus-gold));
+  outline: 2px solid #0a84ff;
   outline-offset: 2px;
 }
 
-.propus-mascot-card-avatar {
-  display: inline-block;
-  transition: transform var(--propus-dur-slow, .35s) var(--propus-ease-spring);
-}
-.propus-mascot-card:hover .propus-mascot-card-avatar {
-  animation: propus-float 1.8s ease-in-out infinite;
-}
-
-.propus-mascot-card-title {
-  font-family: var(--propus-font-display, 'Instrument Serif', serif);
-  font-size: 17px;
-  font-style: italic;
-  font-weight: 400;
-  margin: 0;
-  display: inline-flex;
+/* Kopfzeile: Avatar + Text nebeneinander */
+.propus-mascot-card-head {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--propus-text-primary);
+  gap: 10px;
 }
-.propus-mascot-card-online {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--propus-good-warm, var(--propus-green, #4a8a52));
-  animation: propus-pulse 1.4s infinite;
+
+.propus-mascot-card-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
+  border-radius: 50%;
+  overflow: visible;
+}
+.propus-mascot-card-avatar .propi-avatar {
+  display: block;
+  border-radius: 50%;
+}
+/* Grüner Online-Punkt unten rechts am Avatar */
+.propus-mascot-card-online {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 0 2px #1c1c1e;
 }
 
-.propus-mascot-card-sub {
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--propus-text-muted, var(--propus-ink-mute));
+.propus-mascot-card-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.propus-mascot-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
   margin: 0;
+  color: #f5f5f7;
+  letter-spacing: -0.01em;
+}
+.propus-mascot-card-sub {
+  font-size: 10.5px;
+  color: rgba(245, 245, 247, 0.45);
+  margin: 1px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Chat-CTA — voll-breiter Button-Look am Card-Boden */
 .propus-mascot-card-cta {
   width: 100%;
-  margin-top: 6px;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, .65);
-  border: 1px solid var(--propus-line-warm, var(--propus-border));
-  border-radius: 8px;
-  font-size: 11px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 6px;
+  font-size: 11.5px;
   font-weight: 500;
-  color: var(--propus-text-secondary);
+  color: rgba(245, 245, 247, 0.7);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  transition: background var(--propus-dur-fast, .15s);
-}
-html.dark .propus-mascot-card-cta {
-  background: rgba(255, 255, 255, .05);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .propus-mascot-card:hover .propus-mascot-card-cta {
-  background: rgba(255, 255, 255, .9);
-  color: var(--propus-text-primary);
-}
-html.dark .propus-mascot-card:hover .propus-mascot-card-cta {
-  background: rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f5f5f7;
 }
 .propus-mascot-card-cta kbd {
-  font-family: ui-monospace, 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  background: var(--propus-bg-strip);
-  border: 1px solid var(--propus-border);
-  border-radius: 3px;
-  color: var(--propus-text-muted);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 0;
+  border-radius: 4px;
+  color: rgba(245, 245, 247, 0.45);
 }
 
 /* Bei collapsed Sidebar verstecken (Mascot braucht Breite + Text) */
 .propus-sidebar[data-collapsed='true'] .propus-mascot-card {
   display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .propus-mascot-card,
-  .propus-mascot-card:hover .propus-mascot-card-avatar,
-  .propus-mascot-card-online {
-    animation: none !important;
-    transition: none !important;
-  }
 }
