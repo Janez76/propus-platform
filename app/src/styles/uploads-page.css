@@ -38,15 +38,27 @@
   --up-info-bg: rgba(0, 122, 255, 0.10);
   --up-info-fg: #0066d6;
 
+  /* Apple-Look Radius + Shadow Tokens (Mockup propus-upload.html) */
+  --up-r-sm: 8px;
+  --up-r-md: 12px;
+  --up-r-lg: 16px;
+  --up-r-full: 9999px;
+  --up-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --up-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+
   background: var(--up-paper);
   color: var(--up-ink);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.45;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+}
+html.dark .uploads-page-v2 {
+  --up-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.50);
+  --up-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
 }
 
 /* ── Dark-Mode-Tokens fuer die ganze Upload-Seite (Apple Dark) ── */
@@ -89,57 +101,62 @@ html.dark .uploads-page-v2 {
   padding: 36px 40px 80px 40px;
 }
 
-/* ── Header ───────────────────────────────────────────── */
+/* ── Header (Apple-Look Card, wie /orders) ────────────── */
 .uppv-page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 28px;
+  align-items: center;
+  margin-bottom: 18px;
   gap: 28px;
+  background: var(--up-card);
+  border-radius: var(--up-r-lg);
+  box-shadow: 0 0 0 0.5px var(--up-line), var(--up-shadow-md);
+  padding: 24px 28px;
 }
 .uppv-page-header-text { flex: 1; min-width: 0; }
 .uppv-eyebrow {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 2.6px;
+  letter-spacing: 1.4px;
   color: var(--up-gold);
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .uppv-page-title {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--up-ink);
-  letter-spacing: -0.4px;
+  letter-spacing: -0.7px;
   line-height: 1.1;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 .uppv-page-sub {
   font-size: 14.5px;
-  color: var(--up-ink-2);
+  color: var(--up-ink-3);
   max-width: 720px;
   margin: 0;
 }
 .uppv-ghost-btn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 20px;
-  background: var(--up-card);
-  border: 1px solid var(--up-line-strong);
-  color: var(--up-ink-1);
+  gap: 9px;
+  padding: 11px 18px;
+  background: var(--up-gold-soft);
+  border: 0;
+  border-radius: var(--up-r-sm);
+  color: var(--up-gold-deep);
   font-family: inherit;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: border-color 150ms, color 150ms;
+  transition: background-color 150ms, transform 150ms;
 }
 .uppv-ghost-btn:hover:not(:disabled) {
-  border-color: var(--up-gold-line);
-  color: var(--up-ink);
+  background: var(--up-gold-tint);
+  transform: translateY(-1px);
 }
 .uppv-ghost-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.uppv-ghost-btn i { font-size: 11px; color: var(--up-ink-3); }
+.uppv-ghost-btn i { font-size: 12px; }
 
 /* ── Layout grid ──────────────────────────────────────── */
 .uppv-layout {
@@ -149,10 +166,13 @@ html.dark .uploads-page-v2 {
   align-items: start;
 }
 
-/* ── Left rail ────────────────────────────────────────── */
+/* ── Left rail (Apple-Look Card) ──────────────────────── */
 .uppv-rail {
   background: var(--up-card);
-  border: 1px solid var(--up-line);
+  border: 0;
+  border-radius: var(--up-r-lg);
+  box-shadow: 0 0 0 0.5px var(--up-line), var(--up-shadow-md);
+  overflow: hidden;
 }
 .uppv-rail-head { padding: 18px 20px 14px 20px; }
 .uppv-rail-label {
@@ -202,7 +222,7 @@ html.dark .uploads-page-v2 {
   font-style: italic;
 }
 
-.uppv-order-list { border-top: 1px solid var(--up-line-soft); }
+.uppv-order-list { border-top: 0.5px solid var(--up-line); padding: 6px 0 8px; }
 .uppv-order-empty {
   padding: 18px 16px;
   font-size: 11.5px;
@@ -214,21 +234,20 @@ html.dark .uploads-page-v2 {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 14px 20px;
+  padding: 14px 18px;
+  margin: 2px 8px;
+  width: calc(100% - 16px);
   border: 0;
-  border-bottom: 1px solid var(--up-line-soft);
-  border-left: 3px solid transparent;
+  border-radius: var(--up-r-md);
   background: transparent;
   cursor: pointer;
   transition: background 120ms;
   font-family: inherit;
   color: inherit;
 }
-.uppv-order-item:last-child { border-bottom: 0; }
 .uppv-order-item:hover { background: var(--up-paper-soft); }
 .uppv-order-item.is-active {
-  background: var(--up-gold-tint);
-  border-left-color: var(--up-gold);
+  background: var(--up-gold-soft);
 }
 .uppv-order-item-head {
   display: flex;
@@ -292,11 +311,13 @@ html.dark .uploads-page-v2 {
   min-width: 0;
 }
 
-/* Summary card */
+/* Summary card (Apple-Look) */
 .uppv-summary {
   background: var(--up-card);
-  border: 1px solid var(--up-line);
-  padding: 28px 30px;
+  border: 0;
+  border-radius: var(--up-r-lg);
+  box-shadow: 0 0 0 0.5px var(--up-line), var(--up-shadow-md);
+  padding: 26px 28px;
 }
 .uppv-summary-row {
   display: flex;
@@ -341,52 +362,56 @@ html.dark .uploads-page-v2 {
   gap: 10px;
   flex-shrink: 0;
 }
+/* Primary-Button: schwarz mit weisser Schrift (Apple-Look, wie Mockup) */
 .uppv-primary-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 11px;
-  padding: 13px 22px;
-  background: var(--up-gold);
-  color: var(--up-ink);
+  gap: 9px;
+  padding: 12px 20px;
+  background: var(--up-ink);
+  color: #ffffff;
   border: 0;
+  border-radius: var(--up-r-sm);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.6px;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background-color 180ms, box-shadow 180ms;
+  transition: transform 150ms, box-shadow 150ms, opacity 150ms;
   white-space: nowrap;
 }
 .uppv-secondary-btn {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  padding: 11px 18px;
-  background: var(--up-gold-tint);
-  color: var(--up-gold-deep);
-  border: 1px solid var(--up-gold-line);
+  gap: 9px;
+  padding: 11px 16px;
+  background: var(--up-card);
+  color: var(--up-ink);
+  border: 0;
+  border-radius: var(--up-r-sm);
+  box-shadow: 0 0 0 0.5px var(--up-line-strong), var(--up-shadow-sm);
   font-family: inherit;
   font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background-color 150ms, color 150ms, border-color 150ms;
+  transition: box-shadow 150ms, transform 150ms;
   white-space: nowrap;
   text-align: left;
 }
 .uppv-secondary-btn:hover:not(:disabled) {
-  background: var(--up-gold);
-  color: var(--up-ink);
-  border-color: var(--up-gold);
+  box-shadow: 0 0 0 0.5px var(--up-ink-3), var(--up-shadow-md);
+  transform: translateY(-1px);
 }
 .uppv-secondary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .uppv-secondary-btn i,
-.uppv-secondary-btn svg { font-size: 11px; }
+.uppv-secondary-btn svg { font-size: 11px; color: var(--up-ink-3); }
 .uppv-primary-btn:hover:not(:disabled) {
-  background: #c79b25;
-  box-shadow: 0 4px 14px rgba(182, 142, 32, 0.28);
+  transform: translateY(-1px);
+  box-shadow: var(--up-shadow-md);
+  opacity: 0.92;
 }
 .uppv-primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .uppv-primary-btn i { font-size: 11px; }
@@ -536,40 +561,50 @@ html.dark .uploads-page-v2 {
   align-items: center;
   text-align: center;
   gap: 10px;
-  padding: 26px 20px;
+  padding: 30px 22px;
   background: var(--up-card);
-  border: 1px solid var(--up-line);
+  border: 0;
+  border-radius: var(--up-r-md);
+  box-shadow: 0 0 0 0.5px var(--up-line-strong), var(--up-shadow-sm);
   font-family: inherit;
   color: inherit;
   cursor: pointer;
-  transition: border-color 160ms, transform 160ms, box-shadow 160ms;
+  transition: transform 160ms, box-shadow 160ms;
 }
 .uppv-chooser-card:hover {
-  border-color: var(--up-gold-line);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px -10px rgba(20, 20, 19, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 0.5px var(--up-ink-3), var(--up-shadow-md);
+}
+.uppv-chooser-card i {
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--up-gold-soft);
 }
 .uppv-chooser-title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--up-ink);
   letter-spacing: -0.2px;
 }
 .uppv-chooser-sub {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--up-ink-3);
   line-height: 1.45;
 }
 
 .uppv-folder-card {
   background: var(--up-card);
-  border: 1px solid var(--up-line);
+  border: 0;
+  border-radius: var(--up-r-lg);
+  box-shadow: 0 0 0 0.5px var(--up-line), var(--up-shadow-md);
   padding: 0;
   overflow: hidden;
-  transition: border-color 150ms;
+  transition: box-shadow 150ms;
 }
-.uppv-folder-card:hover { border-color: var(--up-line-strong); }
-/* Kein Gold-Tint mehr fuer Kundenordner — die drei Karten sehen einheitlich aus. */
 
 /* Accordion-Head: ganze Zeile klickbar */
 .uppv-folder-head {
@@ -589,7 +624,7 @@ html.dark .uploads-page-v2 {
 }
 .uppv-folder-head:hover { background: var(--up-paper-soft); }
 .uppv-folder-card.is-open .uppv-folder-head {
-  border-bottom: 1px solid var(--up-line);
+  border-bottom: 0.5px solid var(--up-line);
   background: var(--up-paper-soft);
 }
 .uppv-folder-head-right {
@@ -627,11 +662,11 @@ html.dark .uploads-page-v2 {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 11px;
-  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: var(--up-r-full, 9999px);
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 .uppv-folder-badge.is-ok { background: var(--up-status-ok-bg); color: var(--up-status-ok-fg); }
 .uppv-folder-badge.is-pending { background: var(--up-status-pending-bg); color: var(--up-status-pending-fg); }
