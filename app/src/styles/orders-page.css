@@ -4,31 +4,10 @@
    Ende. Inter + JetBrains Mono werden global in layout.tsx geladen.
 ===================================================================== */
 
-/* Page-Background ueberschreiben, sobald OrdersPage/OrdersKanbanPage
-   gemountet sind. Die Komponenten setzen via useEffect die Klasse
-   body.orders-route. .app-shell-root ist der AppShell-Outer-Container
-   (siehe components/layout/AppShell.tsx) — frueher als inline-style,
-   jetzt als Klasse, damit der Override hier greifen kann. */
-html body.orders-route {
-  background: #f5f5f7 !important;
-}
-body.orders-route .app-shell-root,
-body.orders-route .padmin-shell,
-body.orders-route .app-classic {
-  --paper: #f5f5f7;
-  --paper-strip: #fafafa;
-  background: #f5f5f7 !important;
-}
-html.dark body.orders-route {
-  background: #000000 !important;
-}
-html.dark body.orders-route .app-shell-root,
-html.dark body.orders-route .padmin-shell,
-html.dark body.orders-route .app-classic {
-  --paper: #000000;
-  --paper-strip: #1c1c1e;
-  background: #000000 !important;
-}
+/* HINWEIS: Die body.orders-route Page-Background-Regel steht jetzt in
+   index.css (global geladen) — sonst greift sie nicht, wenn eine Route
+   gemountet wird, deren CSS-Bundle orders-page.css nicht enthaelt
+   (z. B. /admin/bkbn-orders). */
 .orders-page-v2 {
   /* Apple-Look 2026 — light gray page background, pure-white surfaces.
      Frueher beige Propus-Theme (#F4F1EA) — auf Wunsch von Janez auf

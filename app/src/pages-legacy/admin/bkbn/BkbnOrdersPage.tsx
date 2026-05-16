@@ -77,6 +77,13 @@ function organizerLabel(email?: string | null): string {
 }
 
 export function BkbnOrdersPage() {
+  // Apple-Look-Background fuer den AppShell-Wrapper — gleiche body-Klasse
+  // wie OrdersPage/OrdersKanbanPage (siehe orders-page.css body.orders-route).
+  useEffect(() => {
+    document.body.classList.add("orders-route");
+    return () => document.body.classList.remove("orders-route");
+  }, []);
+
   const token = useAuthStore((s) => s.token);
   const [data, setData] = useState<BkbnOrdersResponse | null>(null);
   const [loading, setLoading] = useState(true);
