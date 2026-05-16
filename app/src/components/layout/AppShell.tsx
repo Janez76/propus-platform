@@ -26,7 +26,7 @@ export function AppShell({ children }: PropsWithChildren) {
   }, [isMobileMenuOpen]);
 
   return (
-    <div className="flex min-h-screen transition-colors duration-300" style={{ background: "var(--bg-classic)" }}>
+    <div className="app-shell-root flex min-h-screen transition-colors duration-300">
       <Sidebar
         onOpenCmdk={() => setIsSearchOpen(true)}
         isMobileOpen={isMobileMenuOpen}

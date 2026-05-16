@@ -6,11 +6,13 @@
 
 /* Page-Background ueberschreiben, sobald OrdersPage/OrdersKanbanPage
    gemountet sind. Die Komponenten setzen via useEffect die Klasse
-   body.orders-route — :has() ist im Build-Pipeline nicht zuverlaessig,
-   die Body-Klasse dagegen schon. */
+   body.orders-route. .app-shell-root ist der AppShell-Outer-Container
+   (siehe components/layout/AppShell.tsx) — frueher als inline-style,
+   jetzt als Klasse, damit der Override hier greifen kann. */
 html body.orders-route {
   background: #f5f5f7 !important;
 }
+body.orders-route .app-shell-root,
 body.orders-route .padmin-shell,
 body.orders-route .app-classic {
   --paper: #f5f5f7;
@@ -20,6 +22,7 @@ body.orders-route .app-classic {
 html.dark body.orders-route {
   background: #000000 !important;
 }
+html.dark body.orders-route .app-shell-root,
 html.dark body.orders-route .padmin-shell,
 html.dark body.orders-route .app-classic {
   --paper: #000000;
