@@ -9,7 +9,10 @@ export type FaqItem = {
 	id: string;
 	category: 'ablauf' | 'service' | 'recht' | 'preise' | 'lieferung';
 	question: string;
+	/** Plain text — wird für Schema.org JSON-LD genutzt. */
 	answer: string;
+	/** Optionales HTML — wird im Browser gerendert wenn vorhanden. */
+	answerHtml?: string;
 };
 
 export const FAQS: FaqItem[] = [
@@ -19,6 +22,8 @@ export const FAQS: FaqItem[] = [
 		question: 'Wie bereite ich meine Immobilie auf das Shooting vor?',
 		answer:
 			'Die fünf wichtigsten Punkte: gründlich aufgeräumt, sauber, alle Lichter an, Küche und Bad geleert, Haustiere und Familie ausser Haus. Für jede Aufnahme-Art gibt es eine eigene Checkliste mit PDF-Download unter /checklisten/. Erfahrungsgemäss reichen diese fünf Punkte für 90 % der Bildwirkung — den Rest machen wir gemeinsam beim Kurzrundgang.',
+		answerHtml:
+			'Die fünf wichtigsten Punkte: gründlich aufgeräumt, sauber, alle Lichter an, Küche und Bad geleert, Haustiere und Familie ausser Haus. Für jede Aufnahme-Art gibt es eine eigene Checkliste mit PDF-Download unter <a href="/checklisten/">propus.ch/checklisten</a>. Erfahrungsgemäss reichen diese fünf Punkte für 90 % der Bildwirkung — den Rest machen wir gemeinsam beim Kurzrundgang.',
 	},
 	{
 		id: 'ablauf-dauer',
@@ -75,6 +80,8 @@ export const FAQS: FaqItem[] = [
 		question: 'Was kostet ein Shooting — gibt es Pakete?',
 		answer:
 			'Wir arbeiten mit transparenten Paketpreisen je nach Objektgrösse und Leistungsumfang. Eine Übersicht aller Pakete und Einzelleistungen finden Sie unter /preise/. Buchungen laufen direkt online mit fixem Termin. Bei besonderen Umfängen (z. B. Bauträger-Serien, mehrere Objekte) machen wir gerne ein massgeschneidertes Angebot.',
+		answerHtml:
+			'Wir arbeiten mit transparenten Paketpreisen je nach Objektgrösse und Leistungsumfang. Eine Übersicht aller Pakete und Einzelleistungen finden Sie unter <a href="/preise/">propus.ch/preise</a>. Buchungen laufen direkt online mit fixem Termin. Bei besonderen Umfängen (z. B. Bauträger-Serien, mehrere Objekte) machen wir gerne ein massgeschneidertes Angebot.',
 	},
 	{
 		id: 'preise-anfahrt',
@@ -96,6 +103,8 @@ export const FAQS: FaqItem[] = [
 		question: 'Welche Nutzungsrechte habe ich an den Bildern?',
 		answer:
 			'Sie erhalten umfassende Nutzungsrechte für die Vermarktung der jeweiligen Immobilie — auf allen Portalen, in Ihrem Exposé, auf Ihrer Website und in Social-Media-Kanälen. Eine Weitergabe an Dritte (z. B. Bauträger an Käufer) klären wir individuell. Details stehen in unseren AGB.',
+		answerHtml:
+			'Sie erhalten umfassende Nutzungsrechte für die Vermarktung der jeweiligen Immobilie — auf allen Portalen, in Ihrem Exposé, auf Ihrer Website und in Social-Media-Kanälen. Eine Weitergabe an Dritte (z. B. Bauträger an Käufer) klären wir individuell. Details stehen in unseren <a href="/agb/">AGB</a>.',
 	},
 ];
 

@@ -136,13 +136,18 @@ export function resolveSiteSeoLinks(state: CmsState): {
 	const pick = (key: SeoPageKey) => resolveSeoPage(state, key);
 	return {
 		navItems: [
-			pick('startseite'),
-			pick('portfolio'),
-			pick('dienstleistungen'),
-			pick('preise'),
-			pick('ueber-uns'),
-			pick('kontakt'),
-		].map((page) => ({ href: page.path, label: page.label })),
+			...([
+				pick('startseite'),
+				pick('portfolio'),
+				pick('dienstleistungen'),
+				pick('preise'),
+			].map((page) => ({ href: page.path, label: page.label }))),
+			{ href: '/faq/', label: 'FAQ' },
+			...([
+				pick('ueber-uns'),
+				pick('kontakt'),
+			].map((page) => ({ href: page.path, label: page.label }))),
+		],
 		footerLegalItems: [pick('impressum'), pick('datenschutz'), pick('agb')].map((page) => ({
 			href: page.path,
 			label: page.label,

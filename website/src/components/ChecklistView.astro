@@ -75,32 +75,6 @@ const { item } = Astro.props;
 		</section>
 	)}
 
-	<section class="cl-view__section u-animate" style="--delay: 200ms" aria-labelledby="cl-details">
-		<h2 id="cl-details" class="cl-view__h2">Detail-Checkliste</h2>
-		<p class="cl-view__lead">
-			Wenn Sie die wichtigsten Punkte erledigt haben, sind Sie bereits sehr gut aufgestellt. Wer noch das letzte Quäntchen
-			herauskitzeln möchte, findet hier eine Übersicht — kein Muss, sondern Inspiration.
-		</p>
-		<div class="cl-view__groups">
-			{item.groups.map((g) => (
-				<details class="cl-group" open>
-					<summary class="cl-group__summary">
-						<span class="cl-group__name">{g.heading}</span>
-						<span class="cl-group__chev" aria-hidden="true" />
-					</summary>
-					<ul class="cl-group__items">
-						{g.items.map((it) => (
-							<li class="cl-group__item">
-								<span class="cl-group__check" aria-hidden="true" />
-								<span>{it}</span>
-							</li>
-						))}
-					</ul>
-				</details>
-			))}
-		</div>
-	</section>
-
 	{item.closing && (
 		<aside class="cl-view__closing u-animate" style="--delay: 220ms">
 			<p>{item.closing}</p>
@@ -231,13 +205,6 @@ const { item } = Astro.props;
 		color: var(--color-text);
 	}
 
-	.cl-view__lead {
-		margin: 0 0 1.25rem;
-		font-size: 0.9375rem;
-		line-height: 1.65;
-		color: var(--color-text-muted);
-	}
-
 	.cl-view__keys {
 		list-style: none;
 		margin: 0;
@@ -316,116 +283,6 @@ const { item } = Astro.props;
 		font-size: 0.875rem;
 		line-height: 1.55;
 		color: var(--color-text);
-	}
-
-	.cl-view__groups {
-		display: flex;
-		flex-direction: column;
-		gap: 0.65rem;
-	}
-
-	.cl-group {
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-surface);
-		overflow: hidden;
-		transition: border-color var(--transition-med);
-	}
-
-	.cl-group:hover {
-		border-color: color-mix(in srgb, var(--color-border), var(--color-text) 18%);
-	}
-
-	.cl-group[open] {
-		border-color: rgb(184 149 106 / 0.22);
-	}
-
-	.cl-group__summary {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.95rem 1.15rem;
-		cursor: pointer;
-		list-style: none;
-		font-weight: 600;
-		color: var(--color-text);
-		user-select: none;
-	}
-
-	.cl-group__summary::-webkit-details-marker {
-		display: none;
-	}
-
-	.cl-group__name {
-		font-size: 0.9375rem;
-		letter-spacing: -0.015em;
-	}
-
-	.cl-group__chev {
-		flex-shrink: 0;
-		width: 1.6rem;
-		height: 1.6rem;
-		border-radius: 999px;
-		border: 1px solid var(--color-border);
-		position: relative;
-		transition:
-			transform var(--transition-med),
-			border-color var(--transition-med);
-	}
-
-	.cl-group__chev::before {
-		content: '';
-		position: absolute;
-		left: 50%;
-		top: 50%;
-		width: 0.4rem;
-		height: 0.4rem;
-		border-right: 1.5px solid var(--color-text-muted);
-		border-bottom: 1.5px solid var(--color-text-muted);
-		translate: -50% -60%;
-		rotate: 45deg;
-	}
-
-	.cl-group[open] .cl-group__chev {
-		transform: rotate(180deg);
-		border-color: rgb(184 149 106 / 0.35);
-	}
-
-	.cl-group__items {
-		list-style: none;
-		margin: 0;
-		padding: 0 1.15rem 1.05rem;
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 0.5rem 1.25rem;
-	}
-
-	@media (min-width: 640px) {
-		.cl-group__items {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-	}
-
-	.cl-group__item {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		align-items: start;
-		gap: 0.6rem;
-		font-size: 0.875rem;
-		line-height: 1.5;
-		color: var(--color-text);
-	}
-
-	.cl-group__check {
-		display: inline-block;
-		width: 1.05rem;
-		height: 1.05rem;
-		margin-top: 0.18rem;
-		border-radius: 0.25rem;
-		border: 1.5px solid var(--color-gold);
-		background: transparent;
-		flex-shrink: 0;
 	}
 
 	.cl-view__closing {
