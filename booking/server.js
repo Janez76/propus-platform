@@ -2883,6 +2883,14 @@ app.use(cors({ origin: "*", methods: ["GET","POST","PUT","PATCH","DELETE","OPTIO
 app.use(compression());
 app.use(express.json({ limit: "1mb" }));
 const sessionCookieDomain = String(process.env.SESSION_COOKIE_DOMAIN || "").trim();
+// Lifetime der propus_booking.sid Express-Session (Cookie + Store-TTL).
+// Vor diesem Fix fehlte cookie.maxAge → Browser löschte den Cookie beim Schließen,
+// obwohl der Store-Eintrag 30 Tage gehalten hat (PRO-44). Default 30 Tage,
+// matched ADMIN_SESSION_DAYS-Konvention.
+const BOOKING_SESSION_DAYS = (() => {
+  const parsed = parseInt(process.env.BOOKING_SESSION_DAYS || "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 30;
+})();
 // Session-Secret: in Production zwingend per Env, kein hartkodierter Fallback,
 // damit ein vergessener Deploy-Setup-Schritt nicht zu trivialer Session-Forgery führt.
 const bookingSessionSecret = (() => {
@@ -2904,7 +2912,7 @@ const bookingSessionStore = bookingSessionPool
   ? createPostgresSessionStore(session.Store, {
       pool: bookingSessionPool,
       tableName: "core.booking_sessions",
-      ttlSeconds: 30 * 24 * 60 * 60,
+      ttlSeconds: BOOKING_SESSION_DAYS * 24 * 60 * 60,
       logger: console,
     })
   : null;
@@ -2916,6 +2924,7 @@ app.use(session({
   saveUninitialized: false,
   ...(bookingSessionStore ? { store: bookingSessionStore } : {}),
   cookie: {
+    maxAge: BOOKING_SESSION_DAYS * 24 * 60 * 60 * 1000,
     secure: String(process.env.SESSION_COOKIE_SECURE || "false").toLowerCase() === "true",
     sameSite: "lax",
     ...(sessionCookieDomain ? { domain: sessionCookieDomain } : {})
