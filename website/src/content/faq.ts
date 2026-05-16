@@ -95,7 +95,7 @@ export const FAQS: FaqItem[] = [
 		category: 'ablauf',
 		question: 'Was passiert bei schlechtem Wetter?',
 		answer:
-			'Für Innenaufnahmen ist Wetter zweitrangig — wir arbeiten dann mit konstantem Tageslicht und ergänzendem Kunstlicht. Für Aussenaufnahmen, Drohne oder Dämmerungs-Shoots verschieben wir bei Regen, Sturm oder schlechter Sicht kostenfrei. Wir prüfen die Prognose am Vortag und melden uns proaktiv.',
+			'Wetter ist selten ein Showstopper. Innenaufnahmen laufen unabhängig vom Himmel — wir bringen das passende Licht mit. Auch draussen fotografieren wir bei bedecktem Wetter weiter: Eine hohe Wolkendecke ergibt weiches Licht und lässt sich von uns in der Nachbearbeitung in einen makellosen Schönwetter-Himmel verwandeln, solange Berge und Umgebung sichtbar bleiben. Verschoben wird nur, wenn Regen, Schnee oder dichter Nebel das Objekt zudecken — kostenfrei und unkompliziert. Wir prüfen die Prognose am Vortag und melden uns von uns aus, damit Sie nichts planen müssen.',
 	},
 	{
 		id: 'recht-nutzungsrechte',
