@@ -1,0 +1,139 @@
+---
+export const prerender = true;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ChecklistView from '../../components/ChecklistView.astro';
+import { CHECKLISTEN, CHECKLISTEN_SORTED, getChecklistBySlug } from '../../content/checklisten';
+
+export function getStaticPaths() {
+	return CHECKLISTEN.map((item) => ({ params: { slug: item.slug } }));
+}
+
+const { slug } = Astro.params;
+const item = getChecklistBySlug(slug);
+
+if (!item) {
+	return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+const others = CHECKLISTEN_SORTED.filter((c) => c.slug !== item.slug);
+const title = `${item.title} · Checkliste | Propus`;
+---
+
+<BaseLayout
+	{title}
+	description={item.metaDescription}
+	ogTitle={item.title}
+	ogDescription={item.metaDescription}
+>
+	<section class="u-container cl-detail">
+		<nav class="cl-detail__crumbs" aria-label="Brotkrumen">
+			<a href="/checklisten/">← Alle Checklisten</a>
+		</nav>
+
+		<ChecklistView {item} />
+
+		<section class="cl-detail__related" aria-label="Weitere Checklisten">
+			<h2 class="cl-detail__related-h">Weitere Checklisten</h2>
+			<ul class="cl-detail__related-list">
+				{others.map((o) => (
+					<li>
+						<a class="cl-detail__related-link" href={`/checklisten/${o.slug}/`}>
+							<span class="cl-detail__related-eyebrow">{o.eyebrow}</span>
+							<span class="cl-detail__related-title">{o.title}</span>
+						</a>
+					</li>
+				))}
+			</ul>
+		</section>
+	</section>
+</BaseLayout>
+
+<style>
+	.cl-detail {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: var(--space-2xl);
+		display: flex;
+		flex-direction: column;
+		gap: clamp(1.5rem, 3.5vw, 2.25rem);
+	}
+
+	.cl-detail__crumbs {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+	}
+
+	.cl-detail__crumbs a {
+		color: var(--color-gold-muted);
+		text-decoration: none;
+		font-weight: 600;
+	}
+
+	.cl-detail__crumbs a:hover {
+		color: var(--color-text);
+		text-decoration: underline;
+	}
+
+	.cl-detail__related {
+		margin-top: var(--space-xl);
+		padding-top: var(--space-lg);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.cl-detail__related-h {
+		margin: 0 0 1rem;
+		font-size: clamp(1.05rem, 2vw, 1.2rem);
+		font-weight: 650;
+		letter-spacing: -0.02em;
+		color: var(--color-text);
+	}
+
+	.cl-detail__related-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.55rem;
+	}
+
+	@media (min-width: 640px) {
+		.cl-detail__related-list {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	.cl-detail__related-link {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		padding: 0.85rem 1.05rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		text-decoration: none;
+		transition:
+			border-color var(--transition-med),
+			transform var(--transition-med);
+	}
+
+	.cl-detail__related-link:hover {
+		border-color: rgb(184 149 106 / 0.35);
+		transform: translateY(-1px);
+	}
+
+	.cl-detail__related-eyebrow {
+		font-size: 0.625rem;
+		font-weight: 700;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+	}
+
+	.cl-detail__related-title {
+		font-size: 0.9375rem;
+		font-weight: 650;
+		letter-spacing: -0.015em;
+		color: var(--color-text);
+	}
+</style>

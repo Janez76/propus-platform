@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { site } from '../content/site';
 import { loadAllSeoPages, loadSeoSettings } from '../lib/seo';
+import { CHECKLISTEN_SORTED } from '../content/checklisten';
 
 export const prerender = false;
 
@@ -11,7 +12,16 @@ const PRIORITY: Record<string, string> = {
 	'/preise/': '0.8',
 	'/ueber-uns/': '0.7',
 	'/kontakt/': '0.7',
+	'/checklisten/': '0.7',
+	'/faq/': '0.6',
 };
+
+/** Statische öffentliche Routen, die nicht im SEO-CMS gepflegt sind. */
+const STATIC_ROUTES: string[] = [
+	'/checklisten/',
+	'/faq/',
+	...CHECKLISTEN_SORTED.map((c) => `/checklisten/${c.slug}/`),
+];
 
 export const GET: APIRoute = async () => {
 	const [pages, settings] = await Promise.all([loadAllSeoPages(), loadSeoSettings()]);
@@ -21,7 +31,7 @@ export const GET: APIRoute = async () => {
 
 	const today = new Date().toISOString().slice(0, 10);
 
-	const urls = pages
+	const seoUrls = pages
 		.filter((page) => page.index)
 		.map((page) => {
 			const loc = new URL(page.path, site.url).href;
@@ -36,6 +46,23 @@ export const GET: APIRoute = async () => {
 			);
 		})
 		.join('');
+
+	const staticUrls = settings.allowIndexing
+		? STATIC_ROUTES.map((path) => {
+				const loc = new URL(path, site.url).href;
+				const priority = PRIORITY[path] ?? '0.5';
+				return (
+					`<url>` +
+					`<loc>${loc}</loc>` +
+					`<lastmod>${today}</lastmod>` +
+					`<changefreq>monthly</changefreq>` +
+					`<priority>${priority}</priority>` +
+					`</url>`
+				);
+			}).join('')
+		: '';
+
+	const urls = seoUrls + staticUrls;
 
 	const xml =
 		'<?xml version="1.0" encoding="UTF-8"?>' +

@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ChecklistCard from '../../components/ChecklistCard.astro';
+import { CHECKLISTEN_SORTED } from '../../content/checklisten';
+
+const title = 'Checklisten · Vorbereitung fürs Shooting | Propus';
+const description =
+	'Vorbereitungs-Checklisten für Ihr Immobilien-Shooting: Foto, Dämmerung, Saison, 360°-Rundgang und Video. Online lesen oder als PDF herunterladen.';
+---
+
+<BaseLayout
+	{title}
+	{description}
+	keywords="Immobilien Checkliste, Foto-Shooting Vorbereitung, Immobilien Dämmerung, Matterport 360 Vorbereitung, Immobilien Video"
+>
+	<section class="cl-intro u-container">
+		<div class="cl-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Vorbereitung"
+				title="Checklisten für Ihr Shooting"
+				subtitle="Damit Ihre Immobilie ins beste Licht rückt: fünf Anleitungen zur Vorbereitung — kompakt, online lesbar und als druckbares PDF. Edition 2026."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section cl-grid-section">
+		<div class="u-container">
+			<div class="cl-grid">
+				{CHECKLISTEN_SORTED.map((item, index) => (
+					<div class="u-animate" style={`--delay: ${120 + index * 55}ms`}>
+						<ChecklistCard {item} />
+					</div>
+				))}
+			</div>
+			<p class="cl-grid__note u-animate" style="--delay: 400ms">
+				Sie sind unsicher, welche Checkliste Sie brauchen? Schreiben Sie uns kurz an
+				<a href="mailto:office@propus.ch">office@propus.ch</a> — wir helfen weiter.
+			</p>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.cl-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.cl-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.cl-grid-section {
+		padding-top: 0;
+	}
+
+	.cl-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--space-md);
+		align-items: stretch;
+		margin-top: clamp(1.75rem, 4.5vw, 3rem);
+	}
+
+	@media (min-width: 640px) {
+		.cl-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.cl-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	.cl-grid__note {
+		margin: var(--space-lg) auto 0;
+		max-width: 38rem;
+		text-align: center;
+		font-size: 0.875rem;
+		line-height: 1.65;
+		color: var(--color-text-muted);
+	}
+
+	.cl-grid__note a {
+		color: var(--color-gold-muted);
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
+	}
+
+	.cl-grid__note a:hover {
+		color: var(--color-text);
+	}
+</style>

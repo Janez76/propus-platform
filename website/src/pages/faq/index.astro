@@ -1,0 +1,121 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import FaqAccordion from '../../components/FaqAccordion.astro';
+import { FAQS, FAQS_BY_CATEGORY } from '../../content/faq';
+
+const title = 'Häufige Fragen | Propus Immobilienfotografie';
+const description =
+	'Antworten auf die häufigsten Fragen rund um Foto-Shooting, Drohnenaufnahmen, Matterport 360°, Video, Vorbereitung, Lieferung und Preise von Propus.';
+
+const faqLd = {
+	'@context': 'https://schema.org',
+	'@type': 'FAQPage',
+	mainEntity: FAQS.map((f) => ({
+		'@type': 'Question',
+		name: f.question,
+		acceptedAnswer: {
+			'@type': 'Answer',
+			text: f.answer,
+		},
+	})),
+};
+---
+
+<BaseLayout
+	{title}
+	{description}
+	keywords="Propus FAQ, Immobilienfotografie Fragen, Drohne Recht, 360 Rundgang Ablauf, Video Lieferzeit"
+>
+	<script type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+
+	<section class="faq-intro u-container">
+		<div class="faq-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Antworten"
+				title="Häufige Fragen"
+				subtitle="Vom ersten Termin bis zur Lieferung — hier finden Sie die häufigsten Fragen kompakt beantwortet. Fehlt etwas? Schreiben Sie uns einfach."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section faq-body">
+		<div class="u-container">
+			<FaqAccordion groups={FAQS_BY_CATEGORY} />
+
+			<aside class="faq-help u-animate" style="--delay: 200ms">
+				<p class="faq-help__lead">Ihre Frage ist nicht dabei?</p>
+				<p class="faq-help__text">
+					Schreiben Sie uns an
+					<a href="mailto:office@propus.ch">office@propus.ch</a>
+					oder rufen Sie uns an unter
+					<a href="tel:+41445896363">+41 44 589 63 63</a> — wir melden uns zeitnah.
+				</p>
+				<p class="faq-help__related">
+					Vor dem Termin: <a href="/checklisten/">Checklisten zur Vorbereitung →</a>
+				</p>
+			</aside>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.faq-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.faq-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.faq-body {
+		padding-top: 0;
+	}
+
+	.faq-help {
+		max-width: 36rem;
+		margin: var(--space-xl) auto 0;
+		padding: 1.25rem 1.5rem;
+		text-align: center;
+		border-radius: var(--radius-md);
+		background: var(--color-bg-muted);
+		border: 1px solid var(--color-border);
+	}
+
+	.faq-help__lead {
+		margin: 0 0 0.45rem;
+		font-size: 0.9375rem;
+		font-weight: 650;
+		color: var(--color-text);
+		letter-spacing: -0.015em;
+	}
+
+	.faq-help__text {
+		margin: 0 0 0.5rem;
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.faq-help__related {
+		margin: 0.5rem 0 0;
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.faq-help a {
+		color: var(--color-gold-muted);
+		text-decoration: underline;
+		text-underline-offset: 0.18em;
+		font-weight: 600;
+	}
+
+	.faq-help a:hover {
+		color: var(--color-text);
+	}
+</style>
