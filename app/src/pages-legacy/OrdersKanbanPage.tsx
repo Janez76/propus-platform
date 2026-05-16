@@ -163,6 +163,14 @@ function initialsFromName(name?: string): string {
 }
 
 export function OrdersKanbanPage() {
+  // Body-Klasse waehrend der Kanban-Route aktiv ist — toggelt das Apple-
+  // Look-Background im body/.padmin-shell. Identisches Pattern wie in
+  // OrdersPage.
+  useEffect(() => {
+    document.body.classList.add("orders-route");
+    return () => document.body.classList.remove("orders-route");
+  }, []);
+
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const t = useCallback((key: string) => translate(lang, key), [lang]);

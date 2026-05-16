@@ -91,6 +91,15 @@ function isOpenOrder(key: StatusKey | null): boolean {
 }
 
 export function OrdersPage() {
+  // Body-Klasse waehrend dieser Route — schaltet auf Apple-Look-Background
+  // (siehe orders-page.css body.orders-route). :has(.orders-page-v2)
+  // greift nicht zuverlaessig (vermutlich CSS-Compiler) — Body-Klasse ist
+  // deterministisch.
+  useEffect(() => {
+    document.body.classList.add("orders-route");
+    return () => document.body.classList.remove("orders-route");
+  }, []);
+
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const role = useAuthStore((s) => s.role);
