@@ -58,8 +58,8 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 				<p>Die genauen Leistungsbeschreibungen werden individuell im Angebot oder Vertrag festgelegt.</p>
 			</section>
 
-			<section class="agb__section" aria-labelledby="agb-s3">
-				<h2 id="agb-s3">3. Mindestbestellung und Preiskatalog</h2>
+			<section class="agb__section" aria-labelledby="mindestbestellung">
+				<h2 id="mindestbestellung">3. Mindestbestellung und Preiskatalog</h2>
 				<p>
 					Die auf unserer Website unter <a href="/preise/">Preise</a> veröffentlichten Angaben zu Paketen,
 					Mindestbestellungen und Richtpreisen sind Bestandteil unseres Angebots. Der vertraglich vereinbarte
@@ -87,7 +87,7 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 					<li>Buchung über ein Online-Tool</li>
 				</ul>
 
-				<h3>4.2 Preise und Zahlungsbedingungen</h3>
+				<h3 id="zahlung">4.2 Preise und Zahlungsbedingungen</h3>
 				<ul class="agb__list">
 					<li>Alle Preise verstehen sich in Schweizer Franken (CHF), exklusive Mehrwertsteuer (sofern anwendbar).</li>
 					<li>Die in der Preisliste angegebenen Preise sind Richtpreise und können jederzeit angepasst werden.</li>
@@ -105,7 +105,7 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 					<li>Payrexx (Kreditkarten, TWINT, PostFinance, Apple Pay, Google Pay)</li>
 				</ul>
 
-				<h3>4.4 Zahlungsverzug</h3>
+				<h3 id="verzug">4.4 Zahlungsverzug</h3>
 				<p>Falls eine Rechnung nach 14 Tagen nicht beglichen wird, gelten folgende Verzugsregelungen:</p>
 				<ul class="agb__list">
 					<li><strong>Erste Mahnung:</strong> Zahlungserinnerung ohne zusätzliche Kosten.</li>
@@ -121,7 +121,7 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 			<section class="agb__section" aria-labelledby="agb-s5">
 				<h2 id="agb-s5">5. Stornierung und Vertragsrücktritt</h2>
 
-				<h3>5.1 Stornierungsbedingungen durch den Kunden</h3>
+				<h3 id="stornierung">5.1 Stornierungsbedingungen durch den Kunden</h3>
 				<p>Stornierungen müssen schriftlich per E-Mail oder Brief erfolgen. Es gelten folgende Stornierungsgebühren:</p>
 				<ul class="agb__list">
 					<li>Bis 7 Tage vor dem vereinbarten Termin: keine Stornierungsgebühren.</li>
@@ -130,7 +130,7 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 					<li>Am Tag des Termins oder Nichterscheinen: 100% des vereinbarten Honorars.</li>
 				</ul>
 
-				<h3>5.2 Stornierung durch {site.legalName}</h3>
+				<h3 id="stornierung-propus">5.2 Stornierung durch {site.legalName}</h3>
 				<p>
 					Falls {site.legalName} einen Auftrag aus Gründen, die nicht in ihrer Kontrolle liegen (z.&nbsp;B.
 					extreme Wetterbedingungen für Drohnenaufnahmen, Krankheit), absagen muss, wird ein Ersatztermin
@@ -145,7 +145,7 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 			<section class="agb__section" aria-labelledby="agb-s6">
 				<h2 id="agb-s6">6. Nutzungsrechte, Archivierung und Datenschutz</h2>
 
-				<h3>6.1 Nutzungsrechte an Bildern und Inhalten</h3>
+				<h3 id="nutzungsrechte">6.1 Nutzungsrechte an Bildern und Inhalten</h3>
 				<ul class="agb__list">
 					<li>
 						Alle erstellten Fotos, Visualisierungen und sonstigen Medien bleiben bis zur vollständigen
@@ -163,14 +163,14 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 					</li>
 				</ul>
 
-				<h3>6.2 Archivierung der Bilder</h3>
+				<h3 id="archivierung">6.2 Archivierung der Bilder</h3>
 				<p>
 					Der Kunde ist selbst verantwortlich für die Archivierung und Sicherung der gelieferten Bilder.
 					{site.legalName} übernimmt keine Verantwortung für den späteren Zugriff oder die Wiederherstellung
 					der Bilder nach Auslieferung.
 				</p>
 
-				<h3>6.3 Datenschutz und Haftung des Kunden</h3>
+				<h3 id="datenschutz">6.3 Datenschutz und Haftung des Kunden</h3>
 				<p>
 					Falls auf den Bildern persönliche Gegenstände wie Fotos, Dokumente oder andere private Inhalte
 					erkennbar sind, liegt es in der Verantwortung des Kunden, diese vor der Aufnahme zu entfernen.
@@ -182,8 +182,8 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 				</p>
 			</section>
 
-			<section class="agb__section" aria-labelledby="agb-s7">
-				<h2 id="agb-s7">7. Virtuelle Rundgänge und Laufzeit</h2>
+			<section class="agb__section" aria-labelledby="hosting">
+				<h2 id="hosting">7. Virtuelle Rundgänge und Laufzeit</h2>
 				<ul class="agb__list">
 					<li>Virtuelle Rundgänge werden für einen Zeitraum von 6 Monaten gehostet.</li>
 					<li>Falls keine Verlängerung erfolgt, wird der virtuelle Rundgang automatisch archiviert.</li>
@@ -198,8 +198,8 @@ const siteWebDisplay = site.url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 				</ul>
 			</section>
 
-			<section class="agb__section" aria-labelledby="agb-s8">
-				<h2 id="agb-s8">8. Haftung und Gewährleistung</h2>
+			<section class="agb__section" aria-labelledby="haftung">
+				<h2 id="haftung">8. Haftung und Gewährleistung</h2>
 				<p>
 					{site.legalName} haftet nicht für die Richtigkeit und Genauigkeit von Flächenangaben, m² oder
 					anderen Massen in Grundrissplänen. Die Daten basieren auf Drittanbietern wie Matterport.com und
