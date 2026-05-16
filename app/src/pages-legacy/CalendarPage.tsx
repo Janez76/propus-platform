@@ -238,6 +238,13 @@ function isoDateOnly(d: Date): string {
 }
 
 export function CalendarPage() {
+  // Apple-Look-Background fuer den AppShell-Wrapper — gleiche body-Klasse
+  // wie OrdersPage (siehe index.css body.orders-route).
+  useEffect(() => {
+    document.body.classList.add("orders-route");
+    return () => document.body.classList.remove("orders-route");
+  }, []);
+
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const navigate = useNavigate();
