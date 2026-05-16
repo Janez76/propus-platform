@@ -24,7 +24,10 @@ const { groups } = Astro.props;
 							<span class="faq-q__chev" aria-hidden="true" />
 						</summary>
 						<div class="faq-q__answer">
-							<p>{item.answer}</p>
+							{item.answerHtml
+								? <p set:html={item.answerHtml} />
+								: <p>{item.answer}</p>
+							}
 						</div>
 					</details>
 				))}
