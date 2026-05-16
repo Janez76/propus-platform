@@ -1077,25 +1077,25 @@ html.dark .uploads-page-v2 {
    wechselt sie auf die Dark-Variante.
 ===================================================================== */
 .uppv-upload-modal {
-  /* Light-Defaults */
-  --upm-backdrop: rgba(20, 20, 19, 0.45);
-  --upm-surface: #FFFFFF;
-  --upm-surface-soft: #F4F1EA;
-  --upm-surface-deep: #EEEAE0;
-  --upm-border: #E5DFD2;
-  --upm-border-strong: #D6CFBF;
-  --upm-text: #141413;
-  --upm-text-2: #3a3833;
-  --upm-text-3: #5B564C;
-  --upm-text-4: #8A8478;
-  --upm-shadow: 0 40px 120px -32px rgba(20, 20, 19, 0.28), 0 0 0 1px rgba(20, 20, 19, 0.05);
+  /* Apple-Look Light-Defaults */
+  --upm-backdrop: rgba(0, 0, 0, 0.40);
+  --upm-surface: #ffffff;
+  --upm-surface-soft: #fafafa;
+  --upm-surface-deep: #f5f5f7;
+  --upm-border: rgba(0, 0, 0, 0.06);
+  --upm-border-strong: rgba(0, 0, 0, 0.10);
+  --upm-text: #1d1d1f;
+  --upm-text-2: #515154;
+  --upm-text-3: #86868b;
+  --upm-text-4: #b0b0b5;
+  --upm-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
 
   position: fixed;
   inset: 0;
   z-index: 1000;
   background: var(--upm-backdrop);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px) saturate(1.4);
+  backdrop-filter: blur(8px) saturate(1.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1109,9 +1109,10 @@ html.dark .uploads-page-v2 {
 
 .uppv-upload-modal-dialog {
   background: var(--upm-surface);
-  border: 1px solid var(--upm-border);
+  border: 0;
+  border-radius: 16px;
   width: 100%;
-  max-width: 1000px;
+  max-width: 720px;
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
@@ -1122,19 +1123,8 @@ html.dark .uploads-page-v2 {
   color: var(--upm-text);
 }
 @keyframes uppv-modal-rise {
-  from { transform: translateY(16px) scale(0.985); opacity: 0; }
+  from { transform: translateY(20px) scale(0.97); opacity: 0; }
   to   { transform: translateY(0) scale(1); opacity: 1; }
-}
-
-/* Feine gold Akzent-Linie am oberen Rand */
-.uppv-upload-modal-dialog::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--up-gold-line), transparent);
-  pointer-events: none;
-  z-index: 2;
 }
 
 /* Kompakter Top-Header: Eyebrow + Order# + Sep + Target + Close */
@@ -1143,9 +1133,9 @@ html.dark .uploads-page-v2 {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 28px;
-  border-bottom: 1px solid var(--upm-border);
-  background: var(--upm-surface-soft);
+  padding: 14px 22px;
+  border-bottom: 0.5px solid var(--upm-border);
+  background: var(--upm-surface);
   flex-shrink: 0;
 }
 .uppv-upload-modal-title {
@@ -1160,9 +1150,9 @@ html.dark .uploads-page-v2 {
   min-width: 0;
 }
 .uppv-upload-modal-title .uppv-up-eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 2.4px;
+  letter-spacing: 1.2px;
   color: var(--up-gold);
   text-transform: uppercase;
 }
@@ -1183,22 +1173,22 @@ html.dark .uploads-page-v2 {
 }
 
 .uppv-upload-modal-close {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--upm-border-strong);
-  background: transparent;
-  color: var(--upm-text-3);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gray-bg, rgba(120, 120, 128, 0.10));
+  color: var(--upm-text-2);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 160ms, color 160ms, background-color 160ms;
+  transition: background-color 150ms, color 150ms;
   flex-shrink: 0;
 }
 .uppv-upload-modal-close:hover {
-  border-color: var(--up-gold-line);
+  background: rgba(120, 120, 128, 0.22);
   color: var(--upm-text);
-  background: var(--upm-surface);
 }
 
 /* Title-Block direkt unter dem Header: gold-Ring-Icon + Label + Mono-Num + Adresse → Target */
@@ -1206,23 +1196,23 @@ html.dark .uploads-page-v2 {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 20px 28px;
-  border-bottom: 1px solid var(--upm-border);
+  padding: 18px 22px;
+  border-bottom: 0.5px solid var(--upm-border);
   background: var(--upm-surface);
   flex-shrink: 0;
 }
 .uppv-upload-titleblock-icon {
   width: 42px;
   height: 42px;
-  border: 1px solid var(--up-gold-line);
-  border-radius: 50%;
+  border: 0;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--up-gold);
-  font-size: 16px;
+  font-size: 17px;
   flex-shrink: 0;
-  background: var(--upm-surface-soft);
+  background: var(--up-gold-soft);
 }
 .uppv-upload-titleblock-text { flex: 1; min-width: 0; }
 .uppv-upload-titleblock-headline {
@@ -1326,22 +1316,23 @@ html.dark .uploads-page-v2 {
 .umf-select-wrap select {
   width: 100%;
   padding: 11px 36px 11px 14px;
-  background: var(--upm-surface-soft);
-  border: 1px solid var(--upm-border);
+  background: var(--upm-surface);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--upm-border-strong), 0 1px 2px rgba(0, 0, 0, 0.04);
   color: var(--upm-text);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition: border-color 150ms, background-color 150ms;
+  transition: box-shadow 150ms;
 }
-.umf-select-wrap select:hover { border-color: var(--upm-border-strong); }
+.umf-select-wrap select:hover { box-shadow: 0 0 0 0.5px var(--upm-text-3), 0 1px 2px rgba(0, 0, 0, 0.04); }
 .umf-select-wrap select:focus {
   outline: none;
-  border-color: var(--up-gold);
-  background: var(--upm-surface);
+  box-shadow: 0 0 0 2px var(--up-gold);
 }
 .umf-select-wrap select:disabled { opacity: 0.55; cursor: not-allowed; }
 .umf-select-chev {
@@ -1353,30 +1344,31 @@ html.dark .uploads-page-v2 {
   pointer-events: none;
 }
 
-/* Toggle slider */
+/* Toggle slider — Apple-Look (blau-getoenter Row) */
 .umf-toggle {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
-  background: var(--upm-surface-soft);
-  border: 1px solid var(--upm-border);
+  padding: 12px 14px;
+  background: var(--up-gold-soft);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--up-gold-line);
   cursor: pointer;
-  transition: border-color 150ms, background-color 150ms;
+  transition: background-color 150ms;
   font-family: inherit;
   color: inherit;
   text-align: left;
 }
-.umf-toggle:hover:not(:disabled) { border-color: var(--upm-border-strong); }
+.umf-toggle:hover:not(:disabled) { background: var(--up-gold-tint); }
 .umf-toggle:disabled { opacity: 0.55; cursor: not-allowed; }
 .umf-toggle.is-on {
-  border-color: var(--up-gold-line);
   background: var(--up-gold-soft);
 }
 .umf-toggle-switch {
   position: relative;
-  width: 34px;
-  height: 18px;
+  width: 38px;
+  height: 22px;
   flex-shrink: 0;
   border-radius: 9999px;
   background: var(--upm-border-strong);
@@ -1385,15 +1377,15 @@ html.dark .uploads-page-v2 {
 .umf-toggle.is-on .umf-toggle-switch { background: var(--up-gold); }
 .umf-toggle-knob {
   position: absolute;
-  left: 3px;
+  left: 2px;
   top: 50%;
   transform: translateY(-50%);
-  width: 12px;
-  height: 12px;
-  background: var(--upm-surface);
+  width: 18px;
+  height: 18px;
+  background: #ffffff;
   border-radius: 50%;
-  transition: transform 200ms, background-color 200ms;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  transition: transform 200ms;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
 }
 .umf-toggle.is-on .umf-toggle-knob {
   transform: translateY(-50%) translateX(16px);
@@ -1419,21 +1411,22 @@ html.dark .uploads-page-v2 {
 /* Textarea */
 .umf-textarea {
   width: 100%;
-  background: var(--upm-surface-soft);
-  border: 1px solid var(--upm-border);
+  background: var(--upm-surface);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--upm-border-strong), 0 1px 2px rgba(0, 0, 0, 0.04);
   color: var(--upm-text);
   padding: 11px 14px;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.5;
   resize: vertical;
-  min-height: 60px;
-  transition: border-color 150ms, background-color 150ms;
+  min-height: 72px;
+  transition: box-shadow 150ms;
 }
 .umf-textarea:focus {
   outline: none;
-  border-color: var(--up-gold);
-  background: var(--upm-surface);
+  box-shadow: 0 0 0 2px var(--up-gold);
 }
 .umf-textarea::placeholder {
   color: var(--upm-text-4);
@@ -1455,16 +1448,17 @@ html.dark .uploads-page-v2 {
   font-style: normal;
 }
 
-/* Dropzone */
+/* Dropzone — Apple-Look */
 .umf-dropzone-wrap {}
 .umf-dropzone {
   margin-top: 0;
-  border: 1.5px dashed var(--upm-border-strong);
+  border: 2px dashed var(--upm-border-strong);
+  border-radius: 12px;
   background: var(--upm-surface-soft);
   padding: 32px 24px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 200ms, background-color 200ms;
+  transition: border-color 200ms, background-color 200ms, transform 200ms;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1474,23 +1468,25 @@ html.dark .uploads-page-v2 {
 .umf-dropzone:hover,
 .umf-dropzone.is-drag {
   border-color: var(--up-gold);
-  background: var(--upm-surface);
+  background: var(--up-gold-soft);
 }
+.umf-dropzone.is-drag { transform: scale(1.01); }
 .umf-dropzone.has-files {
   border-style: solid;
   border-color: var(--up-gold);
   background: var(--up-gold-soft);
 }
 .umf-dropzone-icon {
-  width: 46px;
-  height: 46px;
-  border: 1px solid var(--up-gold-line);
-  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--up-gold);
-  background: var(--upm-surface);
+  background: var(--up-gold-soft);
+  font-size: 20px;
 }
 .umf-dropzone-title {
   font-size: 13.5px;
@@ -1663,62 +1659,64 @@ html.dark .umf-success {
   align-items: center;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px solid var(--upm-border);
+  border-top: 0.5px solid var(--upm-border);
   flex-wrap: wrap;
 }
+/* Primary "Upload starten" — Apple-Blau mit weisser Schrift */
 .umf-submit {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 12px 22px;
+  gap: 8px;
+  padding: 10px 18px;
   background: var(--up-gold);
-  color: #141413;
+  color: #ffffff;
   border: 0;
+  border-radius: 8px;
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: background-color 180ms, box-shadow 180ms;
+  transition: transform 150ms, box-shadow 150ms, opacity 150ms;
 }
 .umf-submit:hover:not(:disabled) {
-  background: #c79b25;
-  box-shadow: 0 4px 16px rgba(182, 142, 32, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.30);
 }
 .umf-submit:disabled {
-  background: var(--upm-surface-deep);
-  color: var(--upm-text-4);
+  background: var(--gray-bg, rgba(120, 120, 128, 0.10));
+  color: var(--upm-text-3);
   cursor: not-allowed;
   box-shadow: none;
 }
 .umf-cancel {
-  padding: 12px 18px;
+  padding: 10px 16px;
   background: transparent;
-  border: 1px solid var(--upm-border-strong);
+  border: 0;
+  border-radius: 8px;
   color: var(--upm-text-2);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 150ms, color 150ms, border-color 150ms;
+  transition: background-color 150ms, color 150ms;
 }
 .umf-cancel:hover:not(:disabled) {
-  background: var(--upm-surface-soft);
+  background: var(--gray-bg, rgba(120, 120, 128, 0.10));
   color: var(--upm-text);
 }
 .umf-cancel:disabled { opacity: 0.55; cursor: not-allowed; }
 .umf-meta {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--upm-text-3);
-  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
 }
-.umf-meta strong { color: var(--up-gold-line); font-weight: 500; }
+.umf-meta strong { color: var(--up-gold); font-weight: 600; }
 
 /* History footer */
 .umf-history {
-  border-top: 1px solid var(--upm-border);
+  border-top: 0.5px solid var(--upm-border);
   background: var(--upm-surface-soft);
   flex-shrink: 0;
 }
@@ -1753,12 +1751,14 @@ html.dark .umf-success {
 }
 .umf-history.is-open .umf-history-chev { transform: rotate(180deg); }
 .umf-history-count {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--upm-text-2);
   background: var(--upm-surface);
-  border: 1px solid var(--upm-border);
-  padding: 2px 8px;
+  border: 0;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 0.5px var(--upm-border-strong);
+  padding: 2px 9px;
 }
 .umf-history-body {
   padding: 4px 28px 16px 28px;
@@ -1772,13 +1772,17 @@ html.dark .umf-success {
 .umf-history-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--upm-border);
-  font-size: 11.5px;
+  gap: 10px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  background: var(--upm-surface);
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0.5px var(--upm-border);
+  font-size: 12px;
 }
-.umf-history-item:last-child { border-bottom: 0; }
-.umf-history-item-dot { color: var(--up-sage-base, #7a9461); }
+.umf-history-item:last-child { margin-bottom: 0; }
+.umf-history-item-dot { color: var(--up-sage, #1f7a36); }
 .umf-history-item-name {
   font-family: 'JetBrains Mono', monospace;
   color: var(--upm-text);
@@ -1805,17 +1809,18 @@ html.dark .umf-success {
 
 /* ── Dark-Theme Override fuer den Modal-Frame ── */
 html.dark .uppv-upload-modal {
-  --upm-backdrop: rgba(20, 20, 19, 0.62);
-  --upm-surface: #14161b;
-  --upm-surface-soft: #0a0b0e;
-  --upm-surface-deep: #1c1f26;
+  /* Apple Dark — Modal in System Gray 6 auf abgedunkeltem Backdrop */
+  --upm-backdrop: rgba(0, 0, 0, 0.62);
+  --upm-surface: #1c1c1e;
+  --upm-surface-soft: #2c2c2e;
+  --upm-surface-deep: #2c2c2e;
   --upm-border: rgba(255, 255, 255, 0.08);
   --upm-border-strong: rgba(255, 255, 255, 0.14);
-  --upm-text: #F4F1EA;
-  --upm-text-2: #c4c0b6;
-  --upm-text-3: #8a8478;
-  --upm-text-4: #56524a;
-  --upm-shadow: 0 40px 120px -32px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --upm-text: #ffffff;
+  --upm-text-2: #ebebf5;
+  --upm-text-3: rgba(235, 235, 245, 0.60);
+  --upm-text-4: rgba(235, 235, 245, 0.30);
+  --upm-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
 }
 
 .uppv-error-banner {
