@@ -261,8 +261,9 @@ html.dark .padmin-shell.pkanban .pkanban__card-sub { color: var(--ink-3); }
   background: var(--paper);
 }
 
-/* Column — Apple-Style: weiche Spalte mit subtilem inner box-shadow
-   statt Border, Cards heben sich darin durch reines Weiss ab. */
+/* Column — Apple-Style: weiche Spalte mit sichtbarer 1px-Outline.
+   Cards heben sich darin durch reines Weiss ab. 1px statt 0.5px auf
+   Wunsch von Janez — deutlichere Spalten-Abgrenzung. */
 .padmin-shell .pkanban__column {
   display: flex;
   flex-direction: column;
@@ -272,7 +273,7 @@ html.dark .padmin-shell.pkanban .pkanban__card-sub { color: var(--ink-3); }
   background: var(--paper-strip);
   border: 0;
   border-radius: 16px;
-  box-shadow: 0 0 0 0.5px var(--pad-border);
+  box-shadow: 0 0 0 1px var(--pad-border);
   transition: background 0.18s, box-shadow 0.18s;
 }
 .padmin-shell .pkanban__column[data-drop-active="true"] {

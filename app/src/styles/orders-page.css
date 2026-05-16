@@ -876,10 +876,12 @@ html.dark body.orders-route .app-classic {
   flex: 0 0 268px;
   /* Apple-Style: Column-Hintergrund Light-Gray, Cards darin reinweiss.
      Frueher war es invertiert (weisse Column, graue Cards) — das wirkte
-     flach und unstrukturiert. */
+     flach und unstrukturiert.
+     Border: 1px sichtbar (vorher 0.5px fast unsichtbar) — auf Wunsch
+     von Janez deutlichere Spalten-Abgrenzung. */
   background: var(--surface-2);
   border-radius: var(--r-lg);
-  box-shadow: 0 0 0 0.5px var(--border);
+  box-shadow: 0 0 0 1px var(--border-strong);
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 360px);
