@@ -14,8 +14,8 @@ const { groups } = Astro.props;
 
 <div class="faq-acc">
 	{groups.map((g) => (
-		<section class="faq-acc__group" aria-labelledby={`faq-cat-${g.key}`}>
-			<h2 id={`faq-cat-${g.key}`} class="faq-acc__heading">{g.label}</h2>
+		<section class="faq-acc__group" aria-labelledby={g.key}>
+			<h2 id={g.key} class="faq-acc__heading">{g.label}</h2>
 			<div class="faq-acc__list">
 				{g.items.map((item) => (
 					<details class="faq-q" id={`faq-${item.id}`}>
