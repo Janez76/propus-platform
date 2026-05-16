@@ -1,0 +1,68 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ChecklistCard from '../../components/ChecklistCard.astro';
+import { checklisten } from '../../content/checklisten';
+
+const title = 'Checklisten zur Shooting-Vorbereitung | Propus';
+const description =
+	'Vorbereitungs-Checklisten für Innenräume, Außenbereich, Drohnen-Aufnahmen und 360°-Rundgänge. Online lesen oder als PDF herunterladen.';
+---
+
+<BaseLayout {title} {description}>
+	<section class="checklisten-intro u-container">
+		<div class="checklisten-intro__inner u-animate" style="--delay: 40ms">
+			<SectionHeading
+				eyebrow="Vorbereitung"
+				title="Checklisten für das Shooting"
+				subtitle="Damit Ihre Objekte schon vor dem Termin in Form sind. Vier Listen für die häufigsten Aufnahmen – online zum Abhaken oder als PDF zum Ausdrucken."
+				align="center"
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section checklisten-body">
+		<div class="u-container">
+			<div class="checklisten-grid">
+				{
+					checklisten.map((cl, index) => (
+						<div class="u-animate" style={`--delay: ${120 + index * 60}ms`}>
+							<ChecklistCard checklist={cl} />
+						</div>
+					))
+				}
+			</div>
+		</div>
+	</section>
+</BaseLayout>
+
+<style>
+	.checklisten-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.checklisten-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.checklisten-intro__inner :global(.section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	.checklisten-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: clamp(1rem, 2.5vw, 1.5rem);
+	}
+
+	@media (min-width: 720px) {
+		.checklisten-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+</style>

@@ -153,6 +153,27 @@ const heroImage =
 		<GoogleReviewsSection reviews={reviewsForHome} />
 	</div>
 
+	<section class="home-checklisten u-section">
+		<div class="u-container home-checklisten__inner">
+			<div class="home-checklisten__text u-animate" style="--delay: 40ms">
+				<p class="u-eyebrow">Vorbereitung</p>
+				<h2 class="home-checklisten__title">Gut vorbereitet zum Shooting</h2>
+				<div class="divider-gold" aria-hidden="true"></div>
+				<p class="home-checklisten__lead">
+					Vier kompakte Checklisten – für Innenräume, Außenbereich, Drohnen-Aufnahmen und 360°-Rundgänge.
+					Online zum Abhaken oder als PDF zum Ausdrucken und Weitergeben an Eigentümer und Team.
+				</p>
+				<a class="btn btn--gold" href="/checklisten/">Zu den Checklisten</a>
+			</div>
+			<ul class="home-checklisten__list u-animate" style="--delay: 120ms">
+				<li><a href="/checklisten/innenraeume/">Innenräume vorbereiten</a></li>
+				<li><a href="/checklisten/aussenbereich/">Außenbereich vorbereiten</a></li>
+				<li><a href="/checklisten/drohne/">Drohnen-Shooting</a></li>
+				<li><a href="/checklisten/360-tour/">360°-Rundgang</a></li>
+			</ul>
+		</div>
+	</section>
+
 	<section class="cta-final">
 		<div class="u-container cta-final__inner">
 			<h2 class="cta-final__title u-animate" style="--delay: 0ms">Wir freuen uns auf Ihr Objekt</h2>
@@ -425,5 +446,86 @@ const heroImage =
 	:global(html[data-theme='dark']) .cta-final {
 		background: var(--color-bg);
 		border-top: 1px solid var(--color-border);
+	}
+
+	.home-checklisten {
+		background: var(--color-bg-muted);
+		border-top: 1px solid var(--color-border);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.home-checklisten__inner {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: clamp(1.75rem, 4vw, 2.5rem);
+		align-items: center;
+	}
+
+	@media (min-width: 820px) {
+		.home-checklisten__inner {
+			grid-template-columns: 1.1fr 1fr;
+			gap: clamp(2.5rem, 5vw, 3.5rem);
+		}
+	}
+
+	.home-checklisten__text {
+		max-width: 36rem;
+	}
+
+	.home-checklisten__title {
+		font-size: clamp(1.5rem, 3vw, 2rem);
+		font-weight: 600;
+		letter-spacing: -0.03em;
+		line-height: 1.15;
+		margin: 0 0 var(--space-sm);
+		color: var(--color-text);
+	}
+
+	.home-checklisten__lead {
+		margin: var(--space-sm) 0 var(--space-md);
+		font-size: 1rem;
+		line-height: 1.6;
+		color: var(--color-text-muted);
+	}
+
+	.home-checklisten__list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.5rem;
+	}
+
+	@media (min-width: 540px) {
+		.home-checklisten__list {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.home-checklisten__list li {
+		margin: 0;
+	}
+
+	.home-checklisten__list a {
+		display: block;
+		padding: 0.85rem 1rem;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: 0.9375rem;
+		font-weight: 600;
+		color: var(--color-text);
+		text-decoration: none;
+		transition:
+			border-color var(--transition-fast),
+			color var(--transition-fast),
+			transform var(--transition-fast);
+	}
+
+	.home-checklisten__list a:hover {
+		border-color: var(--color-gold-line);
+		color: var(--color-gold-muted);
+		transform: translateY(-1px);
 	}
 </style>

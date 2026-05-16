@@ -1,0 +1,207 @@
+---
+import type { Checklist } from '../content/checklisten';
+
+interface Props {
+	checklist: Checklist;
+}
+
+const { checklist } = Astro.props;
+---
+
+<div class="checklist-view">
+	<p class="checklist-view__intro">{checklist.intro}</p>
+
+	<div class="checklist-view__download">
+		<a
+			class="btn btn--gold btn--xl"
+			href={checklist.pdfHref}
+			download
+			aria-label={`PDF herunterladen: ${checklist.title}`}
+		>
+			<svg
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="7 10 12 15 17 10" />
+				<line x1="12" y1="15" x2="12" y2="3" />
+			</svg>
+			Als PDF herunterladen
+		</a>
+		<p class="checklist-view__download-hint">
+			Zum Ausdrucken oder Weiterleiten an Eigentümer und Team.
+		</p>
+	</div>
+
+	<div class="checklist-view__groups">
+		{
+			checklist.groups.map((group, gi) => (
+				<section class="checklist-group" aria-labelledby={`group-${gi}`}>
+					<h2 id={`group-${gi}`} class="checklist-group__heading">
+						{group.heading}
+					</h2>
+					<ul class="checklist-group__list">
+						{group.items.map((item, ii) => (
+							<li class="checklist-item">
+								<label class="checklist-item__label">
+									<input type="checkbox" class="checklist-item__cb" id={`g${gi}-i${ii}`} />
+									<span class="checklist-item__box" aria-hidden="true">
+										<svg
+											width="14"
+											height="14"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="3"
+											stroke-linecap="round"
+											stroke-linejoin="round"
+										>
+											<polyline points="20 6 9 17 4 12" />
+										</svg>
+									</span>
+									<span class="checklist-item__text">{item}</span>
+								</label>
+							</li>
+						))}
+					</ul>
+				</section>
+			))
+		}
+	</div>
+</div>
+
+<style>
+	.checklist-view {
+		display: flex;
+		flex-direction: column;
+		gap: clamp(2rem, 5vw, 3rem);
+	}
+
+	.checklist-view__intro {
+		margin: 0;
+		font-size: clamp(1rem, 1.6vw, 1.075rem);
+		line-height: 1.6;
+		color: var(--color-text-muted);
+		max-width: 42rem;
+	}
+
+	.checklist-view__download {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		align-items: flex-start;
+	}
+
+	.checklist-view__download-hint {
+		margin: 0;
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+	}
+
+	.checklist-view__groups {
+		display: flex;
+		flex-direction: column;
+		gap: clamp(1.75rem, 4vw, 2.5rem);
+	}
+
+	.checklist-group__heading {
+		margin: 0 0 0.85rem;
+		font-size: clamp(1rem, 1.7vw, 1.15rem);
+		font-weight: 650;
+		letter-spacing: -0.01em;
+		color: var(--color-text);
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.checklist-group__list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+
+	.checklist-item {
+		margin: 0;
+	}
+
+	.checklist-item__label {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.65rem;
+		padding: 0.35rem 0;
+		cursor: pointer;
+		line-height: 1.5;
+	}
+
+	.checklist-item__cb {
+		position: absolute;
+		opacity: 0;
+		width: 0;
+		height: 0;
+	}
+
+	.checklist-item__box {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 1.15rem;
+		height: 1.15rem;
+		margin-top: 0.15rem;
+		border-radius: var(--radius-sm);
+		border: 1.5px solid var(--color-border);
+		background: var(--color-surface);
+		color: transparent;
+		transition:
+			background var(--transition-fast),
+			border-color var(--transition-fast),
+			color var(--transition-fast);
+	}
+
+	.checklist-item__cb:focus-visible + .checklist-item__box {
+		outline: 2px solid var(--color-gold);
+		outline-offset: 2px;
+	}
+
+	.checklist-item__cb:checked + .checklist-item__box {
+		background: var(--color-gold);
+		border-color: var(--color-gold);
+		color: var(--color-surface);
+	}
+
+	.checklist-item__cb:checked ~ .checklist-item__text {
+		color: var(--color-text-muted);
+		text-decoration: line-through;
+		text-decoration-color: rgb(0 0 0 / 0.25);
+	}
+
+	.checklist-item__text {
+		font-size: 0.9375rem;
+		color: var(--color-text);
+		transition:
+			color var(--transition-fast),
+			text-decoration-color var(--transition-fast);
+	}
+
+	@media print {
+		.checklist-view__download {
+			display: none;
+		}
+
+		.checklist-item__box {
+			background: var(--color-surface);
+			border: 1.5px solid #777;
+			color: transparent;
+		}
+	}
+</style>

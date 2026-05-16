@@ -1,0 +1,144 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ChecklistView from '../../components/ChecklistView.astro';
+import { checklisten } from '../../content/checklisten';
+
+const slug = Astro.params.slug ?? '';
+const checklist = checklisten.find((c) => c.slug === slug);
+
+if (!checklist) {
+	return new Response(null, { status: 404, statusText: 'Not Found' });
+}
+
+const others = checklisten.filter((c) => c.slug !== checklist.slug);
+---
+
+<BaseLayout title={checklist.seoTitle} description={checklist.seoDescription}>
+	<section class="checklist-page-intro u-container">
+		<div class="checklist-page-intro__inner u-animate" style="--delay: 40ms">
+			<p class="checklist-page-intro__back">
+				<a href="/checklisten/" class="link-cta">← Alle Checklisten</a>
+			</p>
+			<SectionHeading
+				eyebrow="Checkliste"
+				title={checklist.title}
+				subtitle={checklist.subtitle}
+				titleAs="h1"
+				titleSize="display"
+			/>
+		</div>
+	</section>
+
+	<section class="u-section checklist-page-body">
+		<div class="u-container u-container--narrow">
+			<div class="u-animate" style="--delay: 100ms">
+				<ChecklistView {checklist} />
+			</div>
+		</div>
+	</section>
+
+	{
+		others.length > 0 && (
+			<section class="u-section checklist-page-more">
+				<div class="u-container">
+					<h2 class="checklist-page-more__heading">Weitere Checklisten</h2>
+					<ul class="checklist-page-more__list">
+						{others.map((c) => (
+							<li>
+								<a class="checklist-page-more__link" href={`/checklisten/${c.slug}/`}>
+									<span class="checklist-page-more__title">{c.title}</span>
+									<span class="checklist-page-more__sub">{c.subtitle}</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
+			</section>
+		)
+	}
+</BaseLayout>
+
+<style>
+	.checklist-page-intro {
+		padding-top: calc(var(--space-xl) + var(--space-md));
+		padding-bottom: clamp(1.5rem, 3vw, 2.25rem);
+	}
+
+	.checklist-page-intro__back {
+		margin: 0 0 1rem;
+		font-size: 0.8125rem;
+	}
+
+	.checklist-page-intro :global(.section-heading) {
+		margin-bottom: 0;
+	}
+
+	.checklist-page-intro__inner :global(.section-heading__inner) {
+		max-width: 46rem;
+	}
+
+	.checklist-page-body {
+		padding-block: clamp(1.5rem, 4vw, 3rem);
+	}
+
+	.checklist-page-more {
+		background: var(--color-bg-muted);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.checklist-page-more__heading {
+		margin: 0 0 var(--space-md);
+		font-size: clamp(1.05rem, 2vw, 1.25rem);
+		font-weight: 650;
+		color: var(--color-text);
+	}
+
+	.checklist-page-more__list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0.65rem;
+	}
+
+	@media (min-width: 720px) {
+		.checklist-page-more__list {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	.checklist-page-more__link {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.9rem 1rem;
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		text-decoration: none;
+		transition:
+			border-color var(--transition-fast),
+			transform var(--transition-fast);
+	}
+
+	.checklist-page-more__link:hover {
+		border-color: var(--color-gold-line);
+		transform: translateY(-1px);
+	}
+
+	.checklist-page-more__title {
+		font-size: 0.9375rem;
+		font-weight: 650;
+		color: var(--color-text);
+	}
+
+	.checklist-page-more__sub {
+		font-size: 0.8125rem;
+		color: var(--color-text-muted);
+		line-height: 1.45;
+	}
+</style>

@@ -1,0 +1,136 @@
+---
+import type { Checklist } from '../content/checklisten';
+
+interface Props {
+	checklist: Checklist;
+}
+
+const { checklist } = Astro.props;
+const groupCount = checklist.groups.length;
+const itemCount = checklist.groups.reduce((acc, g) => acc + g.items.length, 0);
+---
+
+<article class="checklist-card" aria-labelledby={`cl-${checklist.slug}`}>
+	<div class="checklist-card__body">
+		<p class="checklist-card__eyebrow">Vorbereitung</p>
+		<h2 id={`cl-${checklist.slug}`} class="checklist-card__title">
+			{checklist.title}
+		</h2>
+		<p class="checklist-card__subtitle">{checklist.subtitle}</p>
+		<p class="checklist-card__meta" aria-label={`${groupCount} Abschnitte, ${itemCount} Punkte`}>
+			<span>{groupCount} Abschnitte</span>
+			<span class="checklist-card__meta-dot" aria-hidden="true">·</span>
+			<span>{itemCount} Punkte</span>
+		</p>
+	</div>
+	<div class="checklist-card__actions">
+		<a class="btn btn--gold checklist-card__cta" href={`/checklisten/${checklist.slug}/`}>
+			Online ansehen
+		</a>
+		<a
+			class="btn btn--outline checklist-card__cta"
+			href={checklist.pdfHref}
+			download
+			aria-label={`PDF herunterladen: ${checklist.title}`}
+		>
+			<svg
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.8"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				aria-hidden="true"
+			>
+				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+				<polyline points="7 10 12 15 17 10" />
+				<line x1="12" y1="15" x2="12" y2="3" />
+			</svg>
+			PDF
+		</a>
+	</div>
+</article>
+
+<style>
+	.checklist-card {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		gap: 1.25rem;
+		padding: clamp(1.25rem, 3vw, 1.75rem);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		box-shadow: var(--shadow-soft);
+		transition:
+			transform var(--transition-fast),
+			border-color var(--transition-fast),
+			box-shadow var(--transition-fast);
+	}
+
+	.checklist-card:hover {
+		border-color: var(--color-gold-line);
+		transform: translateY(-2px);
+	}
+
+	.checklist-card__body {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		flex: 1;
+	}
+
+	.checklist-card__eyebrow {
+		margin: 0;
+		font-family: var(--font-sans);
+		font-size: 0.6875rem;
+		font-weight: 600;
+		letter-spacing: 0.16em;
+		text-transform: uppercase;
+		color: var(--color-gold-muted);
+	}
+
+	.checklist-card__title {
+		margin: 0;
+		font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+		font-weight: 650;
+		letter-spacing: -0.02em;
+		line-height: 1.2;
+		color: var(--color-text);
+	}
+
+	.checklist-card__subtitle {
+		margin: 0;
+		font-size: 0.9375rem;
+		line-height: 1.55;
+		color: var(--color-text-muted);
+	}
+
+	.checklist-card__meta {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0.25rem 0 0;
+		font-size: 0.75rem;
+		font-weight: 500;
+		letter-spacing: 0.03em;
+		color: var(--color-text-muted);
+	}
+
+	.checklist-card__meta-dot {
+		opacity: 0.6;
+	}
+
+	.checklist-card__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.65rem;
+	}
+
+	.checklist-card__cta {
+		padding: 0.6rem 1.1rem;
+		font-size: 0.75rem;
+	}
+</style>
