@@ -500,7 +500,7 @@ html[data-theme='dark'] .btn--outline:hover {
 }
 
 /**
- * Preis-Karten (Legacy-Komponente PriceCard – optional; /preise/ nutzt PricingPackageCard).
+ * Preis-Karten (Legacy-Komponente PriceCard – optional; /preise/ nutzt PricingTierCard).
  */
 .price-card {
 	display: flex;
