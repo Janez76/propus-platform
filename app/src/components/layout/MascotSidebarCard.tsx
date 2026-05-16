@@ -33,7 +33,6 @@ export function MascotSidebarCard() {
       </div>
       <span className="propus-mascot-card-cta">
         <span>Chat öffnen</span>
-        <kbd>P</kbd>
       </span>
     </button>
   );
