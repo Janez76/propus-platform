@@ -933,3 +933,50 @@ html.dark .padmin-shell.padmin-apple .pad-page-header {
 html.dark .padmin-shell.padmin-apple .cust-table-wrap {
   box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.40);
 }
+
+/* --- Apple-Look Kunden-Tabelle: runde Avatare + Pills (Mockup) --------- */
+/* Avatar: Kreis statt abgerundetes Rechteck, farbiger Gradient.
+   8 Farbvarianten rotierend ueber die Tabellenzeilen. */
+.padmin-shell.padmin-apple .cust-avatar {
+  border-radius: 50%;
+  border: 0;
+  color: #ffffff;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+1) .cust-avatar { background: linear-gradient(135deg, #5a9bea, #2a6dd6); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+2) .cust-avatar { background: linear-gradient(135deg, #ff9b58, #e36b1a); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+3) .cust-avatar { background: linear-gradient(135deg, #5fc77e, #2a9b4f); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+4) .cust-avatar { background: linear-gradient(135deg, #c688f5, #8836d4); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+5) .cust-avatar { background: linear-gradient(135deg, #ff8a8a, #d6442a); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+6) .cust-avatar { background: linear-gradient(135deg, #67d4d4, #2a9b9b); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+7) .cust-avatar { background: linear-gradient(135deg, #8c8ee0, #4f51c4); }
+.padmin-shell.padmin-apple tbody tr:nth-child(8n+8) .cust-avatar { background: linear-gradient(135deg, #ffc659, #d99413); }
+/* Mobile-Cards nutzen dasselbe Avatar — dort Apple-Blau als Default */
+.padmin-shell.padmin-apple .cust-table-wrap.p-4 .cust-avatar {
+  background: linear-gradient(135deg, #5a9bea, #2a6dd6);
+}
+
+/* Role-Badge als Pill */
+.padmin-shell.padmin-apple .cust-role-badge {
+  border-radius: 9999px;
+  font-weight: 600;
+  padding: 3px 10px;
+}
+.padmin-shell.padmin-apple .cust-role-kunde {
+  background: rgba(0, 122, 255, 0.10);
+  color: #007aff;
+}
+html.dark .padmin-shell.padmin-apple .cust-role-kunde {
+  background: rgba(10, 132, 255, 0.18);
+  color: #0a84ff;
+}
+
+/* Such-/Filter-Felder + Tabellenzeilen-Hover etwas weicher */
+.padmin-shell.padmin-apple .cust-table-wrap tbody tr:hover {
+  background: rgba(0, 0, 0, 0.025);
+}
+html.dark .padmin-shell.padmin-apple .cust-table-wrap tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
