@@ -149,7 +149,11 @@ export function ActionMenu({ actions }: { actions: InvoiceAction[] }) {
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open ? (
-        <div className="absolute right-0 top-full z-20 mt-2 min-w-48 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg">
+        // PRO-72: z-50 statt z-20 damit das Dropdown ueber den propus-side-panel
+        // (z-40 in cockpit-panel.css) gerendert wird. Davor wurde es bei der
+        // letzten Tabellen-Zeile vom Cockpit-Panel verdeckt und die Aktionen
+        // waren nicht klickbar.
+        <div className="absolute right-0 top-full z-50 mt-2 min-w-48 overflow-hidden rounded-xl border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg">
           {actions.map(({ label, icon: Icon, onClick, tone = "default", disabled }) => (
             <button
               key={label}
