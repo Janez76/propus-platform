@@ -845,3 +845,91 @@ html.dark .padmin-shell .pad-alert.is-success { color: #a3d3a3; }
 html.dark .padmin-shell .pad-alert.is-error   { color: #f0a899; }
 html.dark .padmin-shell .pad-alert.is-warn    { color: #f0c688; }
 html.dark .padmin-shell .pad-alert.is-info    { color: #a8c4dc; }
+
+/* ============================================================================
+ * Apple-Look-Variante (.padmin-shell.padmin-apple) — 2026-05.
+ * Token-Override fuer Seiten die auf Apple-Optik umgestellt sind (Kunden).
+ * Ueberschreibt sowohl die pad-*-Tokens als auch die semantischen Tokens
+ * (--surface, --text-main, ...) die von den cust-*-Klassen genutzt werden.
+ * ========================================================================== */
+.padmin-shell.padmin-apple {
+  --paper:       #f5f5f7;
+  --paper-strip: #fafafa;
+  --pad-card:    #ffffff;
+  --ink:         #1d1d1f;
+  --ink-2:       #515154;
+  --ink-3:       #86868b;
+  --ink-4:       #b0b0b5;
+  --pad-border:      rgba(0, 0, 0, 0.08);
+  --pad-border-soft: rgba(0, 0, 0, 0.05);
+  --gold-600:    #007aff;
+  --gold-700:    #007aff;
+
+  /* Semantische Tokens fuer die cust-*-Klassen (index.css) */
+  --surface:        #ffffff;
+  --surface-raised: #fafafa;
+  --border-soft:    rgba(0, 0, 0, 0.06);
+  --text-main:      #1d1d1f;
+  --text-muted:     #86868b;
+  --text-subtle:    #b0b0b5;
+  --gold-text:      #007aff;
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+html.dark .padmin-shell.padmin-apple {
+  --paper:       #000000;
+  --paper-strip: #1c1c1e;
+  --pad-card:    #1c1c1e;
+  --ink:         #ffffff;
+  --ink-2:       #ebebf5;
+  --ink-3:       rgba(235, 235, 245, 0.60);
+  --ink-4:       rgba(235, 235, 245, 0.30);
+  --pad-border:      rgba(255, 255, 255, 0.10);
+  --pad-border-soft: rgba(255, 255, 255, 0.06);
+  --gold-600:    #0a84ff;
+  --gold-700:    #0a84ff;
+
+  --surface:        #1c1c1e;
+  --surface-raised: #2c2c2e;
+  --border-soft:    rgba(255, 255, 255, 0.08);
+  --text-main:      #ffffff;
+  --text-muted:     rgba(235, 235, 245, 0.60);
+  --text-subtle:    rgba(235, 235, 245, 0.30);
+  --gold-text:      #0a84ff;
+}
+
+/* Header als eigene Apple-Card statt full-bleed Streifen */
+.padmin-shell.padmin-apple .pad-page-header {
+  margin: 0 0 16px 0;
+  border-bottom: 0;
+  border-radius: 16px;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.06);
+  padding: 22px 24px;
+}
+html.dark .padmin-shell.padmin-apple .pad-page-header {
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.40);
+}
+.padmin-shell.padmin-apple .pad-eyebrow { color: var(--gold-text); }
+
+/* Such-Input + Filter-Select: borderless mit Outline-Shadow, Apple-Blau Focus */
+.padmin-shell.padmin-apple .cust-search-input,
+.padmin-shell.padmin-apple .cust-filter-select {
+  border: 0;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.padmin-shell.padmin-apple .cust-search-input:focus,
+.padmin-shell.padmin-apple .cust-filter-select:focus {
+  border: 0;
+  box-shadow: 0 0 0 2px #007aff;
+}
+
+/* Tabellen-Card: weiche Outline + Schatten statt 1px-Border */
+.padmin-shell.padmin-apple .cust-table-wrap {
+  border: 0;
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+html.dark .padmin-shell.padmin-apple .cust-table-wrap {
+  box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.40);
+}

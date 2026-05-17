@@ -71,6 +71,13 @@ function compareStrings(a: string, b: string) {
 }
 
 export function CustomersPage() {
+  // Apple-Look-Background fuer den AppShell-Wrapper — gleiche body-Klasse
+  // wie OrdersPage (siehe index.css body.orders-route).
+  useEffect(() => {
+    document.body.classList.add("orders-route");
+    return () => document.body.classList.remove("orders-route");
+  }, []);
+
   const token = useAuthStore((s) => s.token);
   const lang = useAuthStore((s) => s.language);
   const { can } = usePermissions();
@@ -565,7 +572,7 @@ export function CustomersPage() {
     .replace("{{total}}", String(sortedCustomers.length));
 
   return (
-    <div className="padmin-shell">
+    <div className="padmin-shell padmin-apple">
       <header className="pad-page-header">
         <div className="pad-ph-top">
           <div style={{ minWidth: 0, flex: 1 }}>
