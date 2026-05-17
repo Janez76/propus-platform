@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
 import PricingTierCard from '../../components/PricingTierCard.astro';
 import PricingCatalogAccordions from '../../components/PricingCatalogAccordions.astro';
@@ -24,13 +25,14 @@ const catalog = await loadBookingCatalog();
 	keywords={seoPage.keywords}
 	noIndex={!seoPage.index}
 >
+	<SchemaBreadcrumbs items={[{ name: 'Start', url: '/' }, { name: 'Preise', url: '/preise/' }]} />
 	<section class="preise-page-intro">
 		<div class="preise-page-intro__band">
 			<div class="u-container preise-page-intro__container">
 				<div class="preise-page-intro__inner u-animate" style="--delay: 40ms">
 					<SectionHeading
 						eyebrow="Preise & Leistungen"
-						title="So erhalten Sie den Überblick"
+						title="Preise Immobilienfotografie — so behalten Sie den Überblick"
 						subtitle="Wählen Sie ein Paket oder stellen Sie sich Ihr Setup aus Einzelleistungen zusammen – Preise und Umfang sind klar benannt. Passt es? Dann direkt online buchen."
 						align="center"
 						titleAs="h1"

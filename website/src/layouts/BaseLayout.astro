@@ -18,6 +18,7 @@ interface Props {
 	ogImage?: string;
 	ogTitle?: string;
 	ogDescription?: string;
+	/** Wird nicht mehr als <meta name="keywords"> gerendert (Google ignoriert seit 2009). Bleibt nur für CMS-Admin-Referenz. */
 	keywords?: string;
 	noIndex?: boolean;
 	/** Wenn gesetzt: kein zweites `readCms` (z. B. Startseite mit `loadHomePageData`). */
@@ -33,7 +34,6 @@ const {
 	ogImage = seo.defaultOgImage,
 	ogTitle = title,
 	ogDescription = description,
-	keywords = '',
 	noIndex = false,
 	branding: brandingProp,
 	siteLinks: siteLinksProp,
@@ -95,7 +95,6 @@ try {
 		<meta name="google-site-verification" content="ikI2qDaCeLbMKhTAvyw2WLmJPzZ7xhW2x6BVgiCcuVc" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
-		{keywords && <meta name="keywords" content={keywords} />}
 		{noIndex && <meta name="robots" content="noindex, nofollow" />}
 		<link rel="canonical" href={canonicalURL.href} />
 		<meta property="og:type" content="website" />

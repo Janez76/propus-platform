@@ -87,14 +87,6 @@ const schema = {
 			description: organization.legalName,
 			inLanguage: contentLocale,
 			publisher: { '@id': `${canonicalBase}/#organization` },
-			potentialAction: {
-				'@type': 'SearchAction',
-				target: {
-					'@type': 'EntryPoint',
-					urlTemplate: `${canonicalBase}/?s={search_term_string}`,
-				},
-				'query-input': 'required name=search_term_string',
-			},
 		},
 	],
 };

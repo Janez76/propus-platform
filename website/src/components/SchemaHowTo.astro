@@ -1,0 +1,56 @@
+---
+/**
+ * JSON-LD fuer eine HowTo-Anleitung (z. B. Vorbereitungs-Checkliste).
+ *
+ * Wird auf den Checklisten-Detailseiten unter /checklisten/[slug]/ eingebunden.
+ * Erwartet eine flache Liste sequenzieller Schritte; jeder Schritt erhaelt eine
+ * `position` (1-basiert). Wenn `url` gesetzt ist, wird sie ueber `canonicalBase`
+ * absolut gemacht, damit Google die HowTo eindeutig einer Seite zuordnen kann.
+ *
+ * Wenn `steps` leer ist, wird KEIN Schema gerendert — leere HowTo-Bloecke
+ * waeren sonst Search-Console-Warnungen.
+ */
+
+import { canonicalBase } from '../config/seo';
+
+interface HowToStep {
+	name: string;
+	text?: string;
+}
+
+interface Props {
+	name: string;
+	description?: string;
+	steps: HowToStep[];
+	/** Pfad relativ zur Site (z. B. "/checklisten/foto-shooting/"). Wird absolutiert. */
+	url?: string;
+}
+
+const { name, description, steps, url } = Astro.props;
+
+const absoluteUrl = url
+	? url.startsWith('http')
+		? url
+		: `${canonicalBase}${url.startsWith('/') ? '' : '/'}${url}`
+	: undefined;
+
+const hasSteps = Array.isArray(steps) && steps.length > 0;
+
+const schema = hasSteps
+	? {
+			'@context': 'https://schema.org',
+			'@type': 'HowTo',
+			name,
+			...(description ? { description } : {}),
+			...(absoluteUrl ? { url: absoluteUrl } : {}),
+			step: steps.map((s, i) => ({
+				'@type': 'HowToStep',
+				position: i + 1,
+				name: s.name,
+				...(s.text ? { text: s.text } : {}),
+			})),
+		}
+	: null;
+---
+
+{schema && <script type="application/ld+json" set:html={JSON.stringify(schema)} is:inline />}

@@ -2,17 +2,95 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
 import SchemaService from '../../components/SchemaService.astro';
 import ServiceCard from '../../components/ServiceCard.astro';
 import { loadSiteServiceSections } from '../../lib/cms/resolve';
 import { loadSeoPage } from '../../lib/seo';
+import { loadBookingCatalog } from '../../lib/booking/catalog';
 
 const servicesDetailSections = await loadSiteServiceSections();
 const seoPage = await loadSeoPage('dienstleistungen');
 
 const title = seoPage.title;
 const description = seoPage.description;
+
+/**
+ * Mindestpreise je Service (CHF) fuer den Offer-Block im JSON-LD (PRO-67).
+ *
+ * Quelle 1 (bevorzugt): Booking-Katalog von api-booking.propus.ch
+ *   - Nur fuer Kategorien, in denen es eine "Einstiegs"-Staffel oder einen
+ *     festen Mindestpreis gibt (`area_tier` -> erste Staffel, `fixed` -> Preis,
+ *     `per_floor` / `per_room` -> unitPrice). Add-on-Einheiten wie "+1 Foto"
+ *     werden ignoriert (zu klein und kein Einstiegspreis).
+ * Quelle 2 (Fallback aus Issue PRO-67): redaktionelle Mindestpreise, wenn
+ *   API nicht erreichbar ist oder fuer eine Service-Kategorie keine Daten
+ *   liefert (z. B. visualisierung / retusche existieren in der Buchungs-API
+ *   nicht als eigene Kategorie).
+ */
+const MIN_PRICE_FALLBACK_CHF: Record<string, number> = {
+	fotografie: 229,
+	drohne: 249,
+	rundgang: 399,
+	grundrisse: 99,
+	video: 549,
+	staging: 199,
+	visualisierung: 499,
+	retusche: 49,
+};
+
+/** Service-Section-ID -> API-category_key (vgl. catalog.ts). */
+const SERVICE_TO_CATEGORY_KEY: Record<string, string> = {
+	fotografie: 'camera',
+	drohne: 'dronePhoto',
+	rundgang: 'tour',
+	grundrisse: 'floorplans',
+	video: 'groundVideo',
+	staging: 'staging',
+};
+
+function parseChfFromDisplay(text: string): number | null {
+	const m = text.match(/^(\d+(?:[.,]\d+)?)\s*CHF\s*$/i);
+	if (!m) return null;
+	const n = Number(m[1].replace(',', '.'));
+	return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * Pro Kategorie der kleinste tatsaechliche Einstiegspreis (kein Inkrement,
+ * keine Add-on-Einheit). Ohne API-Daten leeres Mapping zurueckgeben –
+ * dann greift `MIN_PRICE_FALLBACK_CHF`.
+ */
+async function buildMinPricesFromCatalog(): Promise<Record<string, number>> {
+	const result = await loadBookingCatalog().catch(() => null);
+	if (!result || !result.ok) return {};
+	const map: Record<string, number> = {};
+	for (const section of result.data.sections) {
+		const prices: number[] = [];
+		for (const row of section.products) {
+			// Add-on-Einheiten ("+1 Bodenfoto" usw.) ueberspringen
+			if (row.code.startsWith('__website_extra_')) continue;
+			if (row.code.includes('__increment')) continue;
+			const n = parseChfFromDisplay(row.priceDisplay);
+			if (typeof n === 'number') prices.push(n);
+		}
+		if (prices.length === 0) continue;
+		map[section.key] = Math.min(...prices);
+	}
+	return map;
+}
+
+const catalogMin = await buildMinPricesFromCatalog();
+
+function resolveMinPrice(sectionId: string): number | undefined {
+	const catKey = SERVICE_TO_CATEGORY_KEY[sectionId];
+	if (catKey && typeof catalogMin[catKey] === 'number') {
+		return catalogMin[catKey];
+	}
+	const fallback = MIN_PRICE_FALLBACK_CHF[sectionId];
+	return typeof fallback === 'number' ? fallback : undefined;
+}
 ---
 
 <BaseLayout
@@ -24,18 +102,20 @@ const description = seoPage.description;
 	keywords={seoPage.keywords}
 	noIndex={!seoPage.index}
 >
+	<SchemaBreadcrumbs items={[{ name: 'Start', url: '/' }, { name: 'Dienstleistungen', url: '/dienstleistungen/' }]} />
 	{servicesDetailSections.map((section) => (
 		<SchemaService
 			name={section.title}
 			description={section.body}
 			anchor={section.id}
+			minPrice={resolveMinPrice(section.id)}
 		/>
 	))}
 	<section class="services-page-intro u-container">
 		<div class="services-page-intro__inner u-animate" style="--delay: 40ms">
 			<SectionHeading
 				eyebrow="Leistungen"
-				title="Unsere Leistungen"
+				title="Unsere Leistungen für Immobilienfotografie"
 				subtitle="Acht Bereiche, die zusammenpassen: von der Aufnahme bis zur Aufbereitung. Klar strukturiert, ohne Schnickschnack – damit Ihre Objekte überall gleich überzeugend wirken."
 				align="center"
 				titleAs="h1"
