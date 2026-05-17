@@ -1751,35 +1751,85 @@ async function deleteRenewalInvoice(invoiceId, actorEmail) {
   );
   if (r.rowCount === 0) throw new Error('Bezahlte Rechnungen können nicht gelöscht werden');
 
-  // Workflow-Status der Tour zurücksetzen, falls nötig
+  // Workflow-Status der Tour zurücksetzen, falls nötig (PRO-50 / Ebikon-Bug).
+  //
+  // Defensive: vor jedem Reset prüfen ob fuer dieselbe Tour noch andere offene
+  // Rechnungen existieren. Wenn ja, KEIN Reset — sonst springt der Status
+  // weg von einer noch laufenden Zahlungserwartung.
+  //
+  // Mapping (NEW: AWAITING_CUSTOMER_DECISION → ACTIVE bei verwaisten Touren):
+  //   CUSTOMER_ACCEPTED_AWAITING_PAYMENT + portal_reactivation       → ARCHIVED
+  //   CUSTOMER_ACCEPTED_AWAITING_PAYMENT + portal_extension|null    → AWAITING_CUSTOMER_DECISION
+  //   AWAITING_CUSTOMER_DECISION + irgendein invoice_kind           → ACTIVE
+  //
+  // EXPIRING_SOON wird NICHT zurueckgesetzt: dieser Status ist date-driven
+  // (term_end_date < 30 Tage) und wuerde vom naechsten Cron-Lauf ohnehin
+  // wieder gesetzt — ein Reset waere flackernd.
   let tourStatusReset = null;
+  let remainingOpenInvoices = 0;
+  let matterportArchived = false;
+  let matterportArchiveError = null;
   if (inv.tour_id) {
-    const tourRow = await pool.query(
-      `SELECT id, status FROM tour_manager.tours WHERE id = $1`,
-      [inv.tour_id]
+    const remainingRes = await pool.query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM tour_manager.renewal_invoices
+       WHERE tour_id = $1
+         AND invoice_status IN ('sent', 'overdue', 'draft')
+         AND id != $2`,
+      [inv.tour_id, id]
     );
-    const tour = tourRow.rows[0];
-    if (tour) {
-      let newStatus = null;
-      if (
-        tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
-        inv.invoice_kind === 'portal_reactivation'
-      ) {
-        // Reaktivierungsrechnung gelöscht → Tour zurück auf ARCHIVED
-        newStatus = 'ARCHIVED';
-      } else if (
-        tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
-        (inv.invoice_kind === 'portal_extension' || inv.invoice_kind === null)
-      ) {
-        // Verlängerungsrechnung gelöscht → Tour zurück auf AWAITING_CUSTOMER_DECISION
-        newStatus = 'AWAITING_CUSTOMER_DECISION';
-      }
-      if (newStatus) {
-        await pool.query(
-          `UPDATE tour_manager.tours SET status = $1, updated_at = NOW() WHERE id = $2`,
-          [newStatus, inv.tour_id]
-        );
-        tourStatusReset = newStatus;
+    remainingOpenInvoices = Number(remainingRes.rows[0]?.cnt || 0);
+
+    if (remainingOpenInvoices === 0) {
+      const tourRow = await pool.query(
+        `SELECT id, status, matterport_space_id FROM tour_manager.tours WHERE id = $1`,
+        [inv.tour_id]
+      );
+      const tour = tourRow.rows[0];
+      if (tour) {
+        let newStatus = null;
+        if (
+          tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
+          inv.invoice_kind === 'portal_reactivation'
+        ) {
+          newStatus = 'ARCHIVED';
+        } else if (
+          tour.status === 'CUSTOMER_ACCEPTED_AWAITING_PAYMENT' &&
+          (inv.invoice_kind === 'portal_extension' || inv.invoice_kind === null)
+        ) {
+          newStatus = 'AWAITING_CUSTOMER_DECISION';
+        } else if (tour.status === 'AWAITING_CUSTOMER_DECISION') {
+          // PRO-50: Wenn die einzige offene Rechnung geloescht wurde und die Tour
+          // im "Kunde-entscheidet"-Zustand war, geht sie zurueck auf ACTIVE — der
+          // Trigger (Renewal-Rechnung) ist weg, also gibt es nichts mehr zu
+          // entscheiden. ACTIVE ist der "normale" Lifecycle-Zustand.
+          newStatus = 'ACTIVE';
+        }
+        if (newStatus) {
+          await pool.query(
+            `UPDATE tour_manager.tours SET status = $1, updated_at = NOW() WHERE id = $2`,
+            [newStatus, inv.tour_id]
+          );
+          tourStatusReset = newStatus;
+
+          // Konsistenz DB ↔ Matterport: wenn der neue DB-Status ARCHIVED ist,
+          // muss das Matterport-Space ebenfalls archiviert werden (User-Wunsch
+          // PRO-50 / Ebikon). Best-effort: Fehler in der Matterport-API darf
+          // den DB-Status-Reset nicht ruinieren, da DB die Wahrheit ist.
+          if (newStatus === 'ARCHIVED' && tour.matterport_space_id) {
+            try {
+              const archResult = await matterport.archiveSpace(tour.matterport_space_id);
+              matterportArchived = !!(archResult && archResult.success !== false);
+              if (!matterportArchived) {
+                matterportArchiveError = archResult?.error || 'matterport_archive_failed';
+              }
+            } catch (e) {
+              matterportArchived = false;
+              matterportArchiveError = e.message;
+              console.warn('[admin-phase3] deleteRenewalInvoice matterport archive failed:', e.message);
+            }
+          }
+        }
       }
     }
   }
@@ -1792,10 +1842,19 @@ async function deleteRenewalInvoice(invoiceId, actorEmail) {
       invoice_status: inv.invoice_status || null,
       amount_chf: inv.amount_chf || null,
       tour_status_reset: tourStatusReset,
+      remaining_open_invoices: remainingOpenInvoices,
+      matterport_archived: matterportArchived,
+      matterport_archive_error: matterportArchiveError,
     });
   }
 
-  return { ok: true, tourStatusReset };
+  return {
+    ok: true,
+    tourStatusReset,
+    remainingOpenInvoices,
+    matterportArchived,
+    ...(matterportArchiveError ? { matterportArchiveError } : {}),
+  };
 }
 
 /**
