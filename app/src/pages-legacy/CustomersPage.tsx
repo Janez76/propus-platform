@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X } from "lucide-react";
+import { ArrowUpDown, Building2, ChevronDown, ChevronUp, Mail, Phone, Plus, Search, User, UserPlus, X, Users, CheckCircle2, FolderOpen, UserX, TrendingUp, AlertTriangle } from "lucide-react";
 import { createContact, createCustomer, createCustomerContact, deleteCustomer, getContacts, getCustomers, getCustomerImpersonateUrl, getDuplicateCandidates, patchCustomerNasFolderBases, dismissDuplicateCandidate, updateContact, updateCustomer, updateCustomerAdmin, updateCustomerBlocked, type Contact, type Customer, type DuplicateCandidateRow } from "../api/customers";
 import { CustomerList, type CustomerSortKey } from "../components/customers/CustomerList";
 import { ContactModal } from "../components/customers/ContactModal";
@@ -601,25 +601,41 @@ export function CustomersPage() {
         </div>
         {viewMode === "customers" ? (
           <div className="pad-kpis">
-            <div className="pad-kpi">
-              <div className="pad-kpi-label">{t(lang, "customers.stats.total")}</div>
+            <div className="pad-kpi pad-kpi--blue">
+              <div className="pad-kpi-label">
+                <span className="pad-kpi-icon"><Users /></span>
+                {t(lang, "customers.stats.total")}
+              </div>
               <div className="pad-kpi-value">{customerStats.total}</div>
             </div>
-            <div className="pad-kpi">
-              <div className="pad-kpi-label">{t(lang, "customers.stats.active")}</div>
+            <div className="pad-kpi pad-kpi--green">
+              <div className="pad-kpi-label">
+                <span className="pad-kpi-icon"><CheckCircle2 /></span>
+                {t(lang, "customers.stats.active")}
+              </div>
               <div className="pad-kpi-value">{customerStats.active}</div>
               <div className="pad-kpi-trend is-up">
+                <TrendingUp />
                 {t(lang, "customers.stats.activeRate").replace("{{n}}", String(customerStats.rate))}
               </div>
             </div>
-            <div className="pad-kpi is-gold">
-              <div className="pad-kpi-label">{t(lang, "customers.stats.ordersTotal")}</div>
-              <div className="pad-kpi-value is-gold">{customerStats.ordersTotal}</div>
+            <div className="pad-kpi pad-kpi--purple">
+              <div className="pad-kpi-label">
+                <span className="pad-kpi-icon"><FolderOpen /></span>
+                {t(lang, "customers.stats.ordersTotal")}
+              </div>
+              <div className="pad-kpi-value">{customerStats.ordersTotal}</div>
             </div>
-            <div className="pad-kpi">
-              <div className="pad-kpi-label">{t(lang, "customers.stats.zeroOrders")}</div>
+            <div className="pad-kpi pad-kpi--orange">
+              <div className="pad-kpi-label">
+                <span className="pad-kpi-icon"><UserX /></span>
+                {t(lang, "customers.stats.zeroOrders")}
+              </div>
               <div className="pad-kpi-value">{customerStats.zeroOrders}</div>
-              <div className="pad-kpi-trend">{t(lang, "customers.stats.zeroOrdersHint")}</div>
+              <div className="pad-kpi-trend is-warn">
+                <AlertTriangle />
+                {t(lang, "customers.stats.zeroOrdersHint")}
+              </div>
             </div>
           </div>
         ) : null}
