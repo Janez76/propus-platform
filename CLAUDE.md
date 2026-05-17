@@ -25,7 +25,7 @@ wenn die Aufgabe Module oder Datenmodell berührt.
 | Backend Booking | Node + Express 4 (`booking/`), Passport (OIDC), PG-Pool |
 | Backend Tours | Node + Express 4 (`tours/`), wenige EJS-Views (nur `customer/`) |
 | DB | PostgreSQL, Migrationen in `core/migrations/` und `booking/migrations/` |
-| Auth | Logto (OIDC) für Admin/Portal, Sessions in PG |
+| Auth | Native Email/Passwort (DB `core.admin_users`) + Microsoft OIDC für Office365 / Graph-Integration, Sessions in PG. Logto-Code-Pfade in `tours/routes/auth.js` sind als Fallback drin, werden aber durch fehlende `*_LOGTO_APP_*`-Env-Vars deaktiviert. |
 | Tests | vitest (`app/`), `node --test` (booking/tours), Playwright (E2E in `app/e2e/`) |
 | Build/Deploy | Docker (`docker-compose.yml`, `docker-compose.vps.yml`), VPS via `scripts/deploy-vps.cmd` |
 | Linting | eslint (`app/`), `scripts/guard-no-ejs.sh` |
