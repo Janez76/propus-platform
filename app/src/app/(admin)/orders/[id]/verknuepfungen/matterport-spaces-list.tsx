@@ -170,11 +170,24 @@ export function MatterportSpacesList({ orderNo }: Props) {
           </thead>
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-[var(--ink-3)]">
-                  Spaces werden geladen…
-                </td>
-              </tr>
+              <>
+                {[0, 1, 2, 3].map((rowIdx) => (
+                  <tr key={`skel-${rowIdx}`} className="border-b border-[var(--border)]/40 last:border-b-0">
+                    <td className="px-4 py-3">
+                      <div className="h-3.5 w-40 animate-pulse rounded bg-[var(--paper-strip)]" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-3 w-24 animate-pulse rounded bg-[var(--paper-strip)]" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="h-3 w-20 animate-pulse rounded bg-[var(--paper-strip)]" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="ml-auto h-6 w-28 animate-pulse rounded bg-[var(--paper-strip)]" />
+                    </td>
+                  </tr>
+                ))}
+              </>
             )}
             {!loading && openSpaces.length === 0 && (
               <tr>

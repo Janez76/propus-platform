@@ -146,10 +146,21 @@ export function OrderEditActions({ orderNo, status }: ActionProps) {
       const r = await saveOrderAllSections(input);
       r.successfulSteps.forEach((step) => shell.clearDirty(STEP_TO_KEY[step]));
       if (!r.ok) {
-        const total = Math.max(attemptedCount, r.successfulSteps.length);
-        setBulkError(
-          `${r.successfulSteps.length} von ${total} Sektionen gespeichert. Fehler bei ${STEP_LABEL[r.step]}: ${r.error}`,
-        );
+        // Backend laeuft alle Sektionen in EINER Tx — bei Fehler wird die
+        // gesamte Transaktion zurueckgerollt und `successfulSteps` ist []. Die
+        // alte Meldung "0 von N gespeichert" liest sich dann als waere etwas
+        // gespeichert worden, obwohl nichts persistiert ist. Wir teilen den
+        // Rollback-Fall explizit mit (PRO-5).
+        if (r.successfulSteps.length === 0) {
+          setBulkError(
+            `Speichern fehlgeschlagen bei ${STEP_LABEL[r.step]}: ${r.error} (keine Aenderungen persistiert — alle ${attemptedCount} Sektionen rolled back)`,
+          );
+        } else {
+          const total = Math.max(attemptedCount, r.successfulSteps.length);
+          setBulkError(
+            `${r.successfulSteps.length} von ${total} Sektionen gespeichert. Fehler bei ${STEP_LABEL[r.step]}: ${r.error}`,
+          );
+        }
         return;
       }
       shell.clearAllDirty();

@@ -77,8 +77,36 @@ export function InfoItem({ label, value }: { label: string; value: string | Reac
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-[#9A968C] italic">{children}</p>;
+/**
+ * Empty-State-Komponente fuer Sub-Sections (PRO-6 Polish).
+ *
+ * Default-Variante (ohne `icon`): kompakter italic-Hint, Drop-in fuer
+ * bestehende Aufrufe — kein visueller Bruch.
+ *
+ * Mit `icon`: vollwertiger Empty-State im macOS/iOS-Backpanel-Stil
+ * (BG paper-strip, 0.5px Hairline, Radius 8, neutrales Ink). Wird auf
+ * neueren Sections mit groesserem Platz verwendet, wo der italic-Hint
+ * zu schwach wirkt.
+ */
+export function Empty({
+  children,
+  icon,
+  hint,
+}: {
+  children: ReactNode;
+  icon?: ReactNode;
+  hint?: ReactNode;
+}) {
+  if (!icon) {
+    return <p className="text-sm text-[#9A968C] italic">{children}</p>;
+  }
+  return (
+    <div className="flex flex-col items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--paper-strip)] px-4 py-6 text-center">
+      <div className="text-[var(--ink-3)]" aria-hidden="true">{icon}</div>
+      <p className="text-sm text-[var(--ink-2)]">{children}</p>
+      {hint && <p className="text-xs text-[var(--ink-3)]">{hint}</p>}
+    </div>
+  );
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
