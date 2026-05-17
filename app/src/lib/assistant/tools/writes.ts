@@ -966,6 +966,15 @@ export function createWriteHandlers(deps: WriteDeps): Record<string, ToolHandler
         });
       });
 
+      // Strukturiertes Audit-Log (PRO-46): falls Outlook-Events nicht
+      // aktualisiert werden, beweist dieser Log dass der Handler erreicht
+      // wurde UND eine Outbox-Row entstanden ist. Nicht-Auftreten dieser
+      // Zeile -> Confirm-UI hat den Tool-Call nie ausgeloest; Auftreten
+      // ohne Outlook-Update -> Bug liegt im Dispatcher / Calendar-Sync.
+      console.log(
+        `[assistant/reschedule_order] enqueued order=${orderNo} outboxId=${enqueued.id} date=${date} time=${time} durationMin=${durationMin ?? "default"} skipMails=${skipMails}`,
+      );
+
       const mailInfo = skipMails
         ? "Keine Reschedule-Mails (skip_mails=true)."
         : "Office/Fotograf/Kunde werden via Mail informiert.";
