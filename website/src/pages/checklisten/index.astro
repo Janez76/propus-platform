@@ -1,19 +1,28 @@
 ---
+export const prerender = false;
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
 import ChecklistCard from '../../components/ChecklistCard.astro';
 import { CHECKLISTEN_SORTED } from '../../content/checklisten';
+import { loadSeoPage } from '../../lib/seo';
 
-const title = 'Checklisten · Vorbereitung fürs Shooting | Propus';
-const description =
-	'Vorbereitungs-Checklisten für Ihr Immobilien-Shooting: Foto, Dämmerung, Saison, 360°-Rundgang und Video. Online lesen oder als PDF herunterladen.';
+const seoPage = await loadSeoPage('checklisten');
+const title = seoPage.title;
+const description = seoPage.description;
 ---
 
 <BaseLayout
 	{title}
 	{description}
-	keywords="Immobilien Checkliste, Foto-Shooting Vorbereitung, Immobilien Dämmerung, Matterport 360 Vorbereitung, Immobilien Video"
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
 >
+	<SchemaBreadcrumbs items={[{ name: 'Start', url: '/' }, { name: 'Checklisten', url: '/checklisten/' }]} />
 	<section class="cl-intro u-container">
 		<div class="cl-intro__inner u-animate" style="--delay: 40ms">
 			<SectionHeading

@@ -1,12 +1,16 @@
 ---
+export const prerender = false;
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
 import FaqAccordion from '../../components/FaqAccordion.astro';
 import { FAQS, FAQS_BY_CATEGORY } from '../../content/faq';
+import { loadSeoPage } from '../../lib/seo';
 
-const title = 'Häufige Fragen | Propus Immobilienfotografie';
-const description =
-	'Antworten auf die häufigsten Fragen rund um Foto-Shooting, Drohnenaufnahmen, Matterport 360°, Video, Vorbereitung, Lieferung und Preise von Propus.';
+const seoPage = await loadSeoPage('faq');
+const title = seoPage.title;
+const description = seoPage.description;
 
 const faqLd = {
 	'@context': 'https://schema.org',
@@ -25,8 +29,13 @@ const faqLd = {
 <BaseLayout
 	{title}
 	{description}
-	keywords="Propus FAQ, Immobilienfotografie Fragen, Drohne Recht, 360 Rundgang Ablauf, Video Lieferzeit"
+	ogImage={seoPage.ogImage}
+	ogTitle={seoPage.ogTitle}
+	ogDescription={seoPage.ogDescription}
+	keywords={seoPage.keywords}
+	noIndex={!seoPage.index}
 >
+	<SchemaBreadcrumbs items={[{ name: 'Start', url: '/' }, { name: 'FAQ', url: '/faq/' }]} />
 	<script type="application/ld+json" set:html={JSON.stringify(faqLd)} />
 
 	<section class="faq-intro u-container">

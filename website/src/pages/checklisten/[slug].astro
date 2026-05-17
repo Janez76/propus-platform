@@ -3,6 +3,8 @@ export const prerender = true;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ChecklistView from '../../components/ChecklistView.astro';
+import SchemaHowTo from '../../components/SchemaHowTo.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import { CHECKLISTEN, CHECKLISTEN_SORTED, getChecklistBySlug } from '../../content/checklisten';
 
 export function getStaticPaths() {
@@ -18,6 +20,19 @@ if (!item) {
 
 const others = CHECKLISTEN_SORTED.filter((c) => c.slug !== item.slug);
 const title = `${item.title} · Checkliste | Propus`;
+
+/**
+ * HowTo-Schritte pro Checkliste:
+ *  - Wenn `timeline` vorhanden ist, mappen wir step→name, body→text (sequenzieller Ablauf).
+ *  - Sonst suchen wir eine Gruppe, deren heading mit „Schnell-Check" beginnt — diese
+ *    Listen sind in den Quelldaten als sequentielle Vorbereitungsschritte angelegt.
+ *  - Fallback: leeres Array → Komponente rendert kein Schema (siehe SchemaHowTo.astro).
+ *  Bewusst kein Fallback auf normale Themen-Gruppen (Wohnzimmer, Frühling …), weil die
+ *  alternative bzw. parallele Listen sind und kein „HowTo"-Ablauf.
+ */
+const howToSteps = item.timeline?.length
+	? item.timeline.map((s) => ({ name: s.step, text: s.body }))
+	: (item.groups.find((g) => /^Schnell-Check/i.test(g.heading))?.items.map((text) => ({ name: text })) ?? []);
 ---
 
 <BaseLayout
@@ -26,6 +41,17 @@ const title = `${item.title} · Checkliste | Propus`;
 	ogTitle={item.title}
 	ogDescription={item.metaDescription}
 >
+	<SchemaBreadcrumbs items={[
+		{ name: 'Start', url: '/' },
+		{ name: 'Checklisten', url: '/checklisten/' },
+		{ name: item.title, url: `/checklisten/${item.slug}/` },
+	]} />
+	<SchemaHowTo
+		name={item.title}
+		description={item.metaDescription}
+		steps={howToSteps}
+		url={`/checklisten/${item.slug}/`}
+	/>
 	<section class="u-container cl-detail">
 		<nav class="cl-detail__crumbs" aria-label="Brotkrumen">
 			<a href="/checklisten/">← Alle Checklisten</a>

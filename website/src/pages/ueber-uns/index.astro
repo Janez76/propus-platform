@@ -3,11 +3,13 @@ export const prerender = false;
 
 import { Image } from 'astro:assets';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import SchemaBreadcrumbs from '../../components/SchemaBreadcrumbs.astro';
 import SectionHeading from '../../components/SectionHeading.astro';
 import { site } from '../../content/site';
 import { companyStory, behindTheScenesImage, type TeamMember } from '../../content/team';
 import { loadSiteTeam } from '../../lib/cms/resolve';
 import { loadSeoPage } from '../../lib/seo';
+import { canonicalBase } from '../../config/seo';
 
 const seoPage = await loadSeoPage('ueber-uns');
 const title = seoPage.title;
@@ -30,6 +32,38 @@ const companyForScript = {
 	title: companyStory.title,
 	paragraphs: [...companyStory.paragraphs],
 };
+
+/**
+ * Person-JSON-LD fuer jedes Teammitglied (PRO-71).
+ * `worksFor.@id` verweist auf das Organization-Schema (gleiche @id wie in
+ * SchemaLocalBusiness / SchemaService). Bilder werden, sofern vorhanden, zu
+ * absoluten URLs aufgeloest (relative Pfade vor canonicalBase prependen).
+ */
+function absoluteImageUrl(src: string | null | undefined): string | undefined {
+	if (!src) return undefined;
+	const trimmed = src.trim();
+	if (!trimmed) return undefined;
+	if (/^https?:\/\//i.test(trimmed)) return trimmed;
+	if (trimmed.startsWith('//')) return `https:${trimmed}`;
+	return `${canonicalBase}${trimmed.startsWith('/') ? '' : '/'}${trimmed}`;
+}
+
+const teamSchema = {
+	'@context': 'https://schema.org',
+	'@graph': teamMembers.map((member) => {
+		const image = absoluteImageUrl(member.imageSrc);
+		return {
+			'@type': 'Person',
+			'@id': `${canonicalBase}/ueber-uns/#${member.id}`,
+			name: member.name,
+			jobTitle: member.role,
+			email: member.email,
+			worksFor: { '@id': `${canonicalBase}/#organization` },
+			...(image ? { image } : {}),
+			url: `${canonicalBase}/ueber-uns/`,
+		};
+	}),
+};
 ---
 
 <BaseLayout
@@ -41,6 +75,9 @@ const companyForScript = {
 	keywords={seoPage.keywords}
 	noIndex={!seoPage.index}
 >
+	<SchemaBreadcrumbs items={[{ name: 'Start', url: '/' }, { name: 'Über uns', url: '/ueber-uns/' }]} />
+	<script type="application/ld+json" set:html={JSON.stringify(teamSchema)} is:inline />
+
 	<section class="about-page-intro u-container">
 		<div class="about-page-intro__inner u-animate" style="--delay: 40ms">
 			<SectionHeading

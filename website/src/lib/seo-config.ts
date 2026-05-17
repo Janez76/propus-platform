@@ -5,6 +5,8 @@ export type SeoPageKey =
 	| 'portfolio'
 	| 'dienstleistungen'
 	| 'preise'
+	| 'faq'
+	| 'checklisten'
 	| 'ueber-uns'
 	| 'kontakt'
 	| 'impressum'
@@ -109,6 +111,36 @@ export const SEO_PAGE_DEFINITIONS: readonly SeoPageDefinition[] = [
 		defaultIndex: true,
 		slugEditable: true,
 		adminHref: '/admin/seo?focus=preise',
+	},
+	{
+		key: 'faq',
+		sort: 35,
+		adminGroup: 'angebot',
+		label: 'FAQ',
+		defaultPath: '/faq/',
+		defaultTitle: `Häufige Fragen zu Immobilienfotografie | ${site.name}`,
+		defaultDescription:
+			'Antworten zu Foto-Shooting, Drohne, Matterport 360°, Video, Vorbereitung, Lieferzeiten und Preisen — kompakt und verständlich von Propus.',
+		defaultKeywords:
+			'FAQ, Häufige Fragen, Immobilienfotografie, Drohne, 360 Rundgang, Matterport, Video, Vorbereitung, Lieferung, Preise',
+		defaultIndex: true,
+		slugEditable: false,
+		adminHref: '/admin/seo?focus=faq',
+	},
+	{
+		key: 'checklisten',
+		sort: 38,
+		adminGroup: 'angebot',
+		label: 'Checklisten',
+		defaultPath: '/checklisten/',
+		defaultTitle: `Checklisten · Vorbereitung fürs Shooting | ${site.name}`,
+		defaultDescription:
+			'Vorbereitungs-Checklisten für Ihr Immobilien-Shooting: Foto, Dämmerung, Saison, 360°-Rundgang und Video. Online lesen oder als PDF herunterladen.',
+		defaultKeywords:
+			'Checklisten, Immobilien Vorbereitung, Foto-Shooting, Dämmerung, Saison, Matterport 360, Immobilien Video, PDF',
+		defaultIndex: true,
+		slugEditable: true,
+		adminHref: '/admin/seo?focus=checklisten',
 	},
 	{
 		key: 'ueber-uns',

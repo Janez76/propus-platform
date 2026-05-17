@@ -1,0 +1,51 @@
+---
+/**
+ * JSON-LD fuer BreadcrumbList.
+ *
+ * Wird pro Seite mit hierarchischer Navigation eingebunden (z. B. Checklisten-
+ * Detailseiten, Service-Unterseiten). Relative URLs werden automatisch via
+ * `canonicalBase` aus `../config/seo.ts` absolut gemacht.
+ *
+ * Verwendungsbeispiel:
+ *
+ * <!--
+ *   <SchemaBreadcrumbs items={[
+ *     { name: 'Start', url: '/' },
+ *     { name: 'Checklisten', url: '/checklisten/' },
+ *     { name: item.title, url: `/checklisten/${slug}/` },
+ *   ]} />
+ * -->
+ */
+
+import { canonicalBase } from '../config/seo';
+
+interface BreadcrumbItem {
+	name: string;
+	url: string;
+}
+
+interface Props {
+	items: BreadcrumbItem[];
+}
+
+const { items } = Astro.props;
+
+/** Macht eine relative URL absolut; absolute URLs bleiben unveraendert. */
+function toAbsoluteUrl(url: string): string {
+	if (/^https?:\/\//i.test(url)) return url;
+	return `${canonicalBase}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+const schema = {
+	'@context': 'https://schema.org',
+	'@type': 'BreadcrumbList',
+	itemListElement: items.map((it, i) => ({
+		'@type': 'ListItem',
+		position: i + 1,
+		name: it.name,
+		item: toAbsoluteUrl(it.url),
+	})),
+};
+---
+
+<script type="application/ld+json" set:html={JSON.stringify(schema)} is:inline />
