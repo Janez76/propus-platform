@@ -900,9 +900,13 @@ html.dark .padmin-shell.padmin-apple {
   --gold-text:      #0a84ff;
 }
 
-/* Header als eigene Apple-Card statt full-bleed Streifen */
+/* Header als eigene Apple-Card statt full-bleed Streifen.
+   max-width + auto-margin identisch zur Inhaltsbreite von .pad-content
+   (88rem minus 2x32px Padding) — sonst ist die Header-Card breiter als
+   die Tabelle darunter. */
 .padmin-shell.padmin-apple .pad-page-header {
-  margin: 0 0 16px 0;
+  max-width: calc(88rem - 64px);
+  margin: 24px auto 0;
   border-bottom: 0;
   border-radius: 16px;
   box-shadow: 0 0 0 0.5px var(--pad-border), 0 4px 16px rgba(0, 0, 0, 0.06);
