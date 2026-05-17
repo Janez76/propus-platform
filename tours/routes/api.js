@@ -11,6 +11,7 @@ const matterport = require('../lib/matterport');
 const { getMatterportId, normalizeTourRow } = require('../lib/normalize');
 const { sendMailDirect, getGraphConfig } = require('../lib/microsoft-graph');
 const { getAutomationSettings } = require('../lib/settings');
+const dunning = require('../lib/dunning');
 
 function requireApiKey(req, res, next) {
   const key = req.get('X-API-Key') || req.query.apiKey;
@@ -353,6 +354,42 @@ router.post('/cron/archive-unpaid-qr', async (req, res) => {
     }
   }
   res.json({ processed: r.rows.length, archived, errors: err });
+});
+
+/**
+ * Mahnstufen-Automation (PRO-8).
+ *
+ * Drei automatische Mahnstufen + Inkasso-Flag fuer ueberfaellige QR-Rechnungen:
+ *   Stufe 1 = +7d Verzug, freundlich, keine Gebuehr
+ *   Stufe 2 = +21d Verzug, formell, CHF 10 Gebuehr
+ *   Stufe 3 = +45d Verzug, letzte Aufforderung, CHF 30 Gebuehr
+ *   Inkasso = +60d Verzug, nur Flag (manuelle Freigabe vor Uebergabe)
+ *
+ * Feature-Flag: `core.settings` -> `feature.dunningEnabled` (Default: false).
+ * Idempotent via UNIQUE(invoice_id, stage) auf `tour_manager.dunning_history`.
+ *
+ * Bestehender `/cron/remind-unpaid-qr` bleibt unveraendert (sendet eine
+ * einmalige Erinnerung) — die neue Mahnstufen-Logik laeuft parallel und kann
+ * durch `feature.dunningEnabled=true` aktiviert werden, ohne den alten Pfad
+ * abzubauen.
+ */
+router.post('/cron/process-dunning', async (req, res) => {
+  const flagRow = await pool.query(
+    `SELECT value FROM core.settings WHERE key = 'feature.dunningEnabled'`,
+  ).catch(() => ({ rows: [] }));
+  const enabled = flagRow.rows[0]?.value === true || flagRow.rows[0]?.value === 'true';
+  if (!enabled) {
+    return res.json({ processed: 0, sent: 0, errors: 0, skipped: true, reason: 'feature.dunningEnabled=false' });
+  }
+  const batchLimit = Math.max(1, parseInt(req.body?.batchLimit || req.query?.batchLimit || 100, 10));
+  const dryRun = req.body?.dryRun === true || req.query?.dryRun === 'true';
+  try {
+    const result = await dunning.processDueDunningStages({ batchLimit, dryRun });
+    res.json(result);
+  } catch (err) {
+    console.error('[cron/process-dunning]', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post('/cron/archive-expired', async (req, res) => {
