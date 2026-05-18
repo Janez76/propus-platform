@@ -708,7 +708,7 @@ export function ToursAdminLinkMatterportPage() {
             </p>
           ) : null}
           {bookingOrderNo == null && debouncedBookingQ.length >= 1 && (bookingSuggestLoading || bookingSuggestions.length > 0) ? (
-            <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
+            <div className="absolute z-50 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
               {bookingSuggestLoading ? (
                 <p className="p-2 text-xs text-[var(--text-subtle)]">Suche…</p>
               ) : bookingSuggestions.length === 0 ? (
@@ -831,7 +831,7 @@ export function ToursAdminLinkMatterportPage() {
                 </p>
               ) : null}
               {showSuggestPanel ? (
-                <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
+                <div className="absolute z-50 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-64 overflow-y-auto">
                   {suggestLoading ? (
                     <p className="p-2 text-xs text-[var(--text-subtle)]">Suche…</p>
                   ) : (
@@ -888,7 +888,7 @@ export function ToursAdminLinkMatterportPage() {
                   autoComplete="off"
                 />
                 {showContactDropdown && contactSuggestions.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-50 mt-1 w-full max-w-lg rounded-lg border border-[var(--border-soft)] bg-[var(--surface)] shadow-lg max-h-48 overflow-y-auto">
                     <ul className="py-1 text-xs">
                       {contactSuggestions
                         .filter((ct) => {
