@@ -5,6 +5,7 @@
 @import "./styles/selekto/gallery-admin-supplement.css";
 @import "./styles/reviews-redesign.css";
 @import "./styles/admin-redesign.css";
+@import "./styles/gallery-overview.css";
 /* Handoff 1:1 — order styles (tokens + .sidebar etc.) then admin shell + feature CSS */
 @import "./styles/handoff/order-styles.css";
 @import "./styles/handoff/admin-shell.css";
