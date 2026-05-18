@@ -241,7 +241,9 @@ router.post('/:id/duplicate', async (req, res) => {
 // POST /:id/images — Bild hinzufuegen
 router.post('/:id/images', async (req, res) => {
   try {
-    const img = await gallery.addGalleryImage(req.params.id, req.body);
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const img = await gallery.addGalleryImage(g.id, req.body);
     res.json({ ok: true, image: img });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
@@ -251,6 +253,12 @@ router.post('/:id/images', async (req, res) => {
 // PATCH /:id/images/:imgId — Bild aktualisieren
 router.patch('/:id/images/:imgId', async (req, res) => {
   try {
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const images = await gallery.listGalleryImages(g.id);
+    if (!images.some((row) => row.id === req.params.imgId)) {
+      return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    }
     const img = await gallery.updateImage(req.params.imgId, req.body);
     if (!img) return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
     res.json({ ok: true, image: img });
@@ -355,6 +363,12 @@ router.get('/:id/floorplans/:index/file', async (req, res) => {
 // DELETE /:id/images/:imgId — Bild loeschen
 router.delete('/:id/images/:imgId', async (req, res) => {
   try {
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    const images = await gallery.listGalleryImages(g.id);
+    if (!images.some((row) => row.id === req.params.imgId)) {
+      return res.status(404).json({ ok: false, error: 'Bild nicht gefunden.' });
+    }
     await gallery.deleteImage(req.params.imgId);
     res.json({ ok: true });
   } catch (e) {
@@ -365,8 +379,13 @@ router.delete('/:id/images/:imgId', async (req, res) => {
 // PUT /:id/images/order — Reihenfolge aendern
 router.put('/:id/images/order', async (req, res) => {
   try {
-    const { orderedIds } = req.body;
-    await gallery.reorderImages(req.params.id, orderedIds);
+    const orderedIds = req.body && req.body.orderedIds;
+    if (!Array.isArray(orderedIds)) {
+      return res.status(400).json({ ok: false, error: 'orderedIds Array erwartet.' });
+    }
+    const g = await gallery.getGallery(req.params.id, { kind: pickKind(req) });
+    if (!g) return res.status(404).json({ ok: false, error: 'Galerie nicht gefunden.' });
+    await gallery.reorderImages(g.id, orderedIds);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });

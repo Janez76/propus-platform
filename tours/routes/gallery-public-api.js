@@ -310,7 +310,13 @@ router.get('/:slug/download-all', async (req, res) => {
     void gallery.recordClientFilesDownloaded(g.id).catch(() => {});
     await archive.finalize();
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    // Nach archive.pipe(res) sind die Header schon raus — dann darf kein
+    // res.status()/json() mehr kommen (ERR_HTTP_HEADERS_SENT).
+    if (res.headersSent) {
+      res.destroy(e);
+    } else {
+      res.status(500).json({ ok: false, error: e.message });
+    }
   }
 });
 

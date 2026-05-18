@@ -1493,11 +1493,19 @@ async function ensureFloorPlanThumbForGallery(gallery, index, width) {
 function getGalleryDownloadSource(gallery, variant = 'all') {
   if (!gallery || !gallery.storage_root_kind || !gallery.storage_relative_path) return null;
   if (!['order_folder', 'nas_browser'].includes(String(gallery.storage_source_type || ''))) return null;
-  const base = resolveGalleryAbsolutePath(
-    gallery.storage_root_kind,
-    gallery.storage_relative_path,
-    { expectDirectory: true },
-  );
+  // resolveGalleryAbsolutePath wirft, wenn der Pfad fehlt / nicht erreichbar /
+  // ausserhalb des Roots liegt. Aufrufer erwarten hier `null` (→ 404), kein
+  // durchgereichter 500er, der interne Pfaddetails leakt.
+  let base;
+  try {
+    base = resolveGalleryAbsolutePath(
+      gallery.storage_root_kind,
+      gallery.storage_relative_path,
+      { expectDirectory: true },
+    );
+  } catch {
+    return null;
+  }
   if (variant === 'all' || !variant) return base;
 
   // Kandidaten-Unterordner innerhalb des Finale-Ordners

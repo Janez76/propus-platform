@@ -57,14 +57,16 @@ export function ListingSendMailModal({ gallery, onClose, onRecordedSent }: Props
   if (!gallery) return null;
   const g = gallery;
 
-  const selectedTpl = templates.find((t) => t.id === LISTING_EMAIL_TEMPLATE_ID) ?? templates[0];
+  // Nur die echte Listing-Vorlage verwenden — kein Fallback auf templates[0],
+  // sonst ginge versehentlich die Rückfrage-/Revisions-Vorlage an den Kunden.
+  const selectedTpl = templates.find((t) => t.id === LISTING_EMAIL_TEMPLATE_ID) ?? null;
   const title = g.title?.trim() || "Diese Galerie";
 
   function buildEmailData(): { to: string; subject: string; htmlBody: string } | null {
     if (!selectedTpl) return null;
     const to = g.client_email?.trim();
     if (!to) return null;
-    const link = publicGalleryUrl(g.slug);
+    const link = publicGalleryUrl(g);
     const vars = {
       gallery_link: link,
       title: g.title,
