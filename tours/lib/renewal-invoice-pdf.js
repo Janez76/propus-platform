@@ -9,6 +9,7 @@ const { enrichTourWithMatterportPublication } = require('./tour-matterport-addre
 const {
   EXTENSION_PRICE_CHF,
   REACTIVATION_PRICE_CHF,
+  PORTAL_VAT_PERCENT,
 } = require('./subscriptions');
 const qrBill = require('./qr-bill');
 const payrexx = require('./payrexx');
@@ -95,8 +96,10 @@ function buildInvoiceContext(invoice, tour, paymentContext) {
     bezeichnung = overrideDescription || 'Dienstleistung';
   } else if (invoice.invoice_kind === 'portal_extension') {
     bezeichnung = overrideDescription || 'Virtueller Rundgang – Verlängerung (6 Monate)';
+    vatPercent = PORTAL_VAT_PERCENT;
   } else if (invoice.invoice_kind === 'portal_reactivation') {
     bezeichnung = overrideDescription || 'Virtueller Rundgang – Reaktivierung (6 Monate)';
+    vatPercent = PORTAL_VAT_PERCENT;
   } else if (invoice.invoice_kind === 'floorplan_order') {
     const note = invoice.payment_note || '';
     const etagenMatch = note.match(/Etagen:\s*(\d+)/);
@@ -110,13 +113,14 @@ function buildInvoiceContext(invoice, tour, paymentContext) {
     } else {
       bezeichnung = '2D Grundriss von Tour';
     }
-    if (vatPercent !== null && amount > 0) {
-      const vatRate = vatPercent / 100;
-      amountNet = Math.round(amount / (1 + vatRate) * 100) / 100;
-      amountVat = Math.round((amount - amountNet) * 100) / 100;
-    }
   } else {
     bezeichnung = overrideDescription || 'Virtueller Rundgang – Hosting / Verlängerung';
+  }
+
+  if (vatPercent !== null && amount > 0) {
+    const vatRate = vatPercent / 100;
+    amountNet = Math.round(amount / (1 + vatRate) * 100) / 100;
+    amountVat = Math.round((amount - amountNet) * 100) / 100;
   }
 
   const skontoChf = invoice.skonto_chf ? Number(invoice.skonto_chf) : null;

@@ -4,6 +4,8 @@ const SUBSCRIPTION_MONTHS = 6;
 const EXTENSION_PRICE_CHF = 59;
 const REACTIVATION_FEE_CHF = 15;
 const REACTIVATION_PRICE_CHF = EXTENSION_PRICE_CHF + REACTIVATION_FEE_CHF;
+// CHF 59 / 74 sind Endkundenpreise inkl. 8.1% MwSt (Schweizer Standardsatz ab 2024).
+const PORTAL_VAT_PERCENT = 8.1;
 
 // Wie viele Tage vor Ablauf soll die Verlängerungsrechnung versendet werden
 const RENEWAL_NOTICE_DAYS = 30;
@@ -225,6 +227,7 @@ module.exports = {
   EXTENSION_PRICE_CHF,
   REACTIVATION_FEE_CHF,
   REACTIVATION_PRICE_CHF,
+  PORTAL_VAT_PERCENT,
   RENEWAL_NOTICE_DAYS,
   addMonths,
   toIsoDate,

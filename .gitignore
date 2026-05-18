@@ -36,6 +36,8 @@ bexio.env*
 dist/
 .next/
 coverage/
+# Ad-hoc Script-Outputs (z.B. PRO-81 PDF-Re-Render)
+out/
 .playwright-mcp/
 claude-skills.zip
 # Ruflo / claude-flow runtime (lokal pro Maschine, nicht versionieren)
