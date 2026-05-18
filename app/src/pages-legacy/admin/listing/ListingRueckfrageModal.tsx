@@ -35,13 +35,15 @@ export function ListingRueckfrageModal({ gallery, customerComment, onClose, onSa
   const selectedTpl = templates.find((t) => t.id === EMAIL_TEMPLATE_FOLLOWUP_ID) ?? null;
 
   const vars: EmailTemplateVars = useMemo(() => {
-    const link = publicGalleryUrl(gallery.slug);
+    // Objekt übergeben (nicht gallery.slug), damit der lesbare friendly_slug
+    // in der Kunden-E-Mail verwendet wird.
+    const link = publicGalleryUrl(gallery);
     const direct =
       customerComment.asset_type === "image"
-        ? publicGalleryDeepLink(gallery.slug, { bild: customerComment.asset_key })
+        ? publicGalleryDeepLink(gallery, { bild: customerComment.asset_key })
         : (() => {
             const idx = floorPlanIndexFromFeedbackAssetKey(customerComment.asset_key);
-            return idx != null ? publicGalleryDeepLink(gallery.slug, { grundriss: idx }) : link;
+            return idx != null ? publicGalleryDeepLink(gallery, { grundriss: idx }) : link;
           })();
     const trimmed = text.trim();
     return {

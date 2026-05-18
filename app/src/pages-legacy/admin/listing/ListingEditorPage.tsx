@@ -118,7 +118,10 @@ function IconEye() {
 
 /**
  * Lokaler State fürs Tippen: verhindert Parent-Re-Renders (DnD-Grid bleibt ruhig).
- * `syncKey` (z. B. updated_at nach load) setzt das Feld zurück, wenn der Serverstand neu geladen wurde.
+ * `syncKey` (z. B. updated_at nach load) übernimmt den Serverstand — aber nur,
+ * wenn das Feld seither NICHT bearbeitet wurde. So gehen ungespeicherte
+ * Eingaben nicht verloren, wenn ein anderer Vorgang (Feedback, NAS-Import …)
+ * die Galerie neu lädt.
  */
 function EditorDraftField({
   syncKey,
@@ -130,6 +133,7 @@ function EditorDraftField({
   type = "text",
   placeholder,
   className = "gbe-input",
+  disabled = false,
 }: {
   syncKey: string;
   serverValue: string;
@@ -146,14 +150,39 @@ function EditorDraftField({
   type?: "text" | "url" | "email";
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const [v, setV] = useState(serverValue);
+  /** null = noch kein Effekt gelaufen (Mount). */
+  const lastSyncKeyRef = useRef<string | null>(null);
+  /** Serverwert, den dieses Feld zuletzt als "sauber" übernommen hat. */
+  const cleanServerValueRef = useRef(serverValue);
   useEffect(() => {
-    setV(serverValue);
-    draftRef.current = serverValue;
-  }, [serverValue, syncKey]);
+    // Mount: Serverwert immer übernehmen.
+    if (lastSyncKeyRef.current === null) {
+      lastSyncKeyRef.current = syncKey;
+      cleanServerValueRef.current = serverValue;
+      setV(serverValue);
+      draftRef.current = serverValue;
+      return;
+    }
+    // Kein Reload (syncKey unverändert) → nichts überschreiben.
+    if (syncKey === lastSyncKeyRef.current) return;
+    lastSyncKeyRef.current = syncKey;
+    // Nur zurücksetzen, wenn das Feld seit dem letzten Serverstand nicht
+    // verändert wurde — sonst gingen ungespeicherte Eingaben verloren.
+    const isClean = draftRef.current === cleanServerValueRef.current;
+    cleanServerValueRef.current = serverValue;
+    if (isClean) {
+      setV(serverValue);
+      draftRef.current = serverValue;
+    }
+  }, [serverValue, syncKey, draftRef]);
   useEffect(() => {
     if (valueOverride === undefined) return;
+    // Override (z. B. Autofill aus Bestellung) ist eine ungespeicherte
+    // Eingabe — cleanServerValueRef bewusst NICHT anheben, damit ein
+    // späterer Reload den Override nicht still verwirft.
     setV(valueOverride);
     draftRef.current = valueOverride;
   }, [valueOverride, valueOverrideVersion, draftRef]);
@@ -164,6 +193,7 @@ function EditorDraftField({
       className={className}
       placeholder={placeholder}
       value={v}
+      disabled={disabled}
       onChange={(e) => {
         const nv = e.target.value;
         setV(nv);
@@ -657,6 +687,13 @@ export function ListingEditorPage() {
   const [images, setImages] = useState<GalleryImageRow[]>([]);
   const imagesRef = useRef<GalleryImageRow[]>([]);
   imagesRef.current = images;
+  /** Galerie-ID, für die load() die Formularfelder bereits initial befüllt hat. */
+  const initialLoadedIdRef = useRef<string | null>(null);
+  /** Serialisiert Reorder-Requests; seq verhindert veraltete Rollbacks. */
+  const reorderChainRef = useRef<Promise<unknown>>(Promise.resolve());
+  const reorderSeqRef = useRef(0);
+  /** Verhindert Doppel-Klick auf den "Dateien runtergeladen"-Schritt. */
+  const clientLogBusyRef = useRef(false);
   const [err, setErr] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [assignmentAutofillMsg, setAssignmentAutofillMsg] = useState<string | null>(null);
@@ -671,9 +708,11 @@ export function ListingEditorPage() {
   const lastSelectedOrderRef = useRef<GalleryOrderOption | null>(null);
   const [titleInput, setTitleInput] = useState<string | undefined>(undefined);
   const [titleInputVersion, setTitleInputVersion] = useState(0);
-  const [addressInput, setAddressInput] = useState("");
-  const [clientEmailInput, setClientEmailInput] = useState("");
-  const [matterportInput, setMatterportInput] = useState("");
+  // undefined = kein Override → EditorDraftField nutzt serverValue. Wird erst
+  // durch Autofill (Kunde/Bestellung) gesetzt, NICHT durch load().
+  const [addressInput, setAddressInput] = useState<string | undefined>(undefined);
+  const [clientEmailInput, setClientEmailInput] = useState<string | undefined>(undefined);
+  const [matterportInput, setMatterportInput] = useState<string | undefined>(undefined);
   const [matterportInputVersion, setMatterportInputVersion] = useState(0);
   const [matterportSuggestion, setMatterportSuggestion] = useState<string | null>(null);
   const [cloudInput, setCloudInput] = useState<string | undefined>(undefined);
@@ -764,18 +803,23 @@ export function ListingEditorPage() {
         return;
       }
       setG(row);
-      setStatus(row.status);
-      setCustomerId(row.customer_id ?? null);
-      setCustomerContactId(row.customer_contact_id ?? null);
-      setBookingOrderNo(row.booking_order_no ?? null);
-      setAddressInput(row.address ?? "");
-      setClientEmailInput(row.client_email ?? "");
-      setMatterportInput(row.matterport_input ?? "");
-      setCustomerInput(row.client_name ?? "");
-      setContactInput(row.client_contact ?? "");
-      setOrderInput(row.booking_order_no != null ? String(row.booking_order_no) : "");
       setImages(ims);
       setFeedback(fb);
+      // Formularfelder NUR beim ersten Laden befüllen. Spätere load()-Aufrufe
+      // (nach Feedback-Aktionen, NAS-Import, Drag-Fehler …) dürfen Eingaben
+      // nicht überschreiben. Titel/Adresse/E-Mail/Cloud/Matterport laufen über
+      // EditorDraftField (serverValue + syncKey) und brauchen hier keinen Wert.
+      const isFirstLoad = initialLoadedIdRef.current !== row.id;
+      if (isFirstLoad) {
+        initialLoadedIdRef.current = row.id;
+        setStatus(row.status);
+        setCustomerId(row.customer_id ?? null);
+        setCustomerContactId(row.customer_contact_id ?? null);
+        setBookingOrderNo(row.booking_order_no ?? null);
+        setCustomerInput(row.client_name ?? "");
+        setContactInput(row.client_contact ?? "");
+        setOrderInput(row.booking_order_no != null ? String(row.booking_order_no) : "");
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Laden fehlgeschlagen");
     }
@@ -1270,8 +1314,16 @@ export function ListingEditorPage() {
           window.setTimeout(() => setSavedMsg(null), 5000);
           await load();
         }
-      } catch {
-        // Auto-Save scheitert still — der User kann manuell speichern.
+      } catch (e) {
+        // Auto-Save-Fehler sichtbar machen — sonst glaubt der User
+        // fälschlich, die Bestellung sei übernommen und gespeichert.
+        if (!cancelled) {
+          setErr(
+            e instanceof Error
+              ? `Automatisches Speichern fehlgeschlagen: ${e.message} — bitte manuell speichern.`
+              : "Automatisches Speichern fehlgeschlagen — bitte manuell speichern.",
+          );
+        }
       } finally {
         if (!cancelled) setSaving(false);
       }
@@ -1379,14 +1431,18 @@ export function ListingEditorPage() {
   const onToggle = useCallback(
     async (imgId: string, enabled: boolean) => {
       if (!id) return;
+      setErr(null);
       setImages((prev) => prev.map((x) => (x.id === imgId ? { ...x, enabled } : x)));
       try {
         await updateImage(id, imgId, { enabled });
-      } catch {
-        await load();
+      } catch (e) {
+        // Optimistic Update gezielt zurückrollen — kein load(), das würde
+        // ungespeicherte Stammdaten-Eingaben verwerfen.
+        setImages((prev) => prev.map((x) => (x.id === imgId ? { ...x, enabled: !enabled } : x)));
+        setErr(e instanceof Error ? e.message : "Sichtbarkeit konnte nicht gespeichert werden.");
       }
     },
-    [id, load],
+    [id],
   );
 
   const onDragEnd = useCallback(
@@ -1399,34 +1455,42 @@ export function ListingEditorPage() {
       const newIndex = ids.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return;
       const next = arrayMove(prev, oldIndex, newIndex);
+      setErr(null);
       setImages(next);
       if (!id) return;
+      const orderedIds = next.map((x) => x.id);
+      const seq = ++reorderSeqRef.current;
+      // Reorder-Requests serialisieren: schnell aufeinanderfolgende Drags
+      // dürfen nicht in falscher Reihenfolge beim Server ankommen.
+      reorderChainRef.current = reorderChainRef.current
+        .catch(() => {})
+        .then(() => reorderImages(id, orderedIds));
       try {
-        await reorderImages(
-          id,
-          next.map((x) => x.id),
-        );
-      } catch {
-        await load();
+        await reorderChainRef.current;
+      } catch (e) {
+        // Nur der jüngste Drag rollt zurück — sonst flackert das Grid.
+        if (seq === reorderSeqRef.current) {
+          setImages(prev);
+          setErr(e instanceof Error ? e.message : "Reihenfolge konnte nicht gespeichert werden.");
+        }
       }
     },
-    [id, load],
+    [id],
   );
 
   /** Schritt 3: nur nach Galerie geöffnet. */
   async function onClientLogStep3() {
     if (!id || !g || !g.client_log_gallery_opened_at) return;
+    if (clientLogBusyRef.current) return; // Doppel-Klick abfangen
+    clientLogBusyRef.current = true;
     try {
-      if (g.client_log_files_downloaded_at) {
-        await updateGallery(id, { client_log_files_downloaded_at: null });
-        setG((prev) => (prev ? { ...prev, client_log_files_downloaded_at: null } : null));
-      } else {
-        const now = new Date().toISOString();
-        await updateGallery(id, { client_log_files_downloaded_at: now });
-        setG((prev) => (prev ? { ...prev, client_log_files_downloaded_at: now } : null));
-      }
+      const nextValue = g.client_log_files_downloaded_at ? null : new Date().toISOString();
+      await updateGallery(id, { client_log_files_downloaded_at: nextValue });
+      setG((prev) => (prev ? { ...prev, client_log_files_downloaded_at: nextValue } : null));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+    } finally {
+      clientLogBusyRef.current = false;
     }
   }
 
@@ -1489,6 +1553,12 @@ export function ListingEditorPage() {
             </button>
           </div>
         </header>
+
+        {err ? (
+          <p className="admin-msg admin-msg--err" role="alert" style={{ marginBottom: 12 }}>
+            {err}
+          </p>
+        ) : null}
 
         <section className="gbe-card">
           <h2 className="gbe-card-label">Kunden-Link</h2>
@@ -1704,6 +1774,7 @@ export function ListingEditorPage() {
               draftRef={titleDraftRef}
               inputId="gal-edit-title"
               placeholder="z. B. EFH mit Ausblick"
+              disabled={saving}
             />
           </div>
           <div className="gbe-field">
@@ -1716,6 +1787,7 @@ export function ListingEditorPage() {
               inputId="gal-edit-email"
               type="email"
               placeholder="kunde@beispiel.ch"
+              disabled={saving}
             />
           </div>
           <div className="gbe-field">
@@ -1727,6 +1799,7 @@ export function ListingEditorPage() {
               draftRef={addressDraftRef}
               inputId="gal-edit-addr"
               placeholder="z. B. Musterstrasse 1, 8000 Zürich"
+              disabled={saving}
             />
           </div>
           <div className="gbe-divider" />
@@ -1770,6 +1843,7 @@ export function ListingEditorPage() {
                 inputId="gal-edit-cloud"
                 type="url"
                 placeholder="https://…/s/…"
+                disabled={saving}
               />
               <p className="gbe-field-hint">
                 Bilder, PDF-Grundrisse und MP4-Video werden beim Speichern automatisch eingelesen.
@@ -1785,6 +1859,7 @@ export function ListingEditorPage() {
                 draftRef={matterportDraftRef}
                 inputId="gal-edit-mp"
                 placeholder="https://my.matterport.com/show/?m=…"
+                disabled={saving}
               />
               {matterportSuggestion ? (
                 <button

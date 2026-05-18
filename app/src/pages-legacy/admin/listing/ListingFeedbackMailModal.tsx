@@ -29,13 +29,15 @@ export function ListingFeedbackMailModal({ gallery, feedback, templateId, title,
   const [mailMsg, setMailMsg] = useState<string | null>(null);
 
   const vars: EmailTemplateVars = useMemo(() => {
-    const link = publicGalleryUrl(gallery.slug);
+    // Objekt übergeben (nicht gallery.slug), damit der lesbare friendly_slug
+    // in der Kunden-E-Mail verwendet wird.
+    const link = publicGalleryUrl(gallery);
     const direct =
       feedback.asset_type === "image"
-        ? publicGalleryDeepLink(gallery.slug, { bild: feedback.asset_key })
+        ? publicGalleryDeepLink(gallery, { bild: feedback.asset_key })
         : (() => {
             const idx = floorPlanIndexFromFeedbackAssetKey(feedback.asset_key);
-            return idx != null ? publicGalleryDeepLink(gallery.slug, { grundriss: idx }) : link;
+            return idx != null ? publicGalleryDeepLink(gallery, { grundriss: idx }) : link;
           })();
     return {
       gallery_link: link,
